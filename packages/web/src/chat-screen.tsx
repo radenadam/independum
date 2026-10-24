@@ -53,8 +53,8 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
   const isPickerShown = chat !== undefined && (isPicking || chat.model === null);
   const messageCount = chat?.messages.length ?? 0;
 
-  // Keeps the newest message in view, and puts the cursor in the message field on screens with a
-  // pointer, where a keyboard is likely.
+  // Keeps the newest message in view, and puts the cursor in the message field when a keyboard is
+  // likely.
   useEffect(() => {
     if (isPickerShown) {
       return;
@@ -62,7 +62,7 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
     if (messageCount > 0 || reply !== "") {
       window.scrollTo({ top: document.body.scrollHeight });
     }
-    if (window.matchMedia("(hover: hover)").matches) {
+    if (hasKeyboard()) {
       document.getElementById("message")?.focus();
     }
   }, [isPickerShown, messageCount, reply]);
@@ -94,7 +94,12 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
   }
 
   function onFieldKey(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void {
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing &&
+      hasKeyboard()
+    ) {
       event.preventDefault();
       submit();
     } else if (event.key === "Escape" && chat?.isReplying === true) {
@@ -203,6 +208,12 @@ function Message({ message }: MessageProps): ReactElement {
       {message.error === null ? null : <p className={styles.error}>{message.error}</p>}
     </li>
   );
+}
+
+// A screen with a hovering pointer most likely has a keyboard. On a touch screen, Enter adds a new
+// line instead of sending, because a phone keyboard has no Shift and Enter for that.
+function hasKeyboard(): boolean {
+  return window.matchMedia("(hover: hover)").matches;
 }
 
 function applyEvent(

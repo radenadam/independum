@@ -84,6 +84,7 @@
   gap: 8px;
   padding: 12px 0 20px;
   background: var(--bg);
+  box-shadow: 0 -20px 20px var(--bg);
 }
 
 @media (prefers-reduced-motion: no-preference) {

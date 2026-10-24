@@ -4,10 +4,13 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-- First chat: send a message from the browser and stream the reply.
+- Nothing yet. The maintainer picks the next item from Next.
 
 ## Next
 
+- Built-ins in the UI: show and edit the system prompt, and show Pi's additions and the exact request sent to the model. See decisions 0002 and 0013.
+- Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
+- Past chats: a list for reopening earlier chats.
 - Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
