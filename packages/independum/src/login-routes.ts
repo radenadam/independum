@@ -3,7 +3,7 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { LoginEvent, LoginMethod, ProviderSummary } from "./api-types.ts";
-import { type LoginSession, startLoginSession } from "./login-session.ts";
+import { type LoginOptions, type LoginSession, startLoginSession } from "./login-session.ts";
 
 const loginMethods: LoginMethod[] = ["apiKey", "account"];
 
@@ -11,7 +11,7 @@ const loginMethods: LoginMethod[] = ["apiKey", "account"];
 const finishedSessionLifetime = 5 * 60 * 1000;
 
 /** Creates the routes that list providers and start, follow, answer, cancel, and remove logins. */
-export function createLoginRoutes(models: ModelRuntime): Hono {
+export function createLoginRoutes(models: ModelRuntime, options: LoginOptions): Hono {
   const sessions = new Map<string, LoginSession>();
   const routes = new Hono();
 
@@ -60,7 +60,7 @@ export function createLoginRoutes(models: ModelRuntime): Hono {
       return context.json({ error: "That provider does not offer that sign-in method." }, 400);
     }
     const id = randomUUID();
-    const session = startLoginSession(models, provider.id, method);
+    const session = startLoginSession(models, provider.id, method, options);
     sessions.set(id, session);
     session.subscribe((event) => {
       if (isFinal(event)) {

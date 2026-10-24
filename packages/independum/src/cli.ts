@@ -7,20 +7,25 @@ import { createServer as createViteServer } from "vite";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { createServer } from "./create-server.ts";
 import { createLoginRoutes } from "./login-routes.ts";
+import { readInstallationId } from "./read-installation-id.ts";
 
 // Binds to loopback so no other device can connect until network access and phone pairing exist.
 // See `docs/decisions/0005-phone-access-through-token-auth.md`.
 const host = "127.0.0.1";
 const port = 4870;
 const token = randomBytes(32).toString("base64url");
-const models = await createModelRuntime(join(homedir(), ".independum"));
+const directory = join(homedir(), ".independum");
+const models = await createModelRuntime(directory);
 
 const httpServer = createHttpServer();
 const handleApi = getRequestListener(
   createServer({
     token,
     addresses: [`${host}:${port}`, `localhost:${port}`],
-    api: createLoginRoutes(models),
+    api: createLoginRoutes(models, {
+      getDeviceId: () => readInstallationId(directory),
+      agentName: "Independum",
+    }),
   }).fetch,
 );
 // The native loader imports the config directly. The default loader writes a temporary file,
