@@ -111,6 +111,8 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 - Every screen works with touch on a phone screen 360 pixels wide.
 - The design follows decision 0009. Colors and fonts are tokens in `packages/web/src/theme.css`, and every other stylesheet uses the tokens instead of raw colors.
 - A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
+- Actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too. Their labels use sentence case. Field labels, the top bar, and the theme switch use lowercase.
+- The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.

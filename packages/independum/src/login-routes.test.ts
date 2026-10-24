@@ -2,23 +2,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, test } from "vitest";
+import type { LoginEvent, ProviderSummary } from "./api-types.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { createLoginRoutes } from "./login-routes.ts";
-import type { LoginEvent } from "./login-session.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 const routes = createLoginRoutes(await createModelRuntime(directory));
 const json = { "content-type": "application/json" };
-
-/** A provider as the providers route describes it. */
-interface ProviderSummary {
-  id: string;
-  name: string;
-  apiKey: { label: string; canLogIn: boolean } | null;
-  account: { label: string; buttonLabel: string | null; isSubscription: boolean } | null;
-  login: { method: string; source: string | null } | null;
-}
 
 async function findProvider(id: string): Promise<ProviderSummary | undefined> {
   const response = await routes.request("/providers");

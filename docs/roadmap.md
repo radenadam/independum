@@ -8,7 +8,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Next
 
-- First launch and the login screen, built on the login API. See decisions 0008 and 0011.
 - Check an API key when it is saved, since Pi saves keys without testing them. See decision 0011.
 - First chat: send a message from the browser and stream the reply.
 - Network access and phone pairing with a QR code. See decision 0005.

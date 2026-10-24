@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "license": "MIT",
+  "exports": {
+    "./api-types": "./src/api-types.ts"
+  },
   "scripts": {
     "dev": "node --watch src/cli.ts",
     "check:types": "tsc --noEmit"

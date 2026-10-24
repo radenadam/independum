@@ -2,12 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import {
-  type LoginEvent,
-  type LoginMethod,
-  type LoginSession,
-  startLoginSession,
-} from "./login-session.ts";
+import type { LoginEvent, LoginMethod, ProviderSummary } from "./api-types.ts";
+import { type LoginSession, startLoginSession } from "./login-session.ts";
 
 const loginMethods: LoginMethod[] = ["apiKey", "account"];
 
@@ -21,7 +17,7 @@ export function createLoginRoutes(models: ModelRuntime): Hono {
 
   routes.get("/providers", async (context) => {
     const providers = await Promise.all(
-      models.getProviders().map(async (provider) => {
+      models.getProviders().map(async (provider): Promise<ProviderSummary> => {
         const check = await models.checkAuth(provider.id);
         const { apiKey, oauth } = provider.auth;
         return {
