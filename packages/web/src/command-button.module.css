@@ -43,4 +43,8 @@
   .command:hover .arrow {
     transform: translateX(4px);
   }
+
+  .command:hover .back {
+    transform: translateX(-4px);
+  }
 }

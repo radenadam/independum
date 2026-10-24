@@ -7,6 +7,7 @@ interface CommandButtonProps {
   label: string;
   onClick: () => void;
   isQuiet?: boolean;
+  isBack?: boolean;
 }
 
 /** Draws a text button with its keyboard shortcut in brackets, which the key also triggers. */
@@ -15,6 +16,7 @@ export function CommandButton({
   label,
   onClick,
   isQuiet = false,
+  isBack = false,
 }: CommandButtonProps): ReactElement {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
@@ -29,6 +31,12 @@ export function CommandButton({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [shortcut, onClick]);
 
+  const arrow = (
+    <span className={isBack ? `${styles.arrow} ${styles.back}` : styles.arrow} aria-hidden="true">
+      {isBack ? "<" : ">"}
+    </span>
+  );
+
   return (
     <button
       type="button"
@@ -36,10 +44,16 @@ export function CommandButton({
       aria-keyshortcuts={shortcut}
       onClick={onClick}
     >
-      <span className={styles.shortcut}>[{shortcut}]</span> {label}{" "}
-      <span className={styles.arrow} aria-hidden="true">
-        &gt;
-      </span>
+      <span className={styles.shortcut}>[{shortcut}]</span>{" "}
+      {isBack ? (
+        <>
+          {arrow} {label}
+        </>
+      ) : (
+        <>
+          {label} {arrow}
+        </>
+      )}
     </button>
   );
 }

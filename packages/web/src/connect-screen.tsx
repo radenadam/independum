@@ -27,7 +27,7 @@ export function ConnectScreen({
   return (
     <main className={styles.main}>
       <div className={styles.aside}>
-        <CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet />
+        <CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet isBack />
       </div>
       <div className={styles.grid}>
         <div className={styles.head}>
