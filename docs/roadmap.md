@@ -24,6 +24,5 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?
 - Where do settings live: per project, per user, or both?
 - How does the user choose the folder the agent works in?
-- Which providers and login methods come first?
 - What triggers a message injection, and what can it see?
 - What does memory mean in Independum?
