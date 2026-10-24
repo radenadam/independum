@@ -185,11 +185,7 @@ function Steps({ events, answered, onAnswer, onRetry, onDone }: StepsProps): Rea
         <div className={styles.step}>
           <p className={styles.text}>Enter this code on the sign-in page.</p>
           <p className={styles.code}>{deviceCode.code}</p>
-          <CommandButton
-            shortcut="o"
-            label="Open the sign-in page"
-            onClick={() => window.open(deviceCode.url, "_blank", "noopener,noreferrer")}
-          />
+          <SignInLink key={deviceCode.url} url={deviceCode.url} />
         </div>
       )}
       {link === undefined || deviceCode !== undefined ? null : (
@@ -197,11 +193,7 @@ function Steps({ events, answered, onAnswer, onRetry, onDone }: StepsProps): Rea
           {link.instructions === undefined ? null : (
             <p className={styles.text}>{link.instructions}</p>
           )}
-          <CommandButton
-            shortcut="o"
-            label="Open the sign-in page"
-            onClick={() => window.open(link.url, "_blank", "noopener,noreferrer")}
-          />
+          <SignInLink key={link.url} url={link.url} />
         </div>
       )}
       {note === undefined ? null : <p className={styles.text}>{note.message}</p>}
@@ -211,6 +203,46 @@ function Steps({ events, answered, onAnswer, onRetry, onDone }: StepsProps): Rea
         <QuestionForm key={question.questionId} question={question} onAnswer={onAnswer} />
       )}
     </div>
+  );
+}
+
+/** Properties of the sign-in link commands. */
+interface SignInLinkProps {
+  url: string;
+}
+
+function SignInLink({ url }: SignInLinkProps): ReactElement {
+  const [copy, setCopy] = useState<"copied" | "failed" | undefined>();
+
+  // Browsers leave `navigator.clipboard` undefined outside secure contexts, so the call runs
+  // inside a promise and any failure shows the link for copying by hand.
+  function copyLink(): void {
+    Promise.resolve()
+      .then(() => navigator.clipboard.writeText(url))
+      .then(
+        () => setCopy("copied"),
+        () => setCopy("failed"),
+      );
+  }
+
+  return (
+    <>
+      <CommandButton
+        shortcut="o"
+        label="Open the sign-in page"
+        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+      />
+      <CommandButton shortcut="c" label="Copy the link" onClick={copyLink} isQuiet />
+      {copy === "copied" ? (
+        <p className={styles.status}>Copied. Paste it into any browser.</p>
+      ) : null}
+      {copy === "failed" ? (
+        <>
+          <p className={styles.text}>This browser blocked copying. Select the link instead.</p>
+          <p className={styles.link}>{url}</p>
+        </>
+      ) : null}
+    </>
   );
 }
 
