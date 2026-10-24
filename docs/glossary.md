@@ -11,4 +11,5 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
+| Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | User | A person who runs Independum and works with its agent. | "the customer", "the operator" |

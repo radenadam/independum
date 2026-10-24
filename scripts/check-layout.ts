@@ -2,6 +2,7 @@ import { runCheck } from "./run-check.ts";
 
 // Every top-level entry needs a reason to exist, so a new one fails until it is listed here.
 const rootEntries = new Set([
+  ".claude",
   ".editorconfig",
   ".gitattributes",
   ".github",
@@ -54,8 +55,8 @@ const vagueNames = new Set([
   "utils",
 ]);
 
-// GitHub requires these paths, so they may hold a single entry.
-const singleEntryFolders = new Set([".github", ".github/workflows"]);
+// GitHub and Claude Code require these paths, so they may hold a single entry.
+const singleEntryFolders = new Set([".claude", ".github", ".github/workflows"]);
 
 const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
