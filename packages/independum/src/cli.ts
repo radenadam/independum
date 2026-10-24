@@ -2,8 +2,11 @@ import { createServer as createHttpServer } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getRequestListener } from "@hono/node-server";
+import { Hono } from "hono";
 import { createServer as createViteServer } from "vite";
+import { createChatRoutes } from "./chat-routes.ts";
 import { createAccessToken } from "./create-access-token.ts";
+import { createChat } from "./create-chat.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { createServer } from "./create-server.ts";
 import { createLoginRoutes } from "./login-routes.ts";
@@ -19,13 +22,18 @@ const token = process.env.INDEPENDUM_ACCESS_TOKEN ?? createAccessToken();
 delete process.env.INDEPENDUM_ACCESS_TOKEN;
 const directory = join(homedir(), ".independum");
 const models = await createModelRuntime(directory);
+// Scripts run from the package folder under pnpm, which keeps the folder the user started from in
+// INIT_CWD.
+const chat = await createChat({ models, directory, cwd: process.env.INIT_CWD ?? process.cwd() });
 
 const httpServer = createHttpServer();
 const handleApi = getRequestListener(
   createServer({
     token,
     addresses: [`${host}:${port}`, `localhost:${port}`],
-    api: createLoginRoutes(models, { getDeviceId: () => readInstallationId(directory) }),
+    api: new Hono()
+      .route("/", createLoginRoutes(models, { getDeviceId: () => readInstallationId(directory) }))
+      .route("/", createChatRoutes(chat, models)),
   }).fetch,
 );
 // The native loader imports the config directly. The default loader writes a temporary file,
