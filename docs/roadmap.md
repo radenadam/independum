@@ -8,9 +8,9 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Next
 
-- Server access token. See decision 0005.
 - First launch and the login screen. See decision 0008.
 - First chat: send a message from the browser and stream the reply.
+- Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
 ## Later

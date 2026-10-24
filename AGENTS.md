@@ -94,7 +94,8 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 
 ## Security
 
-- The server listens on `127.0.0.1` only. Network access waits for token auth. See decision 0005.
+- Every API route sits under `/api/`, where the server requires the access token and accepts requests only from its own address and origin. See decision 0005.
+- The server listens on `127.0.0.1` only until network access and phone pairing exist.
 - Never read, print, copy, or edit `.env`. It holds development credentials, and its contents must stay out of every conversation.
 
 ## Real model calls
