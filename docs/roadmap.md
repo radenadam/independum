@@ -4,11 +4,12 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-- Finish the Pi spike with the ChatGPT login through `openai-codex` and `gpt-6-luna`. The maintainer signs in through the browser. See decision 0002.
+- Finish the Pi spike with the ChatGPT login through the `openai` provider and `gpt-6-luna`. The maintainer signs in through the browser. See decision 0002.
 
 ## Next
 
-- First launch and the login screen. See decision 0008.
+- First launch and the login screen, built on the login API. See decisions 0008 and 0011.
+- Check an API key when it is saved, since Pi saves keys without testing them. See decision 0011.
 - First chat: send a message from the browser and stream the reply.
 - Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.

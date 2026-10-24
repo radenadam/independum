@@ -1,4 +1,6 @@
 packages:
   - packages/*
 allowBuilds:
+  "@google/genai": false
+  protobufjs: false
   simple-git-hooks: false
