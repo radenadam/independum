@@ -56,7 +56,7 @@ const vagueNames = new Set([
 ]);
 
 // GitHub and Claude Code require these paths, so they may hold a single entry.
-const singleEntryFolders = new Set([".claude", ".github", ".github/workflows"]);
+const singleEntryFolders = new Set([".claude", ".github/workflows"]);
 
 const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
