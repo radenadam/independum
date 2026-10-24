@@ -1,0 +1,10 @@
+{
+  "path": ["."],
+  "format": ["typescript", "tsx", "css", "markdown"],
+  "ignore": ["**/node_modules/**", "**/dist/**", "pnpm-lock.yaml"],
+  "minTokens": 30,
+  "minLines": 5,
+  "reporters": ["console"],
+  "exitCode": 1,
+  "noTips": true
+}
