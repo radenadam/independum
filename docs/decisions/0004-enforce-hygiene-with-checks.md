@@ -22,6 +22,7 @@ A rule that a tool can check becomes a check in `pnpm check`. The pre-commit hoo
 | `scripts/check-characters.ts` | Characters outside printable ASCII in any file. |
 | `scripts/check-layout.ts` | Top-level entries, kebab-case paths, vague names, single-entry folders, file types. |
 | `scripts/check-comments.ts` | Comment placement, format, voice, and punctuation. |
+| `scripts/check-styles.ts` | Color literals outside the theme tokens, and motion outside the reduced motion guard. |
 
 Rules that no tool can check live in `AGENTS.md`. When a case is not covered, the change that decides it adds the rule.
 

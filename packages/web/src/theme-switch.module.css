@@ -1,0 +1,30 @@
+.switch {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  margin: 0 -8px;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+
+.choice {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.choice:hover {
+  color: var(--signal);
+}
+
+.choice[aria-pressed="true"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-underline-offset: 6px;
+}

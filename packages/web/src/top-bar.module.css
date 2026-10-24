@@ -1,0 +1,38 @@
+.bar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 32px;
+}
+
+.location {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mark {
+  display: flex;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+.name {
+  color: var(--ink);
+}
+
+.separator {
+  color: var(--faint);
+}
+
+@media (max-width: 760px) {
+  .bar {
+    padding: 16px 24px;
+  }
+}

@@ -109,6 +109,12 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 ## UI
 
 - Every screen works with touch on a phone screen 360 pixels wide.
+- The design follows decision 0009. Colors and fonts are tokens in `packages/web/src/theme.css`, and every other stylesheet uses the tokens instead of raw colors.
+- A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
+- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
+- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
+- Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
+- `pnpm check` enforces the token and motion rules through `scripts/check-styles.ts`.
 
 ## Comments
 
