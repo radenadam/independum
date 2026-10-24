@@ -9,7 +9,7 @@ Independum needs real model calls to verify its use of Pi, and later to develop 
 
 ## Decision
 
-- Anthropic comes first through an API key, and ChatGPT comes first through the subscription login that Pi calls `openai-codex`.
+- Anthropic comes first through an API key, and ChatGPT comes first through the subscription login of Pi's `openai` provider, labeled "Sign in with ChatGPT". Pi 1.4.0 marks the older `openai-codex` provider as legacy.
 - During development, real model calls use only `claude-haiku-5-5` for Anthropic and `gpt-6-luna` for ChatGPT, because they are the cheapest models the maintainer approved.
 - The development API key lives in `.env` at the repository root as `INDEPENDUM_ANTHROPIC_API_KEY`. The name avoids `ANTHROPIC_API_KEY`, which other Anthropic tools read and could start billing against.
 

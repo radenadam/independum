@@ -2,13 +2,14 @@ import { Buffer } from "node:buffer";
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 
-/** Settings that decide which requests may use the API. */
+/** Settings that decide which requests may use the API, and the routes the API serves. */
 export interface ServerOptions {
   token: string;
   addresses: string[];
+  api: Hono;
 }
 
-/** Creates the API, which answers only requests that carry the access token. */
+/** Creates the server, which answers API requests only when they carry the access token. */
 export function createServer(options: ServerOptions): Hono {
   const hosts = new Set(options.addresses);
   const origins = new Set(options.addresses.map((address) => `http://${address}`));
@@ -31,6 +32,7 @@ export function createServer(options: ServerOptions): Hono {
   });
 
   server.get("/api/health", (context) => context.json({ status: "ok" }));
+  server.route("/api", options.api);
   return server;
 }
 

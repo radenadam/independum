@@ -1,7 +1,12 @@
+import { Hono } from "hono";
 import { expect, test } from "vitest";
 import { createServer } from "./create-server.ts";
 
-const server = createServer({ token: "test-token", addresses: ["127.0.0.1:4870"] });
+const server = createServer({
+  token: "test-token",
+  addresses: ["127.0.0.1:4870"],
+  api: new Hono(),
+});
 const healthUrl = "http://127.0.0.1:4870/api/health";
 const withToken = { authorization: "Bearer test-token" };
 
