@@ -6,6 +6,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 
 | Term | Meaning | Avoid |
 | --- | --- | --- |
+| Access token | The secret that lets a browser use the Independum server. It is new on every launch. | "password", "API key", "session key" |
 | Add-on | A feature that the user adds to Independum. It follows the same contract as a built-in, so it gets the same visibility and controls. | "plugin", "extension", "custom", "module" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |

@@ -1,16 +1,20 @@
+import { randomBytes } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
 import { join } from "node:path";
 import { getRequestListener } from "@hono/node-server";
 import { createServer as createViteServer } from "vite";
 import { createServer } from "./create-server.ts";
 
-// Binds to loopback so no other device can connect until token auth exists.
+// Binds to loopback so no other device can connect until network access and phone pairing exist.
 // See `docs/decisions/0005-phone-access-through-token-auth.md`.
 const host = "127.0.0.1";
 const port = 4870;
+const token = randomBytes(32).toString("base64url");
 
 const httpServer = createHttpServer();
-const handleApi = getRequestListener(createServer().fetch);
+const handleApi = getRequestListener(
+  createServer({ token, addresses: [`${host}:${port}`, `localhost:${port}`] }).fetch,
+);
 // The native loader imports the config directly. The default loader writes a temporary file,
 // which `node --watch` sees as a change, so the server would restart forever.
 const vite = await createViteServer({
@@ -28,6 +32,9 @@ httpServer.on("request", (request, response) => {
   }
 });
 
+// The token sits after the # because browsers never send that part of a link to a server.
 httpServer.listen(port, host, () => {
-  process.stdout.write(`Independum is running at http://${host}:${port}\n`);
+  process.stdout.write(
+    `Independum is running. Open this link:\nhttp://${host}:${port}/#token=${token}\n`,
+  );
 });
