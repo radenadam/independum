@@ -20,4 +20,4 @@ Pi supports 42 providers, and their logins differ. Some ask for one API key. Oth
 
 - Every provider Pi supports can log in, with no code for any single provider in Independum.
 - The UI reads the event stream with `fetch`, because `EventSource` cannot send the access token header.
-- Checking a key when it is saved is open work in the roadmap.
+- A wrong key shows up when the first message fails. Testing a key on save would need a request written for each provider, which is the provider work Independum leaves to Pi.
