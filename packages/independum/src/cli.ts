@@ -22,10 +22,7 @@ const handleApi = getRequestListener(
   createServer({
     token,
     addresses: [`${host}:${port}`, `localhost:${port}`],
-    api: createLoginRoutes(models, {
-      getDeviceId: () => readInstallationId(directory),
-      agentName: "Independum",
-    }),
+    api: createLoginRoutes(models, { getDeviceId: () => readInstallationId(directory) }),
   }).fetch,
 );
 // The native loader imports the config directly. The default loader writes a temporary file,
