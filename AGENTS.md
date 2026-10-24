@@ -106,6 +106,20 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 - The ChatGPT login goes through Pi's `openai` provider and its "Sign in with ChatGPT" method, with the browser sign-in done by the maintainer.
 - `pnpm check` never calls a real model, so it runs without credentials and costs nothing.
 
+## Pi updates
+
+Pi owns providers, logins, models, and the agent loop. See decision 0012.
+
+- Never add code for a single provider or model. When Pi lacks something or has a bug, wait for a Pi release or report it to Pi.
+- Dependabot opens a pull request each week when Pi has a new version. It never merges by itself, because `pnpm check` cannot see changes to sign-in pages, model calls, or Pi's own prompts and tools.
+
+To review a Pi update with the maintainer:
+
+1. Read Pi's changelog for every version in the update, and list each change that touches Independum.
+2. Run `gh pr update-branch` if the branch is behind `main`. Then check it out and run `pnpm install` and `pnpm check`.
+3. Run `pnpm dev`, and confirm that the login screen lists every provider and that a real model call still works.
+4. Report the findings, and merge with `gh pr merge --squash` only after the maintainer approves.
+
 ## UI
 
 - Every screen works with touch on a phone screen 360 pixels wide.
