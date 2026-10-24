@@ -1,36 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import type { LoginEvent, LoginMethod } from "./api-types.ts";
 
 type LoginInteraction = Parameters<ModelRuntime["login"]>[2];
 type PiPrompt = Parameters<LoginInteraction["prompt"]>[0];
 type PiNotice = Parameters<LoginInteraction["notify"]>[0];
-
-/** A sign-in method that a provider offers. */
-export type LoginMethod = "apiKey" | "account";
-
-/** An option of a choice question. */
-interface ChoiceOption {
-  id: string;
-  label: string;
-  description?: string;
-}
-
-/** One step of a login, as the UI receives it. */
-export type LoginEvent =
-  | {
-      type: "question";
-      questionId: string;
-      kind: "text" | "secret" | "choice" | "code";
-      message: string;
-      placeholder?: string;
-      options?: ChoiceOption[];
-    }
-  | { type: "questionClosed"; questionId: string }
-  | { type: "link"; url: string; instructions?: string }
-  | { type: "deviceCode"; code: string; url: string }
-  | { type: "note"; message: string }
-  | { type: "done" }
-  | { type: "failed"; message: string };
 
 /** A login in progress, which records its events and waits for answers from the UI. */
 export interface LoginSession {

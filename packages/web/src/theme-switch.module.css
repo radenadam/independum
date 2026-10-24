@@ -18,8 +18,13 @@
   transition: color 0.15s ease;
 }
 
-.choice:hover {
+.choice:hover,
+.choice:focus-visible {
   color: var(--signal);
+}
+
+.choice:focus-visible {
+  outline: none;
 }
 
 .choice[aria-pressed="true"] {

@@ -1,0 +1,167 @@
+.main {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  padding: 24px 32px 80px;
+}
+
+.aside {
+  flex: 1 1 160px;
+  max-width: 220px;
+}
+
+.grid {
+  flex: 999 1 640px;
+  min-width: 0;
+  max-width: 1080px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  column-gap: 56px;
+  row-gap: 28px;
+  align-content: start;
+  align-items: start;
+}
+
+.head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.intro {
+  max-width: 36em;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.search {
+  grid-column: 1;
+}
+
+.list {
+  grid-row: 3;
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.entry:hover,
+.entry:focus-visible,
+.entry[aria-pressed="true"] {
+  color: var(--signal);
+}
+
+.entry:focus-visible {
+  outline: none;
+}
+
+.marker {
+  min-width: 2ch;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.entry[aria-pressed="true"] .marker {
+  color: var(--signal);
+  font-weight: 500;
+}
+
+.leader {
+  flex: 1;
+  min-width: 24px;
+  border-bottom: 1px dotted var(--faint);
+  transform: translateY(-4px);
+}
+
+.entry:hover .leader,
+.entry:focus-visible .leader {
+  border-bottom-color: var(--signal);
+}
+
+.methods {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.loggedIn {
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.detail {
+  grid-row: 3;
+  grid-column: 2;
+  align-self: stretch;
+  min-width: 0;
+}
+
+.hint {
+  margin: 0;
+  padding-top: 8px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .main {
+    padding: 16px 24px 80px;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list,
+  .detail {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .hint {
+    display: none;
+  }
+}

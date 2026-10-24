@@ -1,22 +1,27 @@
-import { type ReactElement, useEffect, useState } from "react";
+import type { ProviderSummary } from "independum/api-types";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { readAccessToken } from "./access-token.ts";
 import styles from "./app.module.css";
-import { RisingMark } from "./mark.tsx";
+import { ConnectScreen } from "./connect-screen.tsx";
+import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
+import { Greeting } from "./greeting.tsx";
+import { HomeScreen } from "./home-screen.tsx";
+import { fetchProviders } from "./login-api.ts";
 import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
+import { WelcomeScreen } from "./welcome-screen.tsx";
 
 type Connection = "checking" | "connected" | "needsLink" | "restarted" | "unreachable";
+type Screen = "welcome" | "connect" | "home";
 
-/** What a connection state shows: its place in the top bar, a title, and one line under it. */
-interface ConnectionScreen {
+/** What a connection problem shows: its place in the top bar, a title, and one line under it. */
+interface ConnectionProblem {
   location: string;
   title: string;
   line: string;
 }
 
-const connectionScreens: Record<Connection, ConnectionScreen> = {
-  checking: { location: "connecting", title: "", line: "" },
-  connected: { location: "home", title: "Hello.", line: "Independum is connected and ready." },
+const connectionProblems: Record<"needsLink" | "restarted" | "unreachable", ConnectionProblem> = {
   needsLink: {
     location: "link",
     title: "Hello.",
@@ -36,7 +41,24 @@ const connectionScreens: Record<Connection, ConnectionScreen> = {
 
 export function App(): ReactElement {
   const [connection, setConnection] = useState<Connection>("checking");
-  const screen = connectionScreens[connection];
+  const [providers, setProviders] = useState<ProviderSummary[] | undefined>();
+  const [screen, setScreen] = useState<Screen | undefined>();
+
+  const loadProviders = useCallback((): void => {
+    fetchProviders().then(
+      (loaded) => {
+        setProviders(loaded);
+        setScreen(
+          (current) =>
+            current ??
+            (loaded.some((provider) => provider.login !== null) || hasBeenGreeted()
+              ? "home"
+              : "welcome"),
+        );
+      },
+      () => setConnection("unreachable"),
+    );
+  }, []);
 
   useEffect(() => {
     if (readAccessToken() === undefined) {
@@ -44,26 +66,54 @@ export function App(): ReactElement {
       return;
     }
     requestApi("/api/health").then(
-      (response) => setConnection(connectionFor(response)),
+      (response) => {
+        const next = connectionFor(response);
+        setConnection(next);
+        if (next === "connected") {
+          loadProviders();
+        }
+      },
       () => setConnection("unreachable"),
     );
-  }, []);
+  }, [loadProviders]);
+
+  function greetAndGo(next: Screen): void {
+    rememberGreeting();
+    setScreen(next);
+  }
 
   return (
     <div className={styles.page}>
       <div className={styles.glow} aria-hidden="true" />
-      <TopBar location={screen.location} />
-      <main className={styles.main}>
-        {connection === "checking" ? null : (
-          <div className={styles.column}>
-            <RisingMark />
-            <div className={styles.text}>
-              <h1 className={styles.title}>{screen.title}</h1>
-              <p className={styles.line}>{screen.line}</p>
-            </div>
-          </div>
-        )}
-      </main>
+      {connection === "checking" ? null : connection !== "connected" ? (
+        <>
+          <TopBar location={connectionProblems[connection].location} />
+          <Greeting
+            title={connectionProblems[connection].title}
+            lines={[connectionProblems[connection].line]}
+          />
+        </>
+      ) : screen === undefined || providers === undefined ? null : (
+        <>
+          <TopBar location={screen} />
+          {screen === "welcome" ? (
+            <WelcomeScreen
+              onGetStarted={() => greetAndGo("connect")}
+              onLookAround={() => greetAndGo("home")}
+            />
+          ) : null}
+          {screen === "connect" ? (
+            <ConnectScreen
+              providers={providers}
+              onProvidersChanged={loadProviders}
+              onDone={() => setScreen("home")}
+            />
+          ) : null}
+          {screen === "home" ? (
+            <HomeScreen providers={providers} onManageLogins={() => setScreen("connect")} />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
