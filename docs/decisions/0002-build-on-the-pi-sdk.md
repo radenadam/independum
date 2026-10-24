@@ -17,4 +17,5 @@ Independum uses the Pi SDK, published as `@earendil-works/pi-coding-agent`. Inde
 - Pi adds content that the user would not see: a `<cwd>` block appended to the system prompt, a hidden `__pi_deferred_placeholder__` tool, and its own thinking display, effort, beta, and output limit settings.
 - The `before_provider_request` hook receives the exact request body and can replace it. Removing the `<cwd>` block and the placeholder tool there worked, and the model behaved the same.
 - Independum shows the user the final request exactly as sent, so nothing reaches the model unseen. Each Pi addition becomes a built-in that the user can see and turn off, or Independum removes it.
-- The ChatGPT login through the `openai` provider is not yet verified. The roadmap tracks it.
+- A second spike with `gpt-6-luna`, through the "Sign in with ChatGPT" login of the `openai` provider, confirmed the same seams: the system prompt, the `context` hook, the `tool_call` hook, and the event stream.
+- The request shape depends on the provider. For ChatGPT, the system prompt travels as a developer message with the `<cwd>` block appended, the tools travel as an `additional_tools` item in `input`, and Pi adds no placeholder tool. Removing a Pi addition in `before_provider_request` therefore needs code for each provider, which decision 0012 rules out.
