@@ -6,6 +6,9 @@ type LoginInteraction = Parameters<ModelRuntime["login"]>[2];
 type PiPrompt = Parameters<LoginInteraction["prompt"]>[0];
 type PiNotice = Parameters<LoginInteraction["notify"]>[0];
 
+/** What Independum tells Pi about itself when a login needs it, such as its installation id. */
+export type LoginOptions = NonNullable<Parameters<ModelRuntime["login"]>[3]>;
+
 /** A login in progress, which records its events and waits for answers from the UI. */
 export interface LoginSession {
   readonly events: LoginEvent[];
@@ -25,6 +28,7 @@ export function startLoginSession(
   models: ModelRuntime,
   providerId: string,
   method: LoginMethod,
+  options: LoginOptions,
 ): LoginSession {
   const events: LoginEvent[] = [];
   const listeners = new Set<(event: LoginEvent) => void>();
@@ -57,11 +61,16 @@ export function startLoginSession(
   }
 
   models
-    .login(providerId, method === "apiKey" ? "api_key" : "oauth", {
-      signal: controller.signal,
-      prompt: ask,
-      notify: (notice) => emit(eventFor(notice)),
-    })
+    .login(
+      providerId,
+      method === "apiKey" ? "api_key" : "oauth",
+      {
+        signal: controller.signal,
+        prompt: ask,
+        notify: (notice) => emit(eventFor(notice)),
+      },
+      options,
+    )
     .then(
       () => emit({ type: "done" }),
       (error: unknown) =>

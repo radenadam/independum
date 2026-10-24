@@ -8,7 +8,10 @@ import { createLoginRoutes } from "./login-routes.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
-const routes = createLoginRoutes(await createModelRuntime(directory));
+const routes = createLoginRoutes(await createModelRuntime(directory), {
+  getDeviceId: () => "00000000-0000-4000-8000-000000000000",
+  agentName: "Independum",
+});
 const json = { "content-type": "application/json" };
 
 async function findProvider(id: string): Promise<ProviderSummary | undefined> {
