@@ -10,8 +10,8 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 - Server access token. See decision 0005.
 - First launch and the login screen. See decision 0008.
-- First chat: send a message from the browser and stream the reply, with the UI and server running from one `pnpm dev`.
-- Packaging: build the `independum` command, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm.
+- First chat: send a message from the browser and stream the reply.
+- Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
 ## Later
 
