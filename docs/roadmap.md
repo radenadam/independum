@@ -21,7 +21,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
-- Which motion level should the final design use: subtle, expressive, or ambient? See decision 0009.
 - What does the chat screen look like, and where do project and session settings open from?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?
