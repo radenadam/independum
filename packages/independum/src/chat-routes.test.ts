@@ -89,7 +89,11 @@ test("a message streams its reply", async () => {
   faux.setResponses([fauxAssistantMessage("Hello from the fake model.")]);
   const { deltas, reply } = await sendAndReadReply("Hello");
   expect(deltas.join("")).toBe("Hello from the fake model.");
-  expect(reply).toEqual({ role: "assistant", text: "Hello from the fake model.", error: null });
+  expect(reply).toMatchObject({
+    role: "assistant",
+    text: "Hello from the fake model.",
+    error: null,
+  });
 });
 
 test("a failed reply carries the provider's error", async () => {

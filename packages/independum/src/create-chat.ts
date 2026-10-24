@@ -139,7 +139,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         setReplying(false);
         emit({
           type: "message",
-          message: { role: "assistant", text: "", error: messageOf(error) },
+          message: { role: "assistant", text: "", error: messageOf(error), timestamp: Date.now() },
         });
       });
       return true;
@@ -172,7 +172,12 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
 
 function toChatMessage(message: AgentMessage): ChatMessage | undefined {
   if (message.role === "user") {
-    return { role: "user", text: textOf(message.content), error: null };
+    return {
+      role: "user",
+      text: textOf(message.content),
+      error: null,
+      timestamp: message.timestamp,
+    };
   }
   if (message.role !== "assistant") {
     return undefined;
@@ -182,6 +187,7 @@ function toChatMessage(message: AgentMessage): ChatMessage | undefined {
     role: "assistant",
     text: textOf(message.content),
     error: isCut ? (message.errorMessage ?? "The reply stopped early.") : null,
+    timestamp: message.timestamp,
   };
 }
 

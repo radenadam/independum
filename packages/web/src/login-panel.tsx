@@ -1,6 +1,7 @@
 import type { LoginEvent, LoginMethod, ProviderSummary } from "independum/api-types";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { CommandButton } from "./command-button.tsx";
+import { HeadingRow } from "./heading-row.tsx";
 import { type LoginHandle, removeLogin, startLogin } from "./login-api.ts";
 import styles from "./login-panel.module.css";
 import { TextField } from "./text-field.tsx";
@@ -64,12 +65,12 @@ export function LoginPanel({
 
   return (
     <section className={styles.panel} aria-label={`Sign in to ${provider.name}`}>
-      <div className={styles.heading}>
+      <HeadingRow>
         <h2 className={styles.name}>
           <span className={styles.pointer}>&gt;</span> {provider.name}
         </h2>
         <CommandButton shortcut="x" label="Close" onClick={onClose} isQuiet />
-      </div>
+      </HeadingRow>
       {events === undefined ? (
         <Options provider={provider} onBegin={begin} onChanged={onChanged} />
       ) : (

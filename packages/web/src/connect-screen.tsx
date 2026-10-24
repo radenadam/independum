@@ -3,6 +3,9 @@ import { type ReactElement, useState } from "react";
 import { CommandButton } from "./command-button.tsx";
 import styles from "./connect-screen.module.css";
 import { LoginPanel } from "./login-panel.tsx";
+import { PickList } from "./pick-list.tsx";
+import { ScreenHeading } from "./screen-heading.tsx";
+import { ScreenLayout } from "./screen-layout.tsx";
 import { TextField } from "./text-field.tsx";
 
 /** Properties of the connect screen. */
@@ -25,17 +28,15 @@ export function ConnectScreen({
   const picked = providers.find((provider) => provider.id === pickedId);
 
   return (
-    <main className={styles.main}>
-      <div className={styles.aside}>
-        <CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet isBack />
-      </div>
+    <ScreenLayout
+      aside={<CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet isBack />}
+    >
       <div className={styles.grid}>
         <div className={styles.head}>
-          <h1 className={styles.title}>Connect a model.</h1>
-          <p className={styles.intro}>
-            Pick the provider you use. You can add more later, and change or remove any login at any
-            time.
-          </p>
+          <ScreenHeading
+            title="Connect a model."
+            intro="Pick the provider you use. You can add more later, and change or remove any login at any time."
+          />
         </div>
         <div className={styles.search}>
           <TextField
@@ -47,27 +48,16 @@ export function ConnectScreen({
           />
         </div>
         <div className={styles.list}>
-          <ol className={styles.entries}>
-            {shown.map((provider, index) => (
-              <li key={provider.id}>
-                <button
-                  type="button"
-                  className={styles.entry}
-                  aria-pressed={provider.id === pickedId}
-                  onClick={() => setPickedId(provider.id)}
-                >
-                  <span className={styles.marker}>
-                    {provider.id === pickedId ? ">" : String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span>{provider.name}</span>
-                  <span className={styles.leader} aria-hidden="true" />
-                  <span className={provider.login === null ? styles.methods : styles.loggedIn}>
-                    {provider.login === null ? methodsOf(provider) : "logged in"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          <PickList
+            entries={shown.map((provider) => ({
+              id: provider.id,
+              name: provider.name,
+              detail: provider.login === null ? methodsOf(provider) : "logged in",
+              isDetailMarked: provider.login !== null,
+            }))}
+            pickedId={pickedId}
+            onPick={setPickedId}
+          />
           {shown.length === 0 ? (
             <p className={styles.note}>No provider matches that search.</p>
           ) : null}
@@ -95,7 +85,7 @@ export function ConnectScreen({
           )}
         </div>
       </div>
-    </main>
+    </ScreenLayout>
   );
 }
 
