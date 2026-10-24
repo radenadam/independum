@@ -7,7 +7,7 @@
   },
   "scripts": {
     "prepare": "simple-git-hooks",
-    "dev": "pnpm --recursive --parallel run dev",
+    "dev": "pnpm --filter independum run dev",
     "format": "biome check --write && markdownlint-cli2 --fix",
     "check": "pnpm run check:biome && pnpm run check:markdown && pnpm run check:docs && pnpm run check:characters && pnpm run check:layout && pnpm run check:comments && pnpm run check:types && pnpm run check:unused && pnpm run check:duplicates && pnpm run test",
     "check:biome": "biome check --error-on-warnings",
