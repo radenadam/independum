@@ -16,10 +16,10 @@ Independum follows the Margin direction.
 - Navigation lives in the margins, as breadcrumbs and a numbered outline, and switches read as the words "on" and "off".
 - The mark is the maintainer's bird logo, traced to SVG. It is one shape that follows the theme's ink color.
 - The themes are system, light, and dark.
+- Motion is ambient: a slow glow that breathes behind the page, text that types itself in, and the bird rising into its square on the welcome screen. When the system asks for reduced motion, Independum shows none.
 - Settings for a project or a session stay out of view until the user opens them from a menu or a side panel.
 
 ## Consequences
 
 - The UI keeps borders, boxes, and color to a minimum, so spacing and type do the work.
-- The motion level is still open. The roadmap tracks it.
 - The chat screen in the prototype is a placeholder. Its design starts with questions to the maintainer.
