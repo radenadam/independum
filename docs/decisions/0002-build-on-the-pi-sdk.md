@@ -13,5 +13,8 @@ Independum uses the Pi SDK, published as `@earendil-works/pi-coding-agent`. Inde
 
 ## Consequences
 
-- Each Pi default that Independum exposes, such as its system prompt, tools, and instruction file discovery, must be replaceable. Otherwise Independum cannot keep its promise.
-- The SDK documents a replaceable tool set, a custom resource loader for instruction files and skills, and event streaming. Full ownership of the system prompt and of the context before each model call is not yet confirmed. The spike in `docs/roadmap.md` confirms it before `packages/core` starts, and revisits this decision if Pi falls short.
+- A spike with `claude-haiku-5-5` and Pi 1.4.0 confirmed the seams Independum needs. A `DefaultResourceLoader` with `systemPrompt` and `noContextFiles` replaces Pi's prompt and resource discovery. `noTools: "builtin"` with `customTools` replaces the tool set. The `context` hook adds messages before every model call. The `tool_call` hook blocks a tool before it runs. `session.subscribe` streams every step.
+- Pi adds content that the user would not see: a `<cwd>` block appended to the system prompt, a hidden `__pi_deferred_placeholder__` tool, and its own thinking display, effort, beta, and output limit settings.
+- The `before_provider_request` hook receives the exact request body and can replace it. Removing the `<cwd>` block and the placeholder tool there worked, and the model behaved the same.
+- Independum shows the user the final request exactly as sent, so nothing reaches the model unseen. Each Pi addition becomes a built-in that the user can see and turn off, or Independum removes it.
+- The ChatGPT login through `openai-codex` is not yet verified. The roadmap tracks it.
