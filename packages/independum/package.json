@@ -8,7 +8,7 @@
     "./api-types": "./src/api-types.ts"
   },
   "scripts": {
-    "dev": "node --watch src/cli.ts",
+    "dev": "node src/dev.ts",
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
