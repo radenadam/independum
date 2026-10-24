@@ -295,7 +295,7 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
       />
       {question.kind === "secret" ? (
         <p className={styles.text}>
-          Independum keeps it on this machine, in ~/.independum, and does not test it yet.
+          Independum keeps it on this machine, in ~/.independum, and does not test it.
         </p>
       ) : null}
       <CommandButton shortcut="enter" label="Continue" onClick={submit} />

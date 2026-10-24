@@ -8,7 +8,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Next
 
-- Check an API key when it is saved, since Pi saves keys without testing them. See decision 0011.
 - First chat: send a message from the browser and stream the reply.
 - Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
