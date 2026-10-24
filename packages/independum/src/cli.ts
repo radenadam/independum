@@ -1,9 +1,9 @@
-import { randomBytes } from "node:crypto";
 import { createServer as createHttpServer } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { getRequestListener } from "@hono/node-server";
 import { createServer as createViteServer } from "vite";
+import { createAccessToken } from "./create-access-token.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { createServer } from "./create-server.ts";
 import { createLoginRoutes } from "./login-routes.ts";
@@ -13,7 +13,10 @@ import { readInstallationId } from "./read-installation-id.ts";
 // See `docs/decisions/0005-phone-access-through-token-auth.md`.
 const host = "127.0.0.1";
 const port = 4870;
-const token = randomBytes(32).toString("base64url");
+// The dev launcher passes the token in the environment. Removing it there keeps it from processes
+// the server starts, such as agent tools.
+const token = process.env.INDEPENDUM_ACCESS_TOKEN ?? createAccessToken();
+delete process.env.INDEPENDUM_ACCESS_TOKEN;
 const directory = join(homedir(), ".independum");
 const models = await createModelRuntime(directory);
 

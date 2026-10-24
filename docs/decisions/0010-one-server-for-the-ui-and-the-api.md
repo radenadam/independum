@@ -14,4 +14,4 @@ The `independum` server serves the UI and the API on one port, `4870`, in develo
 ## Consequences
 
 - The browser sees one origin, so the server can accept API requests from its own origin only.
-- The terminal prints one link, and `pnpm dev` runs one process.
+- The terminal prints one link, and `pnpm dev` runs one server.

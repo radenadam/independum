@@ -11,7 +11,8 @@ The maintainer wants to use Independum from a phone. The agent can run commands 
 
 - The server listens on `127.0.0.1` by default.
 - Every API request carries a secret token, on `localhost` too, and the server checks the `Host` and `Origin` headers.
-- The token is new on every launch and exists only in the server's memory. The terminal prints it after the `#` of the link, a part that browsers never send to a server, and the UI keeps it until a new link replaces it.
+- The token is new on every launch and exists only in memory. The terminal prints it after the `#` of the link, a part that browsers never send to a server, and the UI keeps it until a new link replaces it.
+- A run of `pnpm dev` counts as one launch. Its launcher creates the token once and passes it to every restart of the server in watch mode, so an open page keeps working while the code changes. The server removes the token from its environment, so processes it starts, such as agent tools, never see it.
 - Phone access is opt-in. The user turns on network access, and the terminal shows a pairing link and QR code that carry the token.
 - Access from outside the home network goes through a private network such as Tailscale, never through an exposed port.
 

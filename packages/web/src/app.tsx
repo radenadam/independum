@@ -11,7 +11,7 @@ import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
 import { WelcomeScreen } from "./welcome-screen.tsx";
 
-type Connection = "checking" | "connected" | "needsLink" | "restarted" | "unreachable";
+type Connection = "checking" | "connected" | "needsLink" | "expiredLink" | "unreachable";
 type Screen = "welcome" | "connect" | "home";
 
 /** What a connection problem shows: its place in the top bar, a title, and one line under it. */
@@ -21,16 +21,16 @@ interface ConnectionProblem {
   line: string;
 }
 
-const connectionProblems: Record<"needsLink" | "restarted" | "unreachable", ConnectionProblem> = {
+const connectionProblems: Record<"needsLink" | "expiredLink" | "unreachable", ConnectionProblem> = {
   needsLink: {
     location: "link",
     title: "Hello.",
     line: "Open the link that Independum printed in your terminal.",
   },
-  restarted: {
-    location: "restarted",
-    title: "Welcome back.",
-    line: "Independum restarted. Open the new link from your terminal.",
+  expiredLink: {
+    location: "expired link",
+    title: "This link has expired.",
+    line: "Independum makes a new link each time it starts. Open the newest link from your terminal.",
   },
   unreachable: {
     location: "offline",
@@ -118,10 +118,11 @@ export function App(): ReactElement {
   );
 }
 
-// A 401 means the server no longer knows this token, which happens after every restart.
+// A 401 means the server does not know this token. Either Independum started again since the
+// link was printed, or the link was copied only in part.
 function connectionFor(response: Response): Connection {
   if (response.ok) {
     return "connected";
   }
-  return response.status === 401 ? "restarted" : "unreachable";
+  return response.status === 401 ? "expiredLink" : "unreachable";
 }
