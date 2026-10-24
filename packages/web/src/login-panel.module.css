@@ -57,6 +57,14 @@
   letter-spacing: 0.12em;
 }
 
+.link {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 @media (max-width: 760px) {
   .panel {
     position: fixed;
