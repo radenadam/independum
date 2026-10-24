@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, expect, test } from "vitest";
 import type { LoginEvent, ProviderSummary } from "./api-types.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { followEventStream } from "./follow-event-stream.ts";
 import { createLoginRoutes } from "./login-routes.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
@@ -33,27 +34,8 @@ async function followLogin(
   providerId: string,
 ): Promise<{ id: string; next: () => Promise<LoginEvent> }> {
   const { id } = (await (await startLogin(providerId, "apiKey")).json()) as { id: string };
-  const stream = await routes.request(`/logins/${id}/events`);
-  if (stream.body === null) {
-    throw new Error("The login sent no event stream.");
-  }
-  const reader = stream.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  async function next(): Promise<LoginEvent> {
-    while (!buffer.includes("\n\n")) {
-      const { value, done } = await reader.read();
-      if (done) {
-        throw new Error("The event stream ended early.");
-      }
-      buffer += decoder.decode(value, { stream: true });
-    }
-    const end = buffer.indexOf("\n\n");
-    const data = buffer.slice(0, end).replace(/^data: ?/m, "");
-    buffer = buffer.slice(end + 2);
-    return JSON.parse(data) as LoginEvent;
-  }
-  return { id, next };
+  const events = followEventStream<LoginEvent>(await routes.request(`/logins/${id}/events`));
+  return { id, next: events.next };
 }
 
 async function logInWithKey(providerId: string, key: string): Promise<LoginEvent[]> {

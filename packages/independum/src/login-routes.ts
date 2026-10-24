@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import type { LoginEvent, LoginMethod, ProviderSummary } from "./api-types.ts";
 import { type LoginOptions, type LoginSession, startLoginSession } from "./login-session.ts";
+import { streamEvents } from "./stream-events.ts";
 
 const loginMethods: LoginMethod[] = ["apiKey", "account"];
 
@@ -75,25 +75,7 @@ export function createLoginRoutes(models: ModelRuntime, options: LoginOptions): 
     if (session === undefined) {
       return context.json({ error: "No login with that id." }, 404);
     }
-    return streamSSE(context, async (stream) => {
-      let writing = Promise.resolve();
-      let unsubscribe: (() => void) | undefined;
-      await new Promise<void>((resolve) => {
-        function send(event: LoginEvent): void {
-          writing = writing.then(() => stream.writeSSE({ data: JSON.stringify(event) }));
-          if (isFinal(event)) {
-            resolve();
-          }
-        }
-        for (const event of session.events) {
-          send(event);
-        }
-        unsubscribe = session.subscribe(send);
-        stream.onAbort(resolve);
-      });
-      unsubscribe?.();
-      await writing;
-    });
+    return streamEvents(context, [...session.events], session.subscribe, isFinal);
   });
 
   routes.post("/logins/:id/answers", async (context) => {

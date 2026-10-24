@@ -11,7 +11,7 @@ Pi follows semantic versioning from 1.0. `pnpm check` catches changes to the fun
 
 ## Decision
 
-- Dependabot checks each week for a new version of `@earendil-works/pi-coding-agent` and opens a pull request, as set in `.github/dependabot.yml`. Other dependencies are updated by hand.
+- Dependabot checks each week for new versions of Pi's packages, `@earendil-works/pi-*`, and opens one pull request for all of them, as set in `.github/dependabot.yml`. Other dependencies are updated by hand.
 - The pull request never merges by itself. The maintainer reviews it with an agent, following `AGENTS.md`, and merges it after approving.
 - Independum never adds code for a single provider or model. When Pi lacks something or has a bug, Independum waits for a Pi release or reports the problem to Pi.
 

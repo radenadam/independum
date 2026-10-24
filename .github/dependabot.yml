@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     allow:
-      - dependency-name: "@earendil-works/pi-coding-agent"
+      - dependency-name: "@earendil-works/pi-*"
+    groups:
+      pi:
+        patterns:
+          - "@earendil-works/pi-*"
     commit-message:
       prefix: build
