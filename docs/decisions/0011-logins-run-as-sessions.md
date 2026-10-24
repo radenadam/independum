@@ -13,7 +13,8 @@ Pi supports 42 providers, and their logins differ. Some ask for one API key. Oth
 - The UI answers questions through the API and can cancel the session. When Pi withdraws a question, because the browser finished that step, the UI withdraws it too.
 - The provider list comes from Pi, with Pi's names and sign-in labels. For each provider, it shows whether a login exists and where it comes from, such as a stored credential or an environment variable.
 - Pi saves API keys without testing them, so Independum does not claim to check a key.
-- Logins that identify the app, such as "Sign in with ChatGPT", get a stable installation id from `~/.independum/installation.json`, created on first use, and the agent name "Independum".
+- Logins that identify the app, such as "Sign in with ChatGPT", get a stable installation id from `~/.independum/installation.json`, created on first use. Pi requires the app to supply it.
+- Every other login option keeps Pi's default, so logins introduce themselves exactly as Pi does. Independum maintains no provider behavior of its own.
 
 ## Consequences
 
