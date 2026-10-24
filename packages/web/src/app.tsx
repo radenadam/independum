@@ -2,6 +2,7 @@ import type { ProviderSummary } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { readAccessToken } from "./access-token.ts";
 import styles from "./app.module.css";
+import { ChatScreen } from "./chat-screen.tsx";
 import { ConnectScreen } from "./connect-screen.tsx";
 import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
 import { Greeting } from "./greeting.tsx";
@@ -49,11 +50,7 @@ export function App(): ReactElement {
       (loaded) => {
         setProviders(loaded);
         setScreen(
-          (current) =>
-            current ??
-            (loaded.some((provider) => provider.login !== null) || hasBeenGreeted()
-              ? "home"
-              : "welcome"),
+          (current) => current ?? (hasLogin(loaded) || hasBeenGreeted() ? "home" : "welcome"),
         );
       },
       () => setConnection("unreachable"),
@@ -77,6 +74,8 @@ export function App(): ReactElement {
     );
   }, [loadProviders]);
 
+  const expireLink = useCallback((): void => setConnection("expiredLink"), []);
+
   function greetAndGo(next: Screen): void {
     rememberGreeting();
     setScreen(next);
@@ -95,7 +94,7 @@ export function App(): ReactElement {
         </>
       ) : screen === undefined || providers === undefined ? null : (
         <>
-          <TopBar location={screen} />
+          <TopBar location={screen === "home" && hasLogin(providers) ? "chat" : screen} />
           {screen === "welcome" ? (
             <WelcomeScreen
               onGetStarted={() => greetAndGo("connect")}
@@ -109,8 +108,11 @@ export function App(): ReactElement {
               onDone={() => setScreen("home")}
             />
           ) : null}
-          {screen === "home" ? (
-            <HomeScreen providers={providers} onManageLogins={() => setScreen("connect")} />
+          {screen === "home" && hasLogin(providers) ? (
+            <ChatScreen onManageLogins={() => setScreen("connect")} onExpiredLink={expireLink} />
+          ) : null}
+          {screen === "home" && !hasLogin(providers) ? (
+            <HomeScreen onConnect={() => setScreen("connect")} />
           ) : null}
         </>
       )}
@@ -125,4 +127,8 @@ function connectionFor(response: Response): Connection {
     return "connected";
   }
   return response.status === 401 ? "expiredLink" : "unreachable";
+}
+
+function hasLogin(providers: ProviderSummary[]): boolean {
+  return providers.some((provider) => provider.login !== null);
 }

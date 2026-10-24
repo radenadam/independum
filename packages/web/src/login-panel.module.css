@@ -6,13 +6,6 @@
   gap: 22px;
 }
 
-.heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .name {
   margin: 0;
   font-size: 26px;

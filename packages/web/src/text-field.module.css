@@ -28,3 +28,12 @@
   outline: none;
   border-bottom-color: var(--signal);
 }
+
+.multiline {
+  max-height: 40vh;
+  padding: 12px 0;
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  resize: none;
+  field-sizing: content;
+}

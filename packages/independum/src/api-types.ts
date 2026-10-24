@@ -47,6 +47,7 @@ export interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   error: string | null;
+  timestamp: number;
 }
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
