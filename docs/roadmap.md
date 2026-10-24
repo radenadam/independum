@@ -8,11 +8,10 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Next
 
-- Show the Independum mark in the UI. See decision 0009.
 - Server access token. See decision 0005.
 - First launch and the login screen. See decision 0008.
 - First chat: send a message from the browser and stream the reply, with the UI and server running from one `pnpm dev`.
-- Packaging: build the `independum` command and publish it to npm.
+- Packaging: build the `independum` command, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm.
 
 ## Later
 
