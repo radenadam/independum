@@ -101,6 +101,7 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 
 - Tests and experiments that call a real model use only `claude-haiku-5-5` for Anthropic and `gpt-6-luna` for ChatGPT. See decision 0007.
 - The Anthropic key comes from `INDEPENDUM_ANTHROPIC_API_KEY` in `.env` at the repository root. Load it with `node --env-file=.env`, without opening the file.
+- `.env` must be saved as UTF-8. Windows PowerShell 5 writes UTF-16 when it redirects with `>`, and Node cannot read that.
 - The ChatGPT login goes through Pi's `openai-codex` provider, with the browser sign-in done by the maintainer.
 - `pnpm check` never calls a real model, so it runs without credentials and costs nothing.
 

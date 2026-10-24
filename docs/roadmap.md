@@ -4,12 +4,14 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-- Pi SDK spike: confirm that Independum can own the system prompt, change the context before each model call, replace the tool set and instruction file loading, and stream events to the UI. The result updates decision 0002 and starts `packages/core`.
+- Finish the Pi spike with the ChatGPT login through `openai-codex` and `gpt-6-luna`. The maintainer signs in through the browser. See decision 0002.
 
 ## Next
 
+- Show the Independum mark in the UI. See decision 0009.
+- Server access token. See decision 0005.
+- First launch and the login screen. See decision 0008.
 - First chat: send a message from the browser and stream the reply, with the UI and server running from one `pnpm dev`.
-- Token auth and phone pairing. See decision 0005.
 - Packaging: build the `independum` command and publish it to npm.
 
 ## Later
@@ -20,9 +22,11 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
+- Which motion level should the final design use: subtle, expressive, or ambient? See decision 0009.
+- What does the chat screen look like, and where do project and session settings open from?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?
-- Where do settings live: per project, per user, or both?
+- Where do settings other than logins live: per project, per user, or both?
 - How does the user choose the folder the agent works in?
 - What triggers a message injection, and what can it see?
 - What does memory mean in Independum?

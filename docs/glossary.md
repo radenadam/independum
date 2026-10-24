@@ -9,6 +9,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Add-on | A feature that the user adds to Independum. It follows the same contract as a built-in, so it gets the same visibility and controls. | "plugin", "extension", "custom", "module" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
+| Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
