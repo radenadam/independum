@@ -15,6 +15,7 @@ Independum needs real model calls to verify its use of Pi, and later to develop 
 
 ## Consequences
 
-- Agents never read `~/.independum`, so keys stay out of conversations. Claude Code enforces this through `.claude/settings.json`.
+- Agents never read the login files in `~/.independum`, which are `auth.json` and `models.json`, so keys stay out of conversations. Claude Code enforces this through `.claude/settings.json`.
+- Agents may read chats in `~/.independum/sessions` to debug them, because chats hold no credentials.
 - `pnpm check` never calls a real model, so it runs without credentials and costs nothing.
 - Other providers wait until a later decision.

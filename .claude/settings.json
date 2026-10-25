@@ -2,7 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "deny": [
-      "Read(~/.independum/**)",
+      "Read(~/.independum/auth.json*)",
+      "Read(~/.independum/models.json*)",
       "Edit(~/.independum/**)",
       "Read(./.env)",
       "Read(./.env.*)",
