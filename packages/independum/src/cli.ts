@@ -36,11 +36,8 @@ const handleApi = getRequestListener(
       .route("/", createChatRoutes(chat, models)),
   }).fetch,
 );
-// The native loader imports the config directly. The default loader writes a temporary file,
-// which `node --watch` sees as a change, so the server would restart forever.
 const vite = await createViteServer({
   root: join(import.meta.dirname, "..", "..", "web"),
-  configLoader: "native",
   appType: "spa",
   server: { middlewareMode: true, hmr: { server: httpServer } },
 });
