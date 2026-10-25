@@ -13,10 +13,7 @@ interface ScreenHeadingProps {
 export function ScreenHeading({ title, intro, command }: ScreenHeadingProps): ReactElement {
   return (
     <div className={styles.heading}>
-      <HeadingRow>
-        <h1 className={styles.title}>{title}</h1>
-        {command}
-      </HeadingRow>
+      <HeadingRow heading={<h1 className={styles.title}>{title}</h1>} command={command} />
       <p className={styles.intro}>{intro}</p>
     </div>
   );

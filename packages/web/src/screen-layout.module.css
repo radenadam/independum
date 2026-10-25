@@ -3,15 +3,21 @@
   flex: 1;
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 32px;
   padding: 24px 32px 80px;
 }
 
-.aside {
+.margin {
+  position: sticky;
+  top: 24px;
+  align-self: flex-start;
   flex: 0 0 200px;
+  max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  overflow-y: auto;
 }
 
 .content {
@@ -25,8 +31,11 @@
     padding: 16px 24px 80px;
   }
 
-  .aside {
+  .margin {
+    position: static;
     flex-basis: 100%;
+    max-height: none;
+    overflow-y: visible;
     flex-direction: row;
     flex-wrap: wrap;
     column-gap: 24px;

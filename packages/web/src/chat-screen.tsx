@@ -1,19 +1,32 @@
-import type { ChatEvent, ChatMessage, ChatState, ModelSummary } from "independum/api-types";
+import type {
+  ChatEvent,
+  ChatMessage,
+  ChatState,
+  ChatSummary,
+  ModelSummary,
+} from "independum/api-types";
 import { type KeyboardEvent, type ReactElement, useCallback, useEffect, useState } from "react";
 import {
   type ChatConnection,
   chooseModel,
   fetchModels,
   followChat,
+  openChat,
   sendMessage,
   startNewChat,
   stopReply,
 } from "./chat-api.ts";
+import { ChatList } from "./chat-list.tsx";
 import styles from "./chat-screen.module.css";
 import { CommandButton } from "./command-button.tsx";
+import { HeadingRow } from "./heading-row.tsx";
 import { ModelPicker } from "./model-picker.tsx";
+import { PickList } from "./pick-list.tsx";
 import { ScreenLayout } from "./screen-layout.tsx";
 import { TextField } from "./text-field.tsx";
+
+/** What the chat screen shows beside the margin. */
+type View = "chat" | "models" | "chats";
 
 /** Properties of the chat screen. */
 interface ChatScreenProps {
@@ -21,13 +34,14 @@ interface ChatScreenProps {
   onExpiredLink: () => void;
 }
 
-/** Draws the chat with its messages, the reply as it streams, the message field, and the models. */
+/** Draws the chat with its messages and models, and the saved chats in the margin. */
 export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): ReactElement {
   const [chat, setChat] = useState<ChatState | undefined>();
+  const [chats, setChats] = useState<ChatSummary[] | undefined>();
   const [reply, setReply] = useState("");
   const [connection, setConnection] = useState<ChatConnection>("following");
   const [models, setModels] = useState<ModelSummary[] | undefined>();
-  const [isPicking, setIsPicking] = useState(false);
+  const [view, setView] = useState<View>("chat");
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<string | undefined>();
 
@@ -39,6 +53,9 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
     loadModels();
     return followChat(
       (event) => {
+        if (event.type === "chats") {
+          setChats(event.chats);
+        }
         applyEvent(event, setChat);
         if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
           setReply("");
@@ -50,13 +67,15 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
     );
   }, [loadModels, onExpiredLink]);
 
-  const isPickerShown = chat !== undefined && (isPicking || chat.model === null);
+  // A chat without a model shows the models, unless the user asked for the chat list.
+  const shown: View =
+    view === "chats" || (view === "chat" && chat?.model !== null) ? view : "models";
   const messageCount = chat?.messages.length ?? 0;
 
   // Keeps the newest message in view, and puts the cursor in the message field when a keyboard is
   // likely.
   useEffect(() => {
-    if (isPickerShown) {
+    if (shown !== "chat") {
       return;
     }
     if (messageCount > 0 || reply !== "") {
@@ -65,19 +84,32 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
     if (hasKeyboard()) {
       document.getElementById("message")?.focus();
     }
-  }, [isPickerShown, messageCount, reply]);
+  }, [shown, messageCount, reply]);
 
   function openPicker(): void {
     loadModels();
-    setIsPicking(true);
+    setView("models");
   }
 
   function choose(model: ModelSummary): void {
     setNotice(undefined);
     chooseModel(model.providerId, model.id).then(
-      () => setIsPicking(false),
+      () => setView("chat"),
       () => setNotice("That model is not available. Choose another one."),
     );
+  }
+
+  function open(id: string): void {
+    setNotice(undefined);
+    openChat(id).then(
+      () => setView("chat"),
+      () => setNotice("That chat could not be opened. Try again."),
+    );
+  }
+
+  function startNew(): void {
+    startNewChat();
+    setView("chat");
   }
 
   function submit(): void {
@@ -115,30 +147,55 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
 
   return (
     <ScreenLayout
-      aside={
+      margin={
         <>
-          <CommandButton shortcut="n" label="New chat" onClick={startNewChat} isQuiet />
-          <CommandButton shortcut="m" label="Change model" onClick={openPicker} isQuiet />
-          <CommandButton shortcut="l" label="Manage logins" onClick={onManageLogins} isQuiet />
+          <CommandButton shortcut="n" label="New chat" onClick={startNew} isQuiet />
+          <CommandButton shortcut="l" label="Logins" onClick={onManageLogins} isQuiet />
+          <div className={styles.chats}>
+            <CommandButton shortcut="c" label="Chats" onClick={() => setView("chats")} isQuiet />
+            <div className={styles.outline}>
+              <PickList
+                entries={(chats ?? []).map((saved) => ({ id: saved.id, name: saved.title }))}
+                pickedId={chat?.id ?? undefined}
+                onPick={open}
+                isCompact
+              />
+            </div>
+          </div>
         </>
       }
     >
       <div className={styles.column}>
         {chat === undefined ? <p className={styles.status}>Opening the chat.</p> : null}
-        {isPickerShown ? (
+        {chat !== undefined && shown === "chats" ? (
+          <ChatList
+            chats={chats}
+            currentId={chat.id}
+            onOpen={open}
+            onClose={() => setView("chat")}
+          />
+        ) : null}
+        {chat !== undefined && shown === "models" ? (
           <ModelPicker
             models={models}
             current={chat.model}
             onChoose={choose}
-            {...(chat.model === null ? {} : { onClose: () => setIsPicking(false) })}
+            {...(chat.model === null ? {} : { onClose: () => setView("chat") })}
           />
         ) : null}
-        {chat === undefined || isPickerShown ? null : (
+        {chat !== undefined && shown === "chat" ? (
           <>
-            <p className={styles.model}>
-              model <span className={styles.modelName}>{current?.name ?? chat.model?.id}</span>
-              {current === undefined ? null : ` from ${current.providerName}`}
-            </p>
+            <HeadingRow
+              heading={
+                <p className={styles.model}>
+                  model <span className={styles.modelName}>{current?.name ?? chat.model?.id}</span>
+                  {current === undefined ? null : ` from ${current.providerName}`}
+                </p>
+              }
+              command={
+                <CommandButton shortcut="m" label="Change model" onClick={openPicker} isQuiet />
+              }
+            />
             <ol className={styles.messages}>
               {chat.messages.map((message) => (
                 <Message key={`${message.role}-${message.timestamp}`} message={message} />
@@ -183,7 +240,7 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
               )}
             </form>
           </>
-        )}
+        ) : null}
         {notice === undefined ? null : <p className={styles.notice}>{notice}</p>}
         {connection === "reconnecting" ? (
           <p className={styles.status}>Reconnecting to Independum.</p>

@@ -52,14 +52,23 @@ export interface ChatMessage {
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
+  id: string | null;
   model: { providerId: string; id: string } | null;
   messages: ChatMessage[];
   isReplying: boolean;
 }
 
-/** One change to the chat, as the UI receives it. */
+/** A saved chat of the current folder, as the chat list shows it. */
+export interface ChatSummary {
+  id: string;
+  title: string;
+  modified: number;
+}
+
+/** One change to the chat or to the chat list, as the UI receives it. */
 export type ChatEvent =
   | { type: "state"; state: ChatState }
+  | { type: "chats"; chats: ChatSummary[] }
   | { type: "message"; message: ChatMessage }
   | { type: "replyDelta"; delta: string }
   | { type: "replying"; isReplying: boolean };

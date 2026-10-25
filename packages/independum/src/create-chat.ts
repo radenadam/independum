@@ -5,10 +5,11 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   type ModelRuntime,
+  type SessionInfo,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import type { ChatEvent, ChatMessage, ChatState } from "./api-types.ts";
+import type { ChatEvent, ChatMessage, ChatState, ChatSummary } from "./api-types.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -27,12 +28,14 @@ export interface ChatOptions {
   cwd: string;
 }
 
-/** The current chat, which the API shows, follows, and drives. */
+/** The current chat, which the API shows, follows, and drives, and the saved chats beside it. */
 export interface Chat {
   getState(): ChatState;
+  getChats(): Promise<ChatSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
+  open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   startNew(): Promise<void>;
 }
@@ -55,6 +58,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   function getState(): ChatState {
     const model = isModelChosen ? session?.model : undefined;
     return {
+      id: session?.sessionId ?? null,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
       messages: (session?.messages ?? []).flatMap((message) => {
         const shown = toChatMessage(message);
@@ -64,14 +68,35 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     };
   }
 
+  function listSaved(): Promise<SessionInfo[]> {
+    return SessionManager.list(cwd, sessionDirectory);
+  }
+
+  async function getChats(): Promise<ChatSummary[]> {
+    return (await listSaved()).map((saved) => ({
+      id: saved.id,
+      title: saved.name ?? saved.firstMessage,
+      modified: saved.modified.getTime(),
+    }));
+  }
+
+  function emitChats(): void {
+    getChats().then((chats) => emit({ type: "chats", chats }));
+  }
+
   function setReplying(value: boolean): void {
     isReplying = value;
     emit({ type: "replying", isReplying });
   }
 
+  // Pi saves a chat with its first message and touches it again after every reply, so the chat
+  // list follows both.
   function follow(event: AgentSessionEvent): void {
-    if (event.type === "agent_start" || event.type === "agent_settled") {
-      setReplying(event.type === "agent_start");
+    if (event.type === "agent_start") {
+      setReplying(true);
+    } else if (event.type === "agent_settled") {
+      setReplying(false);
+      emitChats();
     } else if (
       event.type === "message_update" &&
       event.assistantMessageEvent.type === "text_delta"
@@ -82,11 +107,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       if (message !== undefined) {
         emit({ type: "message", message });
       }
+      if (event.message.role === "user") {
+        emitChats();
+      }
     }
   }
 
-  async function open(manager: SessionManager, model?: Model): Promise<void> {
+  async function openSession(manager: SessionManager, model?: Model): Promise<void> {
     stopFollowing?.();
+    // Stopping a reply before leaving its chat lets Pi save what the reply has said so far.
+    await session?.abort();
     session?.dispose();
     const resourceLoader = new DefaultResourceLoader({
       cwd,
@@ -115,17 +145,17 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     isModelChosen = session.model !== undefined && created.modelFallbackMessage === undefined;
     isReplying = false;
     emit({ type: "state", state: getState() });
+    emitChats();
   }
 
-  const [recent] = (await SessionManager.list(cwd, sessionDirectory)).sort(
-    (first, second) => second.modified.getTime() - first.modified.getTime(),
-  );
+  const [recent] = await listSaved();
   if (recent !== undefined) {
-    await open(SessionManager.open(recent.path, sessionDirectory));
+    await openSession(SessionManager.open(recent.path, sessionDirectory));
   }
 
   return {
     getState,
+    getChats,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -150,11 +180,21 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         return false;
       }
       if (session === undefined) {
-        await open(SessionManager.create(cwd, sessionDirectory), model);
+        await openSession(SessionManager.create(cwd, sessionDirectory), model);
       } else {
         await session.setModel(model);
         isModelChosen = true;
         emit({ type: "state", state: getState() });
+      }
+      return true;
+    },
+    async open(id) {
+      const saved = (await listSaved()).find((candidate) => candidate.id === id);
+      if (saved === undefined) {
+        return false;
+      }
+      if (saved.id !== session?.sessionId) {
+        await openSession(SessionManager.open(saved.path, sessionDirectory));
       }
       return true;
     },
@@ -164,7 +204,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     async startNew() {
       const model = isModelChosen ? session?.model : undefined;
       if (model !== undefined) {
-        await open(SessionManager.create(cwd, sessionDirectory), model);
+        await openSession(SessionManager.create(cwd, sessionDirectory), model);
       }
     },
   };
@@ -182,13 +222,23 @@ function toChatMessage(message: AgentMessage): ChatMessage | undefined {
   if (message.role !== "assistant") {
     return undefined;
   }
-  const isCut = message.stopReason === "error" || message.stopReason === "aborted";
   return {
     role: "assistant",
     text: textOf(message.content),
-    error: isCut ? (message.errorMessage ?? "The reply stopped early.") : null,
+    error: errorOf(message),
     timestamp: message.timestamp,
   };
+}
+
+// Pi reports a stopped reply with a technical message, so the chat shows a plain sentence instead.
+function errorOf(message: Extract<AgentMessage, { role: "assistant" }>): string | null {
+  if (message.stopReason === "aborted") {
+    return "The reply was stopped.";
+  }
+  if (message.stopReason === "error") {
+    return message.errorMessage ?? "The reply stopped early.";
+  }
+  return null;
 }
 
 function textOf(content: MessageContent): string {

@@ -4,7 +4,7 @@ import type { ChatEvent, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
 import { streamEvents } from "./stream-events.ts";
 
-/** Creates the routes that list models and show, follow, and drive the chat. */
+/** Creates the routes that list models, show, follow, and drive the chat, and open saved chats. */
 export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
 
@@ -22,14 +22,18 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     });
   });
 
-  routes.get("/chat/events", (context) =>
-    streamEvents<ChatEvent>(
+  routes.get("/chat/events", async (context) => {
+    const chats = await chat.getChats();
+    return streamEvents<ChatEvent>(
       context,
-      [{ type: "state", state: chat.getState() }],
+      [
+        { type: "state", state: chat.getState() },
+        { type: "chats", chats },
+      ],
       chat.subscribe,
       () => false,
-    ),
-  );
+    );
+  });
 
   routes.post("/chat/messages", async (context) => {
     const body: { text?: unknown } = await context.req.json().catch(() => ({}));
@@ -55,6 +59,14 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       (await chat.chooseModel(body.providerId, body.modelId));
     if (!isChosen) {
       return context.json({ error: "That model is not available." }, 400);
+    }
+    return context.body(null, 204);
+  });
+
+  routes.post("/chat/open", async (context) => {
+    const body: { id?: unknown } = await context.req.json().catch(() => ({}));
+    if (typeof body.id !== "string" || !(await chat.open(body.id))) {
+      return context.json({ error: "No saved chat has that id." }, 404);
     }
     return context.body(null, 204);
   });

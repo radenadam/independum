@@ -5,6 +5,23 @@
   gap: 28px;
 }
 
+.chats {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .chats {
+    display: contents;
+  }
+
+  .outline {
+    display: none;
+  }
+}
+
 .model {
   margin: 0;
   font-size: 12px;
