@@ -71,6 +71,14 @@ export async function chooseModel(providerId: string, modelId: string): Promise<
   }
 }
 
+/** Opens a saved chat in place of the current one. */
+export async function openChat(id: string): Promise<void> {
+  const response = await requestApi("/api/chat/open", { body: { id } });
+  if (!response.ok) {
+    throw new Error("That chat could not be opened.");
+  }
+}
+
 /** Stops the reply in progress. */
 export async function stopReply(): Promise<void> {
   await requestApi("/api/chat/stop", { method: "POST" });

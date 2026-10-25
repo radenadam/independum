@@ -1,0 +1,11 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}

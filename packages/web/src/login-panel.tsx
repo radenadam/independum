@@ -65,12 +65,14 @@ export function LoginPanel({
 
   return (
     <section className={styles.panel} aria-label={`Sign in to ${provider.name}`}>
-      <HeadingRow>
-        <h2 className={styles.name}>
-          <span className={styles.pointer}>&gt;</span> {provider.name}
-        </h2>
-        <CommandButton shortcut="x" label="Close" onClick={onClose} isQuiet />
-      </HeadingRow>
+      <HeadingRow
+        heading={
+          <h2 className={styles.name}>
+            <span className={styles.pointer}>&gt;</span> {provider.name}
+          </h2>
+        }
+        command={<CommandButton shortcut="x" label="Close" onClick={onClose} isQuiet />}
+      />
       {events === undefined ? (
         <Options provider={provider} onBegin={begin} onChanged={onChanged} />
       ) : (

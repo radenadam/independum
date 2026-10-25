@@ -21,6 +21,11 @@
   transition: color 0.15s ease;
 }
 
+.compact {
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .entry:hover,
 .entry:focus-visible,
 .entry[aria-pressed="true"] {
@@ -45,6 +50,13 @@
 .name {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.compactName {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .leader {

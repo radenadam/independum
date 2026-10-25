@@ -29,7 +29,7 @@ export function ConnectScreen({
 
   return (
     <ScreenLayout
-      aside={<CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet isBack />}
+      margin={<CommandButton shortcut="b" label="Back" onClick={onDone} isQuiet isBack />}
     >
       <div className={styles.grid}>
         <div className={styles.head}>
