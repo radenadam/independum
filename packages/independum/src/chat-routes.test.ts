@@ -201,6 +201,27 @@ test("leaving a chat stops its reply and keeps what the reply said", async () =>
   expect(reply?.text.length).toBeLessThan(story.length);
 });
 
+test("a chat joins its project as soon as it is sent, before the reply", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  slow.setResponses([fauxAssistantMessage("A reply that takes its time to arrive.")]);
+  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  expect((await post("/chat/messages", { text: "List me at once" })).status).toBe(202);
+  let titles: string[] = [];
+  let event = await events.next();
+  while (event.type !== "message" || event.message.role !== "assistant") {
+    if (event.type === "projects") {
+      titles = event.projects.flatMap((project) => project.chats.map((chat) => chat.title));
+      if (titles.includes("List me at once")) {
+        break;
+      }
+    }
+    event = await events.next();
+  }
+  await events.close();
+  expect(titles).toContain("List me at once");
+  expect((await post("/chat/stop", {})).status).toBe(204);
+});
+
 test("chats from another folder form their own project and open in that folder", async () => {
   routes = await createRoutes(otherFolder);
   expect((await readStart()).state).toMatchObject({ folder: otherFolder, model: null });
