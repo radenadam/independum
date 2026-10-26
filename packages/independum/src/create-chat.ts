@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import {
   type AgentSession,
   type AgentSessionEvent,
@@ -9,7 +9,7 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import type { ChatEvent, ChatMessage, ChatState, ChatSummary } from "./api-types.ts";
+import type { ChatEvent, ChatMessage, ChatState, ProjectSummary } from "./api-types.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -28,23 +28,25 @@ export interface ChatOptions {
   cwd: string;
 }
 
-/** The current chat, which the API shows, follows, and drives, and the saved chats beside it. */
+/** The open chat, which the API shows, follows, and drives, and the projects with their chats. */
 export interface Chat {
   getState(): ChatState;
-  getChats(): Promise<ChatSummary[]>;
+  getProjects(): Promise<ProjectSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
-  startNew(): Promise<void>;
+  startNew(folder?: string): Promise<boolean>;
 }
 
-/** Reopens the most recent chat, or waits for the user to choose a model before starting one. */
+/** Reopens the latest chat of the folder Independum starts from, or starts an empty one there. */
 export async function createChat({ models, directory, cwd }: ChatOptions): Promise<Chat> {
   const sessionDirectory = join(directory, "sessions");
+  const startFolder = toFolder(cwd);
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
+  let folder = startFolder;
   let stopFollowing: (() => void) | undefined;
   let isModelChosen = false;
   let isReplying = false;
@@ -59,6 +61,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     const model = isModelChosen ? session?.model : undefined;
     return {
       id: session?.sessionId ?? null,
+      folder,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
       messages: (session?.messages ?? []).flatMap((message) => {
         const shown = toChatMessage(message);
@@ -69,19 +72,38 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   }
 
   function listSaved(): Promise<SessionInfo[]> {
-    return SessionManager.list(cwd, sessionDirectory);
+    return SessionManager.listAll(sessionDirectory);
   }
 
-  async function getChats(): Promise<ChatSummary[]> {
-    return (await listSaved()).map((saved) => ({
-      id: saved.id,
-      title: saved.name ?? saved.firstMessage,
-      modified: saved.modified.getTime(),
-    }));
+  function folderOf(saved: SessionInfo): string {
+    return saved.cwd === "" ? startFolder : toFolder(saved.cwd);
   }
 
-  function emitChats(): void {
-    getChats().then((chats) => emit({ type: "chats", chats }));
+  // The start folder comes first even without chats, so a new chat can always begin there. The
+  // other projects follow in the order of their newest chat, because Pi lists chats newest first.
+  async function getProjects(): Promise<ProjectSummary[]> {
+    const projects = new Map<string, ProjectSummary>([
+      [startFolder, { folder: startFolder, name: basename(startFolder), chats: [] }],
+    ]);
+    for (const saved of await listSaved()) {
+      const savedFolder = folderOf(saved);
+      const project = projects.get(savedFolder) ?? {
+        folder: savedFolder,
+        name: basename(savedFolder),
+        chats: [],
+      };
+      project.chats.push({
+        id: saved.id,
+        title: saved.name ?? saved.firstMessage,
+        modified: saved.modified.getTime(),
+      });
+      projects.set(savedFolder, project);
+    }
+    return [...projects.values()];
+  }
+
+  function emitProjects(): void {
+    getProjects().then((projects) => emit({ type: "projects", projects }));
   }
 
   function setReplying(value: boolean): void {
@@ -89,14 +111,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     emit({ type: "replying", isReplying });
   }
 
-  // Pi saves a chat with its first message and touches it again after every reply, so the chat
-  // list follows both.
+  // Pi saves a chat with its first message and touches it again after every reply, so the projects
+  // follow both.
   function follow(event: AgentSessionEvent): void {
     if (event.type === "agent_start") {
       setReplying(true);
     } else if (event.type === "agent_settled") {
       setReplying(false);
-      emitChats();
+      emitProjects();
     } else if (
       event.type === "message_update" &&
       event.assistantMessageEvent.type === "text_delta"
@@ -108,18 +130,31 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         emit({ type: "message", message });
       }
       if (event.message.role === "user") {
-        emitChats();
+        emitProjects();
       }
     }
   }
 
-  async function openSession(manager: SessionManager, model?: Model): Promise<void> {
+  function openSaved(saved: SessionInfo): Promise<void> {
+    return openSession(SessionManager.open(saved.path, sessionDirectory), folderOf(saved), true);
+  }
+
+  function openNew(newFolder: string, model?: Model): Promise<void> {
+    return openSession(SessionManager.create(newFolder, sessionDirectory), newFolder, false, model);
+  }
+
+  async function openSession(
+    manager: SessionManager,
+    sessionFolder: string,
+    isSaved: boolean,
+    model?: Model,
+  ): Promise<void> {
     stopFollowing?.();
     // Stopping a reply before leaving its chat lets Pi save what the reply has said so far.
     await session?.abort();
     session?.dispose();
     const resourceLoader = new DefaultResourceLoader({
-      cwd,
+      cwd: sessionFolder,
       agentDir: directory,
       systemPrompt,
       noExtensions: true,
@@ -130,7 +165,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     });
     await resourceLoader.reload();
     const created = await createAgentSession({
-      cwd,
+      cwd: sessionFolder,
       agentDir: directory,
       modelRuntime: models,
       resourceLoader,
@@ -140,22 +175,25 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       ...(model === undefined ? {} : { model }),
     });
     session = created.session;
+    folder = sessionFolder;
     stopFollowing = session.subscribe(follow);
-    // Pi picks a provider default when a saved model has lost its login, which the user never chose.
-    isModelChosen = session.model !== undefined && created.modelFallbackMessage === undefined;
+    // Pi picks a provider default for a new chat without a model, and for a saved chat whose model
+    // has lost its login. The user chose neither.
+    isModelChosen =
+      session.model !== undefined &&
+      created.modelFallbackMessage === undefined &&
+      (model !== undefined || isSaved);
     isReplying = false;
     emit({ type: "state", state: getState() });
-    emitChats();
+    emitProjects();
   }
 
-  const [recent] = await listSaved();
-  if (recent !== undefined) {
-    await openSession(SessionManager.open(recent.path, sessionDirectory));
-  }
+  const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
+  await (latest === undefined ? openNew(startFolder) : openSaved(latest));
 
   return {
     getState,
-    getChats,
+    getProjects,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -176,16 +214,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     },
     async chooseModel(providerId, modelId) {
       const model = models.getModel(providerId, modelId);
-      if (model === undefined || !models.hasConfiguredAuth(model.provider)) {
+      if (
+        session === undefined ||
+        model === undefined ||
+        !models.hasConfiguredAuth(model.provider)
+      ) {
         return false;
       }
-      if (session === undefined) {
-        await openSession(SessionManager.create(cwd, sessionDirectory), model);
-      } else {
-        await session.setModel(model);
-        isModelChosen = true;
-        emit({ type: "state", state: getState() });
-      }
+      await session.setModel(model);
+      isModelChosen = true;
+      emit({ type: "state", state: getState() });
       return true;
     },
     async open(id) {
@@ -194,20 +232,28 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         return false;
       }
       if (saved.id !== session?.sessionId) {
-        await openSession(SessionManager.open(saved.path, sessionDirectory));
+        await openSaved(saved);
       }
       return true;
     },
     async stop() {
       await session?.abort();
     },
-    async startNew() {
-      const model = isModelChosen ? session?.model : undefined;
-      if (model !== undefined) {
-        await openSession(SessionManager.create(cwd, sessionDirectory), model);
+    async startNew(newFolder) {
+      const target = newFolder === undefined ? folder : toFolder(newFolder);
+      const projects = await getProjects();
+      if (!projects.some((project) => project.folder === target)) {
+        return false;
       }
+      await openNew(target, isModelChosen ? session?.model : undefined);
+      return true;
     },
   };
+}
+
+// Windows paths can carry the drive letter in either case, so one folder could look like two.
+function toFolder(path: string): string {
+  return resolve(path).replace(/^[a-z]:/, (drive) => drive.toUpperCase());
 }
 
 function toChatMessage(message: AgentMessage): ChatMessage | undefined {

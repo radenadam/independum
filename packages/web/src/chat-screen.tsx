@@ -2,8 +2,8 @@ import type {
   ChatEvent,
   ChatMessage,
   ChatState,
-  ChatSummary,
   ModelSummary,
+  ProjectSummary,
 } from "independum/api-types";
 import { type KeyboardEvent, type ReactElement, useCallback, useEffect, useState } from "react";
 import {
@@ -37,7 +37,7 @@ interface ChatScreenProps {
 /** Draws the chat with its messages and models, and the saved chats in the margin. */
 export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): ReactElement {
   const [chat, setChat] = useState<ChatState | undefined>();
-  const [chats, setChats] = useState<ChatSummary[] | undefined>();
+  const [projects, setProjects] = useState<ProjectSummary[] | undefined>();
   const [reply, setReply] = useState("");
   const [connection, setConnection] = useState<ChatConnection>("following");
   const [models, setModels] = useState<ModelSummary[] | undefined>();
@@ -53,8 +53,8 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
     loadModels();
     return followChat(
       (event) => {
-        if (event.type === "chats") {
-          setChats(event.chats);
+        if (event.type === "projects") {
+          setProjects(event.projects);
         }
         applyEvent(event, setChat);
         if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
@@ -71,6 +71,7 @@ export function ChatScreen({ onManageLogins, onExpiredLink }: ChatScreenProps): 
   const shown: View =
     view === "chats" || (view === "chat" && chat?.model !== null) ? view : "models";
   const messageCount = chat?.messages.length ?? 0;
+  const chats = projects?.find((project) => project.folder === chat?.folder)?.chats;
 
   // Keeps the newest message in view, and puts the cursor in the message field when a keyboard is
   // likely.

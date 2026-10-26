@@ -1,17 +1,29 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
-import type { ChatEvent, ChatMessage, ChatState, ChatSummary, ModelSummary } from "./api-types.ts";
+import type {
+  ChatEvent,
+  ChatMessage,
+  ChatState,
+  ModelSummary,
+  ProjectSummary,
+} from "./api-types.ts";
 import { createChatRoutes } from "./chat-routes.ts";
 import { createChat } from "./create-chat.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
-afterAll(() => rmSync(directory, { recursive: true, force: true }));
+const startFolder = resolve(mkdtempSync(join(tmpdir(), "independum-start-")));
+const otherFolder = resolve(mkdtempSync(join(tmpdir(), "independum-other-")));
+afterAll(() => {
+  for (const folder of [directory, startFolder, otherFolder]) {
+    rmSync(folder, { recursive: true, force: true });
+  }
+});
 const models = await createModelRuntime(directory);
 const faux = fauxProvider({ provider: "faux", models: [{ id: "faux-model", name: "Faux model" }] });
 const slow = fauxProvider({
@@ -25,21 +37,28 @@ await models.setRuntimeApiKey("faux", "test-key");
 await models.setRuntimeApiKey("faux-slow", "test-key");
 const json = { "content-type": "application/json" };
 
-async function createRoutes(): Promise<Hono> {
-  return createChatRoutes(await createChat({ models, directory, cwd: directory }), models);
+async function createRoutes(cwd: string): Promise<Hono> {
+  return createChatRoutes(await createChat({ models, directory, cwd }), models);
 }
 
-let routes = await createRoutes();
+let routes = await createRoutes(startFolder);
 
-async function readStart(): Promise<{ state: ChatState; chats: ChatSummary[] }> {
+async function readStart(): Promise<{ state: ChatState; projects: ProjectSummary[] }> {
   const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
   const first = await events.next();
   const second = await events.next();
   await events.close();
-  if (first.type !== "state" || second.type !== "chats") {
-    throw new Error("The chat did not start with its state and its list.");
+  if (first.type !== "state" || second.type !== "projects") {
+    throw new Error("The chat did not start with its state and its projects.");
   }
-  return { state: first.state, chats: second.chats };
+  return { state: first.state, projects: second.projects };
+}
+
+async function readTitles(folder: string): Promise<string[]> {
+  const { projects } = await readStart();
+  return (
+    projects.find((project) => project.folder === folder)?.chats.map((chat) => chat.title) ?? []
+  );
 }
 
 function post(path: string, body: unknown): Promise<Response> {
@@ -75,8 +94,8 @@ async function sendAndReadReply(text: string): Promise<{ deltas: string[]; reply
 }
 
 async function openSaved(title: string): Promise<Response> {
-  const { chats } = await readStart();
-  const saved = chats.find((chat) => chat.title === title);
+  const { projects } = await readStart();
+  const saved = projects.flatMap((project) => project.chats).find((chat) => chat.title === title);
   return post("/chat/open", { id: saved?.id ?? "no-such-chat" });
 }
 
@@ -88,11 +107,15 @@ test("models lists the models of every provider with a login", async () => {
   );
 });
 
-test("a chat waits for a chosen model before it takes a message", async () => {
-  expect(await readStart()).toEqual({
-    state: { id: null, model: null, messages: [], isReplying: false },
-    chats: [],
+test("an empty chat starts in the start folder and waits for a chosen model", async () => {
+  const { state, projects } = await readStart();
+  expect(state).toMatchObject({
+    folder: startFolder,
+    model: null,
+    messages: [],
+    isReplying: false,
   });
+  expect(projects).toEqual([{ folder: startFolder, name: basename(startFolder), chats: [] }]);
   expect((await post("/chat/messages", { text: "Hello" })).status).toBe(409);
   expect((await chooseModel("faux", "no-such-model")).status).toBe(400);
 });
@@ -118,7 +141,7 @@ test("a failed reply carries the provider's error", async () => {
 });
 
 test("the last chat reopens with its model after a restart", async () => {
-  routes = await createRoutes();
+  routes = await createRoutes(startFolder);
   const { state } = await readStart();
   expect(state.model).toEqual({ providerId: "faux", id: "faux-model" });
   expect(state.messages.map((message) => message.text)).toEqual([
@@ -129,36 +152,35 @@ test("the last chat reopens with its model after a restart", async () => {
   ]);
 });
 
-test("a new chat starts empty with the same model and stays out of the list", async () => {
-  expect((await routes.request("/chat/new", { method: "POST" })).status).toBe(204);
-  const { state, chats } = await readStart();
+test("a new chat starts empty with the same model and stays out of its project", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  const { state } = await readStart();
   expect(state).toMatchObject({
+    folder: startFolder,
     model: { providerId: "faux", id: "faux-model" },
     messages: [],
     isReplying: false,
   });
-  expect(chats.map((chat) => chat.title)).toEqual(["Hello"]);
-  expect(chats[0]?.id).not.toBe(state.id);
+  expect(await readTitles(startFolder)).toEqual(["Hello"]);
 });
 
-test("a chat joins the top of the list with its first message", async () => {
+test("a chat joins the top of its project with its first message", async () => {
   faux.setResponses([fauxAssistantMessage("A second reply.")]);
   await sendAndReadReply("A second chat");
-  const { state, chats } = await readStart();
-  expect(chats.map((chat) => chat.title)).toEqual(["A second chat", "Hello"]);
-  expect(chats[0]?.id).toBe(state.id);
+  const { state, projects } = await readStart();
+  expect(await readTitles(startFolder)).toEqual(["A second chat", "Hello"]);
+  expect(projects[0]?.chats[0]?.id).toBe(state.id);
 });
 
 test("opening a saved chat shows its messages", async () => {
   expect((await openSaved("Hello")).status).toBe(204);
-  const { state, chats } = await readStart();
-  expect(state.id).toBe(chats.find((chat) => chat.title === "Hello")?.id);
+  const { state } = await readStart();
   expect(state.messages[0]?.text).toBe("Hello");
   expect((await openSaved("No such chat")).status).toBe(404);
 });
 
 test("leaving a chat stops its reply and keeps what the reply said", async () => {
-  expect((await routes.request("/chat/new", { method: "POST" })).status).toBe(204);
+  expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux-slow", "slow-model")).status).toBe(204);
   const story = "Once upon a time there was a reply that was far too long to finish.";
   slow.setResponses([fauxAssistantMessage(story)]);
@@ -169,7 +191,7 @@ test("leaving a chat stops its reply and keeps what the reply said", async () =>
     event = await events.next();
   }
   await events.close();
-  expect((await routes.request("/chat/new", { method: "POST" })).status).toBe(204);
+  expect((await post("/chat/new", {})).status).toBe(204);
   expect((await openSaved("Tell a story")).status).toBe(204);
   const reply = (await readStart()).state.messages.at(-1);
   expect(reply?.role).toBe("assistant");
@@ -177,4 +199,31 @@ test("leaving a chat stops its reply and keeps what the reply said", async () =>
   expect(reply?.text).not.toBe("");
   expect(story.startsWith(reply?.text ?? "")).toBe(true);
   expect(reply?.text.length).toBeLessThan(story.length);
+});
+
+test("chats from another folder form their own project and open in that folder", async () => {
+  routes = await createRoutes(otherFolder);
+  expect((await readStart()).state).toMatchObject({ folder: otherFolder, model: null });
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  faux.setResponses([fauxAssistantMessage("A reply in another folder.")]);
+  await sendAndReadReply("A chat in another folder");
+
+  routes = await createRoutes(startFolder);
+  const { state, projects } = await readStart();
+  expect(state.folder).toBe(startFolder);
+  expect(projects.map((project) => project.name)).toEqual([
+    basename(startFolder),
+    basename(otherFolder),
+  ]);
+  expect((await openSaved("A chat in another folder")).status).toBe(204);
+  expect((await readStart()).state.folder).toBe(otherFolder);
+});
+
+test("a new chat starts in a chosen project, and only in a project", async () => {
+  expect((await post("/chat/new", { folder: startFolder })).status).toBe(204);
+  expect((await readStart()).state.folder).toBe(startFolder);
+  expect((await post("/chat/new", { folder: otherFolder })).status).toBe(204);
+  expect((await readStart()).state.folder).toBe(otherFolder);
+  expect((await post("/chat/new", { folder: tmpdir() })).status).toBe(400);
+  expect((await post("/chat/new", { folder: 5 })).status).toBe(400);
 });

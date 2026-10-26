@@ -4,7 +4,7 @@ import type { ChatEvent, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
 import { streamEvents } from "./stream-events.ts";
 
-/** Creates the routes that list models, show, follow, and drive the chat, and open saved chats. */
+/** Creates the routes that list models, show, follow, and drive the chat, and open other chats. */
 export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
 
@@ -23,12 +23,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   });
 
   routes.get("/chat/events", async (context) => {
-    const chats = await chat.getChats();
+    const projects = await chat.getProjects();
     return streamEvents<ChatEvent>(
       context,
       [
         { type: "state", state: chat.getState() },
-        { type: "chats", chats },
+        { type: "projects", projects },
       ],
       chat.subscribe,
       () => false,
@@ -77,7 +77,14 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   });
 
   routes.post("/chat/new", async (context) => {
-    await chat.startNew();
+    const body: { folder?: unknown } = await context.req.json().catch(() => ({}));
+    const folder = typeof body.folder === "string" ? body.folder : undefined;
+    if (body.folder !== undefined && folder === undefined) {
+      return context.json({ error: "A folder is a path." }, 400);
+    }
+    if (!(await chat.startNew(folder))) {
+      return context.json({ error: "That folder is not a project." }, 400);
+    }
     return context.body(null, 204);
   });
 
