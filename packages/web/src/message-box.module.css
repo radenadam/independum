@@ -1,0 +1,107 @@
+.area {
+  flex: none;
+  padding: 0 24px 14px;
+}
+
+.frame {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 10px 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 2px 10px var(--shadow);
+}
+
+.field {
+  min-height: 48px;
+  max-height: 40dvh;
+  padding: 0 6px 0 0;
+  border: 0;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: none;
+  field-sizing: content;
+}
+
+.field::placeholder {
+  color: var(--muted);
+}
+
+.field:focus {
+  outline: none;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.anchor {
+  position: relative;
+  min-width: 0;
+  display: flex;
+}
+
+.space {
+  flex: 1;
+}
+
+.pill {
+  min-width: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 13px / 1 var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pill:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+.pill[aria-expanded="true"] {
+  background: var(--raised);
+  color: var(--signal);
+}
+
+.under {
+  display: flex;
+  align-items: center;
+  padding: 8px 4px 0;
+}
+
+.folder {
+  height: 28px;
+  font: 12px / 1 var(--font-mono);
+}
+
+.still,
+.still:hover {
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .area {
+    padding: 0 12px 10px;
+  }
+}

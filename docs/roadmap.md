@@ -6,11 +6,12 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The working screen from decision 0016, built in steps:
 
-- Foundations: the new color tokens, the icon set, tooltips, shortcuts, and provider logos.
-- The sidebar, the chat with formatted and typed replies, and the message box with its model and folder menus.
-- The side panel with tabs and the Agent place.
-- The settings dialog with logins and appearance.
-- The phone layout, and real typing on the welcome screen.
+- Replies formatted from Markdown with copy buttons, and the thinking label and the replies typed in at a steady pace.
+- Provider logos in the model menu and on the model button.
+- The side panel with tabs and the Agent place, which covers the whole screen on a phone.
+- The settings dialog with logins and appearance, opened from Settings in place of the login screen.
+- The model list as a sheet from the bottom on a phone.
+- Real typing on the welcome screen.
 
 ## Next
 

@@ -84,7 +84,12 @@ export async function stopReply(): Promise<void> {
   await requestApi("/api/chat/stop", { method: "POST" });
 }
 
-/** Starts an empty chat with the same model. */
-export async function startNewChat(): Promise<void> {
-  await requestApi("/api/chat/new", { method: "POST" });
+/** Starts an empty chat with the same model, in the folder of the open chat or in another project. */
+export async function startNewChat(folder?: string): Promise<void> {
+  const response = await requestApi("/api/chat/new", {
+    body: folder === undefined ? {} : { folder },
+  });
+  if (!response.ok) {
+    throw new Error("The new chat could not start.");
+  }
 }

@@ -1,0 +1,135 @@
+.screen {
+  position: relative;
+  height: 100dvh;
+  display: flex;
+  overflow: clip;
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+.scrim {
+  display: none;
+}
+
+.main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  flex: none;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 12px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 6px;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* An empty chat sits in the middle of the screen, and its first message glides it down. */
+.above,
+.below {
+  flex: 0 1 0px;
+  min-height: 0;
+}
+
+.messages {
+  flex: 1 1 0px;
+  min-height: 0;
+}
+
+.main[data-empty="true"] .above {
+  flex-grow: 1;
+}
+
+.main[data-empty="true"] .below {
+  flex-grow: 1.4;
+}
+
+.main[data-empty="true"] .messages {
+  flex-grow: 0;
+}
+
+.greeting {
+  flex: none;
+  max-height: 0;
+  overflow: clip;
+  opacity: 0;
+}
+
+.main[data-empty="true"] .greeting {
+  max-height: 90px;
+  opacity: 1;
+}
+
+.question {
+  margin: 0;
+  padding: 0 24px 28px;
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.notice,
+.status {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.notice {
+  color: var(--signal);
+}
+
+.status {
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: var(--scrim);
+  }
+
+  .question {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .above,
+  .below,
+  .messages {
+    transition: flex-grow 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .greeting {
+    transition:
+      max-height 320ms ease,
+      opacity 200ms ease;
+  }
+}

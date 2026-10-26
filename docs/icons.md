@@ -22,7 +22,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 
 - Icons draw in `currentColor`, so they take the text color of their button.
 - An icon turns orange, the `--signal` token, while its item is selected or open, such as the open project, the active tab, or an open menu. The drawing stays the same outline.
-- An icon has one color. The only filled orange shape is the send button behind its arrow.
+- An icon has one color. The only filled orange shape is the send button, behind its arrow or its stop box.
 
 ## Shapes
 
@@ -38,8 +38,9 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Menu | A chevron that points down. |
 | Add | A plus. |
 | Send | An arrow that points up. |
+| Stop | A small box, in the send button while a reply runs. |
 | Copy | Two overlapping boxes. |
-| Copied | A check. |
+| Check | A check, for copied text and for the chosen item in a menu. |
 | Close | An X. |
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
@@ -48,6 +49,6 @@ A new icon reuses these shapes where it can, so the set stays small and consiste
 
 ## Building icons
 
-- Each icon is an inline SVG with a `viewBox` of `0 0 24 24`, no fill, a `currentColor` stroke 1.75 wide, butt caps, and miter joins.
+- Each icon is an inline SVG with a `viewBox` of `0 0 24 24`, no fill, a `currentColor` stroke 1.75 wide, butt caps, and miter joins. The `Icon` component in `packages/web/src/icon.tsx` draws them, and a new icon is added there.
 - An icon is decoration, so it is marked `aria-hidden`. The button that holds it carries the name, and its tooltip shows the name and the shortcut.
 - Icons ship with Independum, never from an icon font or the network.

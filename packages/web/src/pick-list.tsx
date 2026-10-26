@@ -14,34 +14,24 @@ interface PickListProps {
   entries: PickListEntry[];
   pickedId: string | undefined;
   onPick: (id: string) => void;
-  isCompact?: boolean;
 }
 
-/**
- * Draws a numbered list of entries joined to their details by dotted leaders, with each name on
- * one line when the list is compact.
- */
-export function PickList({
-  entries,
-  pickedId,
-  onPick,
-  isCompact = false,
-}: PickListProps): ReactElement {
+/** Draws a numbered list of entries joined to their details by dotted leaders. */
+export function PickList({ entries, pickedId, onPick }: PickListProps): ReactElement {
   return (
     <ol className={styles.entries}>
       {entries.map((entry, index) => (
         <li key={entry.id}>
           <button
             type="button"
-            className={isCompact ? `${styles.entry} ${styles.compact}` : styles.entry}
+            className={styles.entry}
             aria-pressed={entry.id === pickedId}
-            title={isCompact ? entry.name : undefined}
             onClick={() => onPick(entry.id)}
           >
             <span className={styles.marker}>
               {entry.id === pickedId ? ">" : String(index + 1).padStart(2, "0")}
             </span>
-            <span className={isCompact ? styles.compactName : styles.name}>{entry.name}</span>
+            <span className={styles.name}>{entry.name}</span>
             {entry.detail === undefined ? null : (
               <>
                 <span className={styles.leader} aria-hidden="true" />

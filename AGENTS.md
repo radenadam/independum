@@ -127,9 +127,10 @@ To review a Pi update with the maintainer:
 - Every screen works with touch on a phone screen 360 pixels wide.
 - The design follows decision 0009. Colors and fonts are tokens in `packages/web/src/theme.css`, and every other stylesheet uses the tokens instead of raw colors.
 - A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
-- Actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too. Their labels use sentence case. Field labels, the top bar, and the theme switch use lowercase.
+- On the working screen, actions are icons in an `IconButton`, whose tooltip shows the action and its shortcut. Shortcuts live in `packages/web/src/shortcut.ts` and use Ctrl, or Cmd on a Mac, so they work while the user types.
+- On the welcome and login screens, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too. A command that returns to the previous screen sets `isBack`, so its arrow points back.
+- Action labels use sentence case. On the welcome and login screens, field labels, the top bar, and the theme switch use lowercase.
 - Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its table of shapes.
-- A command that returns to the previous screen sets `isBack`, so its arrow points back.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.

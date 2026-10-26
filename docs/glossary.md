@@ -11,7 +11,6 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. Its place in the side panel shows all of it. | "bot", "assistant", "AI" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation", "session" |
-| Chat list | The saved chats of the current folder, newest first. | "history", "sessions", "inbox" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |

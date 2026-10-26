@@ -1,0 +1,105 @@
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.heading {
+  margin: 0;
+  padding: 12px 10px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.choice {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--raised);
+}
+
+.choice[aria-current="true"] {
+  background: var(--signal-soft);
+  color: var(--signal);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 10px;
+}
+
+.row {
+  min-height: 38px;
+}
+
+.row .text {
+  align-items: baseline;
+}
+
+.stacked {
+  min-height: 42px;
+}
+
+.stacked .text {
+  flex-direction: column;
+  gap: 0;
+}
+
+.name {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.detail {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stacked .detail {
+  font-size: 11px;
+}
+
+/* A long id gives way before the name does. */
+.row .name {
+  flex: 1 0 auto;
+  max-width: 65%;
+}
+
+.row .detail {
+  flex: 0 1 auto;
+}
+
+.check {
+  flex: none;
+  width: 16px;
+  display: flex;
+  color: var(--signal);
+}
+
+.note {
+  margin: 0;
+  padding: 12px 10px;
+  font-size: 14px;
+  color: var(--muted);
+}

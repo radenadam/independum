@@ -1,0 +1,124 @@
+.scroller {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* The side padding comes on top of the width, so the messages line up with the message box. */
+.messages {
+  max-width: 808px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  list-style: none;
+}
+
+.user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 80%;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: var(--bubble);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reply {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--signal);
+}
+
+.thinking {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.raven {
+  display: flex;
+  color: var(--signal);
+  font-size: 15px;
+}
+
+.caret {
+  display: inline-block;
+  width: 0.5ch;
+  height: 1.05em;
+  margin-left: 1px;
+  background: var(--signal);
+  vertical-align: text-bottom;
+}
+
+.spacer {
+  flex: none;
+}
+
+@media (max-width: 760px) {
+  .messages {
+    padding: 16px 16px 24px;
+  }
+
+  .bubble {
+    max-width: 88%;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .new {
+    animation: rise 200ms ease-out both;
+  }
+
+  .raven {
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  .caret {
+    animation: blink 1s steps(1) infinite;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}
