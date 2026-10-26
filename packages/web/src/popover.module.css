@@ -31,16 +31,23 @@
   color: var(--muted);
 }
 
+/* A pop-up beside its button sits centered on it, moved by the shift that keeps it on the screen. */
+.above,
+.below {
+  left: 50%;
+  translate: calc(var(--shift, 0px) - 50%) 0;
+}
+
 .above {
   bottom: calc(100% + 8px);
   max-height: min(420px, 55dvh);
-  transform-origin: bottom left;
+  transform-origin: bottom center;
 }
 
 .below {
   top: calc(100% + 6px);
   max-height: min(380px, 40dvh);
-  transform-origin: top left;
+  transform-origin: top center;
 }
 
 .atPoint {
@@ -92,6 +99,7 @@
     left: 0;
     width: 100%;
     max-height: 70dvh;
+    translate: none;
   }
 }
 

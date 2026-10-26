@@ -31,7 +31,7 @@
 }
 
 .choice[aria-pressed="true"] {
-  background: var(--surface);
+  background: var(--signal-soft);
   color: var(--signal);
 }
 
