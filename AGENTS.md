@@ -92,6 +92,7 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 - Paths are built with `node:path`, never by joining strings with separators.
 - Package scripts run unchanged on Windows, macOS, and Linux. They use no `rm`, no `cp`, no inline environment variables, and no `&`.
 - A new dependency must be maintained, work on all three systems, and have no lighter alternative already in the repository.
+- A dependency uses a version that is at least a day old, the minimum release age that pnpm enforces. Never relax that age in `pnpm-workspace.yaml`, because it gives the registry time to pull a compromised release. `pnpm check` enforces it through `scripts/check-release-age.ts`.
 
 ## Security
 
