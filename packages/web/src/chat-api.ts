@@ -80,6 +80,14 @@ export async function chooseModel(providerId: string, modelId: string): Promise<
   }
 }
 
+/** Chooses how much the model of the chat thinks before it answers. */
+export async function chooseThinking(level: string): Promise<void> {
+  const response = await requestApi("/api/chat/thinking", { method: "PUT", body: { level } });
+  if (!response.ok) {
+    throw new Error("That thinking level is not available.");
+  }
+}
+
 /** Opens a saved chat in place of the current one. */
 export async function openChat(id: string): Promise<void> {
   const response = await requestApi("/api/chat/open", { body: { id } });

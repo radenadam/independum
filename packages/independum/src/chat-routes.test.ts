@@ -26,7 +26,13 @@ afterAll(() => {
   }
 });
 const models = await createModelRuntime(directory);
-const faux = fauxProvider({ provider: "faux", models: [{ id: "faux-model", name: "Faux model" }] });
+const faux = fauxProvider({
+  provider: "faux",
+  models: [
+    { id: "faux-model", name: "Faux model" },
+    { id: "faux-thinker", name: "Faux thinker", reasoning: true },
+  ],
+});
 const slow = fauxProvider({
   provider: "faux-slow",
   models: [{ id: "slow-model", name: "Slow model" }],
@@ -267,4 +273,24 @@ test("the agent shows its prompts, its tools, and the last request it sent", asy
   await sendAndReadReply("Show the request");
   const after = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(after.lastRequest).toEqual({ sent: "the exact request" });
+});
+
+test("a model that thinks offers its thinking levels, and the chat keeps the chosen one", async () => {
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  expect((await readStart()).state.thinking).toBeNull();
+  expect((await chooseModel("faux", "faux-thinker")).status).toBe(204);
+  const offered = (await readStart()).state.thinking;
+  expect(offered?.levels).toContain("high");
+  const choose = (level: unknown): Promise<Response> =>
+    Promise.resolve(
+      routes.request("/chat/thinking", {
+        method: "PUT",
+        headers: json,
+        body: JSON.stringify({ level }),
+      }),
+    );
+  expect((await choose("high")).status).toBe(204);
+  expect((await readStart()).state.thinking?.level).toBe("high");
+  expect((await choose("as hard as possible")).status).toBe(400);
+  expect((await choose(5)).status).toBe(400);
 });

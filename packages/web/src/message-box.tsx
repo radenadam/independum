@@ -1,5 +1,6 @@
 import type { ChatState, ModelSummary, ProjectSummary } from "independum/api-types";
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
+import { describeThinking } from "./describe-thinking.ts";
 import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
@@ -9,11 +10,16 @@ import { ModelMenu } from "./model-menu.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
+import { ThinkingMenu } from "./thinking-menu.tsx";
+
+/** A menu that opens from the message box. */
+type Menu = "model" | "thinking" | "folder";
 
 /** Properties of the message box. */
 interface MessageBoxProps {
   chatId: string | null;
   model: ChatState["model"];
+  thinking: ChatState["thinking"];
   models: ModelSummary[] | undefined;
   folder: string;
   projects: ProjectSummary[];
@@ -23,6 +29,7 @@ interface MessageBoxProps {
   onStop: () => void;
   onOpenModels: () => void;
   onChooseModel: (model: ModelSummary) => void;
+  onChooseThinking: (level: string) => void;
   onChooseFolder: (folder: string) => void;
   onManageLogins: () => void;
 }
@@ -34,6 +41,7 @@ interface MessageBoxProps {
 export function MessageBox({
   chatId,
   model,
+  thinking,
   models,
   folder,
   projects,
@@ -43,11 +51,12 @@ export function MessageBox({
   onStop,
   onOpenModels,
   onChooseModel,
+  onChooseThinking,
   onChooseFolder,
   onManageLogins,
 }: MessageBoxProps): ReactElement {
   const [draft, setDraft] = useState("");
-  const [menu, setMenu] = useState<"model" | "folder" | undefined>();
+  const [menu, setMenu] = useState<Menu | undefined>();
   const field = useRef<HTMLTextAreaElement>(null);
   const isReady = draft.trim() !== "" && model !== null && !isReplying;
   const modelName =
@@ -65,7 +74,7 @@ export function MessageBox({
     }
   }, [chatId]);
 
-  function toggleMenu(next: "model" | "folder"): void {
+  function toggleMenu(next: Menu): void {
     if (next === "model" && menu !== "model") {
       onOpenModels();
     }
@@ -144,6 +153,39 @@ export function MessageBox({
                 </Popover>
               ) : null}
             </span>
+            {thinking === null ? null : (
+              <span className={styles.anchor}>
+                <button
+                  type="button"
+                  className={styles.pill}
+                  aria-expanded={menu === "thinking"}
+                  aria-label={`Thinking effort, ${describeThinking(thinking.level)}`}
+                  onClick={() => toggleMenu("thinking")}
+                >
+                  <span className={styles.meter} aria-hidden="true">
+                    {thinking.levels.slice(1).map((level, index) => (
+                      <span
+                        key={level}
+                        className={styles.bar}
+                        data-on={index < thinking.levels.indexOf(thinking.level)}
+                      />
+                    ))}
+                  </span>
+                  {describeThinking(thinking.level)}
+                  <Icon name="menu" size={14} />
+                </button>
+                {menu === "thinking" ? (
+                  <Popover
+                    label="Thinking effort"
+                    note="More effort lets the model think longer before it answers, and uses more tokens."
+                    side={isEmpty ? "below" : "above"}
+                    onClose={() => setMenu(undefined)}
+                  >
+                    <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
+                  </Popover>
+                ) : null}
+              </span>
+            )}
             <span className={styles.space} />
             {isReplying ? (
               <IconButton
@@ -185,7 +227,12 @@ export function MessageBox({
                 <Icon name="menu" size={13} />
               </button>
               {menu === "folder" ? (
-                <Popover label="Choose the folder" side="below" onClose={() => setMenu(undefined)}>
+                <Popover
+                  label="Choose the folder"
+                  side="below"
+                  note="Opening another folder comes later."
+                  onClose={() => setMenu(undefined)}
+                >
                   <FolderMenu
                     projects={projects}
                     folder={folder}

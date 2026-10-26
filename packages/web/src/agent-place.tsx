@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import styles from "./agent-place.module.css";
 import { fetchAgent } from "./chat-api.ts";
 import { CopyButton } from "./copy-button.tsx";
+import { describeThinking } from "./describe-thinking.ts";
 import { Icon } from "./icon.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
@@ -59,6 +60,11 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
               {current?.providerName ?? chat.model.providerId},{" "}
               <code className={styles.id}>{chat.model.id}</code>
             </p>
+            {chat.thinking === null ? null : (
+              <p className={styles.detail}>
+                Thinking effort: {describeThinking(chat.thinking.level)}
+              </p>
+            )}
           </>
         )}
       </PlaceSection>
