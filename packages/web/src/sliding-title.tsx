@@ -1,4 +1,4 @@
-import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
 import styles from "./sliding-title.module.css";
 
 /** Properties of a sliding title. */
@@ -13,7 +13,8 @@ interface SlidingTitleProps {
 export function SlidingTitle({ text }: SlidingTitleProps): ReactElement {
   const frame = useRef<HTMLSpanElement>(null);
   const line = useRef<HTMLSpanElement>(null);
-  const [isTooLong, setIsTooLong] = useState(false);
+  // The part of the title that does not fit, which is how far it slides to come into view.
+  const [hiddenWidth, setHiddenWidth] = useState(0);
 
   useLayoutEffect(() => {
     const frameElement = frame.current;
@@ -23,7 +24,8 @@ export function SlidingTitle({ text }: SlidingTitleProps): ReactElement {
     }
     function measure(): void {
       if (frameElement !== null && lineElement !== null) {
-        setIsTooLong(lineElement.offsetWidth > frameElement.clientWidth + 1);
+        const hidden = lineElement.offsetWidth - frameElement.clientWidth;
+        setHiddenWidth(hidden > 1 ? hidden : 0);
       }
     }
     measure();
@@ -34,7 +36,12 @@ export function SlidingTitle({ text }: SlidingTitleProps): ReactElement {
   }, []);
 
   return (
-    <span ref={frame} className={styles.frame} data-too-long={isTooLong}>
+    <span
+      ref={frame}
+      className={styles.frame}
+      data-too-long={hiddenWidth > 0}
+      style={{ "--hidden-width": `${hiddenWidth}px` } as CSSProperties}
+    >
       <span ref={line} className={styles.line}>
         {text}
       </span>

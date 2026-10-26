@@ -7,6 +7,7 @@ import { PlaceSection } from "./place-section.tsx";
 import { shortcuts } from "./shortcut.ts";
 import styles from "./side-panel.module.css";
 import { SlidingColumn } from "./sliding-column.tsx";
+import { SlidingTitle } from "./sliding-title.tsx";
 
 /** Properties of the side panel. */
 interface SidePanelProps {
@@ -74,7 +75,7 @@ export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): Rea
                 onClick={() => setActiveId(tab.id)}
               >
                 <Icon name={icons[tab.place]} size={15} />
-                {titles[tab.place]}
+                <SlidingTitle text={titles[tab.place]} />
               </button>
               <IconButton
                 icon="close"

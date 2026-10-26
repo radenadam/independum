@@ -59,10 +59,11 @@
   display: flex;
 }
 
+/* A hidden tooltip takes no room, so it never makes a list or a tab strip scroll. */
 .tip {
   position: absolute;
   z-index: 60;
-  display: flex;
+  display: none;
   gap: 10px;
   padding: 7px 9px;
   border-radius: 7px;
@@ -71,8 +72,6 @@
   font: 500 12px / 1 var(--font-sans);
   white-space: nowrap;
   pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
 }
 
 .key {
@@ -101,15 +100,13 @@
 }
 
 .button:focus-visible .tip {
-  opacity: 1;
-  visibility: visible;
+  display: flex;
 }
 
 /* A tap on a touch screen leaves the button hovered, so only a real pointer shows the tooltip. */
 @media (hover: hover) {
   .button:hover .tip {
-    opacity: 1;
-    visibility: visible;
+    display: flex;
   }
 }
 
@@ -130,8 +127,15 @@
   }
 
   .button:hover .tip {
-    transition:
-      opacity 120ms ease 300ms,
-      visibility 0s 300ms;
+    animation: show 120ms ease 300ms both;
+  }
+
+  @keyframes show {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
