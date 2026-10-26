@@ -55,6 +55,7 @@ export interface ChatState {
   id: string | null;
   folder: string;
   model: { providerId: string; id: string } | null;
+  thinking: { level: string; levels: string[] } | null;
   messages: ChatMessage[];
   isReplying: boolean;
 }

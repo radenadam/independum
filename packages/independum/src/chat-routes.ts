@@ -68,6 +68,14 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     return context.body(null, 204);
   });
 
+  routes.put("/chat/thinking", async (context) => {
+    const body: { level?: unknown } = await context.req.json().catch(() => ({}));
+    if (typeof body.level !== "string" || !chat.chooseThinking(body.level)) {
+      return context.json({ error: "This model does not offer that thinking level." }, 400);
+    }
+    return context.body(null, 204);
+  });
+
   routes.post("/chat/open", async (context) => {
     const body: { id?: unknown } = await context.req.json().catch(() => ({}));
     if (typeof body.id !== "string" || !(await chat.open(body.id))) {

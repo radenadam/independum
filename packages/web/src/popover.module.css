@@ -24,6 +24,16 @@
   box-shadow: 0 16px 40px var(--shadow);
 }
 
+.note {
+  flex: none;
+  margin: 0;
+  padding: 8px 8px 2px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .above {
   bottom: calc(100% + 8px);
   max-height: min(420px, 55dvh);

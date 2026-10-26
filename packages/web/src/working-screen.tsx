@@ -3,6 +3,7 @@ import { type ReactElement, useCallback, useEffect, useEffectEvent, useState } f
 import {
   type ChatConnection,
   chooseModel,
+  chooseThinking,
   fetchModels,
   followChat,
   openChat,
@@ -231,6 +232,7 @@ export function WorkingScreen({
             <MessageBox
               chatId={chat.id}
               model={chat.model}
+              thinking={chat.thinking}
               models={models}
               folder={chat.folder}
               projects={projects}
@@ -240,6 +242,11 @@ export function WorkingScreen({
               onStop={stopReply}
               onOpenModels={loadModels}
               onChooseModel={choose}
+              onChooseThinking={(level) => {
+                chooseThinking(level).catch(() =>
+                  setNotice("That thinking level is not available. Choose another one."),
+                );
+              }}
               onChooseFolder={startNew}
               onManageLogins={openLogins}
             />

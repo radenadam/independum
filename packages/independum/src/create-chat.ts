@@ -42,6 +42,7 @@ export interface Chat {
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
+  chooseThinking(level: string): boolean;
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   startNew(folder?: string): Promise<boolean>;
@@ -71,6 +72,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       id: session?.sessionId ?? null,
       folder,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
+      // Pi offers only the levels that the model supports, and none for a model that cannot think.
+      thinking:
+        model === undefined || session?.supportsThinking() !== true
+          ? null
+          : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
       messages: (session?.messages ?? []).flatMap((message) => {
         const shown = toChatMessage(message);
         return shown === undefined ? [] : [shown];
@@ -263,6 +269,18 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       }
       await session.setModel(model);
       isModelChosen = true;
+      emit({ type: "state", state: getState() });
+      return true;
+    },
+    chooseThinking(level) {
+      const chosen =
+        isModelChosen && session?.supportsThinking() === true
+          ? session.getAvailableThinkingLevels().find((candidate) => candidate === level)
+          : undefined;
+      if (session === undefined || chosen === undefined) {
+        return false;
+      }
+      session.setThinkingLevel(chosen);
       emit({ type: "state", state: getState() });
       return true;
     },

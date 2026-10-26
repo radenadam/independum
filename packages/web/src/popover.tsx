@@ -7,12 +7,14 @@ interface PopoverProps {
   side: "above" | "below";
   onClose: () => void;
   children: ReactNode;
+  note?: string;
 }
 
 /**
- * Draws a pop-up beside its button, which closes on Escape or on a click anywhere outside it.
+ * Draws a pop-up beside its button, with an optional note at its foot, which closes on Escape or on
+ * a click anywhere outside it.
  */
-export function Popover({ label, side, onClose, children }: PopoverProps): ReactElement {
+export function Popover({ label, side, onClose, children, note }: PopoverProps): ReactElement {
   return (
     <>
       <button
@@ -34,6 +36,7 @@ export function Popover({ label, side, onClose, children }: PopoverProps): React
         }}
       >
         {children}
+        {note === undefined ? null : <p className={styles.note}>{note}</p>}
       </div>
     </>
   );

@@ -1,0 +1,108 @@
+.menu {
+  --handle: 18px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 4px 4px;
+}
+
+.heading {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/*
+  The stops of the slider line up with the middles of the level names, so the slider starts half a
+  name in and stretches across all but one name, plus the handle. The track and the handle are
+  drawn here, and an invisible range input above them takes the pointer, touch, and keys.
+*/
+.slider {
+  position: relative;
+  width: calc(100% * (var(--count) - 1) / var(--count) + var(--handle));
+  height: var(--handle);
+  margin: 6px 0 0 calc(50% / var(--count) - var(--handle) / 2);
+}
+
+.slider:has(.input:focus-visible) {
+  outline: 2px solid var(--signal);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.track {
+  position: absolute;
+  top: calc(50% - 2px);
+  right: calc(var(--handle) / 2);
+  left: calc(var(--handle) / 2);
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--signal) calc(var(--ratio) * 100%),
+    var(--line) calc(var(--ratio) * 100%)
+  );
+}
+
+/* The handle is a square with its corners cut, like the straight cuts of the raven. */
+.handle {
+  position: absolute;
+  top: 0;
+  left: calc((100% - var(--handle)) * var(--ratio));
+  width: var(--handle);
+  height: var(--handle);
+  background: var(--signal);
+  clip-path: polygon(
+    4px 0,
+    calc(100% - 4px) 0,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    0 calc(100% - 4px),
+    0 4px
+  );
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.levels {
+  display: grid;
+  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+}
+
+.level {
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.level:hover {
+  color: var(--ink);
+}
+
+.level[aria-pressed="true"] {
+  color: var(--signal);
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .handle {
+    transition: left 160ms ease;
+  }
+}
