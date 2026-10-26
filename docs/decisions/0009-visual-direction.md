@@ -1,6 +1,6 @@
 # Visual direction
 
-- Status: accepted
+- Status: accepted, and narrowed by [decision 0016](0016-working-screen.md) to the welcome and login screens
 - Date: 2026-10-24
 
 ## Context
@@ -22,4 +22,4 @@ Independum follows the Margin direction.
 ## Consequences
 
 - The UI keeps borders, boxes, and color to a minimum, so spacing and type do the work.
-- The chat screen in the prototype is a placeholder. Its design starts with questions to the maintainer.
+- The chat screen in the prototype is a placeholder. Decision 0016 designs the working screen, which keeps these colors and fonts but not the Margin layout.
