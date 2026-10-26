@@ -14,6 +14,7 @@ import { ChatMessages } from "./chat-messages.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { shortcuts, useShortcut } from "./shortcut.ts";
+import { SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import styles from "./working-screen.module.css";
 
@@ -35,6 +36,7 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
   const [models, setModels] = useState<ModelSummary[] | undefined>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isPhone());
   const [isNewChatFlashing, setIsNewChatFlashing] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [notice, setNotice] = useState<string | undefined>();
 
   const loadModels = useCallback((): void => {
@@ -106,6 +108,7 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
 
   useShortcut(shortcuts.newChat, () => startNew());
   useShortcut(shortcuts.sidebar, () => setIsSidebarOpen((isOpen) => !isOpen));
+  useShortcut(shortcuts.sidePanel, () => setIsPanelOpen((isOpen) => !isOpen));
   useShortcut(shortcuts.settings, onOpenSettings);
 
   const isEmpty = chat !== undefined && chat.messages.length === 0 && !chat.isReplying;
@@ -155,6 +158,14 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
             </>
           )}
           <p className={styles.title}>{chat === undefined ? "" : title}</p>
+          <IconButton
+            icon="sidePanel"
+            label="Side panel"
+            shortcut={shortcuts.sidePanel}
+            tipAlign="end"
+            isPressed={isPanelOpen}
+            onClick={() => setIsPanelOpen(!isPanelOpen)}
+          />
         </header>
         {chat === undefined ? null : (
           <>
@@ -193,6 +204,14 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
           </>
         )}
       </main>
+      {chat === undefined ? null : (
+        <SidePanel
+          isOpen={isPanelOpen}
+          chat={chat}
+          models={models}
+          onHide={() => setIsPanelOpen(false)}
+        />
+      )}
     </div>
   );
 }

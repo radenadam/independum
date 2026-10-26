@@ -7,6 +7,7 @@ import { ProjectList } from "./project-list.tsx";
 import { SearchField } from "./search-field.tsx";
 import { describeShortcut, shortcuts } from "./shortcut.ts";
 import styles from "./sidebar.module.css";
+import { SlidingColumn } from "./sliding-column.tsx";
 
 /** Properties of the sidebar. */
 interface SidebarProps {
@@ -36,66 +37,59 @@ export function Sidebar({
   const [query, setQuery] = useState("");
 
   return (
-    <nav
-      className={styles.sidebar}
-      aria-label="Projects and chats"
-      data-open={isOpen}
-      inert={!isOpen}
-    >
-      <div className={styles.inner}>
-        <div className={styles.top}>
-          <div className={styles.brand}>
-            <span className={styles.mark}>
-              <Mark />
-            </span>
-            independum
-          </div>
-          <IconButton
-            icon="sidebar"
-            label="Hide sidebar"
-            shortcut={shortcuts.sidebar}
-            tipAlign="end"
-            onClick={onHide}
-          />
+    <SlidingColumn element="nav" label="Projects and chats" edge="start" isOpen={isOpen}>
+      <div className={styles.top}>
+        <div className={styles.brand}>
+          <span className={styles.mark}>
+            <Mark />
+          </span>
+          independum
         </div>
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={styles.row}
-            data-flashing={isNewChatFlashing}
-            aria-keyshortcuts={describeShortcut(shortcuts.newChat)}
-            onClick={() => onNewChat()}
-          >
-            <Icon name="newChat" />
-            <span className={styles.label}>New chat</span>
-            <span className={styles.key}>{describeShortcut(shortcuts.newChat)}</span>
-          </button>
-          <SearchField label="Search chats" value={query} onChange={setQuery} />
-        </div>
-        <div className={styles.list}>
-          <h2 className={styles.heading}>Projects</h2>
-          <ProjectList
-            projects={projects}
-            query={query}
-            chatId={chatId}
-            folder={folder}
-            onOpenChat={onOpenChat}
-            onNewChat={onNewChat}
-          />
-        </div>
-        <div className={styles.bottom}>
-          <button
-            type="button"
-            className={`${styles.row} ${styles.quiet}`}
-            aria-keyshortcuts={describeShortcut(shortcuts.settings)}
-            onClick={onOpenSettings}
-          >
-            <Icon name="settings" />
-            <span className={styles.label}>Settings</span>
-            <span className={styles.key}>{describeShortcut(shortcuts.settings)}</span>
-          </button>
-        </div>
+        <IconButton
+          icon="sidebar"
+          label="Hide sidebar"
+          shortcut={shortcuts.sidebar}
+          tipAlign="end"
+          onClick={onHide}
+        />
       </div>
-    </nav>
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.row}
+          data-flashing={isNewChatFlashing}
+          aria-keyshortcuts={describeShortcut(shortcuts.newChat)}
+          onClick={() => onNewChat()}
+        >
+          <Icon name="newChat" />
+          <span className={styles.label}>New chat</span>
+          <span className={styles.key}>{describeShortcut(shortcuts.newChat)}</span>
+        </button>
+        <SearchField label="Search chats" value={query} onChange={setQuery} />
+      </div>
+      <div className={styles.list}>
+        <h2 className={styles.heading}>Projects</h2>
+        <ProjectList
+          projects={projects}
+          query={query}
+          chatId={chatId}
+          folder={folder}
+          onOpenChat={onOpenChat}
+          onNewChat={onNewChat}
+        />
+      </div>
+      <div className={styles.bottom}>
+        <button
+          type="button"
+          className={`${styles.row} ${styles.quiet}`}
+          aria-keyshortcuts={describeShortcut(shortcuts.settings)}
+          onClick={onOpenSettings}
+        >
+          <Icon name="settings" />
+          <span className={styles.label}>Settings</span>
+          <span className={styles.key}>{describeShortcut(shortcuts.settings)}</span>
+        </button>
+      </div>
+    </SlidingColumn>
   );
 }

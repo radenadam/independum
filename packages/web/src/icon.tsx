@@ -14,7 +14,11 @@ export type IconName =
   | "send"
   | "stop"
   | "check"
-  | "copy";
+  | "copy"
+  | "sidePanel"
+  | "newTab"
+  | "agent"
+  | "close";
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
 const drawings: Record<IconName, ReactElement> = {
@@ -56,6 +60,23 @@ const drawings: Record<IconName, ReactElement> = {
       <path d="M5 15l-2-2V5l2-2h8l2 2" />
     </>
   ),
+  sidePanel: (
+    <>
+      <path d="M5 4h14l2 2v12l-2 2H5l-2-2V6z" />
+      <path d="M15 4v16" />
+    </>
+  ),
+  newTab: (
+    <path d="M4 3h5l1 1v5l-1 1H4l-1-1V4zM15 3h5l1 1v5l-1 1h-5l-1-1V4zM4 14h5l1 1v5l-1 1H4l-1-1v-5zM15 14h5l1 1v5l-1 1h-5l-1-1v-5z" />
+  ),
+  agent: (
+    <>
+      <path d="M12 8V4H8" />
+      <path d="M6 8h12l2 2v8l-2 2H6l-2-2v-8z" />
+      <path d="M1.5 14H4M20 14h2.5M15 12.5v3M9 12.5v3" />
+    </>
+  ),
+  close: <path d="M18 6L6 18M6 6l12 12" />,
 };
 
 /** Properties of an icon. */

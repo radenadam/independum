@@ -12,11 +12,14 @@ interface IconButtonProps {
   keyName?: string;
   tipSide?: "below" | "above";
   tipAlign?: "center" | "start" | "end";
-  size?: "regular" | "small";
+  size?: "regular" | "small" | "tiny";
   isRound?: boolean;
   isFilled?: boolean;
   isHighlighted?: boolean;
+  isPressed?: boolean;
 }
+
+const iconSizes = { regular: 18, small: 16, tiny: 14 };
 
 /** Draws a button that shows only an icon, with a tooltip that names it and its shortcut. */
 export function IconButton({
@@ -31,6 +34,7 @@ export function IconButton({
   isRound = false,
   isFilled = false,
   isHighlighted = false,
+  isPressed,
 }: IconButtonProps): ReactElement {
   const classes = [
     styles.button,
@@ -46,10 +50,11 @@ export function IconButton({
       className={classes.join(" ")}
       aria-label={label}
       aria-keyshortcuts={keyName}
+      aria-pressed={isPressed}
       onClick={onClick}
     >
       <span key={icon} className={styles.glyph}>
-        <Icon name={icon} size={size === "small" ? 16 : 18} />
+        <Icon name={icon} size={iconSizes[size]} />
       </span>
       <span className={`${styles.tip} ${styles[tipSide]} ${styles[tipAlign]}`} aria-hidden="true">
         {label}

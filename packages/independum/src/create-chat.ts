@@ -9,7 +9,13 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
-import type { ChatEvent, ChatMessage, ChatState, ProjectSummary } from "./api-types.ts";
+import type {
+  AgentSummary,
+  ChatEvent,
+  ChatMessage,
+  ChatState,
+  ProjectSummary,
+} from "./api-types.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -31,6 +37,7 @@ export interface ChatOptions {
 /** The open chat, which the API shows, follows, and drives, and the projects with their chats. */
 export interface Chat {
   getState(): ChatState;
+  getAgent(): AgentSummary;
   getProjects(): Promise<ProjectSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
@@ -50,6 +57,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let stopFollowing: (() => void) | undefined;
   let isModelChosen = false;
   let isReplying = false;
+  let lastRequest: unknown = null;
 
   function emit(event: ChatEvent): void {
     for (const listener of listeners) {
@@ -165,6 +173,19 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       noSkills: true,
       noPromptTemplates: true,
       noThemes: true,
+      // Pi hands every request to its extensions before sending it, so this hidden one keeps a copy
+      // for the Agent place and leaves the request as it is.
+      extensionFactories: [
+        {
+          name: "independum-requests",
+          hidden: true,
+          factory: (pi) => {
+            pi.on("before_provider_request", (event) => {
+              lastRequest = event.payload;
+            });
+          },
+        },
+      ],
     });
     await resourceLoader.reload();
     const created = await createAgentSession({
@@ -187,8 +208,23 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       created.modelFallbackMessage === undefined &&
       (model !== undefined || isSaved);
     isReplying = false;
+    lastRequest = null;
     emit({ type: "state", state: getState() });
     emitProjects();
+  }
+
+  // Pi builds the system prompt from Independum's prompt and then adds its own sections, such as
+  // the folder, so everything after Independum's prompt is what Pi adds.
+  function getAgent(): AgentSummary {
+    const fullPrompt = session?.systemPrompt ?? systemPrompt;
+    return {
+      systemPrompt,
+      addedByPi: fullPrompt.startsWith(systemPrompt)
+        ? fullPrompt.slice(systemPrompt.length).trim()
+        : fullPrompt,
+      tools: session?.getActiveToolNames() ?? [],
+      lastRequest,
+    };
   }
 
   const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
@@ -196,6 +232,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
 
   return {
     getState,
+    getAgent,
     getProjects,
     subscribe(listener) {
       listeners.add(listener);

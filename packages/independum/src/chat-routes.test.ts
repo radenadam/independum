@@ -5,6 +5,7 @@ import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
 import type {
+  AgentSummary,
   ChatEvent,
   ChatMessage,
   ChatState,
@@ -247,4 +248,23 @@ test("a new chat starts in a chosen project, and only in a project", async () =>
   expect((await readStart()).state.folder).toBe(otherFolder);
   expect((await post("/chat/new", { folder: tmpdir() })).status).toBe(400);
   expect((await post("/chat/new", { folder: 5 })).status).toBe(400);
+});
+
+test("the agent shows its prompts, its tools, and the last request it sent", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const before = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  expect(before.systemPrompt).toContain("Independum");
+  expect(before.addedByPi).toContain("<cwd>");
+  expect(before.tools).toEqual([]);
+  expect(before.lastRequest).toBeNull();
+  faux.setResponses([
+    async (_context, options, _state, model) => {
+      await options?.onPayload?.({ sent: "the exact request" }, model);
+      return fauxAssistantMessage("Sent.");
+    },
+  ]);
+  await sendAndReadReply("Show the request");
+  const after = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  expect(after.lastRequest).toEqual({ sent: "the exact request" });
 });

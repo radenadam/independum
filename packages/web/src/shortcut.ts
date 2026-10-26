@@ -7,9 +7,10 @@ export interface Shortcut {
 }
 
 /** The shortcuts of the working screen. */
-export const shortcuts: Record<"newChat" | "sidebar" | "settings", Shortcut> = {
+export const shortcuts: Record<"newChat" | "sidebar" | "sidePanel" | "settings", Shortcut> = {
   newChat: { key: "o", isShift: true },
   sidebar: { key: "b" },
+  sidePanel: { key: "." },
   settings: { key: "," },
 };
 

@@ -26,6 +26,17 @@
   height: 30px;
 }
 
+.tiny {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+}
+
+.button[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--signal);
+}
+
 .round {
   width: 34px;
   height: 34px;
