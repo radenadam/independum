@@ -1,6 +1,6 @@
 # Login and first launch
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the login screen into the settings
 - Date: 2026-10-24
 
 ## Context

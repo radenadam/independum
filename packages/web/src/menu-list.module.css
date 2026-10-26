@@ -28,13 +28,8 @@
   cursor: pointer;
 }
 
-.choice:hover {
+.choice:hover:not([aria-current="true"]) {
   background: var(--raised);
-}
-
-.choice[aria-current="true"] {
-  background: var(--signal-soft);
-  color: var(--signal);
 }
 
 .text {

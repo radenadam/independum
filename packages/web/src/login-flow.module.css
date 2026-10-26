@@ -1,0 +1,67 @@
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.steps,
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.steps {
+  gap: 18px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.text,
+.status,
+.error,
+.link,
+.code {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.text {
+  color: var(--muted);
+}
+
+.status {
+  font-weight: 500;
+}
+
+.error {
+  color: var(--signal);
+}
+
+.link {
+  font: 12px / 1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.code {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--well);
+  font: 500 22px var(--font-mono);
+  letter-spacing: 0.08em;
+}

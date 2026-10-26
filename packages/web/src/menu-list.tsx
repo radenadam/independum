@@ -7,6 +7,7 @@ interface MenuChoice {
   key: string;
   name: string;
   detail: string;
+  logo?: ReactNode;
   isCurrent: boolean;
   onChoose: () => void;
 }
@@ -51,6 +52,7 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
               aria-current={choice.isCurrent ? "true" : undefined}
               onClick={choice.onChoose}
             >
+              {choice.logo}
               <span className={styles.text}>
                 <span className={styles.name}>{choice.name}</span>
                 <span className={styles.detail}>{choice.detail}</span>

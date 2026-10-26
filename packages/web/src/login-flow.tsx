@@ -1,34 +1,28 @@
 import type { LoginEvent, LoginMethod, ProviderSummary } from "independum/api-types";
 import { type ReactElement, useEffect, useRef, useState } from "react";
-import { CommandButton } from "./command-button.tsx";
-import { HeadingRow } from "./heading-row.tsx";
-import { type LoginHandle, removeLogin, startLogin } from "./login-api.ts";
-import styles from "./login-panel.module.css";
+import { type LoginHandle, startLogin } from "./login-api.ts";
+import styles from "./login-flow.module.css";
+import { ProviderLogo } from "./provider-logo.tsx";
+import { TextButton } from "./text-button.tsx";
 import { TextField } from "./text-field.tsx";
 
 type Question = Extract<LoginEvent, { type: "question" }>;
 
-/** Properties of the login panel. */
-interface LoginPanelProps {
+/** Properties of the login flow. */
+interface LoginFlowProps {
   provider: ProviderSummary;
-  onClose: () => void;
   onChanged: () => void;
   onDone: () => void;
 }
 
 /** Draws the sign-in options of one provider and follows a login through every step Pi asks for. */
-export function LoginPanel({
-  provider,
-  onClose,
-  onChanged,
-  onDone,
-}: LoginPanelProps): ReactElement {
+export function LoginFlow({ provider, onChanged, onDone }: LoginFlowProps): ReactElement {
   const [events, setEvents] = useState<LoginEvent[] | undefined>();
   const [answered, setAnswered] = useState<string[]>([]);
   const handle = useRef<LoginHandle | undefined>(undefined);
   const isRunning = useRef(false);
 
-  // Closing the panel in the middle of a login cancels it on the server.
+  // Leaving the flow in the middle of a login cancels it on the server.
   useEffect(
     () => () => {
       if (isRunning.current) {
@@ -64,17 +58,13 @@ export function LoginPanel({
   }
 
   return (
-    <section className={styles.panel} aria-label={`Sign in to ${provider.name}`}>
-      <HeadingRow
-        heading={
-          <h2 className={styles.name}>
-            <span className={styles.pointer}>&gt;</span> {provider.name}
-          </h2>
-        }
-        command={<CommandButton shortcut="x" label="Close" onClick={onClose} isQuiet />}
-      />
+    <section className={styles.flow} aria-label={`Sign in to ${provider.name}`}>
+      <h3 className={styles.name}>
+        <ProviderLogo providerId={provider.id} size={20} />
+        {provider.name}
+      </h3>
       {events === undefined ? (
-        <Options provider={provider} onBegin={begin} onChanged={onChanged} />
+        <Options provider={provider} onBegin={begin} />
       ) : (
         <Steps
           events={events}
@@ -92,24 +82,14 @@ export function LoginPanel({
 interface OptionsProps {
   provider: ProviderSummary;
   onBegin: (method: LoginMethod) => void;
-  onChanged: () => void;
 }
 
-function Options({ provider, onBegin, onChanged }: OptionsProps): ReactElement {
+function Options({ provider, onBegin }: OptionsProps): ReactElement {
   const canUseKey = provider.apiKey?.canLogIn === true;
   return (
     <div className={styles.steps}>
       {provider.login === null ? null : (
-        <div className={styles.step}>
-          <p className={styles.status}>Logged in.</p>
-          <p className={styles.text}>Source: {provider.login.source ?? "unknown"}.</p>
-          <CommandButton
-            shortcut="r"
-            label="Remove login"
-            onClick={() => removeLogin(provider.id).then(onChanged)}
-            isQuiet
-          />
-        </div>
+        <p className={styles.status}>Connected. Signing in again replaces this login.</p>
       )}
       {provider.account === null ? null : (
         <div className={styles.step}>
@@ -117,19 +97,18 @@ function Options({ provider, onBegin, onChanged }: OptionsProps): ReactElement {
             Sign in with your account. Your browser opens the sign-in page, and Independum finishes
             the login when you return.
           </p>
-          <CommandButton
-            shortcut="s"
+          <TextButton
             label={provider.account.buttonLabel ?? "Sign in with your account"}
             onClick={() => onBegin("account")}
+            isPrimary
           />
         </div>
       )}
       {canUseKey ? (
-        <CommandButton
-          shortcut="k"
+        <TextButton
           label="Use an API key"
           onClick={() => onBegin("apiKey")}
-          isQuiet={provider.account !== null}
+          isPrimary={provider.account === null}
         />
       ) : null}
       {provider.account === null && !canUseKey ? (
@@ -156,15 +135,15 @@ function Steps({ events, answered, onAnswer, onRetry, onDone }: StepsProps): Rea
     return (
       <div className={styles.steps}>
         <p className={styles.status}>Connected.</p>
-        <CommandButton shortcut="c" label="Continue" onClick={onDone} />
+        <TextButton label="Done" onClick={onDone} isPrimary />
       </div>
     );
   }
   if (final?.type === "failed") {
     return (
       <div className={styles.steps}>
-        <p className={styles.text}>{final.message}</p>
-        <CommandButton shortcut="t" label="Try again" onClick={onRetry} />
+        <p className={styles.error}>{final.message}</p>
+        <TextButton label="Try again" onClick={onRetry} />
       </div>
     );
   }
@@ -209,7 +188,7 @@ function Steps({ events, answered, onAnswer, onRetry, onDone }: StepsProps): Rea
   );
 }
 
-/** Properties of the sign-in link commands. */
+/** Properties of the sign-in link buttons. */
 interface SignInLinkProps {
   url: string;
 }
@@ -230,15 +209,14 @@ function SignInLink({ url }: SignInLinkProps): ReactElement {
 
   return (
     <>
-      <CommandButton
-        shortcut="o"
-        label="Open the sign-in page"
-        onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-      />
-      <CommandButton shortcut="c" label="Copy the link" onClick={copyLink} isQuiet />
-      {copy === "copied" ? (
-        <p className={styles.status}>Copied. Paste it into any browser.</p>
-      ) : null}
+      <div className={styles.buttons}>
+        <TextButton
+          label="Open the sign-in page"
+          onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+          isPrimary
+        />
+        <TextButton label={copy === "copied" ? "Copied" : "Copy the link"} onClick={copyLink} />
+      </div>
       {copy === "failed" ? (
         <>
           <p className={styles.text}>This browser blocked copying. Select the link instead.</p>
@@ -262,22 +240,17 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
     return (
       <div className={styles.step}>
         <p className={styles.text}>{question.message}</p>
-        {(question.options ?? []).map((option, index) => (
-          <CommandButton
-            key={option.id}
-            shortcut={String(index + 1)}
-            label={option.label}
-            onClick={() => onAnswer(question, option.id)}
-          />
-        ))}
+        <div className={styles.buttons}>
+          {(question.options ?? []).map((option) => (
+            <TextButton
+              key={option.id}
+              label={option.label}
+              onClick={() => onAnswer(question, option.id)}
+            />
+          ))}
+        </div>
       </div>
     );
-  }
-
-  function submit(): void {
-    if (value.trim() !== "") {
-      onAnswer(question, value.trim());
-    }
   }
 
   return (
@@ -285,7 +258,9 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
       className={styles.step}
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        if (value.trim() !== "") {
+          onAnswer(question, value.trim());
+        }
       }}
     >
       <TextField
@@ -293,7 +268,7 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
         label={question.message}
         value={value}
         onChange={setValue}
-        isSecret={question.kind === "secret"}
+        kind={question.kind === "secret" ? "secret" : "text"}
         {...(question.placeholder === undefined ? {} : { placeholder: question.placeholder })}
       />
       {question.kind === "secret" ? (
@@ -301,7 +276,7 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
           Independum keeps it on this machine, in ~/.independum, and does not test it.
         </p>
       ) : null}
-      <CommandButton shortcut="enter" label="Continue" onClick={submit} />
+      <TextButton label="Continue" isPrimary isSubmit />
     </form>
   );
 }

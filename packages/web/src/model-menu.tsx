@@ -3,7 +3,7 @@ import { type ReactElement, useState } from "react";
 import { type MenuGroup, MenuList } from "./menu-list.tsx";
 import styles from "./model-menu.module.css";
 import { ProviderLogo } from "./provider-logo.tsx";
-import { SearchField } from "./search-field.tsx";
+import { TextField } from "./text-field.tsx";
 
 /** Properties of the model menu. */
 interface ModelMenuProps {
@@ -28,7 +28,14 @@ export function ModelMenu({
 
   return (
     <>
-      <SearchField label="Search models" value={query} onChange={setQuery} isFocusedFirst />
+      <TextField
+        id="model-search"
+        label="Search models"
+        kind="search"
+        value={query}
+        onChange={setQuery}
+        isFocusedFirst
+      />
       <MenuList
         groups={groupByProvider(shown, current, onChoose)}
         layout="row"

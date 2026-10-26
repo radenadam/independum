@@ -121,7 +121,7 @@ To review a Pi update with the maintainer:
 
 1. Read Pi's changelog for every version in the update, and list each change that touches Independum.
 2. Run `gh pr update-branch` if the branch is behind `main`. Then check it out and run `pnpm install` and `pnpm check`.
-3. Run `pnpm dev`, and confirm that the login screen lists every provider and that a real model call still works.
+3. Run `pnpm dev`, and confirm that the Logins section of the settings lists every provider and that a real model call still works.
 4. Report the findings, and merge with `gh pr merge --squash` only after the maintainer approves.
 
 ## UI
@@ -131,8 +131,8 @@ To review a Pi update with the maintainer:
 - A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
 - An inline `style` only passes values known at run time to the CSS module, as custom properties such as `--logo-url`.
 - On the working screen, actions are icons in an `IconButton`, whose tooltip shows the action and its shortcut. Shortcuts live in `packages/web/src/shortcut.ts` and use Ctrl, or Cmd on a Mac, so they work while the user types.
-- On the welcome and login screens, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too. A command that returns to the previous screen sets `isBack`, so its arrow points back.
-- Action labels use sentence case. On the welcome and login screens, field labels, the top bar, and the theme switch use lowercase.
+- On the welcome screen, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too.
+- Action labels use sentence case. The top bar of the welcome screen uses lowercase.
 - Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its table of shapes.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.

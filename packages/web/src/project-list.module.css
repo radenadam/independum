@@ -23,7 +23,7 @@
 }
 
 .projectButton:hover,
-.chat:hover {
+.chat:hover:not([aria-current="true"]) {
   background: var(--raised);
 }
 
@@ -106,8 +106,6 @@
 }
 
 .chat[aria-current="true"] {
-  background: var(--signal-soft);
-  color: var(--signal);
   font-weight: 500;
 }
 
