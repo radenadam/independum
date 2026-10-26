@@ -1,5 +1,5 @@
 import type { ChatEvent, ChatState, ModelSummary, ProjectSummary } from "independum/api-types";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useEffectEvent, useState } from "react";
 import {
   type ChatConnection,
   chooseModel,
@@ -76,6 +76,38 @@ export function WorkingScreen({
     return () => clearTimeout(timer);
   }, [isNewChatFlashing]);
 
+  // The sidebar, the chat, and the side panel fit side by side only on a wide window, so on a
+  // narrower one opening the sidebar or the side panel closes the other. A phone shows each over
+  // the chat instead. See decision 0018.
+  function showSidebar(isOpen: boolean): void {
+    setIsSidebarOpen(isOpen);
+    if (isOpen && isCrowded()) {
+      setIsPanelOpen(false);
+    }
+  }
+
+  function showPanel(isOpen: boolean): void {
+    setIsPanelOpen(isOpen);
+    if (isOpen && isCrowded()) {
+      setIsSidebarOpen(false);
+    }
+  }
+
+  const onWidthChange = useEffectEvent((): void => {
+    if (isCrowded() && isSidebarOpen && isPanelOpen) {
+      setIsSidebarOpen(false);
+    }
+  });
+
+  useEffect(() => {
+    const query = window.matchMedia(roomyWidth);
+    function handleChange(): void {
+      onWidthChange();
+    }
+    query.addEventListener("change", handleChange);
+    return () => query.removeEventListener("change", handleChange);
+  }, []);
+
   // On a phone, the sidebar covers the chat, so it closes once the user has chosen.
   function closeSidebarOnPhone(): void {
     if (isPhone()) {
@@ -118,8 +150,8 @@ export function WorkingScreen({
   }
 
   useShortcut(shortcuts.newChat, () => startNew());
-  useShortcut(shortcuts.sidebar, () => setIsSidebarOpen((isOpen) => !isOpen));
-  useShortcut(shortcuts.sidePanel, () => setIsPanelOpen((isOpen) => !isOpen));
+  useShortcut(shortcuts.sidebar, () => showSidebar(!isSidebarOpen));
+  useShortcut(shortcuts.sidePanel, () => showPanel(!isPanelOpen));
   useShortcut(shortcuts.settings, openLogins);
 
   const isEmpty = chat !== undefined && chat.messages.length === 0 && !chat.isReplying;
@@ -158,7 +190,7 @@ export function WorkingScreen({
                 label="Show sidebar"
                 shortcut={shortcuts.sidebar}
                 tipAlign="start"
-                onClick={() => setIsSidebarOpen(true)}
+                onClick={() => showSidebar(true)}
               />
               <IconButton
                 icon="newChat"
@@ -175,7 +207,7 @@ export function WorkingScreen({
             shortcut={shortcuts.sidePanel}
             tipAlign="end"
             isPressed={isPanelOpen}
-            onClick={() => setIsPanelOpen(!isPanelOpen)}
+            onClick={() => showPanel(!isPanelOpen)}
           />
         </header>
         {chat === undefined ? null : (
@@ -233,8 +265,15 @@ export function WorkingScreen({
   );
 }
 
+// The sidebar, a readable chat, and the side panel need 272, 480, and 420 pixels.
+const roomyWidth = "(min-width: 1180px)";
+
 function isPhone(): boolean {
   return window.matchMedia("(max-width: 760px)").matches;
+}
+
+function isCrowded(): boolean {
+  return !isPhone() && !window.matchMedia(roomyWidth).matches;
 }
 
 function applyEvent(

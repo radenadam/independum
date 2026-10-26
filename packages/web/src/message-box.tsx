@@ -8,6 +8,7 @@ import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
+import { SlidingTitle } from "./sliding-title.tsx";
 
 /** Properties of the message box. */
 interface MessageBoxProps {
@@ -122,7 +123,7 @@ export function MessageBox({
                 onClick={() => toggleMenu("model")}
               >
                 {model === null ? null : <ProviderLogo providerId={model.providerId} size={15} />}
-                {modelName}
+                <SlidingTitle text={modelName} />
                 <Icon name="menu" size={14} />
               </button>
               {menu === "model" ? (
@@ -180,7 +181,7 @@ export function MessageBox({
                 onClick={() => toggleMenu("folder")}
               >
                 <Icon name="folder" size={14} />
-                {project?.name ?? folder}
+                <SlidingTitle text={project?.name ?? folder} />
                 <Icon name="menu" size={13} />
               </button>
               {menu === "folder" ? (
@@ -199,7 +200,7 @@ export function MessageBox({
           ) : (
             <span className={`${styles.pill} ${styles.folder} ${styles.still}`} title={folder}>
               <Icon name="folder" size={14} />
-              {project?.name ?? folder}
+              <SlidingTitle text={project?.name ?? folder} />
             </span>
           )}
         </div>
