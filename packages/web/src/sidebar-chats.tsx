@@ -55,7 +55,10 @@ export function SidebarChats({
     return [{ ...project, chats, isOpen }];
   });
 
-  // A search looks through the projects alone, so each chat that matches shows once.
+  // A search looks through the projects alone, so each chat that matches shows once. The open chat
+  // lights up once too, so its copy in a project stays plain while Pinned or Recent lists it.
+  const isOpenListedAbove =
+    search === "" && [...pinned, ...recent].some((chat) => chat.id === chatId);
   return (
     <>
       {search !== "" || pinned.length === 0 ? null : (
@@ -82,6 +85,7 @@ export function SidebarChats({
                   label={`New chat in ${project.name}`}
                   size="small"
                   tipAlign="end"
+                  isBlended
                   onClick={() => {
                     setOpen(project.folder, true);
                     onNewChat(project.folder);
@@ -110,7 +114,12 @@ export function SidebarChats({
                 {project.chats.length === 0 ? (
                   <p className={styles.empty}>No chats yet.</p>
                 ) : (
-                  <ChatRows chats={project.chats} currentId={chatId} isNested actions={actions} />
+                  <ChatRows
+                    chats={project.chats}
+                    currentId={isOpenListedAbove ? null : chatId}
+                    isNested
+                    actions={actions}
+                  />
                 )}
               </div>
             </div>

@@ -81,6 +81,7 @@ export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): Rea
                 icon="close"
                 label={`Close ${titles[tab.place]}`}
                 size="tiny"
+                isBlended
                 onClick={() => closeTab(tab.id)}
               />
             </div>
@@ -89,7 +90,7 @@ export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): Rea
         </div>
         <IconButton
           icon="sidePanel"
-          label="Close panel"
+          label="Hide side panel"
           shortcut={shortcuts.sidePanel}
           tipAlign="end"
           onClick={onHide}
