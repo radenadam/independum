@@ -1,0 +1,37 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.builtIn,
+.readOnly {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.builtIn {
+  background: var(--signal-soft);
+  color: var(--signal);
+}
+
+.readOnly {
+  background: var(--raised);
+  color: var(--muted);
+}

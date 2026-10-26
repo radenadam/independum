@@ -4,7 +4,10 @@ import type { ChatEvent, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
 import { streamEvents } from "./stream-events.ts";
 
-/** Creates the routes that list models, show, follow, and drive the chat, and open other chats. */
+/**
+ * Creates the routes that list models, show, follow, and drive the chat, show its agent, and open
+ * other chats.
+ */
 export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
 
@@ -34,6 +37,8 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       () => false,
     );
   });
+
+  routes.get("/chat/agent", (context) => context.json(chat.getAgent()));
 
   routes.post("/chat/messages", async (context) => {
     const body: { text?: unknown } = await context.req.json().catch(() => ({}));

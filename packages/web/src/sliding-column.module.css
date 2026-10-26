@@ -1,0 +1,82 @@
+.column {
+  flex: none;
+  height: 100%;
+  overflow: clip;
+  background: var(--sidebar);
+}
+
+.start {
+  width: 272px;
+  border-right: 1px solid var(--line);
+}
+
+.end {
+  width: 420px;
+  border-left: 1px solid var(--line);
+}
+
+.column[data-open="false"] {
+  width: 0;
+  border-color: transparent;
+}
+
+.inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.start .inner {
+  width: 272px;
+}
+
+.end .inner {
+  width: 420px;
+}
+
+/* On a phone, the sidebar is a drawer over the chat, and the side panel covers the whole screen. */
+@media (max-width: 760px) {
+  .column {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 30;
+  }
+
+  .start {
+    left: 0;
+    max-width: 85vw;
+  }
+
+  .end {
+    right: 0;
+    width: 100%;
+    border-left: 0;
+  }
+
+  .start .inner {
+    max-width: 85vw;
+  }
+
+  .end .inner {
+    width: 100%;
+  }
+
+  .start[data-open="false"] {
+    width: 272px;
+    translate: -100% 0;
+  }
+
+  .end[data-open="false"] {
+    width: 100%;
+    translate: 100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .column {
+    transition:
+      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      translate 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}

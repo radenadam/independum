@@ -1,4 +1,4 @@
-import type { ChatEvent, ModelSummary } from "independum/api-types";
+import type { AgentSummary, ChatEvent, ModelSummary } from "independum/api-types";
 import { readEvents } from "./read-events.ts";
 import { requestApi } from "./request-api.ts";
 
@@ -16,6 +16,15 @@ export async function fetchModels(): Promise<ModelSummary[]> {
   }
   const { models } = (await response.json()) as { models: ModelSummary[] };
   return models;
+}
+
+/** Returns what the agent of the open chat works with, including the last request it sent. */
+export async function fetchAgent(): Promise<AgentSummary> {
+  const response = await requestApi("/api/chat/agent");
+  if (!response.ok) {
+    throw new Error("The agent could not be loaded.");
+  }
+  return (await response.json()) as AgentSummary;
 }
 
 /** Follows the chat and calls back with each change, reconnecting until the returned stop runs. */

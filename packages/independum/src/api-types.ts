@@ -59,6 +59,14 @@ export interface ChatState {
   isReplying: boolean;
 }
 
+/** What the agent of the open chat works with, as the Agent place shows it. */
+export interface AgentSummary {
+  systemPrompt: string;
+  addedByPi: string;
+  tools: string[];
+  lastRequest: unknown;
+}
+
 /** A saved chat, as a project lists it. */
 export interface ChatSummary {
   id: string;
