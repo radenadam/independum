@@ -13,6 +13,7 @@ import {
 import { ChatMessages } from "./chat-messages.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
+import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
 import { shortcuts, useShortcut } from "./shortcut.ts";
 import { SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
@@ -20,7 +21,7 @@ import styles from "./working-screen.module.css";
 
 /** Properties of the working screen. */
 interface WorkingScreenProps {
-  onOpenSettings: () => void;
+  startsWithLogins: boolean;
   onExpiredLink: () => void;
 }
 
@@ -28,7 +29,10 @@ interface WorkingScreenProps {
 const flashTime = 140;
 
 /** Draws the sidebar with the projects and their chats, and the open chat with its message box. */
-export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenProps): ReactElement {
+export function WorkingScreen({
+  startsWithLogins,
+  onExpiredLink,
+}: WorkingScreenProps): ReactElement {
   const [chat, setChat] = useState<ChatState | undefined>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [reply, setReply] = useState("");
@@ -37,6 +41,9 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isPhone());
   const [isNewChatFlashing, setIsNewChatFlashing] = useState(false);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(
+    startsWithLogins ? "logins" : undefined,
+  );
   const [notice, setNotice] = useState<string | undefined>();
 
   const loadModels = useCallback((): void => {
@@ -96,6 +103,10 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
     );
   }
 
+  function openLogins(): void {
+    setSettingsSection("logins");
+  }
+
   async function send(text: string): Promise<void> {
     setNotice(undefined);
     try {
@@ -109,7 +120,7 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
   useShortcut(shortcuts.newChat, () => startNew());
   useShortcut(shortcuts.sidebar, () => setIsSidebarOpen((isOpen) => !isOpen));
   useShortcut(shortcuts.sidePanel, () => setIsPanelOpen((isOpen) => !isOpen));
-  useShortcut(shortcuts.settings, onOpenSettings);
+  useShortcut(shortcuts.settings, openLogins);
 
   const isEmpty = chat !== undefined && chat.messages.length === 0 && !chat.isReplying;
   const title =
@@ -127,7 +138,7 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
         onHide={() => setIsSidebarOpen(false)}
         onNewChat={startNew}
         onOpenChat={open}
-        onOpenSettings={onOpenSettings}
+        onOpenSettings={openLogins}
       />
       {isSidebarOpen ? (
         <button
@@ -198,7 +209,7 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
               onOpenModels={loadModels}
               onChooseModel={choose}
               onChooseFolder={startNew}
-              onManageLogins={onOpenSettings}
+              onManageLogins={openLogins}
             />
             <div className={styles.below} />
           </>
@@ -212,6 +223,12 @@ export function WorkingScreen({ onOpenSettings, onExpiredLink }: WorkingScreenPr
           onHide={() => setIsPanelOpen(false)}
         />
       )}
+      <SettingsDialog
+        section={settingsSection}
+        onSection={setSettingsSection}
+        onClose={() => setSettingsSection(undefined)}
+        onLoginsChanged={loadModels}
+      />
     </div>
   );
 }

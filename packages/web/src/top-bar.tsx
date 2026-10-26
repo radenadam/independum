@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
 import { Mark } from "./mark.tsx";
-import { ThemeSwitch } from "./theme-switch.tsx";
 import styles from "./top-bar.module.css";
 
 /** Properties of the top bar. */
@@ -8,7 +7,7 @@ interface TopBarProps {
   location: string;
 }
 
-/** Draws the bar at the top of every screen, with the current location and the theme switch. */
+/** Draws the bar at the top of the screens that greet the user, with the current location. */
 export function TopBar({ location }: TopBarProps): ReactElement {
   return (
     <header className={styles.bar}>
@@ -22,7 +21,6 @@ export function TopBar({ location }: TopBarProps): ReactElement {
         </span>
         <span>{location}</span>
       </nav>
-      <ThemeSwitch />
     </header>
   );
 }

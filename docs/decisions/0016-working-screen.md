@@ -1,6 +1,6 @@
 # Working screen
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the first login into the settings too
 - Date: 2026-10-26
 
 ## Context

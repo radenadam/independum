@@ -59,3 +59,12 @@ a {
   outline: 2px solid var(--signal);
   outline-offset: 3px;
 }
+
+/*
+  An item that is selected or open turns orange, as decision 0016 sets out. Naming the button
+  makes this rule outrank the plain background of each list row.
+*/
+button[aria-current="true"] {
+  background: var(--signal-soft);
+  color: var(--signal);
+}

@@ -15,7 +15,6 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
-| Margin | The narrow column at the left of the welcome and login screens, with their commands. | "aside", "nav" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Place | Something that opens in a side panel tab, such as Agent. A terminal, a browser, and files come later. | "tool", "app", "widget" |

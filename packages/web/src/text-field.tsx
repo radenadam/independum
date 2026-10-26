@@ -1,4 +1,6 @@
-import type { KeyboardEvent, ReactElement } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
+import { hasKeyboard } from "./has-keyboard.ts";
+import { Icon } from "./icon.tsx";
 import styles from "./text-field.module.css";
 
 /** Properties of a text field. */
@@ -7,51 +9,52 @@ interface TextFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  isSecret?: boolean;
-  isMultiline?: boolean;
+  kind?: "text" | "secret" | "search";
   placeholder?: string;
-  onKeyDown?: (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  isFocusedFirst?: boolean;
 }
 
-/** Draws a labeled, underlined text field in the Margin style, on one line or several. */
+/**
+ * Draws a text field on one line, which hides a secret as it is typed, and shows a search with a
+ * lens and its label as the placeholder.
+ */
 export function TextField({
   id,
   label,
   value,
   onChange,
-  isSecret = false,
-  isMultiline = false,
+  kind = "text",
   placeholder,
-  onKeyDown,
+  isFocusedFirst = false,
 }: TextFieldProps): ReactElement {
+  const field = useRef<HTMLInputElement>(null);
+  const isSearch = kind === "search";
+
+  useEffect(() => {
+    if (isFocusedFirst && hasKeyboard()) {
+      field.current?.focus();
+    }
+  }, [isFocusedFirst]);
+
   return (
-    <div className={styles.group}>
-      <label className={styles.label} htmlFor={id}>
+    <div className={styles.field}>
+      <label className={isSearch ? styles.hiddenLabel : styles.label} htmlFor={id}>
         {label}
       </label>
-      {isMultiline ? (
-        <textarea
-          id={id}
-          className={`${styles.field} ${styles.multiline}`}
-          rows={2}
-          value={value}
-          placeholder={placeholder}
-          onKeyDown={onKeyDown}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      ) : (
+      <div className={styles.box}>
+        {isSearch ? <Icon name="search" /> : null}
         <input
+          ref={field}
           id={id}
-          className={styles.field}
-          type={isSecret ? "password" : "text"}
+          className={styles.input}
+          type={kind === "secret" ? "password" : kind}
           value={value}
-          placeholder={placeholder}
+          placeholder={placeholder ?? (isSearch ? label : undefined)}
           autoComplete="off"
           spellCheck={false}
-          onKeyDown={onKeyDown}
           onChange={(event) => onChange(event.target.value)}
         />
-      )}
+      </div>
     </div>
   );
 }

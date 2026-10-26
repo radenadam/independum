@@ -4,10 +4,10 @@ import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Mark } from "./mark.tsx";
 import { ProjectList } from "./project-list.tsx";
-import { SearchField } from "./search-field.tsx";
 import { describeShortcut, shortcuts } from "./shortcut.ts";
 import styles from "./sidebar.module.css";
 import { SlidingColumn } from "./sliding-column.tsx";
+import { TextField } from "./text-field.tsx";
 
 /** Properties of the sidebar. */
 interface SidebarProps {
@@ -65,7 +65,13 @@ export function Sidebar({
           <span className={styles.label}>New chat</span>
           <span className={styles.key}>{describeShortcut(shortcuts.newChat)}</span>
         </button>
-        <SearchField label="Search chats" value={query} onChange={setQuery} />
+        <TextField
+          id="chat-search"
+          label="Search chats"
+          kind="search"
+          value={query}
+          onChange={setQuery}
+        />
       </div>
       <div className={styles.list}>
         <h2 className={styles.heading}>Projects</h2>

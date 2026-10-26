@@ -1,6 +1,6 @@
 # Visual direction
 
-- Status: accepted, and narrowed by [decision 0016](0016-working-screen.md) to the welcome and login screens
+- Status: accepted, and narrowed by [decision 0016](0016-working-screen.md) and [decision 0017](0017-logins-in-settings.md) to the welcome screen
 - Date: 2026-10-24
 
 ## Context

@@ -2,10 +2,8 @@ import type { ProviderSummary } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { readAccessToken } from "./access-token.ts";
 import styles from "./app.module.css";
-import { ConnectScreen } from "./connect-screen.tsx";
 import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
 import { Greeting } from "./greeting.tsx";
-import { HomeScreen } from "./home-screen.tsx";
 import { fetchProviders } from "./login-api.ts";
 import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
@@ -13,7 +11,7 @@ import { WelcomeScreen } from "./welcome-screen.tsx";
 import { WorkingScreen } from "./working-screen.tsx";
 
 type Connection = "checking" | "connected" | "needsLink" | "expiredLink" | "unreachable";
-type Screen = "welcome" | "connect" | "home";
+type Screen = "welcome" | "working";
 
 /** What a connection problem shows: its place in the top bar, a title, and one line under it. */
 interface ConnectionProblem {
@@ -42,17 +40,13 @@ const connectionProblems: Record<"needsLink" | "expiredLink" | "unreachable", Co
 
 export function App(): ReactElement {
   const [connection, setConnection] = useState<Connection>("checking");
-  const [providers, setProviders] = useState<ProviderSummary[] | undefined>();
   const [screen, setScreen] = useState<Screen | undefined>();
+  const [startsWithLogins, setStartsWithLogins] = useState(false);
 
-  const loadProviders = useCallback((): void => {
+  // A user who has a login or has seen the greeting goes straight to the working screen.
+  const chooseScreen = useCallback((): void => {
     fetchProviders().then(
-      (loaded) => {
-        setProviders(loaded);
-        setScreen(
-          (current) => current ?? (hasLogin(loaded) || hasBeenGreeted() ? "home" : "welcome"),
-        );
-      },
+      (loaded) => setScreen(hasLogin(loaded) || hasBeenGreeted() ? "working" : "welcome"),
       () => setConnection("unreachable"),
     );
   }, []);
@@ -67,29 +61,25 @@ export function App(): ReactElement {
         const next = connectionFor(response);
         setConnection(next);
         if (next === "connected") {
-          loadProviders();
+          chooseScreen();
         }
       },
       () => setConnection("unreachable"),
     );
-  }, [loadProviders]);
+  }, [chooseScreen]);
 
   const expireLink = useCallback((): void => setConnection("expiredLink"), []);
 
-  function greetAndGo(next: Screen): void {
+  function greetAndGo(isLoggingIn: boolean): void {
     rememberGreeting();
-    setScreen(next);
+    setStartsWithLogins(isLoggingIn);
+    setScreen("working");
   }
 
-  if (
-    connection === "connected" &&
-    screen === "home" &&
-    providers !== undefined &&
-    hasLogin(providers)
-  ) {
+  if (connection === "connected" && screen === "working") {
     return (
       <div className={styles.page}>
-        <WorkingScreen onOpenSettings={() => setScreen("connect")} onExpiredLink={expireLink} />
+        <WorkingScreen startsWithLogins={startsWithLogins} onExpiredLink={expireLink} />
       </div>
     );
   }
@@ -105,23 +95,13 @@ export function App(): ReactElement {
             lines={[connectionProblems[connection].line]}
           />
         </>
-      ) : screen === undefined || providers === undefined ? null : (
+      ) : screen === undefined ? null : (
         <>
-          <TopBar location={screen} />
-          {screen === "welcome" ? (
-            <WelcomeScreen
-              onGetStarted={() => greetAndGo("connect")}
-              onLookAround={() => greetAndGo("home")}
-            />
-          ) : null}
-          {screen === "connect" ? (
-            <ConnectScreen
-              providers={providers}
-              onProvidersChanged={loadProviders}
-              onDone={() => setScreen("home")}
-            />
-          ) : null}
-          {screen === "home" ? <HomeScreen onConnect={() => setScreen("connect")} /> : null}
+          <TopBar location="welcome" />
+          <WelcomeScreen
+            onGetStarted={() => greetAndGo(true)}
+            onLookAround={() => greetAndGo(false)}
+          />
         </>
       )}
     </div>
