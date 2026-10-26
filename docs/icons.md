@@ -34,7 +34,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New chat | A box open at its top right corner, with a pencil across the gap. |
 | Search | A circle with a handle at 45 degrees. |
 | Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. |
+| Folder | A box with a tab at its top left. Open, its front tilts forward. |
 | Expand | A chevron that points right, and down while open. |
 | Menu | A chevron that points down. |
 | Add | A plus. |
@@ -52,7 +52,43 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Delete | A bin under its lid, with a handle and two lines. |
 | Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
 
-A new icon reuses these shapes where it can, so the set stays small and consistent.
+A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
+
+## Motion
+
+Decision 0024 records why icons move and where the line falls.
+
+- An icon moves only when something is about to happen to what it stands for, and the motion acts out that action.
+- A part of an icon moves once, there and back, when its button is pointed at or reached with the keyboard, and a tap on a touch screen plays it too. The search lens moves when its field takes the focus.
+- A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open.
+- Provider logos and the raven never move on hover. A logo is the mark of another company, and the raven only breathes while the model thinks.
+- A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion.
+- `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes.
+
+| Icon | Motion |
+| --- | --- |
+| Sidebar | The line slides toward the left edge. |
+| Side panel | The line slides toward the right edge. |
+| New chat | The pencil tilts as if it writes. |
+| Search | The lens tilts. |
+| Settings | The knobs slide toward each other, and their lines stretch and shrink to meet them. |
+| Folder | The folder opens while its project or its menu is open. |
+| Expand | The chevron nudges the way it points. |
+| Menu | The chevron dips. |
+| Add | The plus turns a quarter. |
+| Send | The arrow rises. |
+| Stop | The box squeezes. |
+| Copy | The front box slides onto the back one. |
+| Check | It stays still, because it shows a result, not an action. |
+| Close | The X turns a quarter. |
+| New tab | The four boxes spread apart. |
+| Agent | The eyes blink. |
+| More | The dots hop one after another. |
+| Rename | The pencil tilts as if it writes. |
+| Pin | The pin presses down. |
+| Archive | The lid lifts. |
+| Delete | The lid lifts and tilts. |
+| Effort | The needle revs up. |
 
 ## Building icons
 

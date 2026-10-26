@@ -1,4 +1,6 @@
 .icon {
+  --motion: 450ms;
+
   flex: none;
 }
 
@@ -21,6 +23,173 @@
   transform-origin: 12px 14px;
 }
 
+/* A folder opens while its project or its menu is open. */
+.folderOpen,
+[aria-expanded="true"] .folderClosed {
+  opacity: 0;
+}
+
+[aria-expanded="true"] .folderOpen {
+  opacity: 1;
+}
+
+/*
+  Each moving part sets how far it goes, in units of the 24 unit grid, and the shared motion below
+  takes it there and back once.
+*/
+.sidebarLine {
+  --shift-x: -2.5px;
+}
+
+.panelLine {
+  --shift-x: 2.5px;
+}
+
+.pen {
+  --shift-x: -1px;
+  --shift-y: 1px;
+  --turn: -8deg;
+
+  transform-origin: 8px 16px;
+}
+
+.lens {
+  --turn: -14deg;
+
+  transform-origin: 11px 11px;
+}
+
+/* The knobs slide toward each other, and the lines beside them stretch and shrink to meet them. */
+.topKnob {
+  --shift-x: -4px;
+}
+
+.topLeft {
+  --stretch-x: 0.62;
+
+  transform-origin: 3px 7px;
+}
+
+.topRight {
+  --stretch-x: 2.6;
+
+  transform-origin: 21px 7px;
+}
+
+.bottomKnob {
+  --shift-x: 4px;
+}
+
+.bottomLeft {
+  --stretch-x: 1.89;
+
+  transform-origin: 3px 17px;
+}
+
+.bottomRight {
+  --stretch-x: 0.53;
+
+  transform-origin: 21px 17px;
+}
+
+.nudgeRight {
+  --shift-x: 1.5px;
+}
+
+.nudgeDown {
+  --shift-y: 1.5px;
+}
+
+.nudgeUp {
+  --shift-y: -2.5px;
+}
+
+.quarterTurn {
+  --turn: 90deg;
+
+  transform-origin: 12px 12px;
+}
+
+.squeeze {
+  --stretch-x: 0.8;
+  --stretch-y: 0.8;
+
+  transform-origin: 12px 12px;
+}
+
+.frontCopy {
+  --shift-x: -2px;
+  --shift-y: -2px;
+}
+
+.upperLeft {
+  --shift-x: -1px;
+  --shift-y: -1px;
+}
+
+.upperRight {
+  --shift-x: 1px;
+  --shift-y: -1px;
+}
+
+.lowerLeft {
+  --shift-x: -1px;
+  --shift-y: 1px;
+}
+
+.lowerRight {
+  --shift-x: 1px;
+  --shift-y: 1px;
+}
+
+.eyes {
+  --stretch-y: 0.15;
+
+  transform-origin: 12px 14px;
+}
+
+.firstDot,
+.secondDot,
+.thirdDot {
+  --shift-y: -3px;
+}
+
+.secondDot {
+  --delay: 70ms;
+}
+
+.thirdDot {
+  --delay: 140ms;
+}
+
+.pencil {
+  --turn: -10deg;
+
+  transform-origin: 4px 20px;
+}
+
+.press {
+  --shift-y: 2px;
+}
+
+.lid {
+  --shift-y: -2px;
+  --turn: -8deg;
+
+  transform-origin: 3px 6px;
+}
+
+.binLid {
+  --shift-y: -1.5px;
+  --turn: -12deg;
+
+  transform-origin: 3px 6px;
+}
+
+.rev {
+  --turn: 30deg;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .dialFill {
     transition: stroke-dashoffset 200ms ease;
@@ -28,5 +197,26 @@
 
   .needle {
     transition: transform 200ms ease;
+  }
+
+  .folderClosed,
+  .folderOpen {
+    transition: opacity 180ms ease;
+  }
+
+  /*
+    A part moves once when its button is pointed at or reached with the keyboard, and the search
+    lens moves when its field takes the focus.
+  */
+  :is(button:hover, button:focus-visible, :has(> input:focus) > svg) .moves {
+    animation: move var(--motion) cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0s);
+  }
+
+  @keyframes move {
+    50% {
+      translate: var(--shift-x, 0) var(--shift-y, 0);
+      rotate: var(--turn, 0deg);
+      scale: var(--stretch-x, 1) var(--stretch-y, 1);
+    }
   }
 }
