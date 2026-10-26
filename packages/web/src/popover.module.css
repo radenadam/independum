@@ -35,9 +35,62 @@
   transform-origin: top left;
 }
 
+/* On a phone, a pop-up becomes a sheet that rises from the bottom, with a handle at its top. */
+@media (max-width: 760px) {
+  .backdrop {
+    background: var(--scrim);
+  }
+
+  .popover {
+    position: fixed;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
+    border-width: 1px 0 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px var(--shadow);
+  }
+
+  .popover::before {
+    content: "";
+    flex: none;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    margin-bottom: 10px;
+    border-radius: 2px;
+    background: var(--faint);
+  }
+
+  .above,
+  .below {
+    top: auto;
+    bottom: 0;
+    max-height: 70dvh;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .popover {
     animation: pop 150ms ease-out both;
+  }
+
+  @media (max-width: 760px) {
+    .popover {
+      animation-name: rise;
+      animation-duration: 220ms;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
   }
 
   @keyframes pop {
