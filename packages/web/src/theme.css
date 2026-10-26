@@ -6,9 +6,15 @@
   --faint: light-dark(#a3a39e, #5e5e5a);
   --line: light-dark(#e6e6e1, #262626);
   --signal: light-dark(#c2410c, #fb923c);
-  --signal-soft: light-dark(rgba(194, 65, 12, 0.08), rgba(251, 146, 60, 0.1));
+  --signal-soft: light-dark(rgba(194, 65, 12, 0.09), rgba(251, 146, 60, 0.13));
+  --on-signal: light-dark(#ffffff, #111111);
   --glow: light-dark(rgba(251, 191, 140, 0.35), rgba(251, 146, 60, 0.1));
-  --sheet-shadow: light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.5));
+  --sidebar: light-dark(#f3f3ef, #161616);
+  --surface: light-dark(#ffffff, #1b1b1b);
+  --raised: light-dark(#ebebe6, #252524);
+  --bubble: light-dark(#edede8, #262624);
+  --scrim: light-dark(rgba(20, 20, 18, 0.28), rgba(0, 0, 0, 0.55));
+  --shadow: light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.5));
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
 }

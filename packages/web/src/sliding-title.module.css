@@ -1,0 +1,30 @@
+.frame {
+  flex: 1;
+  min-width: 0;
+  overflow: clip;
+  white-space: nowrap;
+  container-type: inline-size;
+}
+
+.frame[data-too-long="true"] {
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+}
+
+.line {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .line {
+    transition: transform 0.5s ease;
+  }
+
+  :hover > .frame[data-too-long="true"] {
+    mask-image: linear-gradient(to right, transparent, black 20px);
+  }
+
+  :hover > .frame[data-too-long="true"] .line {
+    transform: translateX(calc(100cqw - 100%));
+    transition: transform 1.8s ease-in-out 0.3s;
+  }
+}

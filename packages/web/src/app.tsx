@@ -2,7 +2,6 @@ import type { ProviderSummary } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 import { readAccessToken } from "./access-token.ts";
 import styles from "./app.module.css";
-import { ChatScreen } from "./chat-screen.tsx";
 import { ConnectScreen } from "./connect-screen.tsx";
 import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
 import { Greeting } from "./greeting.tsx";
@@ -11,6 +10,7 @@ import { fetchProviders } from "./login-api.ts";
 import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
 import { WelcomeScreen } from "./welcome-screen.tsx";
+import { WorkingScreen } from "./working-screen.tsx";
 
 type Connection = "checking" | "connected" | "needsLink" | "expiredLink" | "unreachable";
 type Screen = "welcome" | "connect" | "home";
@@ -81,6 +81,19 @@ export function App(): ReactElement {
     setScreen(next);
   }
 
+  if (
+    connection === "connected" &&
+    screen === "home" &&
+    providers !== undefined &&
+    hasLogin(providers)
+  ) {
+    return (
+      <div className={styles.page}>
+        <WorkingScreen onOpenSettings={() => setScreen("connect")} onExpiredLink={expireLink} />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.glow} aria-hidden="true" />
@@ -94,7 +107,7 @@ export function App(): ReactElement {
         </>
       ) : screen === undefined || providers === undefined ? null : (
         <>
-          <TopBar location={screen === "home" && hasLogin(providers) ? "chat" : screen} />
+          <TopBar location={screen} />
           {screen === "welcome" ? (
             <WelcomeScreen
               onGetStarted={() => greetAndGo("connect")}
@@ -108,12 +121,7 @@ export function App(): ReactElement {
               onDone={() => setScreen("home")}
             />
           ) : null}
-          {screen === "home" && hasLogin(providers) ? (
-            <ChatScreen onManageLogins={() => setScreen("connect")} onExpiredLink={expireLink} />
-          ) : null}
-          {screen === "home" && !hasLogin(providers) ? (
-            <HomeScreen onConnect={() => setScreen("connect")} />
-          ) : null}
+          {screen === "home" ? <HomeScreen onConnect={() => setScreen("connect")} /> : null}
         </>
       )}
     </div>
