@@ -7,6 +7,7 @@ import { IconButton } from "./icon-button.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { Popover } from "./popover.tsx";
+import { ProviderLogo } from "./provider-logo.tsx";
 
 /** Properties of the message box. */
 interface MessageBoxProps {
@@ -120,6 +121,7 @@ export function MessageBox({
                 aria-expanded={menu === "model"}
                 onClick={() => toggleMenu("model")}
               >
+                {model === null ? null : <ProviderLogo providerId={model.providerId} size={15} />}
                 {modelName}
                 <Icon name="menu" size={14} />
               </button>

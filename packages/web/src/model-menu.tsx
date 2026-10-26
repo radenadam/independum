@@ -2,6 +2,7 @@ import type { ChatState, ModelSummary } from "independum/api-types";
 import { type ReactElement, useState } from "react";
 import { type MenuGroup, MenuList } from "./menu-list.tsx";
 import styles from "./model-menu.module.css";
+import { ProviderLogo } from "./provider-logo.tsx";
 import { SearchField } from "./search-field.tsx";
 
 /** Properties of the model menu. */
@@ -55,9 +56,10 @@ function groupByProvider(
 ): MenuGroup[] {
   const groups = new Map<string, MenuGroup>();
   for (const model of models) {
-    const group = groups.get(model.providerId) ?? {
+    const group: MenuGroup = groups.get(model.providerId) ?? {
       key: model.providerId,
       heading: model.providerName,
+      logo: <ProviderLogo providerId={model.providerId} size={14} keepsSpace />,
       choices: [],
     };
     group.choices.push({
