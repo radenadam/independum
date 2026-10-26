@@ -1,0 +1,25 @@
+.block {
+  margin: 14px 0;
+  overflow: clip;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--code);
+}
+
+.header {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 0 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font: 12px var(--font-mono);
+}
+
+.code {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font: 13px / 1.6 var(--font-mono);
+}

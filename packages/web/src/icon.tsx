@@ -13,7 +13,8 @@ export type IconName =
   | "add"
   | "send"
   | "stop"
-  | "check";
+  | "check"
+  | "copy";
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
 const drawings: Record<IconName, ReactElement> = {
@@ -49,6 +50,12 @@ const drawings: Record<IconName, ReactElement> = {
   send: <path d="M12 20V5M5 11l7-7 7 7" />,
   stop: <path d="M9 8h6l1 1v6l-1 1H9l-1-1V9z" />,
   check: <path d="M20 6L9 17l-5-5" />,
+  copy: (
+    <>
+      <path d="M11 9h8l2 2v8l-2 2h-8l-2-2v-8z" />
+      <path d="M5 15l-2-2V5l2-2h8l2 2" />
+    </>
+  ),
 };
 
 /** Properties of an icon. */

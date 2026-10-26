@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The working screen from decision 0016, built in steps:
 
-- Replies formatted from Markdown with copy buttons, and the thinking label and the replies typed in at a steady pace.
 - Provider logos in the model menu and on the model button.
 - The side panel with tabs and the Agent place, which covers the whole screen on a phone.
 - The settings dialog with logins and appearance, opened from Settings in place of the login screen.

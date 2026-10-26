@@ -1,7 +1,11 @@
 import type { ChatMessage } from "independum/api-types";
-import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import styles from "./chat-messages.module.css";
+import { CopyButton } from "./copy-button.tsx";
 import { Mark } from "./mark.tsx";
+import { MarkdownText } from "./markdown-text.tsx";
+import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
+import { useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
 interface ChatMessagesProps {
@@ -13,6 +17,9 @@ interface ChatMessagesProps {
 
 // The space kept above a message that is scrolled to the top of the chat.
 const topGap = 16;
+const thinkingText = "Thinking";
+const thinkingPace = 14;
+const replyPace = 90;
 
 /**
  * Draws the messages of the open chat and the reply in progress, and scrolls a message the user
@@ -25,10 +32,12 @@ export function ChatMessages({
   isReplying,
 }: ChatMessagesProps): ReactElement {
   const scroller = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLOListElement>(null);
   const spacer = useRef<HTMLDivElement>(null);
   const seen = useRef<{ chatId: string | null; userCount: number } | undefined>(undefined);
   const isAnchored = useRef(false);
-  // Messages that arrive after the chat opens rise into view, but the ones it opened with do not.
+  // Messages that arrive after the chat opens rise or type into view, but the ones it opened with
+  // do not.
   const [opened, setOpened] = useState({ chatId, messageCount: messages.length });
   if (opened.chatId !== chatId) {
     setOpened({ chatId, messageCount: messages.length });
@@ -53,71 +62,135 @@ export function ChatMessages({
     if (isSent) {
       isAnchored.current = true;
     }
-    // The spacer fills the space under the anchored message and shrinks as the reply grows, so
-    // the message stays at the top until the reply needs the room.
-    const anchor = isAnchored.current
-      ? ([...scrollerElement.querySelectorAll<HTMLElement>("[data-user]")].at(-1) ?? null)
-      : null;
-    const spacerHeight = spacerElement.offsetHeight;
-    let nextHeight = 0;
-    if (anchor !== null) {
-      const below = spacerElement.offsetTop - anchor.offsetTop;
-      nextHeight = Math.max(0, scrollerElement.clientHeight - below - topGap);
-    }
-    if (Math.abs(nextHeight - spacerHeight) > 1) {
-      spacerElement.style.height = `${nextHeight}px`;
-    }
+    const anchor = fitSpacer(scrollerElement, spacerElement, isAnchored.current);
     if (isSent && anchor !== null) {
-      const isCalm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       scrollerElement.scrollTo({
         top: anchor.offsetTop - topGap,
-        behavior: isCalm ? "auto" : "smooth",
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
       });
     }
   });
 
+  // A reply keeps typing after its last render here, so the spacer follows the size of the list.
+  useEffect(() => {
+    const scrollerElement = scroller.current;
+    const listElement = list.current;
+    const spacerElement = spacer.current;
+    if (scrollerElement === null || listElement === null || spacerElement === null) {
+      return;
+    }
+    const observer = new ResizeObserver(() =>
+      fitSpacer(scrollerElement, spacerElement, isAnchored.current),
+    );
+    observer.observe(listElement);
+    return () => observer.disconnect();
+  }, []);
+
   const last = messages.at(-1);
   const isReplyShown = isReplying && (reply !== "" || last?.role !== "assistant");
+  // The reply in progress and the message it becomes share one place in the list, so its typing
+  // carries on when the reply ends.
+  const liveIndex =
+    last?.role === "assistant" && messages.length - 1 >= opened.messageCount
+      ? messages.length - 1
+      : -1;
 
   return (
     <div ref={scroller} className={styles.scroller}>
-      <ol className={styles.messages}>
-        {messages.map((message, index) =>
-          message.role === "user" ? (
-            <li
-              key={`user-${message.timestamp}`}
-              className={
-                index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
-              }
-              data-user
-            >
-              <p className={styles.bubble}>{message.text}</p>
-            </li>
-          ) : (
+      <ol ref={list} className={styles.messages}>
+        {messages.map((message, index) => {
+          if (message.role === "user") {
+            return (
+              <li
+                key={`user-${message.timestamp}`}
+                className={
+                  index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
+                }
+                data-user
+              >
+                <p className={styles.bubble}>{message.text}</p>
+              </li>
+            );
+          }
+          return index === liveIndex ? null : (
             <li key={`assistant-${message.timestamp}`}>
-              {message.text === "" ? null : <p className={styles.reply}>{message.text}</p>}
-              {message.error === null ? null : <p className={styles.error}>{message.error}</p>}
+              <Reply text={message.text} error={message.error} isLive={false} isStreaming={false} />
             </li>
-          ),
-        )}
+          );
+        })}
         {isReplyShown && reply === "" ? (
           <li className={styles.thinking}>
-            <span className={styles.raven}>
-              <Mark />
-            </span>
-            Thinking
+            <ThinkingLabel />
           </li>
         ) : null}
         {isReplyShown && reply !== "" ? (
-          <li>
-            <p className={styles.reply}>
-              {reply}
-              <span className={styles.caret} aria-hidden="true" />
-            </p>
+          <li key="live">
+            <Reply text={reply} error={null} isLive isStreaming />
+          </li>
+        ) : last !== undefined && liveIndex !== -1 ? (
+          <li key="live">
+            <Reply text={last.text} error={last.error} isLive isStreaming={false} />
           </li>
         ) : null}
       </ol>
       <div ref={spacer} className={styles.spacer} aria-hidden="true" />
     </div>
   );
+}
+
+/** Properties of a reply. */
+interface ReplyProps {
+  text: string;
+  error: string | null;
+  isLive: boolean;
+  isStreaming: boolean;
+}
+
+function Reply({ text, error, isLive, isStreaming }: ReplyProps): ReactElement {
+  const length = useTypedLength(text, isLive, replyPace);
+  const isTyping = isStreaming || length < text.length;
+  return (
+    <>
+      {text === "" ? null : <MarkdownText text={text.slice(0, length)} hasCaret={isTyping} />}
+      {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
+      {text === "" || isTyping ? null : (
+        <div className={styles.actions}>
+          <CopyButton text={text} label="Copy reply" tipAlign="start" />
+        </div>
+      )}
+    </>
+  );
+}
+
+function ThinkingLabel(): ReactElement {
+  const length = useTypedLength(thinkingText, true, thinkingPace);
+  return (
+    <>
+      <span className={styles.raven}>
+        <Mark />
+      </span>
+      <MarkdownText text={thinkingText.slice(0, length)} hasCaret />
+    </>
+  );
+}
+
+// The spacer fills the space under the anchored message and shrinks as the reply grows, so the
+// message stays at the top until the reply needs the room. The end of the messages is the top of
+// the spacer, because a short chat reports the height of the scroller instead of its content.
+function fitSpacer(
+  scroller: HTMLElement,
+  spacer: HTMLElement,
+  isAnchored: boolean,
+): HTMLElement | null {
+  const anchor = isAnchored
+    ? ([...scroller.querySelectorAll<HTMLElement>("[data-user]")].at(-1) ?? null)
+    : null;
+  const nextHeight =
+    anchor === null
+      ? 0
+      : Math.max(0, scroller.clientHeight - (spacer.offsetTop - anchor.offsetTop) - topGap);
+  if (Math.abs(nextHeight - spacer.offsetHeight) > 1) {
+    spacer.style.height = `${nextHeight}px`;
+  }
+  return anchor;
 }
