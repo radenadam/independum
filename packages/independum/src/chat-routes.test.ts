@@ -313,7 +313,7 @@ test("a chat can be renamed, pinned, archived, brought back, and deleted", async
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([fauxAssistantMessage("A reply to keep.")]);
   await sendAndReadReply("A chat to manage");
-  const { id } = (await readStart()).state;
+  const { id, folder } = (await readStart()).state;
 
   expect((await put(`/chats/${id}/name`, { name: "Managed chat" })).status).toBe(204);
   expect((await findChat(id))?.title).toBe("Managed chat");
@@ -326,7 +326,10 @@ test("a chat can be renamed, pinned, archived, brought back, and deleted", async
   const archived = (await (await routes.request("/chats/archived")).json()) as {
     chats: ArchivedChatSummary[];
   };
-  expect(archived.chats.find((chat) => chat.id === id)?.title).toBe("Managed chat");
+  const entry = archived.chats.find((chat) => chat.id === id);
+  expect(entry?.title).toBe("Managed chat");
+  expect(entry?.folder).toBe(folder);
+  expect(entry?.projectName).toBe(basename(folder));
 
   expect((await put(`/chats/${id}/archived`, { isArchived: false })).status).toBe(204);
   expect((await findChat(id))?.isPinned).toBe(false);

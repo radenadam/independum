@@ -4,7 +4,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-- Archived chats from decision 0020: a section in the settings that lists them, with Unarchive and Delete for each.
 - Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 
 ## Next

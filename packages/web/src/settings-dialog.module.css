@@ -76,13 +76,25 @@
     width: auto;
     flex-direction: row;
     align-items: center;
-    padding: 8px 12px;
+    padding: 8px;
+    overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
+  /* Each section keeps its name on one line, and the row scrolls when the names outgrow it. */
+  .title,
+  .section {
+    flex: none;
+    white-space: nowrap;
+  }
+
   .title {
-    padding: 0 10px 0 4px;
+    padding: 0 6px;
+  }
+
+  .section {
+    padding: 0 8px;
   }
 
   .body {
