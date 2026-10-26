@@ -1,6 +1,6 @@
 # App shell
 
-- Status: accepted
+- Status: superseded by [decision 0016](0016-working-screen.md)
 - Date: 2026-10-26
 
 ## Context
