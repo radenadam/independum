@@ -5,7 +5,7 @@ import type {
   ModelSummary,
   ProjectSummary,
 } from "independum/api-types";
-import { type ReactElement, useCallback, useEffect, useEffectEvent, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
   archiveChat,
   type ChatConnection,
@@ -29,6 +29,7 @@ import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
 import { shortcuts, useShortcut } from "./shortcut.ts";
 import { SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
+import { SlidingTitle } from "./sliding-title.tsx";
 import styles from "./working-screen.module.css";
 
 /** Properties of the working screen. */
@@ -185,9 +186,18 @@ export function WorkingScreen({
   useShortcut(shortcuts.settings, openLogins);
 
   const isEmpty = chat !== undefined && chat.messages.length === 0 && !chat.isReplying;
-  const title =
-    projects.flatMap((project) => project.chats).find((saved) => saved.id === chat?.id)?.title ??
-    "New chat";
+  const saved = projects
+    .flatMap((project) => project.chats)
+    .find((candidate) => candidate.id === chat?.id);
+  const title = saved?.title ?? "New chat";
+  // The title of a new chat types itself in once its first message lists it in the sidebar.
+  const lastListing = useRef({ id: chat?.id, isListed: true });
+  const isNewlyListed =
+    saved !== undefined && lastListing.current.id === chat?.id && !lastListing.current.isListed;
+
+  useEffect(() => {
+    lastListing.current = { id: chat?.id, isListed: saved !== undefined };
+  }, [chat?.id, saved]);
 
   return (
     <div className={styles.screen}>
@@ -230,7 +240,11 @@ export function WorkingScreen({
               />
             </>
           )}
-          <p className={styles.title}>{chat === undefined ? "" : title}</p>
+          <p className={styles.title}>
+            {chat === undefined ? null : (
+              <SlidingTitle key={title} text={title} isTyped={isNewlyListed} />
+            )}
+          </p>
           {isPanelOpen ? null : (
             <IconButton
               icon="sidePanel"
