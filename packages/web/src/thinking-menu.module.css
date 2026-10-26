@@ -1,7 +1,8 @@
 .menu {
-  --step: 22px;
-  --knob: 16px;
-  --rail: 10px;
+  --step: 24px;
+  --knob: 20px;
+  --rail: 14px;
+  --dot: 5px;
 
   display: flex;
   flex-direction: column;
@@ -19,6 +20,11 @@
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
+}
+
+/* While the pointer rests on another stop, the name previews that level in plain text. */
+.level[data-preview="true"] {
+  color: var(--ink);
 }
 
 /*
@@ -61,10 +67,10 @@
 
 .stop {
   position: absolute;
-  bottom: calc(var(--knob) / 2 + var(--span) * var(--stop) - 2px);
-  left: calc(50% - 2px);
-  width: 4px;
-  height: 4px;
+  bottom: calc(var(--knob) / 2 + var(--span) * var(--stop) - var(--dot) / 2);
+  left: calc(50% - var(--dot) / 2);
+  width: var(--dot);
+  height: var(--dot);
   border-radius: 50%;
   background: var(--faint);
 }
@@ -72,6 +78,17 @@
 .stop[data-reached="true"] {
   background: var(--on-signal);
   opacity: 0.45;
+}
+
+/* A stop the pointer rests on grows and brightens, so it reads as a place the knob can go. */
+.stop[data-pointed="true"] {
+  background: var(--ink);
+  opacity: 1;
+  scale: 1.8;
+}
+
+.stop[data-pointed="true"][data-reached="true"] {
+  background: var(--on-signal);
 }
 
 /* A ring in the color of the menu sets the knob apart from the orange fill under it. */
@@ -84,6 +101,15 @@
   border-radius: 50%;
   background: var(--signal);
   box-shadow: 0 0 0 3px var(--surface);
+}
+
+/* The knob grows with a soft halo while the pointer rests on it or drags it. */
+.knob[data-pointed="true"],
+.bar:has(.input:active) .knob {
+  scale: 1.15;
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 7px var(--signal-soft);
 }
 
 .input {
@@ -104,6 +130,15 @@
   }
 
   .knob {
-    transition: bottom 160ms ease;
+    transition:
+      bottom 160ms ease,
+      scale 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .stop {
+    transition:
+      scale 140ms ease,
+      background-color 140ms ease;
   }
 }
