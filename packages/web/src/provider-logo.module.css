@@ -1,0 +1,15 @@
+.logo {
+  flex: none;
+  width: var(--logo-size);
+  height: var(--logo-size);
+}
+
+.colored {
+  background: var(--logo-url) center / contain no-repeat;
+}
+
+/* A one color logo takes the text color through a mask, the way the icons do. */
+.plain {
+  background: currentColor;
+  mask: var(--logo-url) center / contain no-repeat;
+}

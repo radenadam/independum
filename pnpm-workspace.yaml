@@ -4,3 +4,5 @@ allowBuilds:
   "@google/genai": false
   protobufjs: false
   simple-git-hooks: false
+minimumReleaseAgeExclude:
+  - "@lobehub/icons-static-svg@1.101.0"

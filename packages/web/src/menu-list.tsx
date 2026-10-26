@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { Icon } from "./icon.tsx";
 import styles from "./menu-list.module.css";
 
@@ -15,6 +15,7 @@ interface MenuChoice {
 export interface MenuGroup {
   key: string;
   heading: string;
+  logo?: ReactNode;
   choices: MenuChoice[];
 }
 
@@ -27,11 +28,21 @@ interface MenuListProps {
 
 /** Draws the choices of a pop-up in groups, with the current choice checked. */
 export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
+  const list = useRef<HTMLDivElement>(null);
+
+  // The current choice comes into view when the menu opens, even far down a long list.
+  useEffect(() => {
+    list.current?.querySelector("[aria-current]")?.scrollIntoView({ block: "nearest" });
+  }, []);
+
   return (
-    <div className={styles.list}>
+    <div ref={list} className={styles.list}>
       {groups.map((group) => (
         <div key={group.key}>
-          <h2 className={styles.heading}>{group.heading}</h2>
+          <h2 className={styles.heading}>
+            {group.logo}
+            {group.heading}
+          </h2>
           {group.choices.map((choice) => (
             <button
               key={choice.key}
