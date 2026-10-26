@@ -1,9 +1,8 @@
 .frame {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: clip;
   white-space: nowrap;
-  container-type: inline-size;
 }
 
 .frame[data-too-long="true"] {
@@ -24,7 +23,7 @@
   }
 
   :hover > .frame[data-too-long="true"] .line {
-    transform: translateX(calc(100cqw - 100%));
+    transform: translateX(calc(-1 * var(--hidden-width)));
     transition: transform 1.8s ease-in-out 0.3s;
   }
 }
