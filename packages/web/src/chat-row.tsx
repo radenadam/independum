@@ -64,6 +64,7 @@ export function ChatRow({ chat, isCurrent, isNested, actions }: ChatRowProps): R
             label="Chat actions"
             size="tiny"
             tipAlign="end"
+            isBlended
             onClick={() => {
               const rect = dots.current?.getBoundingClientRect();
               setMenuAt(rect === undefined ? undefined : { x: rect.left, y: rect.bottom + 4 });

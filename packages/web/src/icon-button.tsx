@@ -16,7 +16,7 @@ interface IconButtonProps {
   isRound?: boolean;
   isFilled?: boolean;
   isHighlighted?: boolean;
-  isPressed?: boolean;
+  isBlended?: boolean;
 }
 
 const iconSizes = { regular: 18, small: 16, tiny: 14 };
@@ -34,7 +34,7 @@ export function IconButton({
   isRound = false,
   isFilled = false,
   isHighlighted = false,
-  isPressed,
+  isBlended = false,
 }: IconButtonProps): ReactElement {
   const classes = [
     styles.button,
@@ -42,6 +42,7 @@ export function IconButton({
     isRound ? styles.round : "",
     isFilled ? styles.filled : "",
     isHighlighted ? styles.highlighted : "",
+    isBlended ? styles.blended : "",
   ];
   // The icon is keyed by its name, so a changed icon fades in, such as copy turning into a check.
   return (
@@ -50,7 +51,6 @@ export function IconButton({
       className={classes.join(" ")}
       aria-label={label}
       aria-keyshortcuts={keyName}
-      aria-pressed={isPressed}
       onClick={onClick}
     >
       <span key={icon} className={styles.glyph}>

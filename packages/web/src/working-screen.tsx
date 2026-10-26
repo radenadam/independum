@@ -231,14 +231,15 @@ export function WorkingScreen({
             </>
           )}
           <p className={styles.title}>{chat === undefined ? "" : title}</p>
-          <IconButton
-            icon="sidePanel"
-            label="Side panel"
-            shortcut={shortcuts.sidePanel}
-            tipAlign="end"
-            isPressed={isPanelOpen}
-            onClick={() => showPanel(!isPanelOpen)}
-          />
+          {isPanelOpen ? null : (
+            <IconButton
+              icon="sidePanel"
+              label="Show side panel"
+              shortcut={shortcuts.sidePanel}
+              tipAlign="end"
+              onClick={() => showPanel(true)}
+            />
+          )}
         </header>
         {chat === undefined ? null : (
           <>

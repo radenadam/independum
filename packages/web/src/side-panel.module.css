@@ -29,7 +29,7 @@
 }
 
 .tab[data-active="true"] {
-  background: var(--raised);
+  background: var(--signal-soft);
 }
 
 .tabButton {
