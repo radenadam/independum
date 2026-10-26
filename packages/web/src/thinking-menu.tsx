@@ -52,7 +52,7 @@ export function ThinkingMenu({ thinking, onChoose }: ThinkingMenuProps): ReactEl
     <div className={styles.menu} style={{ "--ratio": ratio } as CSSProperties}>
       <svg
         className={styles.dial}
-        viewBox="0 0 200 148"
+        viewBox="0 0 200 152"
         aria-hidden="true"
         onPointerDown={(event) => {
           event.preventDefault();
@@ -66,8 +66,8 @@ export function ThinkingMenu({ thinking, onChoose }: ThinkingMenuProps): ReactEl
           }
         }}
       >
-        <path className={styles.track} d={arc(70)} />
-        <path className={styles.fill} d={arc(70)} pathLength={1} />
+        <path className={styles.track} d={arc(70, 1)} />
+        {ratio > 0 ? <path className={styles.fill} d={arc(70, ratio)} /> : null}
         {levels.map((level, stop) => (
           <path
             key={level}
@@ -78,7 +78,7 @@ export function ThinkingMenu({ thinking, onChoose }: ThinkingMenuProps): ReactEl
         ))}
         <path className={styles.needle} d={`M${center.x} ${center.y}V${center.y - 52}`} />
         <circle className={styles.hub} cx={center.x} cy={center.y} r={7} />
-        <text className={styles.level} x={center.x} y={138} textAnchor="middle">
+        <text className={styles.level} x={center.x} y={146} textAnchor="middle">
           {describeThinking(thinking.level)}
         </text>
       </svg>
@@ -106,8 +106,12 @@ function pointAt(ratio: number, radius: number): string {
   return `${x.toFixed(2)} ${y.toFixed(2)}`;
 }
 
-function arc(radius: number): string {
-  return `M${pointAt(0, radius)}A${radius} ${radius} 0 1 1 ${pointAt(1, radius)}`;
+// Returns an arc from the start of the dial to a ratio along it. The orange fill is an arc of its own
+// that ends at the chosen level, because a dash along the whole arc, as the Effort icon uses, can end
+// in a step on some screens at this size.
+function arc(radius: number, ratio: number): string {
+  const largeArc = sweep * ratio > 180 ? 1 : 0;
+  return `M${pointAt(0, radius)}A${radius} ${radius} 0 ${largeArc} 1 ${pointAt(ratio, radius)}`;
 }
 
 // Returns how far along the dial a pointer sits. The open gap at the bottom goes to the nearer end.

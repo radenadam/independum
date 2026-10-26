@@ -6,8 +6,7 @@
 }
 
 .dial {
-  width: 100%;
-  max-width: 220px;
+  width: 150px;
   border-radius: 12px;
   cursor: pointer;
   touch-action: none;
@@ -28,11 +27,8 @@
   stroke: var(--raised);
 }
 
-/* The fill and the needle follow `--ratio`, the same way as the Effort icon in `icon.module.css`. */
 .fill {
   stroke: var(--signal);
-  stroke-dasharray: 1 2;
-  stroke-dashoffset: calc(1 - var(--ratio));
 }
 
 .tick {
@@ -44,6 +40,7 @@
   stroke: var(--signal);
 }
 
+/* The needle follows `--ratio`, the same way as the needle of the Effort icon. */
 .needle {
   stroke: var(--ink);
   stroke-width: 4;
@@ -57,7 +54,7 @@
 
 .level {
   fill: var(--signal);
-  font: 600 15px var(--font-sans);
+  font: 600 18px var(--font-sans);
 }
 
 /* The range input is out of sight, and it keeps the arrow keys and screen readers working. */
@@ -72,11 +69,14 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .fill {
-    transition: stroke-dashoffset 200ms ease;
+/* A phone shows the dial larger, so a finger can turn it. */
+@media (max-width: 760px) {
+  .dial {
+    width: 200px;
   }
+}
 
+@media (prefers-reduced-motion: no-preference) {
   .needle {
     transition: transform 200ms ease;
   }
