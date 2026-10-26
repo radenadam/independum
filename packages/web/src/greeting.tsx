@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import styles from "./greeting.module.css";
 import { RisingMark } from "./mark.tsx";
+import { TypedText } from "./typed-text.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of a greeting. */
@@ -29,18 +30,10 @@ export function Greeting({ title, lines, children }: GreetingProps): ReactElemen
   const typed = useTypedLength(end, greetingTyping);
   const typingIndex = parts.findIndex((part, index) => typed < (starts[index] ?? 0) + part.length);
 
-  // The whole text is there from the start, with its untyped rest hidden, so nothing moves while
-  // it types and a screen reader reads every sentence at once.
   function render(index: number): ReactNode {
     const part = parts[index] ?? "";
     const shown = Math.max(0, Math.min(part.length, typed - (starts[index] ?? 0)));
-    return (
-      <>
-        {part.slice(0, shown)}
-        {index === typingIndex ? <span className={styles.caret} aria-hidden="true" /> : null}
-        <span className={styles.rest}>{part.slice(shown)}</span>
-      </>
-    );
+    return <TypedText text={part} shown={shown} hasCaret={index === typingIndex} />;
   }
 
   return (

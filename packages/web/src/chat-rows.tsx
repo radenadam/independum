@@ -8,11 +8,18 @@ interface ChatRowsProps {
   chats: ChatSummary[];
   currentId: string | null;
   isNested: boolean;
+  newIds: ReadonlySet<string>;
   actions: ChatActions;
 }
 
 /** Draws a list of chats in the sidebar, each with its own menu. */
-export function ChatRows({ chats, currentId, isNested, actions }: ChatRowsProps): ReactElement {
+export function ChatRows({
+  chats,
+  currentId,
+  isNested,
+  newIds,
+  actions,
+}: ChatRowsProps): ReactElement {
   return (
     <ul className={styles.chats}>
       {chats.map((chat) => (
@@ -21,6 +28,7 @@ export function ChatRows({ chats, currentId, isNested, actions }: ChatRowsProps)
             chat={chat}
             isCurrent={chat.id === currentId}
             isNested={isNested}
+            isNew={newIds.has(chat.id)}
             actions={actions}
           />
         </li>

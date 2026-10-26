@@ -32,11 +32,9 @@
 .title {
   flex: 1;
   min-width: 0;
+  display: flex;
   margin: 0;
   padding: 0 6px;
-  overflow: clip;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 14px;
   font-weight: 500;
 }

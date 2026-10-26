@@ -40,20 +40,6 @@
   color: var(--ink);
 }
 
-.rest {
-  visibility: hidden;
-}
-
-/* The caret takes no room, so the line keeps the wrapping of its whole text. */
-.caret {
-  display: inline-block;
-  width: 0.5ch;
-  height: 0.85em;
-  margin-right: -0.5ch;
-  background: var(--signal);
-  vertical-align: baseline;
-}
-
 /* The commands wait for the text, but a keyboard can use them from the start. */
 .commands {
   display: flex;
@@ -67,18 +53,8 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .caret {
-    animation: blink 1s steps(1) infinite;
-  }
-
   .ready {
     animation: fade 0.6s ease both;
-  }
-
-  @keyframes blink {
-    50% {
-      opacity: 0;
-    }
   }
 
   @keyframes fade {

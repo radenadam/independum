@@ -1,5 +1,5 @@
 import type { ProjectSummary } from "independum/api-types";
-import { type ReactElement, useState } from "react";
+import { Fragment, type ReactElement, useEffect, useRef, useState } from "react";
 import type { ChatActions } from "./chat-row.tsx";
 import { ChatRows } from "./chat-rows.tsx";
 import { Icon } from "./icon.tsx";
@@ -40,6 +40,19 @@ export function SidebarChats({
     .toSorted((first, second) => second.modified - first.modified);
   const pinned = chats.filter((chat) => chat.isPinned);
   const recent = chats.filter((chat) => !chat.isPinned).slice(0, recentCount);
+  // The chats in the first list show at once, and a chat that appears after it, such as a new one
+  // after its first message, types its title in. The first list always holds the start folder.
+  const known = useRef<ReadonlySet<string> | undefined>(undefined);
+  const listed = known.current;
+  const newIds = new Set(
+    listed === undefined ? [] : chats.map((chat) => chat.id).filter((id) => !listed.has(id)),
+  );
+
+  useEffect(() => {
+    if (projects.length > 0) {
+      known.current = new Set(projects.flatMap((project) => project.chats.map((chat) => chat.id)));
+    }
+  }, [projects]);
 
   function setOpen(projectFolder: string, isOpen: boolean): void {
     setToggled((current) => new Map(current).set(projectFolder, isOpen));
@@ -61,18 +74,25 @@ export function SidebarChats({
     search === "" && [...pinned, ...recent].some((chat) => chat.id === chatId);
   return (
     <>
-      {search !== "" || pinned.length === 0 ? null : (
-        <>
-          <h2 className={styles.heading}>Pinned</h2>
-          <ChatRows chats={pinned} currentId={chatId} isNested={false} actions={actions} />
-        </>
-      )}
-      {search !== "" || recent.length === 0 ? null : (
-        <>
-          <h2 className={styles.heading}>Recent</h2>
-          <ChatRows chats={recent} currentId={chatId} isNested={false} actions={actions} />
-        </>
-      )}
+      {search === ""
+        ? [
+            { heading: "Pinned", list: pinned },
+            { heading: "Recent", list: recent },
+          ].map(({ heading, list }) =>
+            list.length === 0 ? null : (
+              <Fragment key={heading}>
+                <h2 className={styles.heading}>{heading}</h2>
+                <ChatRows
+                  chats={list}
+                  currentId={chatId}
+                  isNested={false}
+                  newIds={newIds}
+                  actions={actions}
+                />
+              </Fragment>
+            ),
+          )
+        : null}
       <h2 className={styles.heading}>Projects</h2>
       {shown.length === 0 ? <p className={styles.note}>No chats match.</p> : null}
       <ul className={styles.projects}>
@@ -118,6 +138,7 @@ export function SidebarChats({
                     chats={project.chats}
                     currentId={isOpenListedAbove ? null : chatId}
                     isNested
+                    newIds={newIds}
                     actions={actions}
                   />
                 )}
