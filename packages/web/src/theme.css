@@ -35,6 +35,41 @@
   box-sizing: border-box;
 }
 
+/*
+  Scrollbars stay slim, without arrows, and take the colors of the theme. Chromium and Safari draw
+  them from these rules, but Chromium ignores the rules once the standard properties below are set,
+  so those apply only where the rules are unknown, as in Firefox.
+*/
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 5px;
+  background: var(--faint) padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+  }
+
+  :root {
+    scrollbar-color: var(--faint) transparent;
+  }
+}
+
 body {
   margin: 0;
   background: var(--bg);
