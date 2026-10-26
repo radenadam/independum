@@ -41,10 +41,14 @@ export function ProviderLogo({
     if (name === undefined || load === undefined || logoUrls.has(name)) {
       return;
     }
-    load().then((loaded) => {
-      logoUrls.set(name, loaded);
-      setLoadedName(name);
-    });
+    // A logo that fails to load stays an empty space, because the provider name says the same.
+    load().then(
+      (loaded) => {
+        logoUrls.set(name, loaded);
+        setLoadedName(name);
+      },
+      () => undefined,
+    );
   }, [name]);
 
   if (name === undefined && !keepsSpace) {
@@ -54,10 +58,12 @@ export function ProviderLogo({
     "--logo-size": `${size}px`,
     "--logo-url": url === undefined ? "none" : `url("${url}")`,
   } as CSSProperties;
+  // A one color logo fills the text color through its mask, so it waits for its file and never
+  // shows as a plain square.
   const kind = name?.endsWith("-color") === true ? styles.colored : styles.plain;
   return (
     <span
-      className={name === undefined ? styles.logo : `${styles.logo} ${kind}`}
+      className={url === undefined ? styles.logo : `${styles.logo} ${kind}`}
       style={variables}
       aria-hidden="true"
     />
