@@ -4,14 +4,11 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-The working screen from decision 0016, built in steps:
-
-- The model list as a sheet from the bottom on a phone.
+- Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 
 ## Next
 
 - Built-ins in the UI: edit the system prompt and the other built-ins from the Agent place. See decisions 0002, 0013, and 0016.
-- Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 - Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
