@@ -179,7 +179,7 @@ export function MessageBox({
                     label="Thinking effort"
                     place={isEmpty ? "below" : "above"}
                     onClose={() => setMenu(undefined)}
-                    isNarrow
+                    size="fit"
                   >
                     <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
                   </Popover>

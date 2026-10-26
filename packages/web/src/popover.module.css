@@ -62,6 +62,10 @@
   width: 220px;
 }
 
+.fit {
+  width: max-content;
+}
+
 /* On a phone, a pop-up becomes a sheet that rises from the bottom, with a handle at its top. */
 @media (max-width: 760px) {
   .backdrop {

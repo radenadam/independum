@@ -18,7 +18,7 @@ interface PopoverProps {
   onClose: () => void;
   children: ReactNode;
   note?: string;
-  isNarrow?: boolean;
+  size?: "regular" | "narrow" | "fit";
 }
 
 // A pop-up keeps this far from the edges of the screen.
@@ -34,7 +34,7 @@ export function Popover({
   onClose,
   children,
   note,
-  isNarrow = false,
+  size = "regular",
 }: PopoverProps): ReactElement {
   const popover = useRef<HTMLDivElement>(null);
   const point = typeof place === "string" ? undefined : place;
@@ -82,7 +82,7 @@ export function Popover({
         ref={popover}
         role="dialog"
         aria-label={label}
-        className={`${styles.popover} ${placeClass} ${isNarrow ? styles.narrow : ""}`}
+        className={`${styles.popover} ${placeClass} ${styles[size]}`}
         style={variables}
         onKeyDown={(event) => {
           if (event.key === "Escape") {

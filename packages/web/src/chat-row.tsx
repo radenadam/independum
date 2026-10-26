@@ -91,7 +91,12 @@ export function ChatRow({ chat, isCurrent, isNested, actions }: ChatRowProps): R
         </button>
       </RowWithAction>
       {menuAt === undefined ? null : (
-        <Popover label="Chat actions" place={menuAt} onClose={() => setMenuAt(undefined)} isNarrow>
+        <Popover
+          label="Chat actions"
+          place={menuAt}
+          onClose={() => setMenuAt(undefined)}
+          size="narrow"
+        >
           <ActionMenu
             label={`Actions for ${chat.title}`}
             groups={[
