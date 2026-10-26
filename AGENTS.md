@@ -9,6 +9,7 @@ This file is the rulebook for every change to this repository, made by a person 
 - `packages/independum`: the `independum` command and the local server.
 - `packages/web`: the browser UI.
 - `docs/glossary.md`: the names of Independum concepts.
+- `docs/icons.md`: how every icon is drawn.
 - `docs/decisions`: one record per decision, with its reasons.
 - `docs/roadmap.md`: current work, next work, and open questions.
 - `scripts`: the repository checks behind `pnpm check`.
@@ -127,6 +128,7 @@ To review a Pi update with the maintainer:
 - The design follows decision 0009. Colors and fonts are tokens in `packages/web/src/theme.css`, and every other stylesheet uses the tokens instead of raw colors.
 - A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
 - Actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too. Their labels use sentence case. Field labels, the top bar, and the theme switch use lowercase.
+- Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its table of shapes.
 - A command that returns to the previous screen sets `isBack`, so its arrow points back.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
