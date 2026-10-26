@@ -1,5 +1,5 @@
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import type { ChatEvent, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
 import { streamEvents } from "./stream-events.ts";
@@ -78,10 +78,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   routes.post("/chat/open", async (context) => {
     const body: { id?: unknown } = await context.req.json().catch(() => ({}));
-    if (typeof body.id !== "string" || !(await chat.open(body.id))) {
-      return context.json({ error: "No saved chat has that id." }, 404);
-    }
-    return context.body(null, 204);
+    return answer(context, typeof body.id === "string" && (await chat.open(body.id)));
   });
 
   routes.post("/chat/stop", async (context) => {
@@ -101,5 +98,43 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     return context.body(null, 204);
   });
 
+  routes.get("/chats/archived", async (context) =>
+    context.json({ chats: await chat.getArchived() }),
+  );
+
+  routes.put("/chats/:id/name", async (context) => {
+    const body: { name?: unknown } = await context.req.json().catch(() => ({}));
+    if (typeof body.name !== "string" || body.name.trim() === "") {
+      return context.json({ error: "A chat needs a name." }, 400);
+    }
+    return answer(context, await chat.rename(context.req.param("id"), body.name));
+  });
+
+  routes.put("/chats/:id/pinned", async (context) => {
+    const body: { isPinned?: unknown } = await context.req.json().catch(() => ({}));
+    if (typeof body.isPinned !== "boolean") {
+      return context.json({ error: "Pinning needs a yes or a no." }, 400);
+    }
+    return answer(context, await chat.pin(context.req.param("id"), body.isPinned));
+  });
+
+  routes.put("/chats/:id/archived", async (context) => {
+    const body: { isArchived?: unknown } = await context.req.json().catch(() => ({}));
+    if (typeof body.isArchived !== "boolean") {
+      return context.json({ error: "Archiving needs a yes or a no." }, 400);
+    }
+    return answer(context, await chat.archive(context.req.param("id"), body.isArchived));
+  });
+
+  routes.delete("/chats/:id", async (context) =>
+    answer(context, await chat.remove(context.req.param("id"))),
+  );
+
   return routes;
+}
+
+function answer(context: Context, isDone: boolean): Response {
+  return isDone
+    ? context.body(null, 204)
+    : context.json({ error: "No saved chat has that id." }, 404);
 }

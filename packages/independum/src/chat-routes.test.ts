@@ -6,9 +6,11 @@ import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
 import type {
   AgentSummary,
+  ArchivedChatSummary,
   ChatEvent,
   ChatMessage,
   ChatState,
+  ChatSummary,
   ModelSummary,
   ProjectSummary,
 } from "./api-types.ts";
@@ -293,4 +295,54 @@ test("a model that thinks offers its thinking levels, and the chat keeps the cho
   expect((await readStart()).state.thinking?.level).toBe("high");
   expect((await choose("as hard as possible")).status).toBe(400);
   expect((await choose(5)).status).toBe(400);
+});
+
+function put(path: string, body: unknown): Promise<Response> {
+  return Promise.resolve(
+    routes.request(path, { method: "PUT", headers: json, body: JSON.stringify(body) }),
+  );
+}
+
+async function findChat(id: string | null): Promise<ChatSummary | undefined> {
+  const { projects } = await readStart();
+  return projects.flatMap((project) => project.chats).find((chat) => chat.id === id);
+}
+
+test("a chat can be renamed, pinned, archived, brought back, and deleted", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  faux.setResponses([fauxAssistantMessage("A reply to keep.")]);
+  await sendAndReadReply("A chat to manage");
+  const { id } = (await readStart()).state;
+
+  expect((await put(`/chats/${id}/name`, { name: "Managed chat" })).status).toBe(204);
+  expect((await findChat(id))?.title).toBe("Managed chat");
+  expect((await put(`/chats/${id}/pinned`, { isPinned: true })).status).toBe(204);
+  expect((await findChat(id))?.isPinned).toBe(true);
+
+  expect((await put(`/chats/${id}/archived`, { isArchived: true })).status).toBe(204);
+  expect(await findChat(id)).toBeUndefined();
+  expect((await readStart()).state.id).not.toBe(id);
+  const archived = (await (await routes.request("/chats/archived")).json()) as {
+    chats: ArchivedChatSummary[];
+  };
+  expect(archived.chats.find((chat) => chat.id === id)?.title).toBe("Managed chat");
+
+  expect((await put(`/chats/${id}/archived`, { isArchived: false })).status).toBe(204);
+  expect((await findChat(id))?.isPinned).toBe(false);
+  expect((await routes.request(`/chats/${id}`, { method: "DELETE" })).status).toBe(204);
+  expect(await findChat(id)).toBeUndefined();
+  expect((await routes.request(`/chats/${id}`, { method: "DELETE" })).status).toBe(404);
+  expect((await put("/chats/no-such-chat/pinned", { isPinned: true })).status).toBe(404);
+  expect((await put(`/chats/${id}/name`, { name: " " })).status).toBe(400);
+});
+
+test("a closed chat can be renamed, and a pin lasts after a restart", async () => {
+  const { projects } = await readStart();
+  const hello = projects.flatMap((project) => project.chats).find((chat) => chat.title === "Hello");
+  expect((await put(`/chats/${hello?.id}/name`, { name: "Greetings" })).status).toBe(204);
+  expect((await put(`/chats/${hello?.id}/pinned`, { isPinned: true })).status).toBe(204);
+  routes = await createRoutes(startFolder);
+  const restarted = await findChat(hello?.id ?? null);
+  expect(restarted).toMatchObject({ title: "Greetings", isPinned: true });
 });
