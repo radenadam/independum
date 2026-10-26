@@ -1,7 +1,9 @@
+/* The front of an open folder tilts past the edge of the grid, so the drawing may overflow it. */
 .icon {
   --motion: 450ms;
 
   flex: none;
+  overflow: visible;
 }
 
 /*
@@ -104,8 +106,9 @@
   --shift-y: -2.5px;
 }
 
-.quarterTurn {
-  --turn: 90deg;
+/* A plus or an X only twists a little, so it never passes through the other shape. */
+.twist {
+  --turn: 20deg;
 
   transform-origin: 12px 12px;
 }

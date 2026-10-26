@@ -66,14 +66,14 @@ const drawings: Record<IconName, ReactElement> = {
     <>
       <path className={styles.folderClosed} d="M3 5l1-1h5l2 3h10l1 1v11l-1 1H4l-1-1z" />
       <g className={styles.folderOpen}>
-        <path d="M3 20V5l1-1h5l2 3h8l1 1v3" />
-        <path d="M3 20l3-9h16l-3 9z" />
+        <path d="M3 20V5l1-1h5l2 3h10l1 1v3" />
+        <path d="M3 20l2.5-9h18l-2.5 9z" />
       </g>
     </>
   ),
   expand: <path className={moves(styles.nudgeRight)} d="M9 5l7 7-7 7" />,
   menu: <path className={moves(styles.nudgeDown)} d="M5 9l7 7 7-7" />,
-  add: <path className={moves(styles.quarterTurn)} d="M12 4v16M4 12h16" />,
+  add: <path className={moves(styles.twist)} d="M12 4v16M4 12h16" />,
   send: <path className={moves(styles.nudgeUp)} d="M12 20V5M5 11l7-7 7 7" />,
   stop: <path className={moves(styles.squeeze)} d="M9 8h6l1 1v6l-1 1H9l-1-1V9z" />,
   check: <path d="M20 6L9 17l-5-5" />,
@@ -105,7 +105,7 @@ const drawings: Record<IconName, ReactElement> = {
       <path className={moves(styles.eyes)} d="M15 12.5v3M9 12.5v3" />
     </>
   ),
-  close: <path className={moves(styles.quarterTurn)} d="M18 6L6 18M6 6l12 12" />,
+  close: <path className={moves(styles.twist)} d="M18 6L6 18M6 6l12 12" />,
   more: (
     <>
       <circle className={moves(styles.firstDot)} cx="5" cy="12" r="1" />
