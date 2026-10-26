@@ -1,6 +1,6 @@
 # Thinking effort dial
 
-- Status: accepted
+- Status: superseded by [decision 0022](0022-thinking-effort-dial-menu.md)
 - Date: 2026-10-26
 
 ## Context

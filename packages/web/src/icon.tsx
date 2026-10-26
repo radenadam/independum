@@ -120,10 +120,10 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   effort: (
     <>
-      <path className={styles.dial} d="M3 16.5a9 9 0 0 1 18 0" />
-      <path className={styles.dialFill} d="M3 16.5a9 9 0 0 1 18 0" pathLength={1} />
-      <path className={styles.needle} d="M12 16.5H5.5" />
-      <circle cx="12" cy="16.5" r="1" />
+      <path className={styles.dial} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" />
+      <path className={styles.dialFill} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" pathLength={1} />
+      <path className={styles.needle} d="M12 14V8" />
+      <circle cx="12" cy="14" r="1" />
     </>
   ),
 };

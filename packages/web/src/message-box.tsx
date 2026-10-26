@@ -181,11 +181,7 @@ export function MessageBox({
                     onClose={() => setMenu(undefined)}
                     isNarrow
                   >
-                    <ThinkingMenu
-                      thinking={thinking}
-                      modelName={modelName}
-                      onChoose={onChooseThinking}
-                    />
+                    <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
                   </Popover>
                 ) : null}
               </span>
