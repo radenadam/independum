@@ -17,6 +17,7 @@ interface IconButtonProps {
   isFilled?: boolean;
   isHighlighted?: boolean;
   isBlended?: boolean;
+  isExpanded?: boolean;
 }
 
 const iconSizes = { regular: 18, small: 16, tiny: 14 };
@@ -35,6 +36,7 @@ export function IconButton({
   isFilled = false,
   isHighlighted = false,
   isBlended = false,
+  isExpanded,
 }: IconButtonProps): ReactElement {
   const classes = [
     styles.button,
@@ -51,6 +53,7 @@ export function IconButton({
       className={classes.join(" ")}
       aria-label={label}
       aria-keyshortcuts={keyName}
+      aria-expanded={isExpanded}
       onClick={onClick}
     >
       <span key={icon} className={styles.glyph}>

@@ -1,3 +1,32 @@
 .icon {
   flex: none;
 }
+
+/*
+  The effort dial reads its level from `--ratio`, from 0 at the lowest level to 1 at the highest, so
+  the needle turns and the orange arc grows as the level rises.
+*/
+.dial {
+  stroke: var(--faint);
+}
+
+.dialFill {
+  stroke: var(--signal);
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: calc(1 - var(--ratio, 0));
+}
+
+.needle {
+  transform: rotate(calc(var(--ratio, 0) * 180deg));
+  transform-origin: 12px 16.5px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialFill {
+    transition: stroke-dashoffset 200ms ease;
+  }
+
+  .needle {
+    transition: transform 200ms ease;
+  }
+}
