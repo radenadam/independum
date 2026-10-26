@@ -18,7 +18,12 @@ export type IconName =
   | "sidePanel"
   | "newTab"
   | "agent"
-  | "close";
+  | "close"
+  | "more"
+  | "rename"
+  | "pin"
+  | "archive"
+  | "delete";
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
 const drawings: Record<IconName, ReactElement> = {
@@ -77,6 +82,41 @@ const drawings: Record<IconName, ReactElement> = {
     </>
   ),
   close: <path d="M18 6L6 18M6 6l12 12" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </>
+  ),
+  rename: (
+    <>
+      <path d="M15 4l5 5L9 20H4v-5z" />
+      <path d="M12.5 6.5l5 5" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M8 3h8" />
+      <path d="M9.5 3v6l-3.5 4h12l-3.5-4V3" />
+      <path d="M12 13v8" />
+    </>
+  ),
+  archive: (
+    <>
+      <path d="M4 4h16l1 1v2l-1 1H4L3 7V5z" />
+      <path d="M5 8v10l2 2h10l2-2V8" />
+      <path d="M10 12h4" />
+    </>
+  ),
+  delete: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M9 6V3h6v3" />
+      <path d="M6 6v13l2 2h8l2-2V6" />
+      <path d="M10 10v7M14 10v7" />
+    </>
+  ),
 };
 
 /** Properties of an icon. */

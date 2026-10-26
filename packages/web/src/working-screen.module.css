@@ -110,8 +110,6 @@
     inset: 0;
     z-index: 25;
     display: block;
-    padding: 0;
-    border: 0;
     background: var(--scrim);
   }
 

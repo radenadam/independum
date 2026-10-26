@@ -86,6 +86,15 @@ textarea {
   color: inherit;
 }
 
+/* A button starts plain, so each stylesheet states only what makes its button different. */
+button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
 a {
   color: var(--signal);
 }

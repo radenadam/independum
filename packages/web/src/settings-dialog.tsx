@@ -1,7 +1,8 @@
-import { type ReactElement, useEffect, useRef } from "react";
+import type { ReactElement } from "react";
 import { AppearanceSection } from "./appearance-section.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { LoginsSection } from "./logins-section.tsx";
+import { ModalDialog } from "./modal-dialog.tsx";
 import styles from "./settings-dialog.module.css";
 
 /** A section of the settings dialog. */
@@ -28,30 +29,12 @@ export function SettingsDialog({
   onClose,
   onLoginsChanged,
 }: SettingsDialogProps): ReactElement {
-  const dialog = useRef<HTMLDialogElement>(null);
-
-  // A modal dialog keeps the focus inside it and closes on Escape, which the browser handles.
-  useEffect(() => {
-    const element = dialog.current;
-    if (section !== undefined && element?.open === false) {
-      element.showModal();
-    } else if (section === undefined && element?.open === true) {
-      element.close();
-    }
-  }, [section]);
-
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: A click on the backdrop is for a pointer, and the keyboard closes the dialog with Escape, which the browser handles.
-    <dialog
-      ref={dialog}
+    <ModalDialog
+      isOpen={section !== undefined}
+      label="Settings"
       className={styles.dialog}
-      aria-label="Settings"
       onClose={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
     >
       {section === undefined ? null : (
         <div className={styles.frame}>
@@ -88,6 +71,6 @@ export function SettingsDialog({
           </div>
         </div>
       )}
-    </dialog>
+    </ModalDialog>
   );
 }

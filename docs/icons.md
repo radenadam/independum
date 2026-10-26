@@ -44,6 +44,11 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Close | An X. |
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
+| More | Three dots in a row. |
+| Rename | A pencil at 45 degrees. |
+| Pin | A pushpin with its needle down. |
+| Archive | A box under a lid, with a slot. |
+| Delete | A bin under its lid, with a handle and two lines. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent.
 

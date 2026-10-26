@@ -1,0 +1,36 @@
+.row {
+  position: relative;
+}
+
+/* The row keeps room for the action at its end, so its highlight reaches the edge of the list. */
+.row > :first-child {
+  padding-right: 36px;
+}
+
+/* The row stays highlighted while the pointer is on the action. */
+.row:hover > :first-child:not([aria-current="true"]) {
+  background: var(--raised);
+}
+
+.action {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+}
+
+.row:hover .action,
+.row:focus-within .action,
+.row[data-action-shown="true"] .action {
+  opacity: 1;
+}
+
+/* A touch screen has no hover, so the action stays in view there. */
+@media (hover: none) {
+  .action {
+    opacity: 1;
+  }
+}

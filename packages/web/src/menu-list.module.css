@@ -21,11 +21,7 @@
   align-items: center;
   gap: 10px;
   padding: 4px 10px;
-  border: 0;
   border-radius: 9px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
 }
 
 .choice:hover:not([aria-current="true"]) {

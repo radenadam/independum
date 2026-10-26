@@ -1,11 +1,13 @@
 import type { ProjectSummary } from "independum/api-types";
 import { type ReactElement, useState } from "react";
+import type { ChatActions } from "./chat-row.tsx";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { Mark } from "./mark.tsx";
-import { ProjectList } from "./project-list.tsx";
-import { describeShortcut, shortcuts } from "./shortcut.ts";
+import { RowButton } from "./row-button.tsx";
+import { shortcuts } from "./shortcut.ts";
 import styles from "./sidebar.module.css";
+import { SidebarChats } from "./sidebar-chats.tsx";
 import { SlidingColumn } from "./sliding-column.tsx";
 import { TextField } from "./text-field.tsx";
 
@@ -18,11 +20,14 @@ interface SidebarProps {
   isNewChatFlashing: boolean;
   onHide: () => void;
   onNewChat: (folder?: string) => void;
-  onOpenChat: (id: string) => void;
+  chatActions: ChatActions;
   onOpenSettings: () => void;
 }
 
-/** Draws the sidebar with New chat, the search, the projects with their chats, and Settings. */
+/**
+ * Draws the sidebar with New chat, the search, the pinned and recent chats, the projects with their
+ * chats, and Settings.
+ */
 export function Sidebar({
   projects,
   chatId,
@@ -31,7 +36,7 @@ export function Sidebar({
   isNewChatFlashing,
   onHide,
   onNewChat,
-  onOpenChat,
+  chatActions,
   onOpenSettings,
 }: SidebarProps): ReactElement {
   const [query, setQuery] = useState("");
@@ -54,17 +59,14 @@ export function Sidebar({
         />
       </div>
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.row}
-          data-flashing={isNewChatFlashing}
-          aria-keyshortcuts={describeShortcut(shortcuts.newChat)}
+        <RowButton
+          label="New chat"
+          leading={<Icon name="newChat" />}
+          shortcut={shortcuts.newChat}
+          isStrong
+          isFlashing={isNewChatFlashing}
           onClick={() => onNewChat()}
-        >
-          <Icon name="newChat" />
-          <span className={styles.label}>New chat</span>
-          <span className={styles.key}>{describeShortcut(shortcuts.newChat)}</span>
-        </button>
+        />
         <TextField
           id="chat-search"
           label="Search chats"
@@ -74,27 +76,23 @@ export function Sidebar({
         />
       </div>
       <div className={styles.list}>
-        <h2 className={styles.heading}>Projects</h2>
-        <ProjectList
+        <SidebarChats
           projects={projects}
           query={query}
           chatId={chatId}
           folder={folder}
-          onOpenChat={onOpenChat}
+          actions={chatActions}
           onNewChat={onNewChat}
         />
       </div>
       <div className={styles.bottom}>
-        <button
-          type="button"
-          className={`${styles.row} ${styles.quiet}`}
-          aria-keyshortcuts={describeShortcut(shortcuts.settings)}
+        <RowButton
+          label="Settings"
+          leading={<Icon name="settings" />}
+          shortcut={shortcuts.settings}
+          isQuiet
           onClick={onOpenSettings}
-        >
-          <Icon name="settings" />
-          <span className={styles.label}>Settings</span>
-          <span className={styles.key}>{describeShortcut(shortcuts.settings)}</span>
-        </button>
+        />
       </div>
     </SlidingColumn>
   );

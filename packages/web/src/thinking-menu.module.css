@@ -82,14 +82,13 @@
   grid-template-columns: repeat(var(--count), minmax(0, 1fr));
 }
 
+/* A level name sits centered under its stop of the slider. */
 .level {
+  text-align: center;
   padding: 6px 2px;
-  border: 0;
-  background: none;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.2;
-  cursor: pointer;
 }
 
 .level:hover {

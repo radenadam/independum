@@ -1,0 +1,64 @@
+.row {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.row:hover {
+  background: var(--raised);
+}
+
+.strong {
+  font-weight: 500;
+}
+
+.quiet {
+  color: var(--muted);
+}
+
+.row[data-flashing="true"] {
+  color: var(--signal);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quiet .label {
+  color: var(--ink);
+}
+
+.key {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* A touch screen has no keyboard shortcuts to show. */
+@media (hover: none) {
+  .key {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .row {
+    transition: color 700ms ease-out;
+  }
+
+  .row[data-flashing="true"] {
+    transition: none;
+  }
+}

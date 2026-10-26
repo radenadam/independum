@@ -1,17 +1,29 @@
-import type { ChatEvent, ChatState, ModelSummary, ProjectSummary } from "independum/api-types";
+import type {
+  ChatEvent,
+  ChatState,
+  ChatSummary,
+  ModelSummary,
+  ProjectSummary,
+} from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useEffectEvent, useState } from "react";
 import {
+  archiveChat,
   type ChatConnection,
   chooseModel,
   chooseThinking,
+  deleteChat,
   fetchModels,
   followChat,
   openChat,
+  pinChat,
+  renameChat,
   sendMessage,
   startNewChat,
   stopReply,
 } from "./chat-api.ts";
 import { ChatMessages } from "./chat-messages.tsx";
+import type { ChatActions } from "./chat-row.tsx";
+import { ConfirmDialog } from "./confirm-dialog.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
@@ -46,6 +58,7 @@ export function WorkingScreen({
     startsWithLogins ? "logins" : undefined,
   );
   const [notice, setNotice] = useState<string | undefined>();
+  const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
 
   const loadModels = useCallback((): void => {
     fetchModels().then(setModels, () => setModels([]));
@@ -140,6 +153,23 @@ export function WorkingScreen({
     setSettingsSection("logins");
   }
 
+  // Each change runs on the server, which then sends the projects again, so a failure only needs a
+  // notice.
+  function change(work: Promise<void>, failure: string): void {
+    setNotice(undefined);
+    work.catch(() => setNotice(failure));
+  }
+
+  const chatActions: ChatActions = {
+    onOpen: open,
+    onRename: (id, name) =>
+      change(renameChat(id, name), "The chat could not be renamed. Try again."),
+    onPin: (id, isPinned) =>
+      change(pinChat(id, isPinned), "The chat could not be pinned. Try again."),
+    onArchive: (id) => change(archiveChat(id, true), "The chat could not be archived. Try again."),
+    onDelete: setChatToDelete,
+  };
+
   async function send(text: string): Promise<void> {
     setNotice(undefined);
     try {
@@ -170,7 +200,7 @@ export function WorkingScreen({
         isNewChatFlashing={isNewChatFlashing}
         onHide={() => setIsSidebarOpen(false)}
         onNewChat={startNew}
-        onOpenChat={open}
+        chatActions={chatActions}
         onOpenSettings={openLogins}
       />
       {isSidebarOpen ? (
@@ -268,6 +298,18 @@ export function WorkingScreen({
         onClose={() => setSettingsSection(undefined)}
         onLoginsChanged={loadModels}
       />
+      {chatToDelete === undefined ? null : (
+        <ConfirmDialog
+          title="Delete this chat?"
+          text={`"${chatToDelete.title}" and its file in ~/.independum/sessions go away for good. Archive the chat instead to keep it out of sight.`}
+          confirmLabel="Delete"
+          onConfirm={() => {
+            change(deleteChat(chatToDelete.id), "The chat could not be deleted. Try again.");
+            setChatToDelete(undefined);
+          }}
+          onCancel={() => setChatToDelete(undefined)}
+        />
+      )}
     </div>
   );
 }
