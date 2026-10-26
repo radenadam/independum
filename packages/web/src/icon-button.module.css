@@ -39,6 +39,15 @@
   color: var(--on-signal);
 }
 
+.highlighted,
+.highlighted:hover {
+  color: var(--signal);
+}
+
+.glyph {
+  display: flex;
+}
+
 .tip {
   position: absolute;
   z-index: 60;
@@ -94,6 +103,21 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .glyph {
+    animation: appear 150ms ease-out both;
+  }
+
+  @keyframes appear {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   .button:hover .tip {
     transition:
       opacity 120ms ease 300ms,

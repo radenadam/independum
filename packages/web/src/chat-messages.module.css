@@ -31,12 +31,9 @@
   overflow-wrap: anywhere;
 }
 
-.reply {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.65;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.actions {
+  display: flex;
+  margin: 8px 0 0 -7px;
 }
 
 .error {
@@ -57,15 +54,6 @@
   display: flex;
   color: var(--signal);
   font-size: 15px;
-}
-
-.caret {
-  display: inline-block;
-  width: 0.5ch;
-  height: 1.05em;
-  margin-left: 1px;
-  background: var(--signal);
-  vertical-align: text-bottom;
 }
 
 .spacer {
@@ -91,10 +79,6 @@
     animation: breathe 2.4s ease-in-out infinite;
   }
 
-  .caret {
-    animation: blink 1s steps(1) infinite;
-  }
-
   @keyframes rise {
     from {
       opacity: 0;
@@ -113,12 +97,6 @@
     }
     50% {
       opacity: 1;
-    }
-  }
-
-  @keyframes blink {
-    50% {
-      opacity: 0;
     }
   }
 }

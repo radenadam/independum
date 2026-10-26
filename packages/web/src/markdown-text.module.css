@@ -1,0 +1,125 @@
+.markdown {
+  font-size: 16px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0 0 12px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 20px 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.markdown h1 {
+  font-size: 20px;
+}
+
+.markdown h2 {
+  font-size: 18px;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.markdown li + li {
+  margin-top: 4px;
+}
+
+.markdown li > p {
+  margin: 0;
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+
+.markdown :not(pre) > code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--raised);
+  font: 0.875em var(--font-mono);
+}
+
+.markdown blockquote {
+  margin: 0 0 12px;
+  padding-left: 14px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+
+.markdown hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.markdown a:hover {
+  color: var(--ink);
+}
+
+.table {
+  margin: 0 0 12px;
+  overflow-x: auto;
+}
+
+.table table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.table th {
+  font-weight: 600;
+}
+
+/* The caret follows the last line of text, or the last item of a list that ends the reply. */
+.caret > :last-child:not(ul, ol, div)::after,
+.caret > :is(ul, ol):last-child > li:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.5ch;
+  height: 1.05em;
+  margin-left: 1px;
+  background: var(--signal);
+  vertical-align: text-bottom;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .caret > :last-child:not(ul, ol, div)::after,
+  .caret > :is(ul, ol):last-child > li:last-child::after {
+    animation: blink 1s steps(1) infinite;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}

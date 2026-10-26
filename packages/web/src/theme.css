@@ -13,6 +13,7 @@
   --surface: light-dark(#ffffff, #1b1b1b);
   --raised: light-dark(#ebebe6, #252524);
   --bubble: light-dark(#edede8, #262624);
+  --code: light-dark(#f4f4f0, #181818);
   --scrim: light-dark(rgba(20, 20, 18, 0.28), rgba(0, 0, 0, 0.55));
   --shadow: light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.5));
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
