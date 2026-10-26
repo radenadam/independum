@@ -129,8 +129,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       if (message !== undefined) {
         emit({ type: "message", message });
       }
+      // Pi tells its listeners about a message before it saves it, so the projects wait one turn
+      // of the event loop. When they are read sooner, a new chat stays out of its project until
+      // the reply ends.
       if (event.message.role === "user") {
-        emitProjects();
+        setImmediate(emitProjects);
       }
     }
   }
