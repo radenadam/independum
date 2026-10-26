@@ -44,6 +44,7 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 - When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way.
 - Each thing has one way to do it. A change that replaces a pattern migrates every use of the old one, so no half-migration remains.
 - A rule that a tool can check becomes a check in `pnpm check`. See decision 0004.
+- A rule that blocks good work without protecting privacy or security gets changed in the same change, never worked around. When a rule that protects privacy or security blocks the work, tell the maintainer, who weighs it.
 
 ## No leftovers
 
@@ -99,7 +100,7 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 - Every API route sits under `/api/`, where the server requires the access token and accepts requests only from its own address and origin. See decision 0005.
 - The server listens on `127.0.0.1` only until network access and phone pairing exist.
 - Never read, print, copy, or edit `~/.independum/auth.json`, `~/.independum/models.json`, or any `.env` file. They hold credentials, and their contents must stay out of every conversation.
-- Read chats in `~/.independum/sessions` when debugging needs them, but never edit anything in `~/.independum`. A chat holds only what the user and the model wrote.
+- Read chats in `~/.independum/sessions` whenever the work needs them, and test with real models through the app, which saves its chats there like any other. Never change a chat file by hand, because Pi owns its format.
 - Search with `git grep` or a search tool built on ripgrep, because both skip files that git ignores. Never search with `grep -r`, which reads ignored files such as `.env` and prints what they hold.
 
 ## Real model calls
