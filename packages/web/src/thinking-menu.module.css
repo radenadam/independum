@@ -1,70 +1,84 @@
 .menu {
-  --handle: 18px;
+  --track: 22px;
+  --thumb: 14px;
 
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 6px 4px 4px;
+  gap: 12px;
+  padding: 8px 6px 6px;
 }
 
-.heading {
+.summary {
   margin: 0;
-  padding: 0 6px;
-  font-size: 12px;
-  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.level {
+  color: var(--signal);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.model {
   color: var(--muted);
+  font-size: 12px;
 }
 
 /*
-  The stops of the slider line up with the middles of the level names, so the slider starts half a
-  name in and stretches across all but one name, plus the handle. The track and the handle are
-  drawn here, and an invisible range input above them takes the pointer, touch, and keys.
+  The slider is a round track with a dot for each level. The first and last stops sit half the track
+  height in from the ends, so the round thumb stays inside the track and the orange fill wraps it.
+  An invisible range input above them takes the pointer, touch, and keys.
 */
 .slider {
+  --span: calc(100% - var(--track));
+
   position: relative;
-  width: calc(100% * (var(--count) - 1) / var(--count) + var(--handle));
-  height: var(--handle);
-  margin: 6px 0 0 calc(50% / var(--count) - var(--handle) / 2);
+  height: var(--track);
+  border-radius: calc(var(--track) / 2);
+  background: var(--raised);
 }
 
 .slider:has(.input:focus-visible) {
   outline: 2px solid var(--signal);
-  outline-offset: 4px;
-  border-radius: 4px;
+  outline-offset: 3px;
 }
 
-.track {
-  position: absolute;
-  top: calc(50% - 2px);
-  right: calc(var(--handle) / 2);
-  left: calc(var(--handle) / 2);
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(
-    to right,
-    var(--signal) calc(var(--ratio) * 100%),
-    var(--line) calc(var(--ratio) * 100%)
-  );
-}
-
-/* The handle is a square with its corners cut, like the straight cuts of the raven. */
-.handle {
+.fill {
   position: absolute;
   top: 0;
-  left: calc((100% - var(--handle)) * var(--ratio));
-  width: var(--handle);
-  height: var(--handle);
+  bottom: 0;
+  left: 0;
+  width: calc(var(--track) + var(--span) * var(--ratio));
+  border-radius: inherit;
   background: var(--signal);
-  clip-path: polygon(
-    4px 0,
-    calc(100% - 4px) 0,
-    100% 4px,
-    100% calc(100% - 4px),
-    calc(100% - 4px) 100%,
-    4px 100%,
-    0 calc(100% - 4px),
-    0 4px
-  );
+}
+
+.stop {
+  position: absolute;
+  top: calc(50% - 2px);
+  left: calc(var(--track) / 2 + var(--span) * var(--stop) - 2px);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.stop[data-filled="true"] {
+  background: var(--on-signal);
+  opacity: 0.4;
+}
+
+.thumb {
+  position: absolute;
+  top: calc(50% - var(--thumb) / 2);
+  left: calc(var(--track) / 2 + var(--span) * var(--ratio) - var(--thumb) / 2);
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 50%;
+  background: var(--on-signal);
 }
 
 .input {
@@ -77,31 +91,12 @@
   cursor: pointer;
 }
 
-.levels {
-  display: grid;
-  grid-template-columns: repeat(var(--count), minmax(0, 1fr));
-}
-
-/* A level name sits centered under its stop of the slider. */
-.level {
-  text-align: center;
-  padding: 6px 2px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.level:hover {
-  color: var(--ink);
-}
-
-.level[aria-pressed="true"] {
-  color: var(--signal);
-  font-weight: 500;
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  .handle {
+  .fill {
+    transition: width 160ms ease;
+  }
+
+  .thumb {
     transition: left 160ms ease;
   }
 }

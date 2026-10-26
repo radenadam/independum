@@ -23,6 +23,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 - Icons draw in `currentColor`, so they take the text color of their button.
 - An icon turns orange, the `--signal` token, while its item is selected or open, such as the open project, the active tab, or an open menu. The drawing stays the same outline.
 - An icon has one color. The only filled orange shape is the send button, behind its arrow or its stop box.
+- The Effort dial is the one exception. Its arc fills in orange up to the chosen level over a `--faint` arc, so the level reads at a glance. Its needle turns to the level, so the tip may leave the half unit grid.
 
 ## Shapes
 
@@ -49,6 +50,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Pin | A pushpin with its needle down. |
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
+| Effort | A half dial with a hub and a needle, which points left at the lowest thinking level and right at the highest. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent.
 

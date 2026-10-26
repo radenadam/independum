@@ -79,41 +79,6 @@
   color: var(--signal);
 }
 
-/* The meter rises one bar for each level above off, and fills up to the chosen one. */
-.meter {
-  height: 12px;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.bar {
-  width: 3px;
-  height: 4px;
-  background: currentColor;
-  opacity: 0.3;
-}
-
-.bar:nth-child(2) {
-  height: 6px;
-}
-
-.bar:nth-child(3) {
-  height: 8px;
-}
-
-.bar:nth-child(4) {
-  height: 10px;
-}
-
-.bar:nth-child(n + 5) {
-  height: 12px;
-}
-
-.bar[data-on="true"] {
-  opacity: 1;
-}
-
 .under {
   display: flex;
   align-items: center;

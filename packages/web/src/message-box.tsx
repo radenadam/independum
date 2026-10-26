@@ -1,5 +1,12 @@
 import type { ChatState, ModelSummary, ProjectSummary } from "independum/api-types";
-import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { describeThinking } from "./describe-thinking.ts";
 import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
@@ -11,6 +18,7 @@ import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
 import { ThinkingMenu } from "./thinking-menu.tsx";
+import { thinkingRatio } from "./thinking-ratio.ts";
 
 /** A menu that opens from the message box. */
 type Menu = "model" | "thinking" | "folder";
@@ -154,34 +162,30 @@ export function MessageBox({
               ) : null}
             </span>
             {thinking === null ? null : (
-              <span className={styles.anchor}>
-                <button
-                  type="button"
-                  className={styles.pill}
-                  aria-expanded={menu === "thinking"}
-                  aria-label={`Thinking effort, ${describeThinking(thinking.level)}`}
+              <span
+                className={styles.anchor}
+                style={{ "--ratio": thinkingRatio(thinking) } as CSSProperties}
+              >
+                <IconButton
+                  icon="effort"
+                  label={`Thinking effort: ${describeThinking(thinking.level)}`}
+                  tipSide="above"
+                  isHighlighted={menu === "thinking"}
+                  isExpanded={menu === "thinking"}
                   onClick={() => toggleMenu("thinking")}
-                >
-                  <span className={styles.meter} aria-hidden="true">
-                    {thinking.levels.slice(1).map((level, index) => (
-                      <span
-                        key={level}
-                        className={styles.bar}
-                        data-on={index < thinking.levels.indexOf(thinking.level)}
-                      />
-                    ))}
-                  </span>
-                  {describeThinking(thinking.level)}
-                  <Icon name="menu" size={14} />
-                </button>
+                />
                 {menu === "thinking" ? (
                   <Popover
                     label="Thinking effort"
-                    note="More effort lets the model think longer before it answers, and uses more tokens."
                     place={isEmpty ? "below" : "above"}
                     onClose={() => setMenu(undefined)}
+                    isNarrow
                   >
-                    <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
+                    <ThinkingMenu
+                      thinking={thinking}
+                      modelName={modelName}
+                      onChoose={onChooseThinking}
+                    />
                   </Popover>
                 ) : null}
               </span>

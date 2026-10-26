@@ -23,7 +23,8 @@ export type IconName =
   | "rename"
   | "pin"
   | "archive"
-  | "delete";
+  | "delete"
+  | "effort";
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
 const drawings: Record<IconName, ReactElement> = {
@@ -115,6 +116,14 @@ const drawings: Record<IconName, ReactElement> = {
       <path d="M9 6V3h6v3" />
       <path d="M6 6v13l2 2h8l2-2V6" />
       <path d="M10 10v7M14 10v7" />
+    </>
+  ),
+  effort: (
+    <>
+      <path className={styles.dial} d="M3 16.5a9 9 0 0 1 18 0" />
+      <path className={styles.dialFill} d="M3 16.5a9 9 0 0 1 18 0" pathLength={1} />
+      <path className={styles.needle} d="M12 16.5H5.5" />
+      <circle cx="12" cy="16.5" r="1" />
     </>
   ),
 };
