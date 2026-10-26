@@ -5,7 +5,7 @@ import { CopyButton } from "./copy-button.tsx";
 import { Mark } from "./mark.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
-import { useTypedLength } from "./use-typed-length.ts";
+import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
 interface ChatMessagesProps {
@@ -18,8 +18,8 @@ interface ChatMessagesProps {
 // The space kept above a message that is scrolled to the top of the chat.
 const topGap = 16;
 const thinkingText = "Thinking";
-const thinkingPace = 14;
-const replyPace = 90;
+const thinkingTyping: Typing = { charactersPerSecond: 14, isCatchingUp: false };
+const replyTyping: Typing = { charactersPerSecond: 90, isCatchingUp: true };
 
 /**
  * Draws the messages of the open chat and the reply in progress, and scrolls a message the user
@@ -147,7 +147,7 @@ interface ReplyProps {
 }
 
 function Reply({ text, error, isLive, isStreaming }: ReplyProps): ReactElement {
-  const length = useTypedLength(text, isLive, replyPace);
+  const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
   return (
     <>
@@ -163,7 +163,7 @@ function Reply({ text, error, isLive, isStreaming }: ReplyProps): ReactElement {
 }
 
 function ThinkingLabel(): ReactElement {
-  const length = useTypedLength(thinkingText, true, thinkingPace);
+  const length = useTypedLength(thinkingText.length, thinkingTyping);
   return (
     <>
       <span className={styles.raven}>

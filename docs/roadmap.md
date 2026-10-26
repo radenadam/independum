@@ -7,7 +7,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 The working screen from decision 0016, built in steps:
 
 - The model list as a sheet from the bottom on a phone.
-- Real typing on the welcome screen.
 
 ## Next
 
