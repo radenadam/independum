@@ -13,7 +13,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 
 ## Grid and size
 
-- Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus.
+- Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tilts past the edge of the closed one.
 - The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it.
 - Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones.
 - Place points on whole or half units, so that lines stay sharp.
@@ -34,7 +34,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New chat | A box open at its top right corner, with a pencil across the gap. |
 | Search | A circle with a handle at 45 degrees. |
 | Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. Open, its front tilts forward. |
+| Folder | A box with a tab at its top left. Open, its back keeps the width of the closed box, and its front tilts forward past the right edge. |
 | Expand | A chevron that points right, and down while open. |
 | Menu | A chevron that points down. |
 | Add | A plus. |
@@ -75,12 +75,12 @@ Decision 0024 records why icons move and where the line falls.
 | Folder | The folder opens while its project or its menu is open. |
 | Expand | The chevron nudges the way it points. |
 | Menu | The chevron dips. |
-| Add | The plus turns a quarter. |
+| Add | The plus twists a little and back. |
 | Send | The arrow rises. |
 | Stop | The box squeezes. |
 | Copy | The front box slides onto the back one. |
 | Check | It stays still, because it shows a result, not an action. |
-| Close | The X turns a quarter. |
+| Close | The X twists a little and back. |
 | New tab | The four boxes spread apart. |
 | Agent | The eyes blink. |
 | More | The dots hop one after another. |
