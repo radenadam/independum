@@ -1,83 +1,109 @@
 .menu {
-  position: relative;
+  --step: 22px;
+  --knob: 16px;
+  --rail: 10px;
+
   display: flex;
-  justify-content: center;
-  padding: 6px 4px 2px;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px 8px;
 }
 
-.dial {
-  width: 150px;
-  border-radius: 12px;
-  cursor: pointer;
-  touch-action: none;
+/* The name keeps the width of the longest one, so the menu holds still while the level changes. */
+.level {
+  min-width: 84px;
+  margin: 0;
+  color: var(--signal);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.menu:has(.input:focus-visible) .dial {
+/*
+  The bar rises from the lowest level at its foot to the highest at its top. The first and last
+  stops sit half a knob in from the ends, so the round knob stays on the bar. An invisible upright
+  range input over the whole bar takes the pointer, touch, and keys.
+*/
+.bar {
+  --span: calc(var(--step) * (var(--count) - 1));
+
+  position: relative;
+  width: calc(var(--knob) * 2);
+  height: calc(var(--span) + var(--knob));
+}
+
+.bar:has(.input:focus-visible) {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
+  border-radius: 10px;
 }
 
-.track,
+.rail,
 .fill {
-  fill: none;
-  stroke-width: 12;
-}
-
-.track {
-  stroke: var(--raised);
-}
-
-.fill {
-  stroke: var(--signal);
-}
-
-.tick {
-  stroke: var(--faint);
-  stroke-width: 3;
-}
-
-.tick[data-reached="true"] {
-  stroke: var(--signal);
-}
-
-/* The needle follows `--ratio`, the same way as the needle of the Effort icon. */
-.needle {
-  stroke: var(--ink);
-  stroke-width: 4;
-  transform: rotate(calc(var(--ratio) * 240deg - 120deg));
-  transform-origin: 100px 96px;
-}
-
-.hub {
-  fill: var(--ink);
-}
-
-.level {
-  fill: var(--signal);
-  font: 600 18px var(--font-sans);
-}
-
-/* The range input is out of sight, and it keeps the arrow keys and screen readers working. */
-.input {
   position: absolute;
   bottom: 0;
-  left: 50%;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  opacity: 0;
-  pointer-events: none;
+  left: calc(50% - var(--rail) / 2);
+  width: var(--rail);
+  border-radius: calc(var(--rail) / 2);
 }
 
-/* A phone shows the dial larger, so a finger can turn it. */
-@media (max-width: 760px) {
-  .dial {
-    width: 200px;
-  }
+.rail {
+  top: 0;
+  background: var(--raised);
+}
+
+.fill {
+  height: calc(var(--knob) / 2 + var(--span) * var(--ratio));
+  background: var(--signal);
+}
+
+.stop {
+  position: absolute;
+  bottom: calc(var(--knob) / 2 + var(--span) * var(--stop) - 2px);
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.stop[data-reached="true"] {
+  background: var(--on-signal);
+  opacity: 0.45;
+}
+
+/* A ring in the color of the menu sets the knob apart from the orange fill under it. */
+.knob {
+  position: absolute;
+  bottom: calc(var(--span) * var(--ratio));
+  left: calc(50% - var(--knob) / 2);
+  width: var(--knob);
+  height: var(--knob);
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  writing-mode: vertical-lr;
+  direction: rtl;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .needle {
-    transition: transform 200ms ease;
+  .fill {
+    transition: height 160ms ease;
+  }
+
+  .knob {
+    transition: bottom 160ms ease;
   }
 }

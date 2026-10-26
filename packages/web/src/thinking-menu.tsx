@@ -1,5 +1,5 @@
 import type { ChatState } from "independum/api-types";
-import { type CSSProperties, type PointerEvent, type ReactElement, useEffect, useRef } from "react";
+import { type CSSProperties, type ReactElement, useEffect, useRef } from "react";
 import { describeThinking } from "./describe-thinking.ts";
 import { hasKeyboard } from "./has-keyboard.ts";
 import styles from "./thinking-menu.module.css";
@@ -11,19 +11,12 @@ interface ThinkingMenuProps {
   onChoose: (level: string) => void;
 }
 
-// The dial is the Effort icon drawn large: an arc of 240 degrees around a hub, open at the bottom,
-// that starts at the lower left for the lowest level and ends at the lower right for the highest.
-const center = { x: 100, y: 96 };
-const sweep = 240;
-const start = 210;
-
 /**
- * Draws a dial over the thinking levels that the model offers, with a tick for each level and the
- * chosen one named under the hub, which a drag, a click, or the arrow keys turn.
+ * Draws the chosen thinking level over an upright bar with a stop for each level that the model
+ * offers, which a drag, a click, or the arrow keys move.
  */
 export function ThinkingMenu({ thinking, onChoose }: ThinkingMenuProps): ReactElement {
   const slider = useRef<HTMLInputElement>(null);
-  const chosen = useRef(thinking.level);
   const { levels } = thinking;
   const last = Math.max(1, levels.length - 1);
   const ratio = thinkingRatio(thinking);
@@ -35,95 +28,43 @@ export function ThinkingMenu({ thinking, onChoose }: ThinkingMenuProps): ReactEl
     }
   }, []);
 
-  // A drag passes over the same level many times before the chat reports the change, so a level is
-  // chosen once until another one is.
-  function choose(level: string | undefined): void {
-    if (level !== undefined && level !== chosen.current) {
-      chosen.current = level;
-      onChoose(level);
-    }
-  }
-
-  function chooseAt(event: PointerEvent<SVGSVGElement>): void {
-    choose(levels[Math.round(ratioAt(event) * last)]);
-  }
-
   return (
-    <div className={styles.menu} style={{ "--ratio": ratio } as CSSProperties}>
-      <svg
-        className={styles.dial}
-        viewBox="0 0 200 152"
-        aria-hidden="true"
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.currentTarget.setPointerCapture(event.pointerId);
-          slider.current?.focus({ preventScroll: true });
-          chooseAt(event);
-        }}
-        onPointerMove={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            chooseAt(event);
-          }
-        }}
-      >
-        <path className={styles.track} d={arc(70, 1)} />
-        {ratio > 0 ? <path className={styles.fill} d={arc(70, ratio)} /> : null}
+    <div
+      className={styles.menu}
+      style={{ "--ratio": ratio, "--count": levels.length } as CSSProperties}
+    >
+      <p className={styles.level}>{describeThinking(thinking.level)}</p>
+      <div className={styles.bar}>
+        <span className={styles.rail} aria-hidden="true" />
+        <span className={styles.fill} aria-hidden="true" />
         {levels.map((level, stop) => (
-          <path
+          <span
             key={level}
-            className={styles.tick}
+            className={styles.stop}
+            style={{ "--stop": stop / last } as CSSProperties}
             data-reached={stop <= index}
-            d={`M${pointAt(stop / last, 84)}L${pointAt(stop / last, 92)}`}
+            aria-hidden="true"
           />
         ))}
-        <path className={styles.needle} d={`M${center.x} ${center.y}V${center.y - 52}`} />
-        <circle className={styles.hub} cx={center.x} cy={center.y} r={7} />
-        <text className={styles.level} x={center.x} y={146} textAnchor="middle">
-          {describeThinking(thinking.level)}
-        </text>
-      </svg>
-      <input
-        ref={slider}
-        className={styles.input}
-        type="range"
-        min={0}
-        max={last}
-        step={1}
-        value={index}
-        aria-label="Thinking effort"
-        aria-valuetext={describeThinking(thinking.level)}
-        onChange={(event) => choose(levels[Number(event.target.value)])}
-      />
+        <span className={styles.knob} aria-hidden="true" />
+        <input
+          ref={slider}
+          className={styles.input}
+          type="range"
+          min={0}
+          max={last}
+          step={1}
+          value={index}
+          aria-label="Thinking effort"
+          aria-valuetext={describeThinking(thinking.level)}
+          onChange={(event) => {
+            const level = levels[Number(event.target.value)];
+            if (level !== undefined) {
+              onChoose(level);
+            }
+          }}
+        />
+      </div>
     </div>
   );
-}
-
-// Returns the point at a ratio along the dial and a distance from the hub, as SVG coordinates.
-function pointAt(ratio: number, radius: number): string {
-  const angle = ((start - sweep * ratio) * Math.PI) / 180;
-  const x = center.x + radius * Math.cos(angle);
-  const y = center.y - radius * Math.sin(angle);
-  return `${x.toFixed(2)} ${y.toFixed(2)}`;
-}
-
-// Returns an arc from the start of the dial to a ratio along it. The orange fill is an arc of its own
-// that ends at the chosen level, because a dash along the whole arc, as the Effort icon uses, can end
-// in a step on some screens at this size.
-function arc(radius: number, ratio: number): string {
-  const largeArc = sweep * ratio > 180 ? 1 : 0;
-  return `M${pointAt(0, radius)}A${radius} ${radius} 0 ${largeArc} 1 ${pointAt(ratio, radius)}`;
-}
-
-// Returns how far along the dial a pointer sits. The open gap at the bottom goes to the nearer end.
-function ratioAt(event: PointerEvent<SVGSVGElement>): number {
-  const box = event.currentTarget.getBoundingClientRect();
-  const scale = box.width / 200;
-  const x = (event.clientX - box.left) / scale - center.x;
-  const y = (event.clientY - box.top) / scale - center.y;
-  const angle = (Math.atan2(-y, x) * 180) / Math.PI;
-  const along = (((start - angle) % 360) + 360) % 360;
-  if (along <= sweep) {
-    return along / sweep;
-  }
-  return along < sweep + (360 - sweep) / 2 ? 1 : 0;
 }
