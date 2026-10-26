@@ -113,8 +113,14 @@ export function ChatMessages({
             );
           }
           return index === liveIndex ? null : (
-            <li key={`assistant-${message.timestamp}`}>
-              <Reply text={message.text} error={message.error} isLive={false} isStreaming={false} />
+            <li key={`assistant-${message.timestamp}`} className={styles.reply}>
+              <Reply
+                text={message.text}
+                error={message.error}
+                isLive={false}
+                isStreaming={false}
+                isLatest={index === messages.length - 1}
+              />
             </li>
           );
         })}
@@ -124,12 +130,12 @@ export function ChatMessages({
           </li>
         ) : null}
         {isReplyShown && reply !== "" ? (
-          <li key="live">
-            <Reply text={reply} error={null} isLive isStreaming />
+          <li key="live" className={styles.reply}>
+            <Reply text={reply} error={null} isLive isStreaming isLatest />
           </li>
         ) : last !== undefined && liveIndex !== -1 ? (
-          <li key="live">
-            <Reply text={last.text} error={last.error} isLive isStreaming={false} />
+          <li key="live" className={styles.reply}>
+            <Reply text={last.text} error={last.error} isLive isStreaming={false} isLatest />
           </li>
         ) : null}
       </ol>
@@ -144,9 +150,10 @@ interface ReplyProps {
   error: string | null;
   isLive: boolean;
   isStreaming: boolean;
+  isLatest: boolean;
 }
 
-function Reply({ text, error, isLive, isStreaming }: ReplyProps): ReactElement {
+function Reply({ text, error, isLive, isStreaming, isLatest }: ReplyProps): ReactElement {
   const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
   return (
@@ -154,7 +161,7 @@ function Reply({ text, error, isLive, isStreaming }: ReplyProps): ReactElement {
       {text === "" ? null : <MarkdownText text={text.slice(0, length)} hasCaret={isTyping} />}
       {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
       {text === "" || isTyping ? null : (
-        <div className={styles.actions}>
+        <div className={styles.actions} data-latest={isLatest}>
           <CopyButton text={text} label="Copy reply" tipAlign="start" />
         </div>
       )}

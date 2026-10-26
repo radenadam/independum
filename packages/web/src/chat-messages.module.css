@@ -36,6 +36,16 @@
   margin: 8px 0 0 -7px;
 }
 
+/*
+  Only the latest reply shows its actions at rest. An earlier one shows them while it is pointed at,
+  and a touch screen, which has no hover, shows them on every reply.
+*/
+@media (hover: hover) {
+  .reply:not(:hover, :focus-within) .actions[data-latest="false"] {
+    opacity: 0;
+  }
+}
+
 .error {
   margin: 6px 0 0;
   font-size: 14px;
@@ -71,6 +81,10 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .actions {
+    transition: opacity 120ms ease;
+  }
+
   .new {
     animation: rise 200ms ease-out both;
   }
