@@ -4,6 +4,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
+- Managing chats from decision 0020: the chat menu, the pinned and recent chats in the sidebar, and the archived chats in the settings.
 - Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 
 ## Next

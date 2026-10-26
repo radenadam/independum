@@ -11,11 +11,14 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type {
   AgentSummary,
+  ArchivedChatSummary,
   ChatEvent,
   ChatMessage,
   ChatState,
+  ChatSummary,
   ProjectSummary,
 } from "./api-types.ts";
+import { createSavedChats } from "./create-saved-chats.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -46,11 +49,17 @@ export interface Chat {
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   startNew(folder?: string): Promise<boolean>;
+  rename(id: string, name: string): Promise<boolean>;
+  pin(id: string, isPinned: boolean): Promise<boolean>;
+  archive(id: string, isArchived: boolean): Promise<boolean>;
+  remove(id: string): Promise<boolean>;
+  getArchived(): Promise<ArchivedChatSummary[]>;
 }
 
 /** Reopens the latest chat of the folder Independum starts from, or starts an empty one there. */
 export async function createChat({ models, directory, cwd }: ChatOptions): Promise<Chat> {
   const sessionDirectory = join(directory, "sessions");
+  const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(cwd);
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
@@ -86,7 +95,28 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   }
 
   function listSaved(): Promise<SessionInfo[]> {
-    return SessionManager.listAll(sessionDirectory);
+    return savedChats.list();
+  }
+
+  async function findSaved(id: string): Promise<SessionInfo | undefined> {
+    return (await listSaved()).find((saved) => saved.id === id);
+  }
+
+  function summaryOf(saved: SessionInfo): ChatSummary {
+    return {
+      id: saved.id,
+      title: saved.name ?? saved.firstMessage,
+      modified: saved.modified.getTime(),
+      isPinned: savedChats.isPinned(saved.id),
+    };
+  }
+
+  // A chat file moves or goes away only after Pi stops writing to it, so leaving the open chat
+  // starts an empty one in its folder first.
+  async function leave(saved: SessionInfo): Promise<void> {
+    if (saved.id === session?.sessionId) {
+      await openNew(folderOf(saved), isModelChosen ? session.model : undefined);
+    }
   }
 
   function folderOf(saved: SessionInfo): string {
@@ -106,11 +136,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         name: basename(savedFolder),
         chats: [],
       };
-      project.chats.push({
-        id: saved.id,
-        title: saved.name ?? saved.firstMessage,
-        modified: saved.modified.getTime(),
-      });
+      project.chats.push(summaryOf(saved));
       projects.set(savedFolder, project);
     }
     return [...projects.values()];
@@ -284,8 +310,64 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       emit({ type: "state", state: getState() });
       return true;
     },
+    async rename(id, name) {
+      const saved = await findSaved(id);
+      const trimmed = name.trim();
+      if (saved === undefined || trimmed === "") {
+        return false;
+      }
+      if (saved.id === session?.sessionId) {
+        session.setSessionName(trimmed);
+      } else {
+        SessionManager.open(saved.path, sessionDirectory).appendSessionInfo(trimmed);
+      }
+      emitProjects();
+      return true;
+    },
+    async pin(id, isPinned) {
+      if ((await findSaved(id)) === undefined) {
+        return false;
+      }
+      await savedChats.pin(id, isPinned);
+      emitProjects();
+      return true;
+    },
+    async archive(id, isArchived) {
+      const saved = isArchived
+        ? await findSaved(id)
+        : (await savedChats.listArchived()).find((candidate) => candidate.id === id);
+      if (saved === undefined) {
+        return false;
+      }
+      if (isArchived) {
+        await leave(saved);
+        await savedChats.archive(saved);
+      } else {
+        await savedChats.unarchive(saved);
+      }
+      emitProjects();
+      return true;
+    },
+    async remove(id) {
+      const saved = [...(await listSaved()), ...(await savedChats.listArchived())].find(
+        (candidate) => candidate.id === id,
+      );
+      if (saved === undefined) {
+        return false;
+      }
+      await leave(saved);
+      await savedChats.remove(saved);
+      emitProjects();
+      return true;
+    },
+    async getArchived() {
+      return (await savedChats.listArchived()).map((saved) => ({
+        ...summaryOf(saved),
+        folder: folderOf(saved),
+      }));
+    },
     async open(id) {
-      const saved = (await listSaved()).find((candidate) => candidate.id === id);
+      const saved = await findSaved(id);
       if (saved === undefined) {
         return false;
       }
