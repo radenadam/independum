@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
+import { type ReactElement, type ReactNode, type SyntheticEvent, useEffect, useRef } from "react";
 import styles from "./modal-dialog.module.css";
 
 /** Properties of a modal dialog. */
@@ -33,18 +33,22 @@ export function ModalDialog({
     }
   }, [isOpen]);
 
+  // React hands this dialog the events of a dialog inside it, such as a confirmation closing, so
+  // only events of its own close it. A click on the dialog itself is a click on its backdrop.
+  function closeOnOwnEvent(event: SyntheticEvent<HTMLDialogElement>): void {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  }
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: A click on the backdrop is for a pointer, and the keyboard closes the dialog with Escape, which the browser handles.
     <dialog
       ref={dialog}
       className={`${styles.dialog} ${className ?? ""}`}
       aria-label={label}
-      onClose={onClose}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+      onClose={closeOnOwnEvent}
+      onClick={closeOnOwnEvent}
     >
       {isOpen ? children : null}
     </dialog>

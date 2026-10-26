@@ -76,9 +76,10 @@ export interface ChatSummary {
   isPinned: boolean;
 }
 
-/** An archived chat, with the folder it worked in. */
+/** An archived chat, with the folder it worked in and the name of that folder. */
 export interface ArchivedChatSummary extends ChatSummary {
   folder: string;
+  projectName: string;
 }
 
 /** A folder that chats work in, with its saved chats, newest first. */

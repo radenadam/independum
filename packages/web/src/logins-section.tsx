@@ -1,5 +1,6 @@
 import type { ProviderSummary } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { BoxedList } from "./boxed-list.tsx";
 import { fetchProviders, removeLogin } from "./login-api.ts";
 import { LoginFlow } from "./login-flow.tsx";
 import styles from "./logins-section.module.css";
@@ -107,30 +108,28 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
         Independum reaches models through these logins. Pi keeps them on this machine, in
         ~/.independum.
       </p>
-      <ul className={styles.logins}>
-        {logins.map((provider) => (
-          <li key={provider.id} className={styles.login}>
-            <ProviderLogo providerId={provider.id} size={20} keepsSpace />
-            <span className={styles.text}>
-              <span className={styles.name}>{provider.name}</span>
-              <span className={styles.method}>
-                {provider.login?.method === "account"
-                  ? (provider.account?.label ?? "Account")
-                  : "API key"}
-              </span>
-            </span>
-            <span className={styles.connected}>connected</span>
-            <span>
+      <BoxedList
+        entries={logins.map((provider) => ({
+          key: provider.id,
+          name: provider.name,
+          detail:
+            provider.login?.method === "account"
+              ? (provider.account?.label ?? "Account")
+              : "API key",
+          leading: <ProviderLogo providerId={provider.id} size={20} keepsSpace />,
+          trailing: (
+            <>
+              <span className={styles.connected}>connected</span>
               <TextButton
                 label="Remove"
                 onClick={() => {
                   removeLogin(provider.id).then(change, change);
                 }}
               />
-            </span>
-          </li>
-        ))}
-      </ul>
+            </>
+          ),
+        }))}
+      />
       <TextButton icon="add" label="Add a login" onClick={() => setView({ kind: "providers" })} />
     </div>
   );

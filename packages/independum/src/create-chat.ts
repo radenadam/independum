@@ -364,6 +364,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       return (await savedChats.listArchived()).map((saved) => ({
         ...summaryOf(saved),
         folder: folderOf(saved),
+        projectName: basename(folderOf(saved)),
       }));
     },
     async open(id) {

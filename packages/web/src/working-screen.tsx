@@ -11,7 +11,6 @@ import {
   type ChatConnection,
   chooseModel,
   chooseThinking,
-  deleteChat,
   fetchModels,
   followChat,
   openChat,
@@ -23,7 +22,7 @@ import {
 } from "./chat-api.ts";
 import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
-import { ConfirmDialog } from "./confirm-dialog.tsx";
+import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
@@ -299,15 +298,11 @@ export function WorkingScreen({
         onLoginsChanged={loadModels}
       />
       {chatToDelete === undefined ? null : (
-        <ConfirmDialog
-          title="Delete this chat?"
-          text={`"${chatToDelete.title}" and its file in ~/.independum/sessions go away for good. Archive the chat instead to keep it out of sight.`}
-          confirmLabel="Delete"
-          onConfirm={() => {
-            change(deleteChat(chatToDelete.id), "The chat could not be deleted. Try again.");
-            setChatToDelete(undefined);
-          }}
-          onCancel={() => setChatToDelete(undefined)}
+        <DeleteChatDialog
+          chat={chatToDelete}
+          isArchived={false}
+          onClose={() => setChatToDelete(undefined)}
+          onDone={setNotice}
         />
       )}
     </div>

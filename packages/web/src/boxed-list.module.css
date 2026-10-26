@@ -1,0 +1,63 @@
+.list {
+  container-type: inline-size;
+  margin: 0;
+  padding: 0;
+  overflow: clip;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.entry + .entry {
+  border-top: 1px solid var(--line);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.name,
+.detail {
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.detail {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.trailing {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A narrow list has no room for the controls beside a long name, so they move below it. */
+@container (max-width: 420px) {
+  .list[data-long-names="true"] .entry {
+    flex-wrap: wrap;
+  }
+
+  .list[data-long-names="true"] .trailing {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

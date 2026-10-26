@@ -1,4 +1,9 @@
-import type { AgentSummary, ChatEvent, ModelSummary } from "independum/api-types";
+import type {
+  AgentSummary,
+  ArchivedChatSummary,
+  ChatEvent,
+  ModelSummary,
+} from "independum/api-types";
 import { readEvents } from "./read-events.ts";
 import { requestApi } from "./request-api.ts";
 
@@ -86,6 +91,16 @@ export async function chooseThinking(level: string): Promise<void> {
   if (!response.ok) {
     throw new Error("That thinking level is not available.");
   }
+}
+
+/** Returns the archived chats, newest first. */
+export async function fetchArchivedChats(): Promise<ArchivedChatSummary[]> {
+  const response = await requestApi("/api/chats/archived");
+  if (!response.ok) {
+    throw new Error("The archived chats could not be loaded.");
+  }
+  const { chats } = (await response.json()) as { chats: ArchivedChatSummary[] };
+  return chats;
 }
 
 /** Renames a saved chat. */

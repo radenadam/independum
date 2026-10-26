@@ -1,12 +1,13 @@
 import type { ReactElement } from "react";
 import { AppearanceSection } from "./appearance-section.tsx";
+import { ArchivedSection } from "./archived-section.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { LoginsSection } from "./logins-section.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import styles from "./settings-dialog.module.css";
 
 /** A section of the settings dialog. */
-export type SettingsSection = "logins" | "appearance";
+export type SettingsSection = "logins" | "appearance" | "archived";
 
 /** Properties of the settings dialog. */
 interface SettingsDialogProps {
@@ -16,8 +17,12 @@ interface SettingsDialogProps {
   onLoginsChanged: () => void;
 }
 
-const titles: Record<SettingsSection, string> = { logins: "Logins", appearance: "Appearance" };
-const sections: SettingsSection[] = ["logins", "appearance"];
+const titles: Record<SettingsSection, string> = {
+  logins: "Logins",
+  appearance: "Appearance",
+  archived: "Archived chats",
+};
+const sections: SettingsSection[] = ["logins", "appearance", "archived"];
 
 /**
  * Draws the settings over the working screen while a section is open, and closes on Escape or a
@@ -63,11 +68,9 @@ export function SettingsDialog({
                 onClick={onClose}
               />
             </div>
-            {section === "logins" ? (
-              <LoginsSection onChanged={onLoginsChanged} />
-            ) : (
-              <AppearanceSection />
-            )}
+            {section === "logins" ? <LoginsSection onChanged={onLoginsChanged} /> : null}
+            {section === "appearance" ? <AppearanceSection /> : null}
+            {section === "archived" ? <ArchivedSection /> : null}
           </div>
         </div>
       )}
