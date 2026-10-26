@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The working screen from decision 0016, built in steps:
 
-- Projects on the server: chats from every folder, each chat working in its own folder, and new chats in a chosen project.
 - Foundations: the new color tokens, the icon set, tooltips, shortcuts, and provider logos.
 - The sidebar, the chat with formatted and typed replies, and the message box with its model and folder menus.
 - The side panel with tabs and the Agent place.

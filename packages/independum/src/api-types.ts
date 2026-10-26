@@ -53,22 +53,30 @@ export interface ChatMessage {
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
   id: string | null;
+  folder: string;
   model: { providerId: string; id: string } | null;
   messages: ChatMessage[];
   isReplying: boolean;
 }
 
-/** A saved chat of the current folder, as the chat list shows it. */
+/** A saved chat, as a project lists it. */
 export interface ChatSummary {
   id: string;
   title: string;
   modified: number;
 }
 
-/** One change to the chat or to the chat list, as the UI receives it. */
+/** A folder that chats work in, with its saved chats, newest first. */
+export interface ProjectSummary {
+  folder: string;
+  name: string;
+  chats: ChatSummary[];
+}
+
+/** One change to the chat or to the projects, as the UI receives it. */
 export type ChatEvent =
   | { type: "state"; state: ChatState }
-  | { type: "chats"; chats: ChatSummary[] }
+  | { type: "projects"; projects: ProjectSummary[] }
   | { type: "message"; message: ChatMessage }
   | { type: "replyDelta"; delta: string }
   | { type: "replying"; isReplying: boolean };
