@@ -138,7 +138,7 @@ export function MessageBox({
               {menu === "model" ? (
                 <Popover
                   label="Choose a model"
-                  side={isEmpty ? "below" : "above"}
+                  place={isEmpty ? "below" : "above"}
                   onClose={() => setMenu(undefined)}
                 >
                   <ModelMenu
@@ -178,7 +178,7 @@ export function MessageBox({
                   <Popover
                     label="Thinking effort"
                     note="More effort lets the model think longer before it answers, and uses more tokens."
-                    side={isEmpty ? "below" : "above"}
+                    place={isEmpty ? "below" : "above"}
                     onClose={() => setMenu(undefined)}
                   >
                     <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
@@ -229,7 +229,7 @@ export function MessageBox({
               {menu === "folder" ? (
                 <Popover
                   label="Choose the folder"
-                  side="below"
+                  place="below"
                   note="Opening another folder comes later."
                   onClose={() => setMenu(undefined)}
                 >

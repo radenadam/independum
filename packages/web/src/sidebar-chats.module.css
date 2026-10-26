@@ -1,0 +1,81 @@
+.heading {
+  margin: 0;
+  padding: 12px 10px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.projects {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The chevron and the folder turn orange while the project is open. */
+.lead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.lead[data-open="true"] {
+  color: var(--signal);
+}
+
+.chevron {
+  display: flex;
+}
+
+.lead[data-open="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.fold {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 0fr;
+}
+
+.fold[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.foldInner {
+  min-height: 0;
+  overflow: clip;
+}
+
+.fold[data-open="false"] .foldInner {
+  visibility: hidden;
+}
+
+.empty,
+.note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.empty {
+  padding: 8px 10px 8px 56px;
+}
+
+.note {
+  padding: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 160ms ease;
+  }
+
+  .fold {
+    transition: grid-template-rows 220ms ease;
+  }
+
+  .fold[data-open="false"] .foldInner {
+    transition: visibility 0s 220ms;
+  }
+}

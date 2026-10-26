@@ -27,83 +27,14 @@
   padding: 4px 8px 8px;
 }
 
-.row {
-  width: 100%;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--ink);
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-
-.row:hover {
-  background: var(--raised);
-}
-
-.row[data-flashing="true"] {
-  color: var(--signal);
-}
-
-.quiet {
-  color: var(--muted);
-  font-weight: 400;
-}
-
-.label {
-  flex: 1;
-}
-
-.quiet .label {
-  color: var(--ink);
-}
-
-.key {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted);
-}
-
-/* A touch screen has no keyboard shortcuts to show. */
-@media (hover: none) {
-  .key {
-    display: none;
-  }
-}
-
 .list {
   flex: 1;
   overflow-y: auto;
   padding: 0 8px 12px;
 }
 
-.heading {
-  margin: 0;
-  padding: 12px 10px 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--muted);
-}
-
 .bottom {
   flex: none;
   padding: 8px;
   border-top: 1px solid var(--line);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .row {
-    transition: color 700ms ease-out;
-  }
-
-  .row[data-flashing="true"] {
-    transition: none;
-  }
 }

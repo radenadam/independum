@@ -88,6 +88,39 @@ export async function chooseThinking(level: string): Promise<void> {
   }
 }
 
+/** Renames a saved chat. */
+export async function renameChat(id: string, name: string): Promise<void> {
+  await changeChat(id, "/name", { name });
+}
+
+/** Pins a saved chat to the top of the sidebar, or unpins it. */
+export async function pinChat(id: string, isPinned: boolean): Promise<void> {
+  await changeChat(id, "/pinned", { isPinned });
+}
+
+/** Moves a saved chat into the archive, or brings it back. */
+export async function archiveChat(id: string, isArchived: boolean): Promise<void> {
+  await changeChat(id, "/archived", { isArchived });
+}
+
+/** Deletes a saved chat for good, whether it is listed or archived. */
+export async function deleteChat(id: string): Promise<void> {
+  const response = await requestApi(`/api/chats/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error("The chat could not be deleted.");
+  }
+}
+
+async function changeChat(id: string, part: string, body: unknown): Promise<void> {
+  const response = await requestApi(`/api/chats/${encodeURIComponent(id)}${part}`, {
+    method: "PUT",
+    body,
+  });
+  if (!response.ok) {
+    throw new Error("The chat could not be changed.");
+  }
+}
+
 /** Opens a saved chat in place of the current one. */
 export async function openChat(id: string): Promise<void> {
   const response = await requestApi("/api/chat/open", { body: { id } });

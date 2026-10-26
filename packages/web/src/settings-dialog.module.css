@@ -1,19 +1,6 @@
 .dialog {
   width: min(760px, calc(100vw - 48px));
   height: min(520px, calc(100dvh - 48px));
-  max-width: none;
-  max-height: none;
-  padding: 0;
-  overflow: clip;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 24px 60px var(--shadow);
-}
-
-.dialog::backdrop {
-  background: var(--scrim);
 }
 
 .frame {
@@ -42,12 +29,8 @@
 .section {
   height: 36px;
   padding: 0 10px;
-  border: 0;
   border-radius: 9px;
-  background: transparent;
   font-size: 14px;
-  text-align: left;
-  cursor: pointer;
 }
 
 .section:hover:not([aria-current="true"]) {
@@ -104,35 +87,5 @@
 
   .body {
     padding: 14px 16px 24px;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .dialog[open] {
-    animation: pop 150ms ease-out both;
-  }
-
-  .dialog[open]::backdrop {
-    animation: fade 180ms ease-out both;
-  }
-
-  @keyframes pop {
-    from {
-      opacity: 0;
-      transform: scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  @keyframes fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 }
