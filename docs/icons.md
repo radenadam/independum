@@ -39,6 +39,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Menu | A chevron that points down. |
 | Add | A plus. |
 | Send | An arrow that points up. |
+| Latest | An arrow that points down, back to the latest message. |
 | Stop | A small box, in the send button while a reply runs. |
 | Copy | Two overlapping boxes. |
 | Check | A check, for copied text and for the chosen item in a menu. |
@@ -77,6 +78,7 @@ Decision 0024 records why icons move and where the line falls.
 | Menu | The chevron dips. |
 | Add | The plus twists a little and back. |
 | Send | The arrow rises. |
+| Latest | The arrow drops. |
 | Stop | The box squeezes. |
 | Copy | The front box slides onto the back one. |
 | Check | It stays still, because it shows a result, not an action. |
