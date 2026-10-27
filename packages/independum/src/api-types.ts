@@ -42,10 +42,21 @@ export interface ModelSummary {
   name: string;
 }
 
+/** Thinking that the model did before it went on, with how long it took when Independum saw it. */
+export interface ThinkingPart {
+  type: "thinking";
+  text: string;
+  isRedacted: boolean;
+  durationMs: number | null;
+}
+
+/** One part of a message: its text, or thinking that the model did. */
+export type MessagePart = { type: "text"; text: string } | ThinkingPart;
+
 /** A message of the chat, as the UI shows it. */
 export interface ChatMessage {
   role: "user" | "assistant";
-  text: string;
+  parts: MessagePart[];
   error: string | null;
   timestamp: number;
   durationMs: number | null;
@@ -127,5 +138,6 @@ export type ChatEvent =
   | { type: "state"; state: ChatState }
   | { type: "projects"; projects: ProjectSummary[] }
   | { type: "message"; message: ChatMessage }
-  | { type: "replyDelta"; delta: string }
+  | { type: "replyDelta"; index: number; partType: MessagePart["type"]; delta: string }
+  | { type: "replyPart"; index: number; part: MessagePart }
   | { type: "replying"; isReplying: boolean };

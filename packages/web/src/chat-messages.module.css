@@ -68,12 +68,6 @@
   color: var(--muted);
 }
 
-.raven {
-  display: flex;
-  color: var(--signal);
-  font-size: 15px;
-}
-
 .spacer {
   flex: none;
 }
@@ -129,10 +123,6 @@
     animation: rise 200ms ease-out both;
   }
 
-  .raven {
-    animation: breathe 2.4s ease-in-out infinite;
-  }
-
   @keyframes rise {
     from {
       opacity: 0;
@@ -141,16 +131,6 @@
     to {
       opacity: 1;
       transform: none;
-    }
-  }
-
-  @keyframes breathe {
-    0%,
-    100% {
-      opacity: 0.4;
-    }
-    50% {
-      opacity: 1;
     }
   }
 }

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider, fauxText, fauxThinking } from "@earendil-works/pi-ai";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
 import type {
@@ -87,20 +87,30 @@ function chooseModel(providerId: string, modelId: string): Promise<Response> {
   );
 }
 
-async function sendAndReadReply(text: string): Promise<{ deltas: string[]; reply: ChatMessage }> {
+// The reply comes back once the chat stops replying, so whatever Independum saves after the
+// reply is saved too.
+async function sendAndReadReply(
+  text: string,
+): Promise<{ updates: ChatEvent[]; reply: ChatMessage }> {
   const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
   await events.next();
   expect((await post("/chat/messages", { text })).status).toBe(202);
-  const deltas: string[] = [];
+  const updates: ChatEvent[] = [];
+  let reply: ChatMessage | undefined;
   for (let event = await events.next(); ; event = await events.next()) {
-    if (event.type === "replyDelta") {
-      deltas.push(event.delta);
-    }
-    if (event.type === "message" && event.message.role === "assistant") {
+    if (event.type === "replyDelta" || event.type === "replyPart") {
+      updates.push(event);
+    } else if (event.type === "message" && event.message.role === "assistant") {
+      reply = event.message;
+    } else if (event.type === "replying" && !event.isReplying && reply !== undefined) {
       await events.close();
-      return { deltas, reply: event.message };
+      return { updates, reply };
     }
   }
+}
+
+function textOf(message: ChatMessage | undefined): string {
+  return (message?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
 async function openSaved(title: string): Promise<Response> {
@@ -133,11 +143,12 @@ test("an empty chat starts in the start folder and waits for a chosen model", as
 test("a message streams its reply", async () => {
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([fauxAssistantMessage("Hello from the fake model.")]);
-  const { deltas, reply } = await sendAndReadReply("Hello");
+  const { updates, reply } = await sendAndReadReply("Hello");
+  const deltas = updates.map((update) => (update.type === "replyDelta" ? update.delta : ""));
   expect(deltas.join("")).toBe("Hello from the fake model.");
   expect(reply).toMatchObject({
     role: "assistant",
-    text: "Hello from the fake model.",
+    parts: [{ type: "text", text: "Hello from the fake model." }],
     error: null,
   });
 });
@@ -154,12 +165,7 @@ test("the last chat reopens with its model after a restart", async () => {
   routes = await createRoutes(startFolder);
   const { state } = await readStart();
   expect(state.model).toEqual({ providerId: "faux", id: "faux-model" });
-  expect(state.messages.map((message) => message.text)).toEqual([
-    "Hello",
-    "Hello from the fake model.",
-    "Again",
-    "",
-  ]);
+  expect(state.messages.map(textOf)).toEqual(["Hello", "Hello from the fake model.", "Again", ""]);
 });
 
 test("a new chat starts empty with the same model and stays out of its project", async () => {
@@ -185,7 +191,7 @@ test("a chat joins the top of its project with its first message", async () => {
 test("opening a saved chat shows its messages", async () => {
   expect((await openSaved("Hello")).status).toBe(204);
   const { state } = await readStart();
-  expect(state.messages[0]?.text).toBe("Hello");
+  expect(textOf(state.messages[0])).toBe("Hello");
   expect((await openSaved("No such chat")).status).toBe(404);
 });
 
@@ -206,9 +212,9 @@ test("leaving a chat stops its reply and keeps what the reply said", async () =>
   const reply = (await readStart()).state.messages.at(-1);
   expect(reply?.role).toBe("assistant");
   expect(reply?.error).toBe("The reply was stopped.");
-  expect(reply?.text).not.toBe("");
-  expect(story.startsWith(reply?.text ?? "")).toBe(true);
-  expect(reply?.text.length).toBeLessThan(story.length);
+  expect(textOf(reply)).not.toBe("");
+  expect(story.startsWith(textOf(reply))).toBe(true);
+  expect(textOf(reply).length).toBeLessThan(story.length);
 });
 
 test("a chat joins its project as soon as it is sent, before the reply", async () => {
@@ -311,6 +317,38 @@ test("a model that thinks offers its thinking levels, and the chat keeps the cho
   expect((await readStart()).state.thinking?.level).toBe("high");
   expect((await choose("as hard as possible")).status).toBe(400);
   expect((await choose(5)).status).toBe(400);
+});
+
+test("a model streams its thinking, and the chat keeps how long it thought", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-thinker")).status).toBe(204);
+  faux.setResponses([
+    fauxAssistantMessage([fauxThinking("Weigh the options first."), fauxText("Done thinking.")]),
+  ]);
+  const { updates, reply } = await sendAndReadReply("Think first");
+  const thought = updates.map((update) =>
+    update.type === "replyDelta" && update.partType === "thinking" ? update.delta : "",
+  );
+  expect(thought.join("")).toBe("Weigh the options first.");
+  expect(updates).toContainEqual({
+    type: "replyPart",
+    index: 0,
+    part: expect.objectContaining({ type: "thinking", durationMs: expect.any(Number) }),
+  });
+  const parts = [
+    {
+      type: "thinking",
+      text: "Weigh the options first.",
+      isRedacted: false,
+      durationMs: expect.any(Number),
+    },
+    { type: "text", text: "Done thinking." },
+  ];
+  expect(reply.parts).toEqual(parts);
+
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await openSaved("Think first")).status).toBe(204);
+  expect((await readStart()).state.messages.at(-1)?.parts).toEqual(parts);
 });
 
 function put(path: string, body: unknown): Promise<Response> {
