@@ -12,6 +12,7 @@ import {
   chooseModel,
   chooseThinking,
   fetchChatMarkdown,
+  fetchContext,
   fetchModels,
   followChat,
   openChat,
@@ -30,9 +31,10 @@ import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
 import { shortcuts, useShortcut } from "./shortcut.ts";
-import { SidePanel } from "./side-panel.tsx";
+import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
+import { useChatData } from "./use-chat-data.ts";
 import styles from "./working-screen.module.css";
 
 /** Properties of the working screen. */
@@ -62,6 +64,9 @@ export function WorkingScreen({
   );
   const [notice, setNotice] = useState<string | undefined>();
   const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
+  const [placeRequest, setPlaceRequest] = useState<PlaceRequest | undefined>();
+  // The context meter and the Context place show the same summary, so it loads once here.
+  const context = useChatData(fetchContext, chat);
 
   const loadModels = useCallback((): void => {
     fetchModels().then(setModels, () => setModels([]));
@@ -149,6 +154,11 @@ export function WorkingScreen({
     chooseModel(model.providerId, model.id).catch(() =>
       setNotice("That model is not available. Choose another one."),
     );
+  }
+
+  function openContext(): void {
+    setPlaceRequest({ place: "context", at: Date.now() });
+    showPanel(true);
   }
 
   function openLogins(): void {
@@ -286,6 +296,7 @@ export function WorkingScreen({
               chatId={chat.id}
               model={chat.model}
               thinking={chat.thinking}
+              context={context}
               models={models}
               folder={chat.folder}
               projects={projects}
@@ -302,6 +313,7 @@ export function WorkingScreen({
               }}
               onChooseFolder={startNew}
               onManageLogins={openLogins}
+              onOpenContext={openContext}
             />
             <div className={styles.below} />
           </>
@@ -311,7 +323,9 @@ export function WorkingScreen({
         <SidePanel
           isOpen={isPanelOpen}
           chat={chat}
+          context={context}
           models={models}
+          placeRequest={placeRequest}
           onHide={() => setIsPanelOpen(false)}
         />
       )}

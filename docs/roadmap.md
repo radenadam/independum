@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- A context meter in the message box, the Context ring, which fills as the context window does and opens the Context place.
 - The agent loop in the chat: thinking, tool calls, and the other steps of a reply each sit in a box of their own, set apart from the answer, and thinking folds away.
 - Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 

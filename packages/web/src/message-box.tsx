@@ -1,4 +1,4 @@
-import type { ChatState, ModelSummary, ProjectSummary } from "independum/api-types";
+import type { ChatState, ContextSummary, ModelSummary, ProjectSummary } from "independum/api-types";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { readDraft, saveDraft } from "./chat-draft.ts";
+import { ContextMeter } from "./context-meter.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
@@ -29,6 +30,7 @@ interface MessageBoxProps {
   chatId: string | null;
   model: ChatState["model"];
   thinking: ChatState["thinking"];
+  context: ContextSummary | undefined;
   models: ModelSummary[] | undefined;
   folder: string;
   projects: ProjectSummary[];
@@ -41,6 +43,7 @@ interface MessageBoxProps {
   onChooseThinking: (level: string) => void;
   onChooseFolder: (folder: string) => void;
   onManageLogins: () => void;
+  onOpenContext: () => void;
 }
 
 /**
@@ -51,6 +54,7 @@ export function MessageBox({
   chatId,
   model,
   thinking,
+  context,
   models,
   folder,
   projects,
@@ -63,6 +67,7 @@ export function MessageBox({
   onChooseThinking,
   onChooseFolder,
   onManageLogins,
+  onOpenContext,
 }: MessageBoxProps): ReactElement {
   const [draft, setDraft] = useState(() => readDraft(chatId));
   const [draftChatId, setDraftChatId] = useState(chatId);
@@ -199,6 +204,7 @@ export function MessageBox({
               </span>
             )}
             <span className={styles.space} />
+            <ContextMeter context={context} onOpen={onOpenContext} />
             {isReplying ? (
               <IconButton
                 icon="stop"
