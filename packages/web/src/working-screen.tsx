@@ -22,6 +22,7 @@ import {
 } from "./chat-api.ts";
 import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
+import { chatWidth, readColumnWidth } from "./column-width.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
@@ -90,9 +91,9 @@ export function WorkingScreen({
     return () => clearTimeout(timer);
   }, [isNewChatFlashing]);
 
-  // The sidebar, the chat, and the side panel fit side by side only on a wide window, so on a
-  // narrower one opening the sidebar or the side panel closes the other. A phone shows each over
-  // the chat instead. See decision 0018.
+  // The sidebar, the chat, and the side panel fit side by side only on a window wide enough for
+  // all three, so on a narrower one opening the sidebar or the side panel closes the other. A phone
+  // shows each over the chat instead. See decision 0025.
   function showSidebar(isOpen: boolean): void {
     setIsSidebarOpen(isOpen);
     if (isOpen && isCrowded()) {
@@ -114,12 +115,11 @@ export function WorkingScreen({
   });
 
   useEffect(() => {
-    const query = window.matchMedia(roomyWidth);
-    function handleChange(): void {
+    function handleResize(): void {
       onWidthChange();
     }
-    query.addEventListener("change", handleChange);
-    return () => query.removeEventListener("change", handleChange);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // On a phone, the sidebar covers the chat, so it closes once the user has chosen.
@@ -324,15 +324,14 @@ export function WorkingScreen({
   );
 }
 
-// The sidebar, a readable chat, and the side panel need 272, 480, and 420 pixels.
-const roomyWidth = "(min-width: 1180px)";
-
 function isPhone(): boolean {
   return window.matchMedia("(max-width: 760px)").matches;
 }
 
+// A window is crowded when it cannot hold both columns at their widths and a readable chat.
 function isCrowded(): boolean {
-  return !isPhone() && !window.matchMedia(roomyWidth).matches;
+  const needed = readColumnWidth("start") + chatWidth + readColumnWidth("end");
+  return !isPhone() && window.innerWidth < needed;
 }
 
 function applyEvent(
