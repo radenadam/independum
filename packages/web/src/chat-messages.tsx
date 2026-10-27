@@ -10,6 +10,7 @@ import {
 import styles from "./chat-messages.module.css";
 import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
+import { IconButton } from "./icon-button.tsx";
 import { Mark } from "./mark.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { MessageTime } from "./message-time.tsx";
@@ -43,6 +44,8 @@ export function ChatMessages({
   const scroller = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
   const spacer = useRef<HTMLDivElement>(null);
+  const end = useRef<HTMLDivElement>(null);
+  const [isEndBelow, setIsEndBelow] = useState(false);
   const seen = useRef<{ chatId: string | null; userCount: number } | undefined>(undefined);
   const isAnchored = useRef(false);
   // Messages that arrive after the chat opens rise or type into view, but the ones it opened with
@@ -94,6 +97,35 @@ export function ChatMessages({
     observer.observe(listElement);
     return () => observer.disconnect();
   }, []);
+
+  // The way back to the latest message shows while the end of the messages sits below the view,
+  // such as when the user scrolls up while a reply types.
+  useEffect(() => {
+    const scrollerElement = scroller.current;
+    const endElement = end.current;
+    if (scrollerElement === null || endElement === null) {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry !== undefined) {
+          const viewBottom = entry.rootBounds?.bottom ?? 0;
+          setIsEndBelow(!entry.isIntersecting && entry.boundingClientRect.top > viewBottom);
+        }
+      },
+      // An end that lands right on the bottom edge after a jump counts as in view.
+      { root: scrollerElement, rootMargin: "0px 0px 8px 0px" },
+    );
+    observer.observe(endElement);
+    return () => observer.disconnect();
+  }, []);
+
+  function showLatest(): void {
+    end.current?.scrollIntoView({
+      block: "end",
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }
 
   const last = messages.at(-1);
   const isReplyShown = isReplying && (reply !== "" || last?.role !== "assistant");
@@ -172,7 +204,19 @@ export function ChatMessages({
           </li>
         ) : null}
       </ol>
+      <div ref={end} />
       <div ref={spacer} className={styles.spacer} aria-hidden="true" />
+      <div className={styles.latest} data-shown={isEndBelow}>
+        <span className={styles.latestButton}>
+          <IconButton
+            icon="latest"
+            label="Jump to the latest message"
+            tipSide="above"
+            isRound
+            onClick={showLatest}
+          />
+        </span>
+      </div>
     </div>
   );
 }

@@ -106,6 +106,10 @@
   --shift-y: -2.5px;
 }
 
+.drop {
+  --shift-y: 2.5px;
+}
+
 /* A plus or an X only twists a little, so it never passes through the other shape. */
 .twist {
   --turn: 20deg;

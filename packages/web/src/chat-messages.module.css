@@ -78,6 +78,31 @@
   flex: none;
 }
 
+/*
+  The way back to the latest message floats at the foot of the chat. Its bar sticks to the bottom
+  of the view and takes no room, so the button rises above it over the messages.
+*/
+.latest {
+  position: sticky;
+  bottom: 14px;
+  height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.latest[data-shown="false"] {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.latestButton {
+  display: flex;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
 @media (max-width: 760px) {
   .messages {
     padding: 16px 16px 24px;
@@ -92,6 +117,12 @@
   .actions,
   .when {
     transition: opacity 120ms ease;
+  }
+
+  .latest {
+    transition:
+      opacity 160ms ease,
+      visibility 160ms;
   }
 
   .new {

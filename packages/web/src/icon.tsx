@@ -12,6 +12,7 @@ export type IconName =
   | "menu"
   | "add"
   | "send"
+  | "latest"
   | "stop"
   | "check"
   | "copy"
@@ -75,6 +76,7 @@ const drawings: Record<IconName, ReactElement> = {
   menu: <path className={moves(styles.nudgeDown)} d="M5 9l7 7 7-7" />,
   add: <path className={moves(styles.twist)} d="M12 4v16M4 12h16" />,
   send: <path className={moves(styles.nudgeUp)} d="M12 20V5M5 11l7-7 7 7" />,
+  latest: <path className={moves(styles.drop)} d="M12 4v15M5 13l7 7 7-7" />,
   stop: <path className={moves(styles.squeeze)} d="M9 8h6l1 1v6l-1 1H9l-1-1V9z" />,
   check: <path d="M20 6L9 17l-5-5" />,
   copy: (
