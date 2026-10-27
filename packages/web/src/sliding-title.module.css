@@ -13,16 +13,22 @@
   display: inline-block;
 }
 
+/* A title too long for the end of its space starts at the start, so that it can slide. */
+.frame[data-align="end"][data-too-long="false"] {
+  text-align: right;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .line {
     transition: transform 0.5s ease;
   }
 
-  :hover > .frame[data-too-long="true"] {
+  /* The row of a title is its parent, or the button around it, such as a choice in a menu. */
+  :is(:hover > .frame, button:hover .frame)[data-too-long="true"] {
     mask-image: linear-gradient(to right, transparent, black 20px);
   }
 
-  :hover > .frame[data-too-long="true"] .line {
+  :is(:hover > .frame, button:hover .frame)[data-too-long="true"] .line {
     transform: translateX(calc(-1 * var(--hidden-width)));
     transition: transform 1.8s ease-in-out 0.3s;
   }
