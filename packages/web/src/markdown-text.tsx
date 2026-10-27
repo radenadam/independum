@@ -5,6 +5,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { CodeBlock } from "./code-block.tsx";
+import { escapePlainDollars } from "./escape-plain-dollars.ts";
 import styles from "./markdown-text.module.css";
 
 type MarkdownNode = NonNullable<ExtraProps["node"]>;
@@ -49,7 +50,7 @@ export function MarkdownText({ text, hasCaret }: MarkdownTextProps): ReactElemen
         rehypePlugins={[rehypeKatex]}
         components={components}
       >
-        {text}
+        {escapePlainDollars(text)}
       </Markdown>
     </div>
   );
