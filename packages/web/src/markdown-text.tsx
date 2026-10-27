@@ -1,6 +1,9 @@
 import type { ReactElement } from "react";
+import "katex/dist/katex.min.css";
 import Markdown, { type Components, type ExtraProps } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { CodeBlock } from "./code-block.tsx";
 import styles from "./markdown-text.module.css";
 
@@ -34,11 +37,18 @@ const components: Components = {
   ),
 };
 
-/** Draws a reply formatted from Markdown, with a caret after its last line while it types. */
+/**
+ * Draws a reply formatted from Markdown, with math drawn by KaTeX and a caret after its last line
+ * while it types.
+ */
 export function MarkdownText({ text, hasCaret }: MarkdownTextProps): ReactElement {
   return (
     <div className={hasCaret ? `${styles.markdown} ${styles.caret}` : styles.markdown}>
-      <Markdown remarkPlugins={[remarkGfm]} components={components}>
+      <Markdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        components={components}
+      >
         {text}
       </Markdown>
     </div>
