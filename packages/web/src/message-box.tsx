@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { readDraft, saveDraft } from "./chat-draft.ts";
 import { describeThinking } from "./describe-thinking.ts";
 import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
@@ -63,7 +64,13 @@ export function MessageBox({
   onChooseFolder,
   onManageLogins,
 }: MessageBoxProps): ReactElement {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(() => readDraft(chatId));
+  const [draftChatId, setDraftChatId] = useState(chatId);
+  // Each chat keeps its own draft, so opening another chat swaps the text in the field.
+  if (draftChatId !== chatId) {
+    setDraftChatId(chatId);
+    setDraft(readDraft(chatId));
+  }
   const [menu, setMenu] = useState<Menu | undefined>();
   const field = useRef<HTMLTextAreaElement>(null);
   const isReady = draft.trim() !== "" && model !== null && !isReplying;
@@ -89,6 +96,11 @@ export function MessageBox({
     setMenu((current) => (current === next ? undefined : next));
   }
 
+  function changeDraft(text: string): void {
+    setDraft(text);
+    saveDraft(chatId, text);
+  }
+
   function submit(): void {
     const text = draft.trim();
     if (model === null) {
@@ -98,8 +110,8 @@ export function MessageBox({
     if (!isReady) {
       return;
     }
-    setDraft("");
-    onSend(text).catch(() => setDraft(text));
+    changeDraft("");
+    onSend(text).catch(() => changeDraft(text));
   }
 
   function onFieldKey(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -128,7 +140,7 @@ export function MessageBox({
             rows={2}
             placeholder="Write a message"
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => changeDraft(event.target.value)}
             onKeyDown={onFieldKey}
           />
           <div className={styles.tools}>

@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- A draft for each chat, kept while the user switches chats.
 - Export of a chat as Markdown.
 - The Context place in the side panel. It shows the chat, its model, how full the context window is, the tokens, the cost, the times, the raw messages, and the last request, which moves there from the Agent place. A context meter icon in the message box fills as the context does and opens the place.
 - The agent loop in the chat: thinking, tool calls, and the other steps of a reply each sit in a box of their own, set apart from the answer, and thinking folds away.
