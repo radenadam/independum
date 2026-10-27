@@ -1,0 +1,61 @@
+/* The handle is wider than the line it shows, so it is easy to grab on the edge of the column. */
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.handle[data-edge="start"] {
+  right: 0;
+}
+
+.handle[data-edge="end"] {
+  left: 0;
+}
+
+/* A line on the edge shows the handle while it is pointed at, and turns orange while it moves. */
+.handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.handle[data-edge="start"]::after {
+  right: 0;
+}
+
+.handle[data-edge="end"]::after {
+  left: 0;
+}
+
+.handle:hover::after {
+  background: var(--faint);
+}
+
+.handle:focus-visible {
+  outline: none;
+}
+
+.handle:focus-visible::after,
+.handle:active::after {
+  background: var(--signal);
+}
+
+/* A phone shows the columns over the chat at a set width, so they do not resize there. */
+@media (max-width: 760px) {
+  .handle {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .handle::after {
+    transition: background-color 120ms ease;
+  }
+}

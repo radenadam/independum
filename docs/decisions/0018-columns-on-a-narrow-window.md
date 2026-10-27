@@ -1,6 +1,6 @@
 # Columns on a narrow window
 
-- Status: accepted
+- Status: superseded by [decision 0025](0025-resizable-columns.md)
 - Date: 2026-10-26
 
 ## Context
