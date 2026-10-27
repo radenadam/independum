@@ -1,6 +1,14 @@
 import type { ChatMessage } from "independum/api-types";
-import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ClipboardEvent,
+  type ReactElement,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import styles from "./chat-messages.module.css";
+import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
 import { Mark } from "./mark.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
@@ -98,7 +106,7 @@ export function ChatMessages({
 
   return (
     <div ref={scroller} className={styles.scroller}>
-      <ol ref={list} className={styles.messages}>
+      <ol ref={list} className={styles.messages} onCopy={copySelection}>
         {messages.map((message, index) => {
           if (message.role === "user") {
             return (
@@ -110,7 +118,7 @@ export function ChatMessages({
                 data-user
               >
                 <p className={styles.bubble}>{message.text}</p>
-                <div className={styles.actions}>
+                <div className={styles.actions} data-copy="skip">
                   <span className={styles.when}>
                     <MessageTime timestamp={message.timestamp} durationMs={null} />
                   </span>
@@ -134,7 +142,7 @@ export function ChatMessages({
           );
         })}
         {isReplyShown && reply === "" ? (
-          <li className={styles.thinking}>
+          <li className={styles.thinking} data-copy="skip">
             <ThinkingLabel />
           </li>
         ) : null}
@@ -189,15 +197,35 @@ function Reply({
   timestamp,
   durationMs,
 }: ReplyProps): ReactElement {
+  const body = useRef<HTMLDivElement>(null);
   const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
+
+  function bodyNode(): Node {
+    return body.current ?? document.createDocumentFragment();
+  }
+
   return (
     <>
-      {text === "" ? null : <MarkdownText text={text.slice(0, length)} hasCaret={isTyping} />}
+      <div ref={body}>
+        {text === "" ? null : <MarkdownText text={text.slice(0, length)} hasCaret={isTyping} />}
+      </div>
       {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
       {text === "" || isTyping ? null : (
-        <div className={styles.actions} data-latest={isLatest}>
-          <CopyButton text={text} label="Copy reply" tipAlign="start" />
+        <div className={styles.actions} data-latest={isLatest} data-copy="skip">
+          <CopyButton
+            text={text}
+            html={() => clipboardHtml(bodyNode())}
+            label="Copy reply"
+            tipAlign="start"
+            options={[
+              { label: "Copy as Markdown", content: () => ({ text }) },
+              {
+                label: "Copy as plain text",
+                content: () => ({ text: clipboardText(bodyNode(), "plain") }),
+              },
+            ]}
+          />
           {timestamp === null ? null : (
             <span className={styles.when}>
               <MessageTime timestamp={timestamp} durationMs={durationMs} />
@@ -207,6 +235,26 @@ function Reply({
       )}
     </>
   );
+}
+
+// A selection in the chat copies as Markdown in its plain text, and with its formatting for the
+// places that take it, without the buttons and times inside it. A selection inside a block of code
+// keeps the copy of the browser, which keeps the code exactly.
+function copySelection(event: ClipboardEvent<HTMLOListElement>): void {
+  const selection = document.getSelection();
+  if (selection === null || selection.isCollapsed || selection.rangeCount === 0) {
+    return;
+  }
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+  const element = container instanceof Element ? container : container.parentElement;
+  if (element?.closest("pre") !== null) {
+    return;
+  }
+  const copied = range.cloneContents();
+  event.preventDefault();
+  event.clipboardData.setData("text/plain", clipboardText(copied, "markdown"));
+  event.clipboardData.setData("text/html", clipboardHtml(copied));
 }
 
 function ThinkingLabel(): ReactElement {

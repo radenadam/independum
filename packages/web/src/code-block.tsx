@@ -11,8 +11,8 @@ interface CodeBlockProps {
 /** Draws a block of code in a reply, with its language and a button that copies it. */
 export function CodeBlock({ language, code }: CodeBlockProps): ReactElement {
   return (
-    <div className={styles.block}>
-      <div className={styles.header}>
+    <div className={styles.block} data-language={language}>
+      <div className={styles.header} data-copy="skip">
         <span>{language === "" ? "code" : language}</span>
         <CopyButton text={code} label="Copy code" tipAlign="end" />
       </div>
