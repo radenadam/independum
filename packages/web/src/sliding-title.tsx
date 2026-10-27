@@ -7,6 +7,7 @@ import { type Typing, useTypedLength } from "./use-typed-length.ts";
 interface SlidingTitleProps {
   text: string;
   isTyped?: boolean;
+  align?: "start" | "end";
 }
 
 // A title catches up on its backlog, so even a long one types in about half a second.
@@ -14,9 +15,14 @@ const titleTyping: Typing = { charactersPerSecond: 40, isCatchingUp: true };
 
 /**
  * Draws a title on one line, which fades out at its end when it is too long and slides into view
- * while its row is hovered. A title that is typed when it first appears types itself in.
+ * while its row is hovered. A title that is typed when it first appears types itself in, and a
+ * title aligned to the end sits there while it fits.
  */
-export function SlidingTitle({ text, isTyped = false }: SlidingTitleProps): ReactElement {
+export function SlidingTitle({
+  text,
+  isTyped = false,
+  align = "start",
+}: SlidingTitleProps): ReactElement {
   // Whether the title types is settled when it first appears, so it keeps typing after that.
   const [isTyping] = useState(isTyped);
   const shown = useTypedLength(text.length, isTyping ? titleTyping : undefined);
@@ -49,6 +55,7 @@ export function SlidingTitle({ text, isTyped = false }: SlidingTitleProps): Reac
       ref={frame}
       className={styles.frame}
       data-too-long={hiddenWidth > 0}
+      data-align={align}
       style={{ "--hidden-width": `${hiddenWidth}px` } as CSSProperties}
     >
       <span ref={line} className={styles.line}>

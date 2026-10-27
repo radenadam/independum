@@ -2,6 +2,7 @@ import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import styles from "./menu-list.module.css";
+import { SlidingTitle } from "./sliding-title.tsx";
 
 /** One choice in a menu list, with its name and an optional detail in a smaller monospace font. */
 interface MenuChoice {
@@ -28,7 +29,10 @@ interface MenuListProps {
   emptyNote: string;
 }
 
-/** Draws the choices of a pop-up in groups, with the current choice checked. */
+/**
+ * Draws the choices of a pop-up in groups, with the current choice checked. A name or a detail too
+ * long for its row slides into view while the row is hovered.
+ */
 export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
   const list = useRef<HTMLDivElement>(null);
 
@@ -63,9 +67,13 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
             >
               {choice.logo}
               <span className={styles.text}>
-                <span className={styles.name}>{choice.name}</span>
+                <span className={styles.name}>
+                  <SlidingTitle text={choice.name} />
+                </span>
                 {choice.detail === undefined ? null : (
-                  <span className={styles.detail}>{choice.detail}</span>
+                  <span className={styles.detail}>
+                    <SlidingTitle text={choice.detail} align={layout === "row" ? "end" : "start"} />
+                  </span>
                 )}
               </span>
               <span className={styles.check}>
