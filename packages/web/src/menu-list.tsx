@@ -1,21 +1,22 @@
 import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
+import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import styles from "./menu-list.module.css";
 
-/** One choice in a menu list, with its name and a detail in a smaller monospace font. */
+/** One choice in a menu list, with its name and an optional detail in a smaller monospace font. */
 interface MenuChoice {
   key: string;
   name: string;
-  detail: string;
+  detail?: string;
   logo?: ReactNode;
   isCurrent: boolean;
   onChoose: () => void;
 }
 
-/** A group of choices under a heading. */
+/** A group of choices, under a heading when the menu has more than one kind of choice. */
 export interface MenuGroup {
   key: string;
-  heading: string;
+  heading?: string;
   logo?: ReactNode;
   choices: MenuChoice[];
 }
@@ -31,19 +32,27 @@ interface MenuListProps {
 export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
   const list = useRef<HTMLDivElement>(null);
 
-  // The current choice comes into view when the menu opens, even far down a long list.
+  // The current choice comes into view when the menu opens, even far down a long list. Opened from
+  // the keyboard, it also takes the focus, unless a field of the menu took it first.
   useEffect(() => {
-    list.current?.querySelector("[aria-current]")?.scrollIntoView({ block: "nearest" });
+    const current = list.current?.querySelector<HTMLElement>("[aria-current]");
+    current?.scrollIntoView({ block: "nearest" });
+    const menu = list.current?.closest("[role=dialog]");
+    if (hasKeyboard() && menu?.contains(document.activeElement) !== true) {
+      current?.focus();
+    }
   }, []);
 
   return (
     <div ref={list} className={styles.list}>
       {groups.map((group) => (
         <div key={group.key}>
-          <h2 className={styles.heading}>
-            {group.logo}
-            {group.heading}
-          </h2>
+          {group.heading === undefined ? null : (
+            <h2 className={styles.heading}>
+              {group.logo}
+              {group.heading}
+            </h2>
+          )}
           {group.choices.map((choice) => (
             <button
               key={choice.key}
@@ -55,7 +64,9 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
               {choice.logo}
               <span className={styles.text}>
                 <span className={styles.name}>{choice.name}</span>
-                <span className={styles.detail}>{choice.detail}</span>
+                {choice.detail === undefined ? null : (
+                  <span className={styles.detail}>{choice.detail}</span>
+                )}
               </span>
               <span className={styles.check}>
                 {choice.isCurrent ? <Icon name="check" size={16} /> : null}

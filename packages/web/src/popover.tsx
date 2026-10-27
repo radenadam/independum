@@ -18,7 +18,7 @@ interface PopoverProps {
   onClose: () => void;
   children: ReactNode;
   note?: string;
-  size?: "regular" | "narrow" | "fit";
+  size?: "regular" | "narrow";
 }
 
 // A pop-up keeps this far from the edges of the screen.

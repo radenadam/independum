@@ -1,6 +1,6 @@
 # Thinking effort bar
 
-- Status: accepted
+- Status: superseded by [decision 0028](0028-thinking-effort-list.md)
 - Date: 2026-10-27
 
 ## Context
