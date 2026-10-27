@@ -11,6 +11,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  ContextSummary,
   ModelSummary,
   ProjectSummary,
 } from "./api-types.ts";
@@ -258,13 +259,21 @@ test("a new chat starts in a chosen project, and only in a project", async () =>
   expect((await post("/chat/new", { folder: 5 })).status).toBe(400);
 });
 
-test("the agent shows its prompts, its tools, and the last request it sent", async () => {
+test("the agent shows its prompts and its tools", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
-  const before = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
-  expect(before.systemPrompt).toContain("Independum");
-  expect(before.addedByPi).toContain("<cwd>");
-  expect(before.tools).toEqual([]);
+  const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  expect(agent.systemPrompt).toContain("Independum");
+  expect(agent.addedByPi).toContain("<cwd>");
+  expect(agent.tools).toEqual([]);
+});
+
+test("the context shows the model, the counts, the saved entries, and the last request", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const before = (await (await routes.request("/chat/context")).json()) as ContextSummary;
+  expect(before.model).toBe("faux-model");
+  expect(before.userMessages).toBe(0);
   expect(before.lastRequest).toBeNull();
   faux.setResponses([
     async (_context, options, _state, model) => {
@@ -273,8 +282,15 @@ test("the agent shows its prompts, its tools, and the last request it sent", asy
     },
   ]);
   await sendAndReadReply("Show the request");
-  const after = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  const after = (await (await routes.request("/chat/context")).json()) as ContextSummary;
   expect(after.lastRequest).toEqual({ sent: "the exact request" });
+  expect(after.userMessages).toBe(1);
+  expect(after.assistantMessages).toBe(1);
+  expect(after.contextWindow).toBeGreaterThan(0);
+  const roles = after.entries
+    .filter((entry) => entry.type === "message")
+    .map((entry) => entry.role);
+  expect(roles.slice(-2)).toEqual(["user", "assistant"]);
 });
 
 test("a model that thinks offers its thinking levels, and the chat keeps the chosen one", async () => {

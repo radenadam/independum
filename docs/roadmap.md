@@ -6,7 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- The Context place in the side panel. It shows the chat, its model, how full the context window is, the tokens, the cost, the times, the raw messages, and the last request, which moves there from the Agent place. A context meter icon in the message box fills as the context does and opens the place.
+- A context meter in the message box, the Context ring, which fills as the context window does and opens the Context place.
 - The agent loop in the chat: thinking, tool calls, and the other steps of a reply each sit in a box of their own, set apart from the answer, and thinking folds away.
 - Tools: reading and editing files and running commands, as built-ins the user can see, approve, and turn off.
 
@@ -27,7 +27,7 @@ The maintainer agreed to these, and they come in this order, one small change at
 
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
-- Which places come after Agent in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decision 0016.
+- Which places come after Agent and Context in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016 and 0026.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?

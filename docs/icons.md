@@ -23,7 +23,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 - Icons draw in `currentColor`, so they take the text color of their button.
 - An icon turns orange, the `--signal` token, while its item is selected or open, such as the open project, the active tab, or an open menu. The drawing stays the same outline.
 - An icon has one color. The only filled orange shape is the send button, behind its arrow or its stop box.
-- The Effort dial is the one exception. Its arc fills in orange up to the chosen level over a `--faint` arc, so the level reads at a glance. Its arc is round, and its needle turns to the level, so the ends of the arc and the tip of the needle may leave the half unit grid.
+- The meters, the Effort dial and the Context ring, are the exceptions. Each one fills in orange up to its level over a `--faint` arc, so the level reads at a glance. Their arcs are round, and the needle of the dial turns to the level, so the ends of the arcs and the tip of the needle may leave the half unit grid.
 
 ## Shapes
 
@@ -53,6 +53,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
 | Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
+| Context | A ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -93,6 +94,7 @@ Decision 0024 records why icons move and where the line falls.
 | Archive | The lid lifts. |
 | Delete | The lid lifts and tilts. |
 | Effort | The needle revs up. |
+| Context | The orange part of the ring turns a little. |
 
 ## Building icons
 

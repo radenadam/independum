@@ -26,7 +26,8 @@ export type IconName =
   | "archive"
   | "export"
   | "delete"
-  | "effort";
+  | "effort"
+  | "context";
 
 // Returns the class names of a part that moves when its button is pointed at, as `docs/icons.md`
 // describes under Motion. The second class sets how that part moves.
@@ -154,10 +155,23 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   effort: (
     <>
-      <path className={styles.dial} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" />
-      <path className={styles.dialFill} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" pathLength={1} />
+      <path className={styles.meterTrack} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" />
+      <path className={styles.meterFill} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" pathLength={1} />
       <path className={`${styles.needle} ${moves(styles.rev)}`} d="M12 14V8" />
       <circle cx="12" cy="14" r="1" />
+    </>
+  ),
+  context: (
+    <>
+      <circle className={styles.meterTrack} cx="12" cy="12" r="8.5" />
+      <circle
+        className={`${styles.meterFill} ${moves(styles.ringStart)}`}
+        cx="12"
+        cy="12"
+        r="8.5"
+        pathLength={1}
+      />
+      <circle cx="12" cy="12" r="1" />
     </>
   ),
 };

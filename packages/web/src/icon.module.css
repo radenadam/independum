@@ -7,14 +7,15 @@
 }
 
 /*
-  The effort dial reads its level from `--ratio`, from 0 at the lowest level to 1 at the highest, so
-  the needle turns and the orange arc grows as the level rises.
+  A meter, such as the effort dial and the context ring, reads its level from `--ratio`, from 0 at
+  the lowest to 1 at the highest, so its orange arc grows and the needle of the dial turns as the
+  level rises.
 */
-.dial {
+.meterTrack {
   stroke: var(--faint);
 }
 
-.dialFill {
+.meterFill {
   stroke: var(--signal);
   stroke-dasharray: 1 2;
   stroke-dashoffset: calc(1 - var(--ratio, 0));
@@ -23,6 +24,14 @@
 .needle {
   transform: rotate(calc(var(--ratio, 0) * 240deg - 120deg));
   transform-origin: 12px 14px;
+}
+
+/* The context ring fills from its top, clockwise. */
+.ringStart {
+  --turn: 40deg;
+
+  transform: rotate(-90deg);
+  transform-origin: 12px 12px;
 }
 
 /* A folder opens while its project or its menu is open. */
@@ -198,7 +207,7 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .dialFill {
+  .meterFill {
     transition: stroke-dashoffset 200ms ease;
   }
 

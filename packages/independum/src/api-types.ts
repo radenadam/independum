@@ -66,6 +66,38 @@ export interface AgentSummary {
   systemPrompt: string;
   addedByPi: string;
   tools: string[];
+}
+
+/** One entry of the open chat as Pi saves it, as the Context place lists it. */
+export interface ContextEntry {
+  id: string;
+  type: string;
+  role: string | null;
+  timestamp: string;
+  data: unknown;
+}
+
+/** What the model of the open chat works with, as the Context place shows it. */
+export interface ContextSummary {
+  chatId: string | null;
+  provider: string | null;
+  model: string | null;
+  contextWindow: number | null;
+  contextTokens: number | null;
+  tokens: {
+    input: number;
+    output: number;
+    reasoning: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
+  cost: number;
+  userMessages: number;
+  assistantMessages: number;
+  toolCalls: number;
+  created: string | null;
+  lastActivity: string | null;
+  entries: ContextEntry[];
   lastRequest: unknown;
 }
 

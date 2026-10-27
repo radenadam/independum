@@ -2,6 +2,7 @@ import type {
   AgentSummary,
   ArchivedChatSummary,
   ChatEvent,
+  ContextSummary,
   ModelSummary,
 } from "independum/api-types";
 import { readEvents } from "./read-events.ts";
@@ -30,6 +31,15 @@ export async function fetchAgent(): Promise<AgentSummary> {
     throw new Error("The agent could not be loaded.");
   }
   return (await response.json()) as AgentSummary;
+}
+
+/** Returns what the model of the open chat works with, for the Context place. */
+export async function fetchContext(): Promise<ContextSummary> {
+  const response = await requestApi("/api/chat/context");
+  if (!response.ok) {
+    throw new Error("The context could not be loaded.");
+  }
+  return (await response.json()) as ContextSummary;
 }
 
 /** Follows the chat and calls back with each change, reconnecting until the returned stop runs. */
