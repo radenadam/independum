@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { describeDuration } from "./describe-duration.ts";
 import styles from "./message-time.module.css";
 
 /** Properties of a message time. */
@@ -31,15 +32,4 @@ export function MessageTime({ timestamp, durationMs }: MessageTimeProps): ReactE
       {durationMs === null ? null : <span>Took {describeDuration(durationMs)}</span>}
     </span>
   );
-}
-
-function describeDuration(durationMs: number): string {
-  const seconds = durationMs / 1000;
-  if (seconds < 10) {
-    return `${seconds.toFixed(1)} s`;
-  }
-  if (seconds < 60) {
-    return `${Math.round(seconds)} s`;
-  }
-  return `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
 }

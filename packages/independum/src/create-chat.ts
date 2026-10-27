@@ -17,6 +17,7 @@ import type {
   ChatState,
   ChatSummary,
   ContextSummary,
+  MessagePart,
   ProjectSummary,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
@@ -26,6 +27,17 @@ type AgentMessage = AgentSession["messages"][number];
 type MessageContent =
   | Extract<AgentMessage, { role: "user" }>["content"]
   | Extract<AgentMessage, { role: "assistant" }>["content"];
+type ReplyUpdate = Extract<AgentSessionEvent, { type: "message_update" }>["assistantMessageEvent"];
+
+/** How long the model thought in each part of a reply, as Independum saves it in the chat. */
+interface ThinkingTimes {
+  timestamp: number;
+  durationsMs: (number | null)[];
+}
+
+// Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
+// chat file and never sends to the model.
+const thinkingTimesType = "independum-thinking-times";
 
 // The first chat has no tools, and the prompt says so, so the model never pretends to use one.
 const systemPrompt =
@@ -71,6 +83,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let isModelChosen = false;
   let isReplying = false;
   let lastRequest: unknown = null;
+  // The thinking of the reply in progress, by the place of each part in the message.
+  const thinkingStarts = new Map<number, number>();
+  const thinkingTimes = new Map<number, number>();
 
   function emit(event: ChatEvent): void {
     for (const listener of listeners) {
@@ -80,6 +95,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
 
   function getState(): ChatState {
     const model = isModelChosen ? session?.model : undefined;
+    const savedTimes = readThinkingTimes();
     return {
       id: session?.sessionId ?? null,
       folder,
@@ -90,11 +106,65 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           ? null
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
       messages: (session?.messages ?? []).flatMap((message) => {
-        const shown = toChatMessage(message);
+        const shown = toChatMessage(message, savedTimes.get(message.timestamp));
         return shown === undefined ? [] : [shown];
       }),
       isReplying,
     };
+  }
+
+  function readThinkingTimes(): Map<number, (number | null)[]> {
+    const times = new Map<number, (number | null)[]>();
+    for (const entry of session?.sessionManager.getEntries() ?? []) {
+      if (entry.type === "custom" && entry.customType === thinkingTimesType) {
+        const saved = entry.data as ThinkingTimes;
+        times.set(saved.timestamp, saved.durationsMs);
+      }
+    }
+    return times;
+  }
+
+  // Pi streams each part of a reply by its place in the message, so the UI builds the reply in
+  // progress the same way.
+  function showUpdate(update: ReplyUpdate): void {
+    if (update.type === "text_delta" || update.type === "thinking_delta") {
+      emit({
+        type: "replyDelta",
+        index: update.contentIndex,
+        partType: update.type === "text_delta" ? "text" : "thinking",
+        delta: update.delta,
+      });
+    } else if (update.type === "thinking_start" || update.type === "thinking_end") {
+      if (update.type === "thinking_start") {
+        thinkingStarts.set(update.contentIndex, performance.now());
+      } else {
+        const start = thinkingStarts.get(update.contentIndex) ?? performance.now();
+        thinkingTimes.set(update.contentIndex, Math.round(performance.now() - start));
+      }
+      const block = update.partial.content[update.contentIndex];
+      if (block?.type === "thinking") {
+        emit({
+          type: "replyPart",
+          index: update.contentIndex,
+          part: thinkingPartOf(block, thinkingTimes.get(update.contentIndex) ?? null),
+        });
+      }
+    }
+  }
+
+  function timesOf(message: AgentMessage): (number | null)[] {
+    return message.role === "assistant"
+      ? message.content.map((_, index) => thinkingTimes.get(index) ?? null)
+      : [];
+  }
+
+  // A turn ends once Pi has saved its reply and the results of its tools, so the times follow them
+  // and never land between a tool call and its result.
+  function saveThinkingTimes(message: AgentMessage): void {
+    if (session !== undefined && message.role === "assistant" && thinkingTimes.size > 0) {
+      const saved: ThinkingTimes = { timestamp: message.timestamp, durationsMs: timesOf(message) };
+      session.sessionManager.appendCustomEntry(thinkingTimesType, saved);
+    }
   }
 
   function listSaved(): Promise<SessionInfo[]> {
@@ -162,13 +232,15 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     } else if (event.type === "agent_settled") {
       setReplying(false);
       emitProjects();
-    } else if (
-      event.type === "message_update" &&
-      event.assistantMessageEvent.type === "text_delta"
-    ) {
-      emit({ type: "replyDelta", delta: event.assistantMessageEvent.delta });
+    } else if (event.type === "message_start" && event.message.role === "assistant") {
+      thinkingStarts.clear();
+      thinkingTimes.clear();
+    } else if (event.type === "message_update") {
+      showUpdate(event.assistantMessageEvent);
+    } else if (event.type === "turn_end") {
+      saveThinkingTimes(event.message);
     } else if (event.type === "message_end") {
-      const message = toChatMessage(event.message);
+      const message = toChatMessage(event.message, timesOf(event.message));
       if (message !== undefined) {
         emit({ type: "message", message });
       }
@@ -328,7 +400,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           type: "message",
           message: {
             role: "assistant",
-            text: "",
+            parts: [],
             error: messageOf(error),
             timestamp: Date.now(),
             durationMs: null,
@@ -466,18 +538,24 @@ function markdownOf(title: string, messages: AgentMessage[]): string {
     const shown = toChatMessage(message);
     if (shown !== undefined) {
       const heading = message.role === "assistant" ? `Agent (${message.model})` : "You";
-      const body = shown.error === null ? shown.text : `${shown.text}\n\n*${shown.error}*`;
+      const text = shown.parts
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .join("");
+      const body = shown.error === null ? text : `${text}\n\n*${shown.error}*`;
       parts.push(`## ${heading}`, body.trim());
     }
   }
   return `${parts.filter((part) => part !== "").join("\n\n")}\n`;
 }
 
-function toChatMessage(message: AgentMessage): ChatMessage | undefined {
+function toChatMessage(
+  message: AgentMessage,
+  thinkingTimes: (number | null)[] = [],
+): ChatMessage | undefined {
   if (message.role === "user") {
     return {
       role: "user",
-      text: textOf(message.content),
+      parts: partsOf(message.content, []),
       error: null,
       timestamp: message.timestamp,
       durationMs: null,
@@ -488,7 +566,7 @@ function toChatMessage(message: AgentMessage): ChatMessage | undefined {
   }
   return {
     role: "assistant",
-    text: textOf(message.content),
+    parts: partsOf(message.content, thinkingTimes),
     error: errorOf(message),
     timestamp: message.timestamp,
     durationMs: message.durationMs ?? null,
@@ -506,17 +584,33 @@ function errorOf(message: Extract<AgentMessage, { role: "assistant" }>): string 
   return null;
 }
 
-function textOf(content: MessageContent): string {
+// The parts skip what the chat does not show yet, and the times of the thinking follow the places
+// of the blocks in the message.
+function partsOf(content: MessageContent, thinkingTimes: (number | null)[]): MessagePart[] {
   if (typeof content === "string") {
-    return content;
+    return [{ type: "text", text: content }];
   }
-  let text = "";
-  for (const block of content) {
+  return content.flatMap((block, index): MessagePart[] => {
     if (block.type === "text") {
-      text += block.text;
+      return [{ type: "text", text: block.text }];
     }
-  }
-  return text;
+    if (block.type === "thinking") {
+      return [thinkingPartOf(block, thinkingTimes[index] ?? null)];
+    }
+    return [];
+  });
+}
+
+function thinkingPartOf(
+  block: Extract<MessageContent[number], { type: "thinking" }>,
+  durationMs: number | null,
+): MessagePart {
+  return {
+    type: "thinking",
+    text: block.thinking,
+    isRedacted: block.redacted === true,
+    durationMs,
+  };
 }
 
 function messageOf(error: unknown): string {

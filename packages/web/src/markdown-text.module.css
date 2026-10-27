@@ -1,5 +1,6 @@
+/* A place can set a smaller size for the text, such as a thought box, and the headings follow it. */
 .markdown {
-  font-size: 16px;
+  font-size: var(--reading-size, 16px);
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -23,17 +24,17 @@
 .markdown h5,
 .markdown h6 {
   margin: 20px 0 6px;
-  font-size: 16px;
+  font-size: 1em;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .markdown h1 {
-  font-size: 20px;
+  font-size: 1.25em;
 }
 
 .markdown h2 {
-  font-size: 18px;
+  font-size: 1.125em;
 }
 
 .markdown ul,

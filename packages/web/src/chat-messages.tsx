@@ -1,4 +1,4 @@
-import type { ChatMessage } from "independum/api-types";
+import type { ChatMessage, MessagePart, ThinkingPart } from "independum/api-types";
 import {
   type ClipboardEvent,
   type ReactElement,
@@ -11,17 +11,18 @@ import styles from "./chat-messages.module.css";
 import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
 import { IconButton } from "./icon-button.tsx";
-import { Mark } from "./mark.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
+import { ThinkingMark } from "./thinking-mark.tsx";
+import { ThoughtBox } from "./thought-box.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
 interface ChatMessagesProps {
   chatId: string | null;
   messages: ChatMessage[];
-  reply: string;
+  reply: MessagePart[];
   isReplying: boolean;
 }
 
@@ -128,7 +129,8 @@ export function ChatMessages({
   }
 
   const last = messages.at(-1);
-  const isReplyShown = isReplying && (reply !== "" || last?.role !== "assistant");
+  const hasReply = reply.some((part) => part.type === "thinking" || part.text !== "");
+  const isReplyShown = isReplying && (hasReply || last?.role !== "assistant");
   // The reply in progress and the message it becomes share one place in the list, so its typing
   // carries on when the reply ends.
   const liveIndex =
@@ -149,12 +151,12 @@ export function ChatMessages({
                 }
                 data-user
               >
-                <p className={styles.bubble}>{message.text}</p>
+                <p className={styles.bubble}>{textOf(message.parts)}</p>
                 <div className={styles.actions} data-copy="skip">
                   <span className={styles.when}>
                     <MessageTime timestamp={message.timestamp} durationMs={null} />
                   </span>
-                  <CopyButton text={message.text} label="Copy message" tipAlign="end" />
+                  <CopyButton text={textOf(message.parts)} label="Copy message" tipAlign="end" />
                 </div>
               </li>
             );
@@ -162,7 +164,7 @@ export function ChatMessages({
           return index === liveIndex ? null : (
             <li key={`assistant-${message.timestamp}`} className={styles.reply}>
               <Reply
-                text={message.text}
+                parts={message.parts}
                 error={message.error}
                 isLive={false}
                 isStreaming={false}
@@ -173,15 +175,15 @@ export function ChatMessages({
             </li>
           );
         })}
-        {isReplyShown && reply === "" ? (
+        {isReplyShown && !hasReply ? (
           <li className={styles.thinking} data-copy="skip">
             <ThinkingLabel />
           </li>
         ) : null}
-        {isReplyShown && reply !== "" ? (
+        {isReplyShown && hasReply ? (
           <li key="live" className={styles.reply}>
             <Reply
-              text={reply}
+              parts={reply}
               error={null}
               isLive
               isStreaming
@@ -193,7 +195,7 @@ export function ChatMessages({
         ) : last !== undefined && liveIndex !== -1 ? (
           <li key="live" className={styles.reply}>
             <Reply
-              text={last.text}
+              parts={last.parts}
               error={last.error}
               isLive
               isStreaming={false}
@@ -221,9 +223,14 @@ export function ChatMessages({
   );
 }
 
+/** A stretch of a reply: a text, or thinking that runs on across one or more parts. */
+type ReplySegment =
+  | { type: "text"; key: number; text: string }
+  | { type: "thinking"; key: number; parts: ThinkingPart[] };
+
 /** Properties of a reply. */
 interface ReplyProps {
-  text: string;
+  parts: MessagePart[];
   error: string | null;
   isLive: boolean;
   isStreaming: boolean;
@@ -233,7 +240,7 @@ interface ReplyProps {
 }
 
 function Reply({
-  text,
+  parts,
   error,
   isLive,
   isStreaming,
@@ -242,8 +249,13 @@ function Reply({
   durationMs,
 }: ReplyProps): ReactElement {
   const body = useRef<HTMLDivElement>(null);
+  const text = textOf(parts);
   const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
+  const segments = segmentsOf(parts);
+  // The text parts type in one after another, as one text, so each shows its share of what has
+  // typed so far, and the caret sits in the one that is typing.
+  let typedBefore = 0;
 
   function bodyNode(): Node {
     return body.current ?? document.createDocumentFragment();
@@ -252,7 +264,29 @@ function Reply({
   return (
     <>
       <div ref={body}>
-        {text === "" ? null : <MarkdownText text={text.slice(0, length)} hasCaret={isTyping} />}
+        {segments.map((segment) => {
+          if (segment.type === "thinking") {
+            // The model still thinks while nothing has come after its thoughts.
+            return (
+              <ThoughtBox
+                key={segment.key}
+                parts={segment.parts}
+                isLive={isLive}
+                isThinking={isStreaming && segment === segments.at(-1)}
+              />
+            );
+          }
+          const start = typedBefore;
+          typedBefore += segment.text.length;
+          const shown = segment.text.slice(0, Math.max(0, length - start));
+          return shown === "" ? null : (
+            <MarkdownText
+              key={segment.key}
+              text={shown}
+              hasCaret={isTyping && length <= typedBefore}
+            />
+          );
+        })}
       </div>
       {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
       {text === "" || isTyping ? null : (
@@ -301,13 +335,32 @@ function copySelection(event: ClipboardEvent<HTMLOListElement>): void {
   event.clipboardData.setData("text/html", clipboardHtml(copied));
 }
 
+// Thinking that runs on across several parts, as an OpenAI model sends it, reads as one stretch.
+// Each segment takes the place of its first part as its key, which stays put while parts join.
+function segmentsOf(parts: MessagePart[]): ReplySegment[] {
+  const segments: ReplySegment[] = [];
+  for (const [index, part] of parts.entries()) {
+    const last = segments.at(-1);
+    if (part.type === "thinking" && last?.type === "thinking") {
+      last.parts.push(part);
+    } else if (part.type === "thinking") {
+      segments.push({ type: "thinking", key: index, parts: [part] });
+    } else if (part.text !== "") {
+      segments.push({ type: "text", key: index, text: part.text });
+    }
+  }
+  return segments;
+}
+
+function textOf(parts: MessagePart[]): string {
+  return parts.map((part) => (part.type === "text" ? part.text : "")).join("");
+}
+
 function ThinkingLabel(): ReactElement {
   const length = useTypedLength(thinkingText.length, thinkingTyping);
   return (
     <>
-      <span className={styles.raven}>
-        <Mark />
-      </span>
+      <ThinkingMark isThinking />
       <MarkdownText text={thinkingText.slice(0, length)} hasCaret />
     </>
   );

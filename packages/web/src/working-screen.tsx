@@ -2,6 +2,7 @@ import type {
   ChatEvent,
   ChatState,
   ChatSummary,
+  MessagePart,
   ModelSummary,
   ProjectSummary,
 } from "independum/api-types";
@@ -53,7 +54,7 @@ export function WorkingScreen({
 }: WorkingScreenProps): ReactElement {
   const [chat, setChat] = useState<ChatState | undefined>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [reply, setReply] = useState("");
+  const [reply, setReply] = useState<MessagePart[]>([]);
   const [connection, setConnection] = useState<ChatConnection>("following");
   const [models, setModels] = useState<ModelSummary[] | undefined>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isPhone());
@@ -81,9 +82,9 @@ export function WorkingScreen({
         }
         applyEvent(event, setChat);
         if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
-          setReply("");
-        } else if (event.type === "replyDelta") {
-          setReply((current) => current + event.delta);
+          setReply([]);
+        } else if (event.type === "replyDelta" || event.type === "replyPart") {
+          setReply((current) => updateReply(current, event));
         }
       },
       (next) => (next === "expiredLink" ? onExpiredLink() : setConnection(next)),
@@ -363,6 +364,30 @@ function isPhone(): boolean {
 function isCrowded(): boolean {
   const needed = readColumnWidth("start") + chatWidth + readColumnWidth("end");
   return !isPhone() && window.innerWidth < needed;
+}
+
+// Each part of the reply in progress keeps its place in the message, so a delta or a finished part
+// lands where Pi puts it.
+function updateReply(
+  reply: MessagePart[],
+  event: Extract<ChatEvent, { type: "replyDelta" | "replyPart" }>,
+): MessagePart[] {
+  const next = [...reply];
+  while (next.length <= event.index) {
+    next.push({ type: "text", text: "" });
+  }
+  const current = next[event.index];
+  if (event.type === "replyPart") {
+    next[event.index] = event.part;
+  } else if (current?.type === event.partType) {
+    next[event.index] = { ...current, text: current.text + event.delta };
+  } else {
+    next[event.index] =
+      event.partType === "text"
+        ? { type: "text", text: event.delta }
+        : { type: "thinking", text: event.delta, isRedacted: false, durationMs: null };
+  }
+  return next;
 }
 
 function applyEvent(
