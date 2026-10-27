@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- An orange text caret in every field.
 - Copy for each prompt, and the time of each prompt and reply on hover, with how long a reply took.
 - A sidebar and a side panel that resize: drag the edge, double-click it to reset, or use the arrow keys on it, and the width stays on that device.
 - Smart copy: a selection copies as Markdown and as formatted text, a table pastes into a spreadsheet as a table, and the copy button offers Markdown or plain text.

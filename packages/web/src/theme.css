@@ -86,6 +86,12 @@ textarea {
   color: inherit;
 }
 
+/* The text caret is orange in every field, like the caret of the typing text. */
+input,
+textarea {
+  caret-color: var(--signal);
+}
+
 /* A button starts plain, so each stylesheet states only what makes its button different. */
 button {
   padding: 0;
