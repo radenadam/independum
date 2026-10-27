@@ -1,5 +1,5 @@
-import type { ChatState, ModelSummary } from "independum/api-types";
-import { type ReactElement, useState } from "react";
+import type { ChatState, ContextSummary, ModelSummary } from "independum/api-types";
+import { type ReactElement, useEffect, useEffectEvent, useState } from "react";
 import { AgentPlace } from "./agent-place.tsx";
 import { ContextPlace } from "./context-place.tsx";
 import { Icon } from "./icon.tsx";
@@ -14,8 +14,16 @@ import { SlidingTitle } from "./sliding-title.tsx";
 interface SidePanelProps {
   isOpen: boolean;
   chat: ChatState;
+  context: ContextSummary | undefined;
   models: ModelSummary[] | undefined;
+  placeRequest: PlaceRequest | undefined;
   onHide: () => void;
+}
+
+/** A request from outside the panel to open a place, such as Context from its meter. */
+export interface PlaceRequest {
+  place: "agent" | "context";
+  at: number;
 }
 
 /** A place that opens in a side panel tab, or a new tab that lists the places. */
@@ -33,7 +41,14 @@ const icons = { new: "newTab", agent: "agent", context: "context" } as const;
 const places = ["agent", "context"] as const;
 
 /** Draws the side panel with its tabs, where each tab holds a place such as Agent. */
-export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): ReactElement {
+export function SidePanel({
+  isOpen,
+  chat,
+  context,
+  models,
+  placeRequest,
+  onHide,
+}: SidePanelProps): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([{ id: 1, place: "new" }]);
   const [activeId, setActiveId] = useState(1);
   const active = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
@@ -63,6 +78,27 @@ export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): Rea
   function openPlace(place: TabPlace): void {
     setTabs(tabs.map((tab) => (tab.id === activeId ? { ...tab, place } : tab)));
   }
+
+  // A requested place comes to the front in the tab that already holds it, takes over a new tab in
+  // front, or opens in a tab of its own.
+  const openRequested = useEffectEvent((place: TabPlace): void => {
+    const holding = tabs.find((tab) => tab.place === place);
+    if (holding !== undefined) {
+      setActiveId(holding.id);
+    } else if (active?.place === "new") {
+      openPlace(place);
+    } else {
+      const id = Math.max(...tabs.map((tab) => tab.id)) + 1;
+      setTabs([...tabs, { id, place }]);
+      setActiveId(id);
+    }
+  });
+
+  useEffect(() => {
+    if (placeRequest !== undefined) {
+      openRequested(placeRequest.place);
+    }
+  }, [placeRequest]);
 
   return (
     <SlidingColumn element="aside" label="Side panel" edge="end" isOpen={isOpen}>
@@ -104,7 +140,7 @@ export function SidePanel({ isOpen, chat, models, onHide }: SidePanelProps): Rea
           {active?.place === "agent" ? (
             <AgentPlace chat={chat} models={models} />
           ) : active?.place === "context" ? (
-            <ContextPlace chat={chat} />
+            <ContextPlace context={context} />
           ) : (
             <div className={styles.newTab}>
               <PlaceSection heading="Open in this tab">

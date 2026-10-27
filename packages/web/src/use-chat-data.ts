@@ -2,15 +2,21 @@ import type { ChatState } from "independum/api-types";
 import { useEffect, useState } from "react";
 
 /**
- * Returns data about the open chat that loads from the server, and loads again when another chat
- * opens, another model takes over, or a reply starts or ends.
+ * Returns data about the open chat that loads from the server once the chat is known, and loads
+ * again when another chat opens, another model takes over, or a reply starts or ends.
  */
-export function useChatData<Data>(load: () => Promise<Data>, chat: ChatState): Data | undefined {
+export function useChatData<Data>(
+  load: () => Promise<Data>,
+  chat: ChatState | undefined,
+): Data | undefined {
   const [data, setData] = useState<Data | undefined>();
-  const modelId = chat.model?.id;
+  const modelId = chat?.model?.id;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: A request goes out with every message, so the data loads again when a reply starts or ends, and when another chat or model takes over.
   useEffect(() => {
+    if (chat === undefined) {
+      return;
+    }
     let isCurrent = true;
     load().then(
       (loaded) => {
@@ -23,7 +29,7 @@ export function useChatData<Data>(load: () => Promise<Data>, chat: ChatState): D
     return () => {
       isCurrent = false;
     };
-  }, [chat.id, chat.isReplying, modelId]);
+  }, [chat?.id, chat?.isReplying, modelId]);
 
   return data;
 }

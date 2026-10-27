@@ -1,15 +1,14 @@
-import type { ChatState, ContextSummary } from "independum/api-types";
+import type { ContextSummary } from "independum/api-types";
 import type { ReactElement, ReactNode } from "react";
-import { fetchContext } from "./chat-api.ts";
 import { CodeWell } from "./code-well.tsx";
 import styles from "./context-place.module.css";
+import { describeUsage } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { PlaceSection } from "./place-section.tsx";
-import { useChatData } from "./use-chat-data.ts";
 
 /** Properties of the Context place. */
 interface ContextPlaceProps {
-  chat: ChatState;
+  context: ContextSummary | undefined;
 }
 
 const numberFormat = new Intl.NumberFormat();
@@ -19,8 +18,7 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", tim
  * Draws what the model of the open chat works with: how full its context window is, the tokens and
  * the cost so far, the entries that Pi saved, and the exact request it sent last.
  */
-export function ContextPlace({ chat }: ContextPlaceProps): ReactElement {
-  const context = useChatData(fetchContext, chat);
+export function ContextPlace({ context }: ContextPlaceProps): ReactElement {
   if (context === undefined) {
     return (
       <div className={styles.place}>
@@ -87,7 +85,7 @@ function factsOf(context: ContextSummary): [string, ReactNode][] {
     ["Provider", context.provider ?? "None chosen"],
     ["Model", <code key="model">{context.model ?? "None chosen"}</code>],
     ["Context window", tokensOf(context.contextWindow)],
-    ["Context used", usageOf(context)],
+    ["Context used", describeUsage(context)],
     ["Input tokens", tokensOf(tokens.input)],
     ["Output tokens", tokensOf(tokens.output)],
     ["Reasoning tokens", tokensOf(tokens.reasoning)],
@@ -101,17 +99,6 @@ function factsOf(context: ContextSummary): [string, ReactNode][] {
 
 function tokensOf(count: number | null): string {
   return count === null ? "Unknown" : numberFormat.format(count);
-}
-
-// Pi knows how full the context is only after a reply, so a new chat or one just compacted shows
-// that it is not counted yet.
-function usageOf({ contextTokens, contextWindow }: ContextSummary): string {
-  if (contextTokens === null || contextWindow === null || contextWindow === 0) {
-    return "Not counted yet";
-  }
-  const percent = (contextTokens / contextWindow) * 100;
-  const shown = percent < 10 ? percent.toFixed(1) : String(Math.round(percent));
-  return `${shown}%, ${numberFormat.format(contextTokens)} tokens`;
 }
 
 // A small cost keeps more digits, so a cheap chat does not read as free.
