@@ -123,3 +123,15 @@
     }
   }
 }
+
+/* Math takes the size of the text around it, and a wide formula on its own line scrolls sideways. */
+.markdown :global(.katex) {
+  font-size: 1.05em;
+}
+
+.markdown :global(.katex-display) {
+  margin: 0;
+  padding: 4px 0;
+  overflow-x: auto;
+  overflow-y: clip;
+}

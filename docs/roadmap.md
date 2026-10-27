@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Math in replies with KaTeX, with its fonts shipped in the app so it works offline.
 - A way back to the latest message when the user scrolls up during a reply.
 - A draft for each chat, kept while the user switches chats.
 - Export of a chat as Markdown.

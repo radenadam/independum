@@ -116,6 +116,9 @@ function inlineOf(node: Node, style: TextStyle): string {
   if (!(node instanceof Element) || node.matches(skipped)) {
     return "";
   }
+  if (node.classList.contains("katex")) {
+    return mathOf(node, style);
+  }
   const text = [...node.childNodes].map((child) => inlineOf(child, style)).join("");
   if (style === "plain") {
     return node.tagName === "A" ? linkOf(node, text, false) : node.tagName === "BR" ? "\n" : text;
@@ -180,4 +183,16 @@ function tableOf(table: Element, style: TextStyle): string {
   const header = rows[0] ?? [];
   lines.splice(1, 0, `| ${header.map(() => "---").join(" | ")} |`);
   return lines.join("\n");
+}
+
+// KaTeX keeps the TeX source of a formula in an annotation, so a copy gives back that source, between
+// dollar signs in Markdown, and on lines of its own for a formula that stands alone.
+function mathOf(math: Element, style: TextStyle): string {
+  const tex = math.querySelector('annotation[encoding="application/x-tex"]')?.textContent ?? "";
+  if (style === "plain") {
+    return tex;
+  }
+  return math.parentElement?.classList.contains("katex-display") === true
+    ? `$$\n${tex}\n$$`
+    : `$${tex}$`;
 }
