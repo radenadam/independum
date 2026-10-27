@@ -48,6 +48,7 @@ export interface ChatMessage {
   text: string;
   error: string | null;
   timestamp: number;
+  durationMs: number | null;
 }
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */

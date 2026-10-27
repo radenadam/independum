@@ -4,6 +4,7 @@ import styles from "./chat-messages.module.css";
 import { CopyButton } from "./copy-button.tsx";
 import { Mark } from "./mark.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
+import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
@@ -109,6 +110,12 @@ export function ChatMessages({
                 data-user
               >
                 <p className={styles.bubble}>{message.text}</p>
+                <div className={styles.actions}>
+                  <span className={styles.when}>
+                    <MessageTime timestamp={message.timestamp} durationMs={null} />
+                  </span>
+                  <CopyButton text={message.text} label="Copy message" tipAlign="end" />
+                </div>
               </li>
             );
           }
@@ -120,6 +127,8 @@ export function ChatMessages({
                 isLive={false}
                 isStreaming={false}
                 isLatest={index === messages.length - 1}
+                timestamp={message.timestamp}
+                durationMs={message.durationMs}
               />
             </li>
           );
@@ -131,11 +140,27 @@ export function ChatMessages({
         ) : null}
         {isReplyShown && reply !== "" ? (
           <li key="live" className={styles.reply}>
-            <Reply text={reply} error={null} isLive isStreaming isLatest />
+            <Reply
+              text={reply}
+              error={null}
+              isLive
+              isStreaming
+              isLatest
+              timestamp={null}
+              durationMs={null}
+            />
           </li>
         ) : last !== undefined && liveIndex !== -1 ? (
           <li key="live" className={styles.reply}>
-            <Reply text={last.text} error={last.error} isLive isStreaming={false} isLatest />
+            <Reply
+              text={last.text}
+              error={last.error}
+              isLive
+              isStreaming={false}
+              isLatest
+              timestamp={last.timestamp}
+              durationMs={last.durationMs}
+            />
           </li>
         ) : null}
       </ol>
@@ -151,9 +176,19 @@ interface ReplyProps {
   isLive: boolean;
   isStreaming: boolean;
   isLatest: boolean;
+  timestamp: number | null;
+  durationMs: number | null;
 }
 
-function Reply({ text, error, isLive, isStreaming, isLatest }: ReplyProps): ReactElement {
+function Reply({
+  text,
+  error,
+  isLive,
+  isStreaming,
+  isLatest,
+  timestamp,
+  durationMs,
+}: ReplyProps): ReactElement {
   const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
   return (
@@ -163,6 +198,11 @@ function Reply({ text, error, isLive, isStreaming, isLatest }: ReplyProps): Reac
       {text === "" || isTyping ? null : (
         <div className={styles.actions} data-latest={isLatest}>
           <CopyButton text={text} label="Copy reply" tipAlign="start" />
+          {timestamp === null ? null : (
+            <span className={styles.when}>
+              <MessageTime timestamp={timestamp} durationMs={durationMs} />
+            </span>
+          )}
         </div>
       )}
     </>

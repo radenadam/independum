@@ -1,0 +1,45 @@
+import type { ReactElement } from "react";
+import styles from "./message-time.module.css";
+
+/** Properties of a message time. */
+interface MessageTimeProps {
+  timestamp: number;
+  durationMs: number | null;
+}
+
+const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
+const dayFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+const fullFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "medium" });
+
+/**
+ * Draws when a message was sent, with its day when that was not today, and how long a reply took,
+ * with the full date and time on hover.
+ */
+export function MessageTime({ timestamp, durationMs }: MessageTimeProps): ReactElement {
+  const date = new Date(timestamp);
+  const isToday = date.toDateString() === new Date().toDateString();
+  return (
+    <span className={styles.time}>
+      <time dateTime={date.toISOString()} title={fullFormat.format(date)}>
+        {(isToday ? timeFormat : dayFormat).format(date)}
+      </time>
+      {durationMs === null ? null : <span>Took {describeDuration(durationMs)}</span>}
+    </span>
+  );
+}
+
+function describeDuration(durationMs: number): string {
+  const seconds = durationMs / 1000;
+  if (seconds < 10) {
+    return `${seconds.toFixed(1)} s`;
+  }
+  if (seconds < 60) {
+    return `${Math.round(seconds)} s`;
+  }
+  return `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
+}
