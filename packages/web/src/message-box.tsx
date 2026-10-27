@@ -14,12 +14,12 @@ import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { MenuList } from "./menu-list.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
-import { ThinkingMenu } from "./thinking-menu.tsx";
 import { thinkingRatio } from "./thinking-ratio.ts";
 
 /** A menu that opens from the message box. */
@@ -196,9 +196,26 @@ export function MessageBox({
                     label="Thinking effort"
                     place={isEmpty ? "below" : "above"}
                     onClose={() => setMenu(undefined)}
-                    size="fit"
+                    size="narrow"
                   >
-                    <ThinkingMenu thinking={thinking} onChoose={onChooseThinking} />
+                    <MenuList
+                      groups={[
+                        {
+                          key: "levels",
+                          choices: thinking.levels.map((level) => ({
+                            key: level,
+                            name: describeThinking(level),
+                            isCurrent: level === thinking.level,
+                            onChoose: () => {
+                              setMenu(undefined);
+                              onChooseThinking(level);
+                            },
+                          })),
+                        },
+                      ]}
+                      layout="row"
+                      emptyNote="This model offers no thinking levels."
+                    />
                   </Popover>
                 ) : null}
               </span>

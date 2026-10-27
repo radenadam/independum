@@ -74,10 +74,18 @@
   font-size: 11px;
 }
 
-/* A long id gives way before the name does, and every id ends at the same edge. */
+/*
+  A long id gives way before the name does, and every id ends at the same edge. A name without an
+  id takes the whole row.
+*/
 .row .name {
   flex: none;
   max-width: 65%;
+}
+
+.row .name:only-child {
+  flex: 1;
+  max-width: none;
 }
 
 .row .detail {
