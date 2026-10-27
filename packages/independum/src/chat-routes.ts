@@ -102,6 +102,13 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     context.json({ chats: await chat.getArchived() }),
   );
 
+  routes.get("/chats/:id/markdown", async (context) => {
+    const markdown = await chat.exportMarkdown(context.req.param("id"));
+    return markdown === undefined
+      ? answer(context, false)
+      : context.body(markdown, 200, { "content-type": "text/markdown; charset=utf-8" });
+  });
+
   routes.put("/chats/:id/name", async (context) => {
     const body: { name?: unknown } = await context.req.json().catch(() => ({}));
     if (typeof body.name !== "string" || body.name.trim() === "") {

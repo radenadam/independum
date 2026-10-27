@@ -12,6 +12,7 @@ export interface ChatActions {
   onOpen: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onPin: (id: string, isPinned: boolean) => void;
+  onExport: (chat: ChatSummary) => void;
   onArchive: (id: string) => void;
   onDelete: (chat: ChatSummary) => void;
 }
@@ -107,6 +108,13 @@ export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowPr
                   icon: "pin",
                   label: chat.isPinned ? "Unpin" : "Pin",
                   onSelect: act(() => actions.onPin(chat.id, !chat.isPinned)),
+                },
+              ],
+              [
+                {
+                  icon: "export",
+                  label: "Export as Markdown",
+                  onSelect: act(() => actions.onExport(chat)),
                 },
               ],
               [

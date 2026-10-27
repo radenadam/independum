@@ -49,6 +49,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | More | Three dots in a row. |
 | Rename | A pencil at 45 degrees. |
 | Pin | A pushpin with its needle down. |
+| Export | An arrow that points down into an open tray. |
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
 | Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
@@ -88,6 +89,7 @@ Decision 0024 records why icons move and where the line falls.
 | More | The dots hop one after another. |
 | Rename | The pencil tilts as if it writes. |
 | Pin | The pin presses down. |
+| Export | The arrow drops into the tray. |
 | Archive | The lid lifts. |
 | Delete | The lid lifts and tilts. |
 | Effort | The needle revs up. |
