@@ -24,6 +24,7 @@ export type IconName =
   | "rename"
   | "pin"
   | "archive"
+  | "export"
   | "delete"
   | "effort";
 
@@ -127,6 +128,12 @@ const drawings: Record<IconName, ReactElement> = {
       <path d="M9.5 3v6l-3.5 4h12l-3.5-4V3" />
       <path d="M12 13v8" />
     </g>
+  ),
+  export: (
+    <>
+      <path className={moves(styles.drop)} d="M12 3v11M7.5 9.5L12 14l4.5-4.5" />
+      <path d="M4 14v5l1 1h14l1-1v-5" />
+    </>
   ),
   archive: (
     <>

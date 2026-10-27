@@ -11,6 +11,7 @@ import {
   type ChatConnection,
   chooseModel,
   chooseThinking,
+  fetchChatMarkdown,
   fetchModels,
   followChat,
   openChat,
@@ -24,6 +25,7 @@ import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
 import { chatWidth, readColumnWidth } from "./column-width.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
+import { downloadText } from "./download-text.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
@@ -166,6 +168,13 @@ export function WorkingScreen({
       change(renameChat(id, name), "The chat could not be renamed. Try again."),
     onPin: (id, isPinned) =>
       change(pinChat(id, isPinned), "The chat could not be pinned. Try again."),
+    onExport: (saved) =>
+      change(
+        fetchChatMarkdown(saved.id).then((markdown) =>
+          downloadText(fileNameOf(saved.title), markdown, "text/markdown"),
+        ),
+        "The chat could not be exported. Try again.",
+      ),
     onArchive: (id) => change(archiveChat(id, true), "The chat could not be archived. Try again."),
     onDelete: setChatToDelete,
   };
@@ -322,6 +331,14 @@ export function WorkingScreen({
       )}
     </div>
   );
+}
+
+// A file name keeps the letters, digits, spaces, and dashes of a title, so it works on every system,
+// and a long title ends at its last whole word.
+function fileNameOf(title: string): string {
+  const words = title.replace(/[^A-Za-z0-9 -]/g, "").trim();
+  const name = words.length <= 60 ? words : words.slice(0, 61).replace(/\s+\S*$/, "");
+  return `${name === "" ? "chat" : name}.md`;
 }
 
 function isPhone(): boolean {

@@ -113,6 +113,15 @@ export async function pinChat(id: string, isPinned: boolean): Promise<void> {
   await changeChat(id, "/pinned", { isPinned });
 }
 
+/** Returns a saved chat written as Markdown, with a heading for each message. */
+export async function fetchChatMarkdown(id: string): Promise<string> {
+  const response = await requestApi(`/api/chats/${encodeURIComponent(id)}/markdown`);
+  if (!response.ok) {
+    throw new Error("The chat could not be exported.");
+  }
+  return response.text();
+}
+
 /** Moves a saved chat into the archive, or brings it back. */
 export async function archiveChat(id: string, isArchived: boolean): Promise<void> {
   await changeChat(id, "/archived", { isArchived });

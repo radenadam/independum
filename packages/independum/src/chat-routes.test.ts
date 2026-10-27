@@ -308,6 +308,21 @@ async function findChat(id: string | null): Promise<ChatSummary | undefined> {
   return projects.flatMap((project) => project.chats).find((chat) => chat.id === id);
 }
 
+test("a saved chat exports as markdown with a heading for each message", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  faux.setResponses([fauxAssistantMessage("A reply to **export**.")]);
+  await sendAndReadReply("A chat to export");
+  const { id } = (await readStart()).state;
+
+  const response = await routes.request(`/chats/${id}/markdown`);
+  expect(response.status).toBe(200);
+  expect(await response.text()).toBe(
+    "# A chat to export\n\n## You\n\nA chat to export\n\n## Agent (faux-model)\n\nA reply to **export**.\n",
+  );
+  expect((await routes.request("/chats/no-such-chat/markdown")).status).toBe(404);
+});
+
 test("a chat can be renamed, pinned, archived, brought back, and deleted", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);

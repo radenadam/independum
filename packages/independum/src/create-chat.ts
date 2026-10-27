@@ -54,6 +54,7 @@ export interface Chat {
   archive(id: string, isArchived: boolean): Promise<boolean>;
   remove(id: string): Promise<boolean>;
   getArchived(): Promise<ArchivedChatSummary[]>;
+  exportMarkdown(id: string): Promise<string | undefined>;
 }
 
 /** Reopens the latest chat of the folder Independum starts from, or starts an empty one there. */
@@ -366,6 +367,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       emitProjects();
       return true;
     },
+    async exportMarkdown(id) {
+      const saved = await findSaved(id);
+      if (saved === undefined) {
+        return undefined;
+      }
+      const { messages } = SessionManager.open(saved.path, sessionDirectory).buildSessionContext();
+      return markdownOf(summaryOf(saved).title, messages);
+    },
     async getArchived() {
       return (await savedChats.listArchived()).map((saved) => ({
         ...summaryOf(saved),
@@ -401,6 +410,21 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
 // Windows paths can carry the drive letter in either case, so one folder could look like two.
 function toFolder(path: string): string {
   return resolve(path).replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+}
+
+// Writes a chat as Markdown, with a heading for each prompt and for each reply, which names the
+// model that wrote it.
+function markdownOf(title: string, messages: AgentMessage[]): string {
+  const parts = [`# ${title}`];
+  for (const message of messages) {
+    const shown = toChatMessage(message);
+    if (shown !== undefined) {
+      const heading = message.role === "assistant" ? `Agent (${message.model})` : "You";
+      const body = shown.error === null ? shown.text : `${shown.text}\n\n*${shown.error}*`;
+      parts.push(`## ${heading}`, body.trim());
+    }
+  }
+  return `${parts.filter((part) => part !== "").join("\n\n")}\n`;
 }
 
 function toChatMessage(message: AgentMessage): ChatMessage | undefined {
