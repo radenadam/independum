@@ -1,0 +1,22 @@
+.well {
+  position: relative;
+}
+
+.copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+/* The code keeps room on its right for the copy button, and wraps so it fits the narrow panel. */
+.code {
+  max-height: 60dvh;
+  margin: 0;
+  padding: 12px 44px 12px 14px;
+  overflow: auto;
+  border-radius: 10px;
+  background: var(--well);
+  font: 12px / 1.7 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

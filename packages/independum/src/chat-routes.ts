@@ -40,6 +40,8 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   routes.get("/chat/agent", (context) => context.json(chat.getAgent()));
 
+  routes.get("/chat/context", (context) => context.json(chat.getContext()));
+
   routes.post("/chat/messages", async (context) => {
     const body: { text?: unknown } = await context.req.json().catch(() => ({}));
     if (typeof body.text !== "string" || body.text.trim() === "") {

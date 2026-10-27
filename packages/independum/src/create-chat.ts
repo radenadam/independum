@@ -16,6 +16,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  ContextSummary,
   ProjectSummary,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
@@ -41,6 +42,7 @@ export interface ChatOptions {
 export interface Chat {
   getState(): ChatState;
   getAgent(): AgentSummary;
+  getContext(): ContextSummary;
   getProjects(): Promise<ProjectSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
@@ -256,6 +258,49 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         ? fullPrompt.slice(systemPrompt.length).trim()
         : fullPrompt,
       tools: session?.getActiveToolNames() ?? [],
+    };
+  }
+
+  // Pi counts the tokens and the cost of every saved reply, and estimates how full the context
+  // window is from the latest one. It leaves reasoning tokens out of its sums, so they are added here
+  // over the same entries.
+  function getContext(): ContextSummary {
+    const stats = session?.getSessionStats();
+    const usage = session?.getContextUsage();
+    const model = isModelChosen ? session?.model : undefined;
+    let reasoning = 0;
+    for (const entry of session?.sessionManager.getEntries() ?? []) {
+      if (entry.type === "message" && entry.message.role === "assistant") {
+        reasoning += entry.message.usage.reasoning ?? 0;
+      }
+    }
+    const branch = session?.sessionManager.getBranch() ?? [];
+    return {
+      chatId: session?.sessionId ?? null,
+      provider: model?.provider ?? null,
+      model: model?.id ?? null,
+      contextWindow: usage?.contextWindow ?? null,
+      contextTokens: usage?.tokens ?? null,
+      tokens: {
+        input: stats?.tokens.input ?? 0,
+        output: stats?.tokens.output ?? 0,
+        reasoning,
+        cacheRead: stats?.tokens.cacheRead ?? 0,
+        cacheWrite: stats?.tokens.cacheWrite ?? 0,
+      },
+      cost: stats?.cost ?? 0,
+      userMessages: stats?.userMessages ?? 0,
+      assistantMessages: stats?.assistantMessages ?? 0,
+      toolCalls: stats?.toolCalls ?? 0,
+      created: session?.sessionManager.getHeader()?.timestamp ?? null,
+      lastActivity: branch.at(-1)?.timestamp ?? null,
+      entries: branch.map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        role: entry.type === "message" ? entry.message.role : null,
+        timestamp: entry.timestamp,
+        data: entry,
+      })),
       lastRequest,
     };
   }
@@ -266,6 +311,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   return {
     getState,
     getAgent,
+    getContext,
     getProjects,
     subscribe(listener) {
       listeners.add(listener);
