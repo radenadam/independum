@@ -1,5 +1,6 @@
 import { type ReactElement, useState } from "react";
 import styles from "./appearance-section.module.css";
+import { ChoiceGroup } from "./choice-group.tsx";
 import {
   applyThemeChoice,
   readThemeChoice,
@@ -16,22 +17,15 @@ export function AppearanceSection(): ReactElement {
   return (
     <div className={styles.section}>
       <h3 className={styles.label}>Theme</h3>
-      <fieldset className={styles.choices} aria-label="Theme">
-        {themeChoices.map((choice) => (
-          <button
-            key={choice}
-            type="button"
-            className={styles.choice}
-            aria-pressed={choice === current}
-            onClick={() => {
-              applyThemeChoice(choice);
-              setCurrent(choice);
-            }}
-          >
-            {labels[choice]}
-          </button>
-        ))}
-      </fieldset>
+      <ChoiceGroup
+        label="Theme"
+        choices={themeChoices.map((choice) => ({ value: choice, label: labels[choice] }))}
+        current={current}
+        onChoose={(choice) => {
+          applyThemeChoice(choice);
+          setCurrent(choice);
+        }}
+      />
       <p className={styles.note}>System follows the light or dark setting of this computer.</p>
     </div>
   );

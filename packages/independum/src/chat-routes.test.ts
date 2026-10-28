@@ -279,7 +279,9 @@ test("the agent shows its prompts and its tools", async () => {
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.systemPrompt).toContain("Independum");
   expect(agent.addedByPi).toContain("<cwd>");
-  expect(agent.tools).toEqual(["Shell"]);
+  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell"]);
+  expect(agent.tools[0]?.description).toMatch(/^Runs a command in /);
+  expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
 });
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
@@ -413,6 +415,39 @@ test("a command can be stopped on its own, and the agent goes on", async () => {
   await events.close();
   expect(textOf(event.message)).toBe("Going on without it.");
   expect((await post("/chat/commands/no-such-command/stop", {})).status).toBe(404);
+});
+
+test("a tool that is turned off never runs, and the output limits change", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const call = fauxToolCall("Shell", { command: 'echo "it ran"' });
+  faux.setResponses(
+    [0, 1].flatMap(() => [
+      fauxAssistantMessage([call], { stopReason: "toolUse" }),
+      fauxAssistantMessage("Done."),
+    ]),
+  );
+  const off = await put("/settings", { disabledTools: ["Shell"] });
+  expect(((await off.json()) as AgentSummary).tools[0]?.isEnabled).toBe(false);
+  const blocked = (await sendAndReadReply("Run it")).updates.find(
+    (update) => update.type === "toolResult",
+  );
+  expect(blocked?.type === "toolResult" && blocked.result.isError).toBe(true);
+  expect(blocked?.type === "toolResult" ? blocked.result.text : "").not.toContain("it ran");
+
+  const on = await put("/settings", {
+    disabledTools: [],
+    outputLimits: { maxLines: 500, maxBytes: 8192 },
+  });
+  expect(((await on.json()) as AgentSummary).outputLimits).toEqual({
+    maxLines: 500,
+    maxBytes: 8192,
+  });
+  const ran = (await sendAndReadReply("Run it again")).updates.find(
+    (update) => update.type === "toolResult",
+  );
+  expect(ran?.type === "toolResult" ? ran.result.text : "").toContain("it ran");
+  expect((await put("/settings", { shell: "fish" })).status).toBe(400);
 });
 
 function put(path: string, body: unknown): Promise<Response> {

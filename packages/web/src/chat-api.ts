@@ -4,6 +4,7 @@ import type {
   ChatEvent,
   ContextSummary,
   ModelSummary,
+  Settings,
 } from "independum/api-types";
 import { readEvents } from "./read-events.ts";
 import { requestApi } from "./request-api.ts";
@@ -29,6 +30,15 @@ export async function fetchAgent(): Promise<AgentSummary> {
   const response = await requestApi("/api/chat/agent");
   if (!response.ok) {
     throw new Error("The agent could not be loaded.");
+  }
+  return (await response.json()) as AgentSummary;
+}
+
+/** Changes settings of the user, such as the shell or the tools that are off, and returns the agent with them. */
+export async function changeSettings(change: Partial<Settings>): Promise<AgentSummary> {
+  const response = await requestApi("/api/settings", { method: "PUT", body: change });
+  if (!response.ok) {
+    throw new Error("The setting could not be saved.");
   }
   return (await response.json()) as AgentSummary;
 }

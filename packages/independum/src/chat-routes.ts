@@ -2,6 +2,7 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
 import type { ChatEvent, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
+import { readSettingsChange } from "./create-settings.ts";
 import { streamEvents } from "./stream-events.ts";
 
 /**
@@ -86,6 +87,13 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   routes.post("/chat/stop", async (context) => {
     await chat.stop();
     return context.body(null, 204);
+  });
+
+  routes.put("/settings", async (context) => {
+    const change = readSettingsChange(await context.req.json().catch(() => undefined));
+    return change === undefined
+      ? context.json({ error: "That is not a valid setting." }, 400)
+      : context.json(await chat.changeSettings(change));
   });
 
   routes.post("/chat/commands/:id/stop", (context) =>

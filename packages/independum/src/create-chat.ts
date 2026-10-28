@@ -20,12 +20,17 @@ import type {
   ContextSummary,
   MessagePart,
   ProjectSummary,
+  Settings,
+  ShellChoice,
+  ShellKind,
   ToolCallPart,
   ToolResult,
+  ToolSummary,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
+import { createSettings } from "./create-settings.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
-import { findShell } from "./tools/find-shell.ts";
+import { defaultShellKind, findShell } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -49,8 +54,8 @@ const thinkingTimesType = "independum-thinking-times";
 // and the descriptions of its tools.
 const systemPrompt =
   "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.";
-// The output of a tool that reaches the model, whichever limit comes first.
-const outputLimits = { maxLines: 2000, maxBytes: 50 * 1024 };
+const shellKinds: ShellKind[] = ["powershell", "bash"];
+const shellNames: Record<ShellKind, string> = { bash: "Bash", powershell: "PowerShell" };
 // A tool call that the model is still writing reaches the chat at most this often.
 const callUpdateInterval = 80;
 
@@ -65,6 +70,7 @@ export interface ChatOptions {
 export interface Chat {
   getState(): ChatState;
   getAgent(): AgentSummary;
+  changeSettings(change: Partial<Settings>): Promise<AgentSummary>;
   getContext(): ContextSummary;
   getProjects(): Promise<ProjectSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
@@ -88,9 +94,20 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(cwd);
-  const shell = findShell();
+  const settings = await createSettings(join(directory, "settings.json"));
+  let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
   const commandStops = new Map<string, () => void>();
+  // Independum's own tools, which every chat shares. Pi registers its built-in tools too, and they
+  // stay off.
+  const ownTools = [
+    createShellTool({
+      getShell: () => shell,
+      getLimits: () => settings.get().outputLimits,
+      outputFolder,
+      stops: commandStops,
+    }),
+  ];
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
   let folder = startFolder;
@@ -352,15 +369,13 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       modelRuntime: models,
       resourceLoader,
       noTools: "builtin",
-      customTools:
-        shell === undefined
-          ? []
-          : [createShellTool({ shell, outputFolder, limits: outputLimits, stops: commandStops })],
+      customTools: ownTools,
       sessionManager: manager,
       settingsManager: SettingsManager.inMemory(),
       ...(model === undefined ? {} : { model }),
     });
     session = created.session;
+    session.setActiveToolsByName(activeToolNames());
     folder = sessionFolder;
     stopFollowing = session.subscribe(follow);
     // Pi picks a provider default for a new chat without a model, and for a saved chat whose model
@@ -384,8 +399,57 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       addedByPi: fullPrompt.startsWith(systemPrompt)
         ? fullPrompt.slice(systemPrompt.length).trim()
         : fullPrompt,
-      tools: session?.getActiveToolNames() ?? [],
+      tools: ownToolInfos().map(
+        (tool): ToolSummary => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+          isEnabled: !settings.get().disabledTools.includes(tool.name),
+          unavailable: unavailableOf(tool.name),
+        }),
+      ),
+      shells: shellKinds.map(
+        (kind): ShellChoice => ({
+          kind,
+          name: findShell(kind)?.name ?? null,
+          isChosen: kind === (settings.get().shell ?? defaultShellKind()),
+        }),
+      ),
+      outputLimits: settings.get().outputLimits,
     };
+  }
+
+  function ownToolInfos(): ReturnType<AgentSession["getAllTools"]> {
+    return (session?.getAllTools() ?? []).filter((tool) =>
+      ownTools.some((own) => own.name === tool.name),
+    );
+  }
+
+  // A tool runs only when the user has not turned it off and it can run on this computer.
+  function activeToolNames(): string[] {
+    return ownToolInfos()
+      .map((tool) => tool.name)
+      .filter(
+        (name) => !settings.get().disabledTools.includes(name) && unavailableOf(name) === null,
+      );
+  }
+
+  function unavailableOf(toolName: string): string | null {
+    if (toolName !== "Shell" || shell !== undefined) {
+      return null;
+    }
+    const kind = settings.get().shell ?? defaultShellKind();
+    return kind === "bash" && process.platform === "win32"
+      ? "Git Bash is not installed on this computer."
+      : `${shellNames[kind]} is not installed on this computer.`;
+  }
+
+  // Pi reads the tools again when they are set, so a new shell reaches the model with the next turn.
+  async function changeSettings(change: Partial<Settings>): Promise<AgentSummary> {
+    await settings.change(change);
+    shell = findShell(settings.get().shell ?? undefined);
+    session?.setActiveToolsByName(activeToolNames());
+    return getAgent();
   }
 
   // Pi counts the tokens and the cost of every saved reply, and estimates how full the context
@@ -438,6 +502,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   return {
     getState,
     getAgent,
+    changeSettings,
     getContext,
     getProjects,
     subscribe(listener) {

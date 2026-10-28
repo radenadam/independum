@@ -10,31 +10,6 @@
   font-weight: 500;
 }
 
-.choices {
-  align-self: flex-start;
-  display: flex;
-  gap: 2px;
-  margin: 0;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
-}
-
-.choice {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.choice[aria-pressed="true"] {
-  background: var(--signal-soft);
-  color: var(--signal);
-}
-
 .note {
   margin: 0;
   font-size: 13px;
