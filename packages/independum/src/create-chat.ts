@@ -398,10 +398,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     // Stopping a reply before leaving its chat lets Pi save what the reply has said so far.
     await session?.abort();
     session?.dispose();
+    // Without its own settings and an empty addendum, Pi reads its settings from the project and
+    // from `~/.independum`, and adds any `APPEND_SYSTEM.md` there to the system prompt, so a file
+    // in a project could reach the model unseen.
+    const piSettings = SettingsManager.inMemory();
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionFolder,
       agentDir: directory,
+      settingsManager: piSettings,
       systemPrompt,
+      appendSystemPrompt: [],
       noExtensions: true,
       noContextFiles: true,
       noSkills: true,
@@ -430,7 +436,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       noTools: "builtin",
       customTools: ownTools,
       sessionManager: manager,
-      settingsManager: SettingsManager.inMemory(),
+      settingsManager: piSettings,
       ...(model === undefined ? {} : { model }),
     });
     session = created.session;

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
@@ -282,6 +282,18 @@ test("the agent shows its prompts and its tools", async () => {
   expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell", "StopCommand"]);
   expect(agent.tools[0]?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
+});
+
+test("files that Pi would add to the system prompt stay out of it", async () => {
+  const addendum = "Text from a file that the Agent place does not show.";
+  mkdirSync(join(startFolder, ".pi"), { recursive: true });
+  writeFileSync(join(startFolder, ".pi", "APPEND_SYSTEM.md"), addendum);
+  writeFileSync(join(directory, "APPEND_SYSTEM.md"), addendum);
+  expect((await post("/chat/new", { folder: startFolder })).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  expect(agent.addedByPi).not.toContain(addendum);
+  expect(agent.addedByPi).toContain("<cwd>");
 });
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
