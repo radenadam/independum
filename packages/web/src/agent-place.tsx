@@ -4,6 +4,7 @@ import styles from "./agent-place.module.css";
 import { fetchAgent } from "./chat-api.ts";
 import { CodeWell } from "./code-well.tsx";
 import { describeThinking } from "./describe-thinking.ts";
+import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { useChatData } from "./use-chat-data.ts";
@@ -25,10 +26,10 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
   );
 
   return (
-    <div className={styles.place}>
+    <PlaceFrame>
       <PlaceSection heading="Model">
         {chat.model === null ? (
-          <p className={styles.note}>No model chosen yet.</p>
+          <PlaceNote>No model chosen yet.</PlaceNote>
         ) : (
           <>
             <p className={styles.value}>{current?.name ?? chat.model.id}</p>
@@ -47,22 +48,22 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
       </PlaceSection>
       <PlaceSection heading="Folder">
         <p className={styles.path}>{chat.folder}</p>
-        <p className={styles.note}>The agent works here.</p>
+        <PlaceNote>The agent works here.</PlaceNote>
       </PlaceSection>
       <PlaceSection heading="System prompt" badge="built-in">
         <p className={styles.well}>{agent?.systemPrompt}</p>
       </PlaceSection>
       <PlaceSection heading="Added by Pi" badge="read-only">
         <CodeWell code={agent?.addedByPi ?? ""} copyLabel="Copy what Pi adds" />
-        <p className={styles.note}>Pi adds this to the system prompt on every request.</p>
+        <PlaceNote>Pi adds this to the system prompt on every request.</PlaceNote>
       </PlaceSection>
       <PlaceSection heading="Tools">
-        <p className={styles.note}>
+        <PlaceNote>
           {agent === undefined || agent.tools.length === 0
             ? "No tools yet."
             : agent.tools.join(", ")}
-        </p>
+        </PlaceNote>
       </PlaceSection>
-    </div>
+    </PlaceFrame>
   );
 }

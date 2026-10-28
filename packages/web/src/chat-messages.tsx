@@ -16,7 +16,7 @@ import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
 import { ThinkingMark } from "./thinking-mark.tsx";
 import { ThoughtBox } from "./thought-box.tsx";
-import { type ToolRun, ToolStep } from "./tool-step.tsx";
+import { type ToolCalls, ToolStep } from "./tool-step.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
@@ -24,7 +24,7 @@ interface ChatMessagesProps {
   chatId: string | null;
   messages: ChatMessage[];
   reply: MessagePart[];
-  toolRuns: Record<string, ToolRun>;
+  tools: ToolCalls;
   isReplying: boolean;
 }
 
@@ -42,7 +42,7 @@ export function ChatMessages({
   chatId,
   messages,
   reply,
-  toolRuns,
+  tools,
   isReplying,
 }: ChatMessagesProps): ReactElement {
   const scroller = useRef<HTMLDivElement>(null);
@@ -168,7 +168,7 @@ export function ChatMessages({
               <Reply
                 messages={turn.messages}
                 live={isCurrent ? reply : []}
-                toolRuns={toolRuns}
+                tools={tools}
                 isLive={isCurrent || turn.index + turn.messages.length > opened.messageCount}
                 isStreaming={isCurrent}
                 isLatest={turnIndex === turns.length - 1}
@@ -209,7 +209,7 @@ type ReplySegment =
 interface ReplyProps {
   messages: ChatMessage[];
   live: MessagePart[];
-  toolRuns: Record<string, ToolRun>;
+  tools: ToolCalls;
   isLive: boolean;
   isStreaming: boolean;
   isLatest: boolean;
@@ -217,14 +217,7 @@ interface ReplyProps {
 
 // A reply holds every turn of the agent after one prompt, and the turn in progress, whose parts take
 // the keys they keep once its message arrives.
-function Reply({
-  messages,
-  live,
-  toolRuns,
-  isLive,
-  isStreaming,
-  isLatest,
-}: ReplyProps): ReactElement {
+function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyProps): ReactElement {
   const body = useRef<HTMLDivElement>(null);
   const keyed = [
     ...messages.flatMap((message, at) =>
@@ -278,7 +271,7 @@ function Reply({
               <ToolStep
                 key={segment.key}
                 part={segment.part}
-                run={toolRuns[segment.part.id]}
+                tools={tools}
                 isReplying={isStreaming}
               />
             );

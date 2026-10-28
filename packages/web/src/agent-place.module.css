@@ -1,14 +1,6 @@
-.place {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  padding: 18px 18px 28px;
-}
-
 .value,
 .detail,
-.path,
-.note {
+.path {
   margin: 0;
 }
 
@@ -32,12 +24,6 @@
 .path {
   font: 13px var(--font-mono);
   overflow-wrap: anywhere;
-}
-
-.note {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--muted);
 }
 
 .well {

@@ -387,6 +387,34 @@ test("the agent runs a command in the shell, sees how it ended, and goes on", as
   });
 });
 
+test("a command can be stopped on its own, and the agent goes on", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", { command: pause })], { stopReason: "toolUse" }),
+    fauxAssistantMessage("Going on without it."),
+  ]);
+  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  await events.next();
+  expect((await post("/chat/messages", { text: "Wait a while" })).status).toBe(202);
+  let event = await events.next();
+  while (event.type !== "toolStart") {
+    event = await events.next();
+  }
+  expect((await post(`/chat/commands/${event.id}/stop`, {})).status).toBe(204);
+  while (event.type !== "toolResult") {
+    event = await events.next();
+  }
+  expect(event.result.text).toMatch(/^Stopped by the user after \d+\.\d s\.$/);
+  while (event.type !== "message" || event.message.role !== "assistant") {
+    event = await events.next();
+  }
+  await events.close();
+  expect(textOf(event.message)).toBe("Going on without it.");
+  expect((await post("/chat/commands/no-such-command/stop", {})).status).toBe(404);
+});
+
 function put(path: string, body: unknown): Promise<Response> {
   return Promise.resolve(
     routes.request(path, { method: "PUT", headers: json, body: JSON.stringify(body) }),

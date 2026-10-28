@@ -6,6 +6,7 @@ import type {
   MessagePart,
   ModelSummary,
   ProjectSummary,
+  ToolCallPart,
   ToolResult,
 } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
@@ -23,12 +24,14 @@ import {
   renameChat,
   sendMessage,
   startNewChat,
+  stopCommand,
   stopReply,
 } from "./chat-api.ts";
 import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
 import { chatWidth, readColumnWidth } from "./column-width.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
+import type { ToolRun } from "./describe-tool-call.ts";
 import { downloadText } from "./download-text.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
@@ -37,7 +40,7 @@ import { shortcuts, useShortcut } from "./shortcut.ts";
 import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
-import type { ToolRun } from "./tool-step.tsx";
+import type { ToolCalls } from "./tool-step.tsx";
 import { useChatData } from "./use-chat-data.ts";
 import styles from "./working-screen.module.css";
 
@@ -70,6 +73,7 @@ export function WorkingScreen({
   const [notice, setNotice] = useState<string | undefined>();
   const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
   const [placeRequest, setPlaceRequest] = useState<PlaceRequest | undefined>();
+  const [shownStep, setShownStep] = useState<ToolCalls["shown"]>();
   // The context meter and the Context place show the same summary, so it loads once here.
   const context = useChatData(fetchContext, chat);
 
@@ -176,6 +180,32 @@ export function WorkingScreen({
     setPlaceRequest({ place: "context", at: Date.now() });
     showPanel(true);
   }
+
+  function openCommands(): void {
+    setPlaceRequest({ place: "commands", at: Date.now() });
+    showPanel(true);
+  }
+
+  // A step opens in the chat, so on a phone the side panel gets out of its way.
+  function showStep(id: string): void {
+    setShownStep({ id, at: Date.now() });
+    if (isPhone()) {
+      setIsPanelOpen(false);
+    }
+  }
+
+  // A command that ends on its own just before the user stops it needs no notice.
+  const tools: ToolCalls = {
+    runs: toolRuns,
+    shown: shownStep,
+    onStop: (id) => {
+      stopCommand(id).catch(() => undefined);
+    },
+  };
+  const commands = chat === undefined ? [] : commandsOf(chat.messages, reply);
+  const runningCount = commands.filter(
+    (part) => part.result === null && chat?.isReplying === true && toolRuns[part.id] !== undefined,
+  ).length;
 
   function openLogins(): void {
     setSettingsSection("logins");
@@ -301,7 +331,7 @@ export function WorkingScreen({
                 chatId={chat.id}
                 messages={chat.messages}
                 reply={reply}
-                toolRuns={toolRuns}
+                tools={tools}
                 isReplying={chat.isReplying}
               />
             </div>
@@ -331,6 +361,8 @@ export function WorkingScreen({
               onChooseFolder={startNew}
               onManageLogins={openLogins}
               onOpenContext={openContext}
+              runningCount={runningCount}
+              onOpenCommands={openCommands}
             />
             <div className={styles.below} />
           </>
@@ -341,8 +373,11 @@ export function WorkingScreen({
           isOpen={isPanelOpen}
           chat={chat}
           context={context}
+          commands={commands}
+          tools={tools}
           models={models}
           placeRequest={placeRequest}
+          onShowStep={showStep}
           onHide={() => setIsPanelOpen(false)}
         />
       )}
@@ -404,6 +439,13 @@ function updateReply(
         : { type: "thinking", text: event.delta, isRedacted: false, durationMs: null };
   }
   return next;
+}
+
+// The commands of the chat are its calls to the Shell tool, with the one the model is writing.
+function commandsOf(messages: ChatMessage[], reply: MessagePart[]): ToolCallPart[] {
+  return [...messages.flatMap((message) => message.parts), ...reply].filter(
+    (part): part is ToolCallPart => part.type === "toolCall" && part.name === "Shell",
+  );
 }
 
 function withResult(message: ChatMessage, id: string, result: ToolResult): ChatMessage {

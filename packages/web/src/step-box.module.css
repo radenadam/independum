@@ -9,8 +9,21 @@
   margin-bottom: 0;
 }
 
+/* An action, such as a stop button, sits beside the header and never inside its button. */
+.top {
+  display: flex;
+  align-items: center;
+}
+
+.action {
+  flex: none;
+  display: flex;
+  padding-right: 6px;
+}
+
 .header {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 40px;
   margin: 0;
   display: flex;
@@ -24,29 +37,6 @@
 
 button.header:hover {
   color: var(--ink);
-}
-
-.status {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font: 12px var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.status[data-tone="alert"] {
-  color: var(--signal);
-}
-
-/* A step under way shows a small orange dot beside its timer. */
-.status[data-tone="running"]::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--signal);
 }
 
 .chevron {
@@ -104,15 +94,5 @@ button.header:hover {
 
   .chevron {
     transition: transform 160ms ease;
-  }
-
-  .status[data-tone="running"]::before {
-    animation: breathe 1.6s ease-in-out infinite;
-  }
-
-  @keyframes breathe {
-    50% {
-      opacity: 0.3;
-    }
   }
 }

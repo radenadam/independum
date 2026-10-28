@@ -1,6 +1,7 @@
-import type { ChatState, ContextSummary, ModelSummary } from "independum/api-types";
+import type { ChatState, ContextSummary, ModelSummary, ToolCallPart } from "independum/api-types";
 import { type ReactElement, useEffect, useEffectEvent, useState } from "react";
 import { AgentPlace } from "./agent-place.tsx";
+import { CommandsPlace } from "./commands-place.tsx";
 import { ContextPlace } from "./context-place.tsx";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
@@ -9,25 +10,29 @@ import { shortcuts } from "./shortcut.ts";
 import styles from "./side-panel.module.css";
 import { SlidingColumn } from "./sliding-column.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
+import type { ToolCalls } from "./tool-step.tsx";
 
 /** Properties of the side panel. */
 interface SidePanelProps {
   isOpen: boolean;
   chat: ChatState;
   context: ContextSummary | undefined;
+  commands: ToolCallPart[];
+  tools: ToolCalls;
   models: ModelSummary[] | undefined;
   placeRequest: PlaceRequest | undefined;
+  onShowStep: (id: string) => void;
   onHide: () => void;
 }
 
 /** A request from outside the panel to open a place, such as Context from its meter. */
 export interface PlaceRequest {
-  place: "agent" | "context";
+  place: "agent" | "context" | "commands";
   at: number;
 }
 
 /** A place that opens in a side panel tab, or a new tab that lists the places. */
-type TabPlace = "new" | "agent" | "context";
+type TabPlace = "new" | "agent" | "context" | "commands";
 
 /** One tab of the side panel. */
 interface Tab {
@@ -35,18 +40,26 @@ interface Tab {
   place: TabPlace;
 }
 
-const titles: Record<TabPlace, string> = { new: "New tab", agent: "Agent", context: "Context" };
-const icons = { new: "newTab", agent: "agent", context: "context" } as const;
+const titles: Record<TabPlace, string> = {
+  new: "New tab",
+  agent: "Agent",
+  context: "Context",
+  commands: "Commands",
+};
+const icons = { new: "newTab", agent: "agent", context: "context", commands: "shell" } as const;
 // The places that a new tab offers, in the order it lists them.
-const places = ["agent", "context"] as const;
+const places = ["agent", "context", "commands"] as const;
 
 /** Draws the side panel with its tabs, where each tab holds a place such as Agent. */
 export function SidePanel({
   isOpen,
   chat,
   context,
+  commands,
+  tools,
   models,
   placeRequest,
+  onShowStep,
   onHide,
 }: SidePanelProps): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([{ id: 1, place: "new" }]);
@@ -141,6 +154,13 @@ export function SidePanel({
             <AgentPlace chat={chat} models={models} />
           ) : active?.place === "context" ? (
             <ContextPlace context={context} />
+          ) : active?.place === "commands" ? (
+            <CommandsPlace
+              commands={commands}
+              tools={tools}
+              isReplying={chat.isReplying}
+              onShow={onShowStep}
+            />
           ) : (
             <div className={styles.newTab}>
               <PlaceSection heading="Open in this tab">

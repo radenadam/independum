@@ -88,6 +88,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     return context.body(null, 204);
   });
 
+  routes.post("/chat/commands/:id/stop", (context) =>
+    chat.stopCommand(context.req.param("id"))
+      ? context.body(null, 204)
+      : context.json({ error: "No running command has that id." }, 404),
+  );
+
   routes.post("/chat/new", async (context) => {
     const body: { folder?: unknown } = await context.req.json().catch(() => ({}));
     const folder = typeof body.folder === "string" ? body.folder : undefined;
