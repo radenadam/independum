@@ -1,99 +1,10 @@
-/* A step of the work has an outline and no fill, so it reads apart from a block of code in the reply. */
-.box {
-  margin-bottom: 18px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-
-.box:last-child {
-  margin-bottom: 0;
-}
-
-.header {
-  width: 100%;
-  min-height: 40px;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px 0 14px;
-  color: var(--muted);
-  font-size: 14px;
-  text-align: left;
-}
-
-button.header:hover {
-  color: var(--ink);
-}
-
-.label {
-  flex: 1;
-  min-width: 0;
-}
-
-.chevron {
-  display: flex;
-}
-
-.header[aria-expanded="true"] .chevron {
-  transform: rotate(90deg);
-}
-
-/* The body opens and folds by the height of its one row, so it can move between zero and its content. */
-.body {
-  display: grid;
-  grid-template-rows: 0fr;
-}
-
-.box[data-open="true"] .body {
-  grid-template-rows: 1fr;
-}
-
-.clip {
-  min-height: 0;
-  overflow: clip;
-}
-
 .thought {
   --reading-size: 14px;
 
-  padding: 0 16px 14px 39px;
   color: var(--muted);
-}
-
-/*
-  While the box follows the thinking, it shows only the latest lines, so a long train of thought
-  does not push the reply down, and it keeps showing them while it folds. Opened by the user, it
-  shows every line.
-*/
-.box[data-following="true"] .view {
-  max-height: 154px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.box[data-following="true"] .view[data-clipped="true"] {
-  mask-image: linear-gradient(to bottom, transparent, var(--ink) 56px);
 }
 
 .note {
   margin: 0;
   font-size: 14px;
-}
-
-@media (max-width: 760px) {
-  .thought {
-    padding-left: 14px;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .body {
-    transition: grid-template-rows 240ms ease;
-  }
-
-  .chevron {
-    transition: transform 160ms ease;
-  }
 }

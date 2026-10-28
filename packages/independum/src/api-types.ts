@@ -50,8 +50,39 @@ export interface ThinkingPart {
   durationMs: number | null;
 }
 
-/** One part of a message: its text, or thinking that the model did. */
-export type MessagePart = { type: "text"; text: string } | ThinkingPart;
+/** What a tool sent back to the model, and the details it keeps for the chat. */
+export interface ToolResult {
+  text: string;
+  isError: boolean;
+  details: unknown;
+}
+
+/** A call that the model made to a tool, with what the tool sent back once it ended. */
+export interface ToolCallPart {
+  type: "toolCall";
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+  result: ToolResult | null;
+}
+
+/** One part of a message: its text, thinking that the model did, or a call to a tool. */
+export type MessagePart = { type: "text"; text: string } | ThinkingPart | ToolCallPart;
+
+/** The latest output of the Shell tool while its command runs. */
+export interface ShellProgress {
+  shell: string;
+  output: string;
+}
+
+/** What the Shell tool keeps about a command once it has ended. */
+export interface ShellDetails {
+  shell: string;
+  ending: "exited" | "timedOut" | "stopped";
+  exitCode: number | null;
+  durationMs: number;
+  outputPath: string | null;
+}
 
 /** A message of the chat, as the UI shows it. */
 export interface ChatMessage {
@@ -138,6 +169,9 @@ export type ChatEvent =
   | { type: "state"; state: ChatState }
   | { type: "projects"; projects: ProjectSummary[] }
   | { type: "message"; message: ChatMessage }
-  | { type: "replyDelta"; index: number; partType: MessagePart["type"]; delta: string }
+  | { type: "replyDelta"; index: number; partType: "text" | "thinking"; delta: string }
   | { type: "replyPart"; index: number; part: MessagePart }
-  | { type: "replying"; isReplying: boolean };
+  | { type: "replying"; isReplying: boolean }
+  | { type: "toolStart"; id: string }
+  | { type: "toolProgress"; id: string; details: unknown }
+  | { type: "toolResult"; id: string; result: ToolResult };

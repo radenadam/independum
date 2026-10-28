@@ -1,4 +1,4 @@
-import type { ChatMessage, MessagePart, ThinkingPart } from "independum/api-types";
+import type { ChatMessage, MessagePart, ThinkingPart, ToolCallPart } from "independum/api-types";
 import {
   type ClipboardEvent,
   type ReactElement,
@@ -16,6 +16,7 @@ import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
 import { ThinkingMark } from "./thinking-mark.tsx";
 import { ThoughtBox } from "./thought-box.tsx";
+import { type ToolRun, ToolStep } from "./tool-step.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
@@ -23,6 +24,7 @@ interface ChatMessagesProps {
   chatId: string | null;
   messages: ChatMessage[];
   reply: MessagePart[];
+  toolRuns: Record<string, ToolRun>;
   isReplying: boolean;
 }
 
@@ -40,6 +42,7 @@ export function ChatMessages({
   chatId,
   messages,
   reply,
+  toolRuns,
   isReplying,
 }: ChatMessagesProps): ReactElement {
   const scroller = useRef<HTMLDivElement>(null);
@@ -128,26 +131,24 @@ export function ChatMessages({
     });
   }
 
-  const last = messages.at(-1);
-  const hasReply = reply.some((part) => part.type === "thinking" || part.text !== "");
-  const isReplyShown = isReplying && (hasReply || last?.role !== "assistant");
-  // The reply in progress and the message it becomes share one place in the list, so its typing
-  // carries on when the reply ends.
-  const liveIndex =
-    last?.role === "assistant" && messages.length - 1 >= opened.messageCount
-      ? messages.length - 1
-      : -1;
+  const turns = turnsOf(messages);
+  // A reply in progress joins the turns of the agent that answer the same prompt, or starts a reply
+  // of its own.
+  if (isReplying && turns.at(-1)?.type !== "reply") {
+    turns.push({ type: "reply", index: messages.length, messages: [] });
+  }
 
   return (
     <div ref={scroller} className={styles.scroller}>
       <ol ref={list} className={styles.messages} onCopy={copySelection}>
-        {messages.map((message, index) => {
-          if (message.role === "user") {
+        {turns.map((turn, turnIndex) => {
+          if (turn.type === "prompt") {
+            const { message } = turn;
             return (
               <li
                 key={`user-${message.timestamp}`}
                 className={
-                  index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
+                  turn.index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
                 }
                 data-user
               >
@@ -161,50 +162,20 @@ export function ChatMessages({
               </li>
             );
           }
-          return index === liveIndex ? null : (
-            <li key={`assistant-${message.timestamp}`} className={styles.reply}>
+          const isCurrent = isReplying && turnIndex === turns.length - 1;
+          return (
+            <li key={`reply-${turn.index}`} className={styles.reply}>
               <Reply
-                parts={message.parts}
-                error={message.error}
-                isLive={false}
-                isStreaming={false}
-                isLatest={index === messages.length - 1}
-                timestamp={message.timestamp}
-                durationMs={message.durationMs}
+                messages={turn.messages}
+                live={isCurrent ? reply : []}
+                toolRuns={toolRuns}
+                isLive={isCurrent || turn.index + turn.messages.length > opened.messageCount}
+                isStreaming={isCurrent}
+                isLatest={turnIndex === turns.length - 1}
               />
             </li>
           );
         })}
-        {isReplyShown && !hasReply ? (
-          <li className={styles.thinking} data-copy="skip">
-            <ThinkingLabel />
-          </li>
-        ) : null}
-        {isReplyShown && hasReply ? (
-          <li key="live" className={styles.reply}>
-            <Reply
-              parts={reply}
-              error={null}
-              isLive
-              isStreaming
-              isLatest
-              timestamp={null}
-              durationMs={null}
-            />
-          </li>
-        ) : last !== undefined && liveIndex !== -1 ? (
-          <li key="live" className={styles.reply}>
-            <Reply
-              parts={last.parts}
-              error={last.error}
-              isLive
-              isStreaming={false}
-              isLatest
-              timestamp={last.timestamp}
-              durationMs={last.durationMs}
-            />
-          </li>
-        ) : null}
       </ol>
       <div ref={end} />
       <div ref={spacer} className={styles.spacer} aria-hidden="true" />
@@ -223,36 +194,62 @@ export function ChatMessages({
   );
 }
 
-/** A stretch of a reply: a text, or thinking that runs on across one or more parts. */
+/** A prompt of the user, or the turns of the agent that answer one, with their place in the chat. */
+type Turn =
+  | { type: "prompt"; index: number; message: ChatMessage }
+  | { type: "reply"; index: number; messages: ChatMessage[] };
+
+/** A stretch of a reply: a text, thinking that runs on across parts, or a call to a tool. */
 type ReplySegment =
-  | { type: "text"; key: number; text: string }
-  | { type: "thinking"; key: number; parts: ThinkingPart[] };
+  | { type: "text"; key: string; text: string }
+  | { type: "thinking"; key: string; parts: ThinkingPart[] }
+  | { type: "toolCall"; key: string; part: ToolCallPart };
 
 /** Properties of a reply. */
 interface ReplyProps {
-  parts: MessagePart[];
-  error: string | null;
+  messages: ChatMessage[];
+  live: MessagePart[];
+  toolRuns: Record<string, ToolRun>;
   isLive: boolean;
   isStreaming: boolean;
   isLatest: boolean;
-  timestamp: number | null;
-  durationMs: number | null;
 }
 
+// A reply holds every turn of the agent after one prompt, and the turn in progress, whose parts take
+// the keys they keep once its message arrives.
 function Reply({
-  parts,
-  error,
+  messages,
+  live,
+  toolRuns,
   isLive,
   isStreaming,
   isLatest,
-  timestamp,
-  durationMs,
 }: ReplyProps): ReactElement {
   const body = useRef<HTMLDivElement>(null);
+  const keyed = [
+    ...messages.flatMap((message, at) =>
+      message.parts.map((part, index) => ({ key: `${at}:${index}`, part })),
+    ),
+    ...live.map((part, index) => ({ key: `${messages.length}:${index}`, part })),
+  ];
+  const parts = keyed.map(({ part }) => part);
   const text = textOf(parts);
   const length = useTypedLength(text.length, isLive ? replyTyping : undefined);
   const isTyping = isStreaming || length < text.length;
-  const segments = segmentsOf(parts);
+  const segments = segmentsOf(keyed);
+  const first = messages[0];
+  const last = messages.at(-1);
+  const error = last?.error ?? null;
+  const durationMs =
+    first !== undefined && last !== undefined && last.durationMs !== null
+      ? last.timestamp + last.durationMs - first.timestamp
+      : null;
+  // The agent still works while it shows nothing new, such as when a tool has ended and the model
+  // has not answered yet.
+  const isWaiting =
+    isStreaming &&
+    !live.some((part) => part.type !== "text" || part.text !== "") &&
+    !parts.some((part) => part.type === "toolCall" && part.result === null);
   // The text parts type in one after another, as one text, so each shows its share of what has
   // typed so far, and the caret sits in the one that is typing.
   let typedBefore = 0;
@@ -276,6 +273,16 @@ function Reply({
               />
             );
           }
+          if (segment.type === "toolCall") {
+            return (
+              <ToolStep
+                key={segment.key}
+                part={segment.part}
+                run={toolRuns[segment.part.id]}
+                isReplying={isStreaming}
+              />
+            );
+          }
           const start = typedBefore;
           typedBefore += segment.text.length;
           const shown = segment.text.slice(0, Math.max(0, length - start));
@@ -287,6 +294,11 @@ function Reply({
             />
           );
         })}
+        {isWaiting ? (
+          <div className={styles.thinking} data-copy="skip">
+            <ThinkingLabel />
+          </div>
+        ) : null}
       </div>
       {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
       {text === "" || isTyping ? null : (
@@ -304,15 +316,30 @@ function Reply({
               },
             ]}
           />
-          {timestamp === null ? null : (
+          {first === undefined ? null : (
             <span className={styles.when}>
-              <MessageTime timestamp={timestamp} durationMs={durationMs} />
+              <MessageTime timestamp={first.timestamp} durationMs={durationMs} />
             </span>
           )}
         </div>
       )}
     </>
   );
+}
+
+function turnsOf(messages: ChatMessage[]): Turn[] {
+  const turns: Turn[] = [];
+  for (const [index, message] of messages.entries()) {
+    const last = turns.at(-1);
+    if (message.role === "user") {
+      turns.push({ type: "prompt", index, message });
+    } else if (last?.type === "reply") {
+      last.messages.push(message);
+    } else {
+      turns.push({ type: "reply", index, messages: [message] });
+    }
+  }
+  return turns;
 }
 
 // A selection in the chat copies as Markdown in its plain text, and with its formatting for the
@@ -336,17 +363,19 @@ function copySelection(event: ClipboardEvent<HTMLOListElement>): void {
 }
 
 // Thinking that runs on across several parts, as an OpenAI model sends it, reads as one stretch.
-// Each segment takes the place of its first part as its key, which stays put while parts join.
-function segmentsOf(parts: MessagePart[]): ReplySegment[] {
+// Each segment takes the key of its first part, which stays put while parts join.
+function segmentsOf(parts: { key: string; part: MessagePart }[]): ReplySegment[] {
   const segments: ReplySegment[] = [];
-  for (const [index, part] of parts.entries()) {
+  for (const { key, part } of parts) {
     const last = segments.at(-1);
     if (part.type === "thinking" && last?.type === "thinking") {
       last.parts.push(part);
     } else if (part.type === "thinking") {
-      segments.push({ type: "thinking", key: index, parts: [part] });
+      segments.push({ type: "thinking", key, parts: [part] });
+    } else if (part.type === "toolCall") {
+      segments.push({ type: "toolCall", key, part });
     } else if (part.text !== "") {
-      segments.push({ type: "text", key: index, text: part.text });
+      segments.push({ type: "text", key, text: part.text });
     }
   }
   return segments;
