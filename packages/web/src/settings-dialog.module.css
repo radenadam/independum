@@ -61,13 +61,6 @@
 
 /* On a phone, the settings cover the screen, and the sections sit in a row along the top. */
 @media (max-width: 760px) {
-  .dialog {
-    width: 100vw;
-    height: 100dvh;
-    border: 0;
-    border-radius: 0;
-  }
-
   .frame {
     flex-direction: column;
   }

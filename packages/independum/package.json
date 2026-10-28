@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    "./api-types": "./src/api-types.ts"
+    "./api-types": "./src/api-types.ts",
+    "./text-slots": "./src/text-slots.ts"
   },
   "scripts": {
     "dev": "node src/dev.ts",

@@ -2,12 +2,13 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, test } from "vitest";
+import { createModelTexts } from "../model-texts.ts";
 import { createOutputLog } from "./create-output-log.ts";
 
 const folder = mkdtempSync(join(tmpdir(), "independum-output-"));
 afterAll(() => rmSync(folder, { recursive: true, force: true }));
 const limits = { maxLines: 10, maxBytes: 1000 };
-const options = { limits };
+const options = { limits, texts: createModelTexts(() => ({})) };
 
 test("output within the limits reaches the model whole and leaves no file", async () => {
   const path = join(folder, "short.log");

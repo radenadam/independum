@@ -462,6 +462,56 @@ test("a tool that is turned off never runs, and the output limits change", async
   expect((await put("/settings", { shell: "fish" })).status).toBe(400);
 });
 
+test("edited texts reach the model with the next turn, and null brings back the built-in text", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const edited = await put("/settings", {
+    texts: {
+      systemPrompt: "You are a test agent.",
+      "shell.description": "Runs {shell} for tests.",
+      "shell.parameters.command": "What to run.",
+      "shell.exited": "Done with code {code}.",
+    },
+  });
+  const agent = (await edited.json()) as AgentSummary;
+  expect(agent.systemPrompt).toBe("You are a test agent.");
+  expect(agent.tools[0]?.description).toMatch(/^Runs .+ for tests\.$/);
+  expect(agent.tools[0]?.parameters).toMatchObject({
+    properties: { command: { description: "What to run." } },
+  });
+  expect(agent.texts.find((text) => text.id === "shell.exited")).toMatchObject({
+    text: "Done with code {code}.",
+    isEdited: true,
+    editedFrom: null,
+  });
+  let prompt = "";
+  faux.setResponses([
+    (context) => {
+      prompt = JSON.stringify(context.messages[0]);
+      return fauxAssistantMessage([fauxToolCall("Shell", { command: 'echo "edited"' })], {
+        stopReason: "toolUse",
+      });
+    },
+    fauxAssistantMessage("Done."),
+  ]);
+  const result = (await sendAndReadReply("Run it")).updates.find(
+    (update) => update.type === "toolResult",
+  );
+  expect(prompt).toContain("You are a test agent.");
+  expect(result?.type === "toolResult" ? result.result.text : "").toBe(
+    "edited\n\nDone with code 0.",
+  );
+
+  const reset = await put("/settings", { texts: { "shell.exited": null } });
+  expect(
+    ((await reset.json()) as AgentSummary).texts.find((text) => text.id === "shell.exited"),
+  ).toMatchObject({ text: "Exit code {code} after {time}.", isEdited: false });
+  expect((await put("/settings", { texts: { "no.such.text": "Text." } })).status).toBe(400);
+  await put("/settings", {
+    texts: { systemPrompt: null, "shell.description": null, "shell.parameters.command": null },
+  });
+});
+
 test("a background command runs on, and its end wakes the agent with a note", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);

@@ -103,6 +103,10 @@
   transform-origin: 21px 17px;
 }
 
+.nudgeLeft {
+  --shift-x: -1.5px;
+}
+
 .nudgeRight {
   --shift-x: 1.5px;
 }

@@ -5,6 +5,7 @@ import {
   type AgentSessionEvent,
   createAgentSession,
   DefaultResourceLoader,
+  type ExtensionAPI,
   type ModelRuntime,
   type SessionInfo,
   SessionManager,
@@ -21,7 +22,7 @@ import type {
   ContextSummary,
   MessagePart,
   ProjectSummary,
-  Settings,
+  SettingsChange,
   ShellChoice,
   ShellKind,
   ToolCallPart,
@@ -29,14 +30,23 @@ import type {
   ToolSummary,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
-import { createSettings } from "./create-settings.ts";
+import { builtInSettings, createSettings } from "./create-settings.ts";
+import {
+  changeTexts,
+  createModelTexts,
+  defineText,
+  type ModelText,
+  summarizeTexts,
+} from "./model-texts.ts";
 import {
   type BackgroundEnded,
+  backgroundTextList,
   createBackgroundCommands,
   describeBackgroundEnded,
 } from "./tools/create-background-commands.ts";
-import { createShellTool } from "./tools/create-shell-tool.ts";
-import { createStopCommandTool } from "./tools/create-stop-command-tool.ts";
+import { outputTextList } from "./tools/create-output-log.ts";
+import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
+import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { defaultShellKind, findShell } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
@@ -61,8 +71,23 @@ const commandEndType = "independum-command-end";
 
 // The prompt says only where the agent is and where it works, and leaves how to work to the model
 // and the descriptions of its tools.
-const systemPrompt =
-  "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.";
+const systemPromptText = defineText({
+  id: "systemPrompt",
+  group: "System prompt",
+  section: "prompt",
+  label: "Every request",
+  builtIn:
+    "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.",
+  slots: {},
+});
+// Every model text. The Agent place groups them, and keeps this order within each group.
+const allTexts: ModelText[] = [
+  systemPromptText,
+  ...shellTextList,
+  ...backgroundTextList,
+  ...stopCommandTextList,
+  ...outputTextList,
+];
 const shellKinds: ShellKind[] = ["powershell", "bash"];
 const shellNames: Record<ShellKind, string> = { bash: "Bash", powershell: "PowerShell" };
 // A tool call that the model is still writing reaches the chat at most this often.
@@ -79,7 +104,7 @@ export interface ChatOptions {
 export interface Chat {
   getState(): ChatState;
   getAgent(): AgentSummary;
-  changeSettings(change: Partial<Settings>): Promise<AgentSummary>;
+  changeSettings(change: SettingsChange): Promise<AgentSummary | undefined>;
   getContext(): ContextSummary;
   getProjects(): Promise<ProjectSummary[]>;
   subscribe(listener: (event: ChatEvent) => void): () => void;
@@ -105,10 +130,12 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(cwd);
   const settings = await createSettings(join(directory, "settings.json"));
+  const texts = createModelTexts(() => settings.get().texts);
   let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
   const commandStops = new Map<string, () => void>();
   const background = createBackgroundCommands({
+    texts,
     onProgress(chatId, toolCallId, progress) {
       if (session?.sessionId === chatId) {
         emit({ type: "toolProgress", id: toolCallId, details: progress });
@@ -122,14 +149,17 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     createShellTool({
       getShell: () => shell,
       getLimits: () => settings.get().outputLimits,
+      texts,
       outputFolder,
       stops: commandStops,
       background,
     }),
-    createStopCommandTool(background),
+    createStopCommandTool(background, texts),
   ];
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
+  // The hidden extension of the open chat, through which Independum registers its tools anew.
+  let extension: ExtensionAPI | undefined;
   let folder = startFolder;
   let stopFollowing: (() => void) | undefined;
   let isModelChosen = false;
@@ -177,7 +207,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     }
     const note = {
       customType: commandEndType,
-      content: describeBackgroundEnded(ended),
+      content: describeBackgroundEnded(ended, texts),
       display: true,
       details: ended.end,
     };
@@ -406,20 +436,30 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       cwd: sessionFolder,
       agentDir: directory,
       settingsManager: piSettings,
-      systemPrompt,
+      // Pi reads a prompt that names a file as that file, so the prompt that the user edits reaches
+      // Pi before each turn instead, and this one is only where Pi starts.
+      systemPrompt: systemPromptText.builtIn,
       appendSystemPrompt: [],
       noExtensions: true,
       noContextFiles: true,
       noSkills: true,
       noPromptTemplates: true,
       noThemes: true,
-      // Pi hands every request to its extensions before sending it, so this hidden one keeps a copy
-      // for the Agent place and leaves the request as it is.
+      // This hidden extension registers Independum's tools and sets the prompt of the user before
+      // each turn. Pi hands it every request before sending it, and it keeps a copy for the Context
+      // place and leaves the request as it is.
       extensionFactories: [
         {
-          name: "independum-requests",
+          name: "independum",
           hidden: true,
           factory: (pi) => {
+            extension = pi;
+            for (const tool of ownTools) {
+              pi.registerTool(tool);
+            }
+            pi.on("before_agent_start", (event) => {
+              event.systemPromptOptions.customPrompt = texts.get(systemPromptText);
+            });
             pi.on("before_provider_request", (event) => {
               lastRequest = event.payload;
             });
@@ -434,7 +474,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       modelRuntime: models,
       resourceLoader,
       noTools: "builtin",
-      customTools: ownTools,
       sessionManager: manager,
       settingsManager: piSettings,
       ...(model === undefined ? {} : { model }),
@@ -456,14 +495,15 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   }
 
   // Pi builds the system prompt from Independum's prompt and then adds its own sections, such as
-  // the folder, so everything after Independum's prompt is what Pi adds.
+  // the folder, so everything after Independum's prompt is what Pi adds. Until the next turn, Pi
+  // may still start from the prompt that the chat opened with.
   function getAgent(): AgentSummary {
-    const fullPrompt = session?.systemPrompt ?? systemPrompt;
+    const prompt = texts.get(systemPromptText);
+    const fullPrompt = session?.systemPrompt ?? prompt;
+    const start = [prompt, systemPromptText.builtIn].find((each) => fullPrompt.startsWith(each));
     return {
-      systemPrompt,
-      addedByPi: fullPrompt.startsWith(systemPrompt)
-        ? fullPrompt.slice(systemPrompt.length).trim()
-        : fullPrompt,
+      systemPrompt: prompt,
+      addedByPi: start === undefined ? fullPrompt : fullPrompt.slice(start.length).trim(),
       tools: ownToolInfos().map(
         (tool): ToolSummary => ({
           name: tool.name,
@@ -480,7 +520,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           isChosen: kind === (settings.get().shell ?? defaultShellKind()),
         }),
       ),
+      chosenShell: settings.get().shell,
       outputLimits: settings.get().outputLimits,
+      builtInOutputLimits: builtInSettings.outputLimits,
+      texts: summarizeTexts(allTexts, settings.get().texts),
     };
   }
 
@@ -509,10 +552,23 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       : `${shellNames[kind]} is not installed on this computer.`;
   }
 
-  // Pi reads the tools again when they are set, so a new shell reaches the model with the next turn.
-  async function changeSettings(change: Partial<Settings>): Promise<AgentSummary> {
-    await settings.change(change);
+  // A change names model texts by their ids, so one that names a text that does not exist is
+  // refused whole. Pi reads the tools again when Independum registers them anew, so a new shell or
+  // an edited text reaches the model with the next turn.
+  async function changeSettings(change: SettingsChange): Promise<AgentSummary | undefined> {
+    const { texts: textChange, ...rest } = change;
+    const edited =
+      textChange === undefined
+        ? settings.get().texts
+        : changeTexts(allTexts, settings.get().texts, textChange);
+    if (edited === undefined) {
+      return undefined;
+    }
+    await settings.change({ ...rest, texts: edited });
     shell = findShell(settings.get().shell ?? undefined);
+    for (const tool of ownTools) {
+      extension?.registerTool(tool);
+    }
     session?.setActiveToolsByName(activeToolNames());
     return getAgent();
   }

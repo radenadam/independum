@@ -47,7 +47,8 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
 | More | Three dots in a row. |
-| Rename | A pencil at 45 degrees. |
+| Edit | A pencil at 45 degrees, to rename a chat or to edit a text. |
+| Reset | An arrow that points left and curves back under itself, to go back to the built-in text or setting. |
 | Pin | A pushpin with its needle down. |
 | Export | An arrow that points down into an open tray. |
 | Archive | A box under a lid, with a slot. |
@@ -90,7 +91,8 @@ Decision 0024 records why icons move and where the line falls.
 | New tab | The four boxes spread apart. |
 | Agent | The eyes blink. |
 | More | The dots hop one after another. |
-| Rename | The pencil tilts as if it writes. |
+| Edit | The pencil tilts as if it writes. |
+| Reset | The head of the arrow nudges back to the left. |
 | Pin | The pin presses down. |
 | Export | The arrow drops into the tray. |
 | Archive | The lid lifts. |

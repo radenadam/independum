@@ -1,6 +1,7 @@
 import { createWriteStream, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import type { OutputLimits } from "../api-types.ts";
+import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
 /** The output of a tool as the model gets it. */
 interface LimitedOutput {
@@ -10,14 +11,87 @@ interface LimitedOutput {
 }
 
 /**
- * How an output log works: the limits of what reaches the model, whether its file stays even when
- * nothing is cut, as a background command needs, and who hears about its latest lines.
+ * How an output log works: the limits of what reaches the model, the texts of the note where it is
+ * cut, whether its file stays even when nothing is cut, as a background command needs, and who
+ * hears about its latest lines.
  */
 interface OutputLogOptions {
   limits: OutputLimits;
+  texts: ModelTexts;
   isKept?: boolean;
   onLatest?: (latest: string) => void;
 }
+
+const group = "Output limit";
+const lineSlots = {
+  first: { meaning: "The first line that is cut.", example: "401" },
+  last: { meaning: "The last line that is cut.", example: "4,600" },
+  total: { meaning: "How many lines the output has.", example: "5,000" },
+  line: { meaning: "The line whose start is cut.", example: "4,601" },
+};
+
+/** The texts of the note that marks where output is cut, which the user can edit. */
+const outputTexts = {
+  frame: defineText({
+    id: "output.frame",
+    group,
+    section: "note",
+    label: "Around the note",
+    builtIn: "[{note}]",
+    slots: {
+      note: {
+        meaning: "The sentences below that apply, one after another.",
+        example:
+          "Lines 401 to 4,600 of 5,000 are cut here. The whole output is in ~/.independum/outputs/chat/call.log",
+      },
+    },
+  }),
+  linesCut: defineText({
+    id: "output.linesCut",
+    group,
+    section: "note",
+    label: "When whole lines are cut",
+    builtIn: "Lines {first} to {last} of {total} are cut here.",
+    slots: { first: lineSlots.first, last: lineSlots.last, total: lineSlots.total },
+  }),
+  lineStartCut: defineText({
+    id: "output.lineStartCut",
+    group,
+    section: "note",
+    label: "When only the start of one long line is cut",
+    builtIn: "The start of line {line} of {total} is cut here.",
+    slots: { line: lineSlots.line, total: lineSlots.total },
+  }),
+  lineStartAlsoCut: defineText({
+    id: "output.lineStartAlsoCut",
+    group,
+    section: "note",
+    label: "When the start of a line is cut as well",
+    builtIn: "The start of line {line} is cut too.",
+    slots: { line: lineSlots.line },
+  }),
+  saved: defineText({
+    id: "output.saved",
+    group,
+    section: "note",
+    label: "When the whole output is in a file",
+    builtIn: "The whole output is in {path}",
+    slots: {
+      path: {
+        meaning: "The file that holds the whole output.",
+        example: "~/.independum/outputs/chat/call.log",
+      },
+    },
+  }),
+  notSaved: defineText({
+    id: "output.notSaved",
+    group,
+    section: "note",
+    label: "When the whole output could not be saved",
+    builtIn: "The whole output could not be saved.",
+    slots: {},
+  }),
+};
 
 /** The output of one tool call, which grows as the tool prints. */
 export interface OutputLog {
@@ -40,6 +114,9 @@ const terminalCodes =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: The codes start with the escape character.
   /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[@-Z\\-_])/g;
 
+/** The texts of the note that marks where output is cut, in the order that the Agent place shows them. */
+export const outputTextList: ModelText[] = Object.values(outputTexts);
+
 /**
  * Starts the output log of one tool call, which cleans each line as a plain text reader sees it and
  * writes all of it to the file at the path. When the output passes the limits, the model gets its
@@ -47,7 +124,7 @@ const terminalCodes =
  */
 export function createOutputLog(
   path: string,
-  { limits, isKept = false, onLatest }: OutputLogOptions,
+  { limits, texts, isKept = false, onLatest }: OutputLogOptions,
 ): OutputLog {
   mkdirSync(dirname(path), { recursive: true });
   const file = createWriteStream(path);
@@ -111,18 +188,21 @@ export function createOutputLog(
   function note(): string {
     const firstCut = start.length + 1;
     const lastCut = lineCount - end.length;
-    const cut =
+    const line = numberFormat.format(lastCut + 1);
+    const total = numberFormat.format(lineCount);
+    const parts =
       firstCut <= lastCut
-        ? `Lines ${numberFormat.format(firstCut)} to ${numberFormat.format(lastCut)} of ${numberFormat.format(lineCount)} are cut here.`
-        : `The start of line ${numberFormat.format(lastCut + 1)} of ${numberFormat.format(lineCount)} is cut here.`;
-    const partial =
-      isEndPartial && firstCut <= lastCut
-        ? ` The start of line ${numberFormat.format(lastCut + 1)} is cut too.`
-        : "";
-    const where = isSaved
-      ? ` The whole output is in ${path}`
-      : " The whole output could not be saved.";
-    return `[${cut}${partial}${where}]`;
+        ? [
+            texts.fill(outputTexts.linesCut, {
+              first: numberFormat.format(firstCut),
+              last: numberFormat.format(lastCut),
+              total,
+            }),
+            ...(isEndPartial ? [texts.fill(outputTexts.lineStartAlsoCut, { line })] : []),
+          ]
+        : [texts.fill(outputTexts.lineStartCut, { line, total })];
+    parts.push(isSaved ? texts.fill(outputTexts.saved, { path }) : texts.get(outputTexts.notSaved));
+    return texts.fill(outputTexts.frame, { note: parts.join(" ") });
   }
 
   return {

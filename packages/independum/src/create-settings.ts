@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import type { OutputLimits, Settings } from "./api-types.ts";
+import type { EditedText, OutputLimits, Settings, SettingsChange } from "./api-types.ts";
 
 /** The settings of the user, which last in a file across restarts. */
 export interface SettingsStore {
@@ -9,23 +9,32 @@ export interface SettingsStore {
 
 const lineRange = { min: 10, max: 1_000_000 };
 const byteRange = { min: 1024, max: 100 * 1024 * 1024 };
-const defaults: Settings = {
+
+/** The settings that Independum starts with, which a reset goes back to. */
+export const builtInSettings: Settings = {
   shell: null,
   disabledTools: [],
   outputLimits: { maxLines: 2000, maxBytes: 50 * 1024 },
+  texts: {},
 };
 
 /**
- * Reads the settings of the user from a file, with the default for each setting it lacks, and
- * saves every change there.
+ * Reads the settings of the user from a file, with the built-in value for each setting it lacks,
+ * and saves every change there.
  */
 export async function createSettings(path: string): Promise<SettingsStore> {
-  const saved: unknown = await readFile(path, "utf8").then(
-    (text) => JSON.parse(text),
-    () => ({}),
-  );
+  // Windows editors often start a file with a byte order mark, which JSON does not allow. A file
+  // that is missing or no longer JSON gives the built-in settings.
+  const saved: unknown = await readFile(path, "utf8")
+    .then((text) => JSON.parse(text.replace(/^\uFEFF/, "")))
+    .catch(() => ({}));
   const change = readSettingsChange(saved, true) ?? {};
-  let settings: Settings = { ...defaults, ...change };
+  let settings: Settings = {
+    shell: change.shell ?? builtInSettings.shell,
+    disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
+    outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
+    texts: editedTextsOf(saved),
+  };
   return {
     get: () => settings,
     async change(next) {
@@ -40,15 +49,12 @@ export async function createSettings(path: string): Promise<SettingsStore> {
  * Returns the settings that a request or a file asks for, or undefined when a request holds a
  * setting that is not valid. A file that someone edited by hand keeps its valid settings instead.
  */
-export function readSettingsChange(
-  body: unknown,
-  isLenient = false,
-): Partial<Settings> | undefined {
+export function readSettingsChange(body: unknown, isLenient = false): SettingsChange | undefined {
   if (typeof body !== "object" || body === null) {
     return undefined;
   }
   const fields = body as Record<string, unknown>;
-  const change: Partial<Settings> = {};
+  const change: SettingsChange = {};
   let isValid = true;
   if ("shell" in fields) {
     const { shell } = fields;
@@ -74,7 +80,43 @@ export function readSettingsChange(
       change.outputLimits = limits;
     }
   }
+  if ("texts" in fields) {
+    const texts = textChangesOf(fields.texts);
+    if (texts === undefined) {
+      isValid = false;
+    } else {
+      change.texts = texts;
+    }
+  }
   return isValid || isLenient ? change : undefined;
+}
+
+function textChangesOf(value: unknown): Record<string, string | null> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const entries = Object.entries(value);
+  return entries.every(([, text]) => text === null || typeof text === "string")
+    ? Object.fromEntries(entries)
+    : undefined;
+}
+
+// A file edited by hand keeps each edited text that still has both of its parts.
+function editedTextsOf(saved: unknown): Record<string, EditedText> {
+  const texts =
+    typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>).texts : null;
+  if (typeof texts !== "object" || texts === null) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(texts).filter(
+      (entry): entry is [string, EditedText] =>
+        typeof entry[1] === "object" &&
+        entry[1] !== null &&
+        typeof entry[1].text === "string" &&
+        typeof entry[1].builtIn === "string",
+    ),
+  );
 }
 
 function outputLimitsOf(value: unknown): OutputLimits | undefined {

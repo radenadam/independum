@@ -103,7 +103,7 @@ export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowPr
             label={`Actions for ${chat.title}`}
             groups={[
               [
-                { icon: "rename", label: "Rename", onSelect: act(() => setIsRenaming(true)) },
+                { icon: "edit", label: "Rename", onSelect: act(() => setIsRenaming(true)) },
                 {
                   icon: "pin",
                   label: chat.isPinned ? "Unpin" : "Pin",

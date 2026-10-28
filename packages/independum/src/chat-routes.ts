@@ -91,9 +91,10 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   routes.put("/settings", async (context) => {
     const change = readSettingsChange(await context.req.json().catch(() => undefined));
-    return change === undefined
+    const agent = change === undefined ? undefined : await chat.changeSettings(change);
+    return agent === undefined
       ? context.json({ error: "That is not a valid setting." }, 400)
-      : context.json(await chat.changeSettings(change));
+      : context.json(agent);
   });
 
   routes.post("/chat/commands/:id/stop", (context) =>

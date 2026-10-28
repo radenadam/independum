@@ -2,43 +2,124 @@ import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
+import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 import type { BackgroundCommands } from "./create-background-commands.ts";
 import { createOutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
 
 /**
- * What the Shell tool needs: the shell and the output limits that the user chose, where outputs
- * stay, where each running command leaves a way to stop it on its own, and the commands that run in
- * the background.
+ * What the Shell tool needs: the shell and the output limits that the user chose, the model texts,
+ * where outputs stay, where each running command leaves a way to stop it on its own, and the
+ * commands that run in the background.
  */
 interface ShellToolOptions {
   getShell: () => Shell | undefined;
   getLimits: () => OutputLimits;
+  texts: ModelTexts;
   outputFolder: string;
   stops: Map<string, () => void>;
   background: BackgroundCommands;
 }
 
-const parameters = Type.Object({
-  command: Type.String({ minLength: 1, description: "The command to run." }),
-  description: Type.Optional(
-    Type.String({ description: "A few words on what the command does, shown to the user." }),
-  ),
-  timeout: Type.Optional(
-    Type.Number({
-      exclusiveMinimum: 0,
-      description:
-        "Seconds before the command is stopped. Without it, the command runs until it ends.",
-    }),
-  ),
-  background: Type.Optional(
-    Type.Boolean({
-      description:
-        "Runs the command in the background, so the call returns at once with the id of the command and the file that receives its output. When the command ends, a new turn starts with a note of how it ended.",
-    }),
-  ),
-});
+const timeSlot = { meaning: "How long the command ran.", example: "2.4 s" };
+
+/** The texts of the Shell tool that the model reads, which the user can edit. */
+const shellTexts = {
+  description: defineText({
+    id: "shell.description",
+    group: "Shell",
+    section: "description",
+    label: "Every request",
+    builtIn:
+      "Runs a command in {shell} and returns its output and exit code. Each call starts a new process in the project folder, with no input.",
+    slots: {
+      shell: { meaning: "The name of the chosen shell.", example: "Windows PowerShell 5.1" },
+    },
+  }),
+  command: defineText({
+    id: "shell.parameters.command",
+    group: "Shell",
+    section: "parameter",
+    label: "command",
+    builtIn: "The command to run.",
+    slots: {},
+  }),
+  descriptionParameter: defineText({
+    id: "shell.parameters.description",
+    group: "Shell",
+    section: "parameter",
+    label: "description",
+    builtIn: "A few words on what the command does, shown to the user.",
+    slots: {},
+  }),
+  timeout: defineText({
+    id: "shell.parameters.timeout",
+    group: "Shell",
+    section: "parameter",
+    label: "timeout",
+    builtIn: "Seconds before the command is stopped. Without it, the command runs until it ends.",
+    slots: {},
+  }),
+  background: defineText({
+    id: "shell.parameters.background",
+    group: "Shell",
+    section: "parameter",
+    label: "background",
+    builtIn:
+      "Runs the command in the background, so the call returns at once with the id of the command and the file that receives its output. When the command ends, a new turn starts with a note of how it ended.",
+    slots: {},
+  }),
+  exited: defineText({
+    id: "shell.exited",
+    group: "Shell",
+    section: "result",
+    label: "When the command ends, after its output",
+    builtIn: "Exit code {code} after {time}.",
+    slots: { code: { meaning: "The exit code of the command.", example: "0" }, time: timeSlot },
+  }),
+  timedOut: defineText({
+    id: "shell.timedOut",
+    group: "Shell",
+    section: "result",
+    label: "When its timeout stops the command, after its output",
+    builtIn: "Stopped at its timeout of {timeout} s.",
+    slots: { timeout: { meaning: "The timeout that the model set, in seconds.", example: "30" } },
+  }),
+  stoppedByUser: defineText({
+    id: "shell.stoppedByUser",
+    group: "Shell",
+    section: "result",
+    label: "When the user stops the command, after its output",
+    builtIn: "Stopped by the user after {time}.",
+    slots: { time: timeSlot },
+  }),
+  backgroundStarted: defineText({
+    id: "shell.backgroundStarted",
+    group: "Shell",
+    section: "result",
+    label: "When the command starts in the background",
+    builtIn: "Background command {id} runs. Its output goes to {path}",
+    slots: {
+      id: { meaning: "The number of the background command.", example: "3" },
+      path: {
+        meaning: "The file that receives its output.",
+        example: "~/.independum/outputs/chat/call.log",
+      },
+    },
+  }),
+  missing: defineText({
+    id: "shell.missing",
+    group: "Shell",
+    section: "result",
+    label: "When the chosen shell is not installed",
+    builtIn: "The chosen shell is not installed on this computer.",
+    slots: {},
+  }),
+};
+
+/** The texts of the Shell tool, in the order that the Agent place shows them. */
+export const shellTextList: ModelText[] = Object.values(shellTexts);
 
 /**
  * Creates the Shell tool, which runs a command in the shell of the user and returns what it printed
@@ -47,6 +128,7 @@ const parameters = Type.Object({
 export function createShellTool({
   getShell,
   getLimits,
+  texts,
   outputFolder,
   stops,
   background,
@@ -54,12 +136,23 @@ export function createShellTool({
   return defineTool({
     name: "Shell",
     label: "Shell",
-    // The user can choose another shell while a chat is open, so the description names the shell
-    // each time Pi reads it.
+    // Pi reads the description and the parameters each time Independum registers the tools, so a
+    // new shell or an edited text reaches the model with the next turn.
     get description() {
-      return `Runs a command in ${getShell()?.name ?? "the shell"} and returns its output and exit code. Each call starts a new process in the project folder, with no input.`;
+      return texts.fill(shellTexts.description, { shell: getShell()?.name ?? "the shell" });
     },
-    parameters,
+    get parameters() {
+      return Type.Object({
+        command: Type.String({ minLength: 1, description: texts.get(shellTexts.command) }),
+        description: Type.Optional(
+          Type.String({ description: texts.get(shellTexts.descriptionParameter) }),
+        ),
+        timeout: Type.Optional(
+          Type.Number({ exclusiveMinimum: 0, description: texts.get(shellTexts.timeout) }),
+        ),
+        background: Type.Optional(Type.Boolean({ description: texts.get(shellTexts.background) })),
+      });
+    },
     async execute(
       toolCallId,
       { command, timeout, background: isBackground },
@@ -69,7 +162,7 @@ export function createShellTool({
     ) {
       const found = getShell();
       if (found === undefined) {
-        throw new Error("The chosen shell is not installed on this computer.");
+        throw new Error(texts.get(shellTexts.missing));
       }
       const shell: Shell = found;
       const chatId = context.sessionManager.getSessionId();
@@ -95,9 +188,7 @@ export function createShellTool({
           backgroundId: id,
         };
         return {
-          content: [
-            { type: "text", text: `Background command ${id} runs. Its output goes to ${path}` },
-          ],
+          content: [{ type: "text", text: texts.fill(shellTexts.backgroundStarted, { id, path }) }],
           details: started,
         };
       }
@@ -105,7 +196,7 @@ export function createShellTool({
         const progress: ShellProgress = { shell: shell.name, output: latest };
         onUpdate?.({ content: [], details: progress });
       }
-      const log = createOutputLog(path, { limits: getLimits(), onLatest: report });
+      const log = createOutputLog(path, { limits: getLimits(), texts, onLatest: report });
       report("");
       // A command ends when the reply stops, or when the user stops this command alone, and then
       // the agent goes on with the result.
@@ -128,7 +219,7 @@ export function createShellTool({
         stops.delete(toolCallId);
       }
       const output = await log.finish();
-      const status = describeEnd(end, timeout);
+      const status = describeEnd(end, timeout, texts);
       const details: ShellDetails = {
         shell: shell.name,
         ending: end.ending,
@@ -148,13 +239,13 @@ export function createShellTool({
   });
 }
 
-function describeEnd(end: RunEnd, timeout: number | undefined): string {
-  const seconds = describeSeconds(end.durationMs);
+function describeEnd(end: RunEnd, timeout: number | undefined, texts: ModelTexts): string {
+  const time = describeSeconds(end.durationMs);
   if (end.ending === "timedOut") {
-    return `Stopped at its timeout of ${timeout} s.`;
+    return texts.fill(shellTexts.timedOut, { timeout: timeout ?? "unknown" });
   }
   if (end.ending === "stopped") {
-    return `Stopped by the user after ${seconds}.`;
+    return texts.fill(shellTexts.stoppedByUser, { time });
   }
-  return `Exit code ${end.exitCode ?? "unknown"} after ${seconds}.`;
+  return texts.fill(shellTexts.exited, { code: end.exitCode ?? "unknown", time });
 }

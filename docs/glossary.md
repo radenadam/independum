@@ -21,6 +21,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
+| Model text | A text that Independum sends to the model, such as the system prompt, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Agent place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
 | Place | Something that opens in a side panel tab, such as Agent. A terminal, a browser, and files come later. | "tool", "app", "widget" |
@@ -31,5 +32,6 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
 | Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |
 | Sidebar | The column at the left of the working screen, with New chat, the search, the projects, and Settings. | "margin", "nav", "menu" |
+| Slot | A name in braces in a model text, such as `{id}`, where Independum puts a value when it sends the text. | "placeholder", "variable", "token" |
 | User | A person who runs Independum and works with its agent. | "the customer", "the operator" |
 | Working screen | The screen where the user works with the agent, with the sidebar, the chat, and the side panel. | "main screen", "dashboard", "cockpit" |
