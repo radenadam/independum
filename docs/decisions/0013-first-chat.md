@@ -1,6 +1,6 @@
 # First chat
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0029](0029-own-tools.md), which gives the agent its own tools and makes `@earendil-works/pi-ai` a dependency
 - Date: 2026-10-25
 
 ## Context

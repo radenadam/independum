@@ -1,3 +1,4 @@
+import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import {
   type AgentSession,
@@ -19,8 +20,12 @@ import type {
   ContextSummary,
   MessagePart,
   ProjectSummary,
+  ToolCallPart,
+  ToolResult,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
+import { createShellTool } from "./tools/create-shell-tool.ts";
+import { findShell } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -28,6 +33,7 @@ type MessageContent =
   | Extract<AgentMessage, { role: "user" }>["content"]
   | Extract<AgentMessage, { role: "assistant" }>["content"];
 type ReplyUpdate = Extract<AgentSessionEvent, { type: "message_update" }>["assistantMessageEvent"];
+type ToolResultMessage = Extract<AgentMessage, { role: "toolResult" }>;
 
 /** How long the model thought in each part of a reply, as Independum saves it in the chat. */
 interface ThinkingTimes {
@@ -39,9 +45,14 @@ interface ThinkingTimes {
 // chat file and never sends to the model.
 const thinkingTimesType = "independum-thinking-times";
 
-// The first chat has no tools, and the prompt says so, so the model never pretends to use one.
+// The prompt says only where the agent is and where it works, and leaves how to work to the model
+// and the descriptions of its tools.
 const systemPrompt =
-  "You are the assistant in Independum, an agent harness. You have no tools yet, so you cannot read files or run commands. Answer plainly and clearly.";
+  "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.";
+// The output of a tool that reaches the model, whichever limit comes first.
+const outputLimits = { maxLines: 2000, maxBytes: 50 * 1024 };
+// A tool call that the model is still writing reaches the chat at most this often.
+const callUpdateInterval = 80;
 
 /** Options for the chat. */
 export interface ChatOptions {
@@ -76,6 +87,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(cwd);
+  const shell = findShell();
+  const outputFolder = join(directory, "outputs");
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
   let folder = startFolder;
@@ -86,6 +99,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // The thinking of the reply in progress, by the place of each part in the message.
   const thinkingStarts = new Map<number, number>();
   const thinkingTimes = new Map<number, number>();
+  let lastCallUpdate = 0;
 
   function emit(event: ChatEvent): void {
     for (const listener of listeners) {
@@ -105,10 +119,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         model === undefined || session?.supportsThinking() !== true
           ? null
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
-      messages: (session?.messages ?? []).flatMap((message) => {
-        const shown = toChatMessage(message, savedTimes.get(message.timestamp));
-        return shown === undefined ? [] : [shown];
-      }),
+      messages: chatMessagesOf(session?.messages ?? [], savedTimes),
       isReplying,
     };
   }
@@ -149,6 +160,30 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           part: thinkingPartOf(block, thinkingTimes.get(update.contentIndex) ?? null),
         });
       }
+    } else if (
+      update.type === "toolcall_start" ||
+      update.type === "toolcall_delta" ||
+      update.type === "toolcall_end"
+    ) {
+      showCall(update);
+    }
+  }
+
+  // Pi reads the arguments of a call as they stream, so the chat shows the call as it is written.
+  function showCall(
+    update: Extract<ReplyUpdate, { type: "toolcall_start" | "toolcall_delta" | "toolcall_end" }>,
+  ): void {
+    const now = performance.now();
+    if (update.type === "toolcall_delta" && now - lastCallUpdate < callUpdateInterval) {
+      return;
+    }
+    lastCallUpdate = now;
+    const block =
+      update.type === "toolcall_end"
+        ? update.toolCall
+        : update.partial.content[update.contentIndex];
+    if (block?.type === "toolCall") {
+      emit({ type: "replyPart", index: update.contentIndex, part: toolCallPartOf(block) });
     }
   }
 
@@ -239,6 +274,20 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       showUpdate(event.assistantMessageEvent);
     } else if (event.type === "turn_end") {
       saveThinkingTimes(event.message);
+    } else if (event.type === "tool_execution_start") {
+      emit({ type: "toolStart", id: event.toolCallId });
+    } else if (event.type === "tool_execution_update") {
+      emit({
+        type: "toolProgress",
+        id: event.toolCallId,
+        details: event.partialResult?.details ?? null,
+      });
+    } else if (event.type === "message_end" && event.message.role === "toolResult") {
+      emit({
+        type: "toolResult",
+        id: event.message.toolCallId,
+        result: toolResultOf(event.message),
+      });
     } else if (event.type === "message_end") {
       const message = toChatMessage(event.message, timesOf(event.message));
       if (message !== undefined) {
@@ -301,6 +350,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       modelRuntime: models,
       resourceLoader,
       noTools: "builtin",
+      customTools:
+        shell === undefined ? [] : [createShellTool({ shell, outputFolder, limits: outputLimits })],
       sessionManager: manager,
       settingsManager: SettingsManager.inMemory(),
       ...(model === undefined ? {} : { model }),
@@ -482,6 +533,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       }
       await leave(saved);
       await savedChats.remove(saved);
+      rmSync(join(outputFolder, saved.id), { recursive: true, force: true });
       emitProjects();
       return true;
     },
@@ -532,20 +584,57 @@ function toFolder(path: string): string {
 
 // Writes a chat as Markdown, with a heading for each prompt and for each reply, which names the
 // model that wrote it.
+// A turn of the agent that only called tools has no text, so it gets no heading.
 function markdownOf(title: string, messages: AgentMessage[]): string {
   const parts = [`# ${title}`];
   for (const message of messages) {
     const shown = toChatMessage(message);
-    if (shown !== undefined) {
+    const text = (shown?.parts ?? [])
+      .flatMap((part) => (part.type === "text" ? [part.text] : []))
+      .join("");
+    if (shown !== undefined && (text.trim() !== "" || shown.error !== null)) {
       const heading = message.role === "assistant" ? `Agent (${message.model})` : "You";
-      const text = shown.parts
-        .flatMap((part) => (part.type === "text" ? [part.text] : []))
-        .join("");
       const body = shown.error === null ? text : `${text}\n\n*${shown.error}*`;
       parts.push(`## ${heading}`, body.trim());
     }
   }
   return `${parts.filter((part) => part !== "").join("\n\n")}\n`;
+}
+
+// Pi keeps each result of a tool as a message of its own, and the chat shows it with its call.
+function chatMessagesOf(
+  messages: AgentMessage[],
+  savedTimes: Map<number, (number | null)[]>,
+): ChatMessage[] {
+  const calls = new Map<string, ToolCallPart>();
+  const shown: ChatMessage[] = [];
+  for (const message of messages) {
+    if (message.role === "toolResult") {
+      const call = calls.get(message.toolCallId);
+      if (call !== undefined) {
+        call.result = toolResultOf(message);
+      }
+    } else {
+      const chatMessage = toChatMessage(message, savedTimes.get(message.timestamp));
+      for (const part of chatMessage?.parts ?? []) {
+        if (part.type === "toolCall") {
+          calls.set(part.id, part);
+        }
+      }
+      if (chatMessage !== undefined) {
+        shown.push(chatMessage);
+      }
+    }
+  }
+  return shown;
+}
+
+function toolResultOf(message: ToolResultMessage): ToolResult {
+  return {
+    text: message.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
+    isError: message.isError,
+    details: message.details ?? null,
+  };
 }
 
 function toChatMessage(
@@ -597,8 +686,17 @@ function partsOf(content: MessageContent, thinkingTimes: (number | null)[]): Mes
     if (block.type === "thinking") {
       return [thinkingPartOf(block, thinkingTimes[index] ?? null)];
     }
+    if (block.type === "toolCall") {
+      return [toolCallPartOf(block)];
+    }
     return [];
   });
+}
+
+function toolCallPartOf(
+  block: Extract<MessageContent[number], { type: "toolCall" }>,
+): ToolCallPart {
+  return { type: "toolCall", id: block.id, name: block.name, input: block.arguments, result: null };
 }
 
 function thinkingPartOf(

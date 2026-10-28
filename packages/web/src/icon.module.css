@@ -188,6 +188,16 @@
   --shift-y: 2px;
 }
 
+.prompt {
+  --shift-x: 1px;
+}
+
+.cursor {
+  --stretch-x: 1.4;
+
+  transform-origin: 12px 15px;
+}
+
 .lid {
   --shift-y: -2px;
   --turn: -8deg;

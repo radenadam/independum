@@ -1,0 +1,18 @@
+/* The input sits at the top of the step, so its block of code leaves out the space it has in a reply. */
+.input > * {
+  margin: 0;
+}
+
+.output {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font: 12.5px / 1.6 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Opened by the user, a long output scrolls inside the step instead of stretching the chat. */
+[data-following="false"] .output {
+  max-height: 420px;
+  overflow-y: auto;
+}

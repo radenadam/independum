@@ -4,7 +4,7 @@ import { findPunctuationProblems } from "./find-punctuation-problems.ts";
 import { runCheck } from "./run-check.ts";
 
 const sourceFile = /\.tsx?$/;
-const directive = /^ (?:biome-ignore|@ts-expect-error) \S/;
+const directive = /^ (?:biome-ignore(?:-start|-end)?|@ts-expect-error) \S/;
 const openWorkMarker = /\b(?:todo|fixme|xxx|hack)\b/i;
 const personalPronoun = /\b(?:we|us|our|let's|you|your)\b/i;
 const firstPersonPronoun = /(?:^|\s)I(?:\s|')/;

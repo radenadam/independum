@@ -1,10 +1,12 @@
 import type {
   ChatEvent,
+  ChatMessage,
   ChatState,
   ChatSummary,
   MessagePart,
   ModelSummary,
   ProjectSummary,
+  ToolResult,
 } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import {
@@ -35,6 +37,7 @@ import { shortcuts, useShortcut } from "./shortcut.ts";
 import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
+import type { ToolRun } from "./tool-step.tsx";
 import { useChatData } from "./use-chat-data.ts";
 import styles from "./working-screen.module.css";
 
@@ -55,6 +58,7 @@ export function WorkingScreen({
   const [chat, setChat] = useState<ChatState | undefined>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [reply, setReply] = useState<MessagePart[]>([]);
+  const [toolRuns, setToolRuns] = useState<Record<string, ToolRun>>({});
   const [connection, setConnection] = useState<ChatConnection>("following");
   const [models, setModels] = useState<ModelSummary[] | undefined>();
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => !isPhone());
@@ -85,6 +89,17 @@ export function WorkingScreen({
           setReply([]);
         } else if (event.type === "replyDelta" || event.type === "replyPart") {
           setReply((current) => updateReply(current, event));
+        }
+        if (event.type === "state") {
+          setToolRuns({});
+        } else if (event.type === "toolStart" || event.type === "toolProgress") {
+          setToolRuns((current) => ({
+            ...current,
+            [event.id]: {
+              startedAt: current[event.id]?.startedAt ?? Date.now(),
+              details: event.type === "toolProgress" ? event.details : null,
+            },
+          }));
         }
       },
       (next) => (next === "expiredLink" ? onExpiredLink() : setConnection(next)),
@@ -286,6 +301,7 @@ export function WorkingScreen({
                 chatId={chat.id}
                 messages={chat.messages}
                 reply={reply}
+                toolRuns={toolRuns}
                 isReplying={chat.isReplying}
               />
             </div>
@@ -390,6 +406,17 @@ function updateReply(
   return next;
 }
 
+function withResult(message: ChatMessage, id: string, result: ToolResult): ChatMessage {
+  return message.parts.some((part) => part.type === "toolCall" && part.id === id)
+    ? {
+        ...message,
+        parts: message.parts.map((part) =>
+          part.type === "toolCall" && part.id === id ? { ...part, result } : part,
+        ),
+      }
+    : message;
+}
+
 function applyEvent(
   event: ChatEvent,
   setChat: (update: (current: ChatState | undefined) => ChatState | undefined) => void,
@@ -400,5 +427,13 @@ function applyEvent(
     setChat((current) => current && { ...current, messages: [...current.messages, event.message] });
   } else if (event.type === "replying") {
     setChat((current) => current && { ...current, isReplying: event.isReplying });
+  } else if (event.type === "toolResult") {
+    setChat(
+      (current) =>
+        current && {
+          ...current,
+          messages: current.messages.map((message) => withResult(message, event.id, event.result)),
+        },
+    );
   }
 }

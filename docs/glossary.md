@@ -25,6 +25,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | Step | One thing the agent does on its way to a reply, such as thinking or calling a tool. Each step sits in a box of its own, apart from the reply. | "action", "activity", "trace" |
+| Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
 | Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |
 | Sidebar | The column at the left of the working screen, with New chat, the search, the projects, and Settings. | "margin", "nav", "menu" |
 | User | A person who runs Independum and works with its agent. | "the customer", "the operator" |

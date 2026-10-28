@@ -1,7 +1,13 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { fauxAssistantMessage, fauxProvider, fauxText, fauxThinking } from "@earendil-works/pi-ai";
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxText,
+  fauxThinking,
+  fauxToolCall,
+} from "@earendil-works/pi-ai";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
 import type {
@@ -87,6 +93,8 @@ function chooseModel(providerId: string, modelId: string): Promise<Response> {
   );
 }
 
+const updateTypes = ["replyDelta", "replyPart", "toolStart", "toolProgress", "toolResult"];
+
 // The reply comes back once the chat stops replying, so whatever Independum saves after the
 // reply is saved too.
 async function sendAndReadReply(
@@ -98,7 +106,7 @@ async function sendAndReadReply(
   const updates: ChatEvent[] = [];
   let reply: ChatMessage | undefined;
   for (let event = await events.next(); ; event = await events.next()) {
-    if (event.type === "replyDelta" || event.type === "replyPart") {
+    if (updateTypes.includes(event.type)) {
       updates.push(event);
     } else if (event.type === "message" && event.message.role === "assistant") {
       reply = event.message;
@@ -271,7 +279,7 @@ test("the agent shows its prompts and its tools", async () => {
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.systemPrompt).toContain("Independum");
   expect(agent.addedByPi).toContain("<cwd>");
-  expect(agent.tools).toEqual([]);
+  expect(agent.tools).toEqual(["Shell"]);
 });
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
@@ -349,6 +357,34 @@ test("a model streams its thinking, and the chat keeps how long it thought", asy
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await openSaved("Think first")).status).toBe(204);
   expect((await readStart()).state.messages.at(-1)?.parts).toEqual(parts);
+});
+
+test("the agent runs a command in the shell, sees how it ended, and goes on", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const input = { command: 'echo "hello from the shell"', description: "Say hello" };
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", input)], { stopReason: "toolUse" }),
+    fauxAssistantMessage("The shell said hello."),
+  ]);
+  const { updates, reply } = await sendAndReadReply("Say hello in the shell");
+  expect(textOf(reply)).toBe("The shell said hello.");
+  const types = updates.map((update) => update.type);
+  expect(types).toEqual(expect.arrayContaining(["replyPart", "toolStart", "toolProgress"]));
+  const call = updates.find((update) => update.type === "toolResult");
+  expect(call?.type === "toolResult" ? call.result.text : "").toMatch(
+    /^hello from the shell\s+Exit code 0 after \d+\.\d s\.$/,
+  );
+
+  const { messages } = (await readStart()).state;
+  const part = messages
+    .flatMap((message) => message.parts)
+    .find((each) => each.type === "toolCall");
+  expect(part).toMatchObject({
+    name: "Shell",
+    input,
+    result: { isError: false, details: { ending: "exited", exitCode: 0, outputPath: null } },
+  });
 });
 
 function put(path: string, body: unknown): Promise<Response> {

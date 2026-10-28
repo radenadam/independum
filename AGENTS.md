@@ -124,6 +124,13 @@ To review a Pi update with the maintainer:
 3. Run `pnpm dev`, and confirm that the Logins section of the settings lists every provider and that a real model call still works.
 4. Report the findings, and merge with `gh pr merge --squash` only after the maintainer approves.
 
+## Tools
+
+- Independum builds its own tools and registers them with Pi as custom tools. The built-in tools of Pi stay off. See decision 0029.
+- A tool is planned with the maintainer before it is built: what it does, its description, its parameters, and its life from call to result.
+- A tool description holds only what the model needs to know about the tool and the harness to choose the tool and use it. It states facts and gives no rules of conduct.
+- What applies to every tool, such as output that is cut, stays out of the descriptions, because the harness says so in the result when it happens.
+
 ## UI
 
 - Every screen works with touch on a phone screen 360 pixels wide.
