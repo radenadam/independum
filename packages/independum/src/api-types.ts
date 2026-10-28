@@ -107,7 +107,41 @@ export interface ChatState {
 export interface AgentSummary {
   systemPrompt: string;
   addedByPi: string;
-  tools: string[];
+  tools: ToolSummary[];
+  shells: ShellChoice[];
+  outputLimits: OutputLimits;
+}
+
+/** A tool of the agent, with why it cannot run when it cannot, as the Agent place shows it. */
+export interface ToolSummary {
+  name: string;
+  description: string;
+  parameters: unknown;
+  isEnabled: boolean;
+  unavailable: string | null;
+}
+
+/** A kind of shell that the Shell tool can run. */
+export type ShellKind = "bash" | "powershell";
+
+/** A shell that the user can choose for the Shell tool, with its name when it is installed. */
+export interface ShellChoice {
+  kind: ShellKind;
+  name: string | null;
+  isChosen: boolean;
+}
+
+/** How much of the output of a tool reaches the model, whichever limit comes first. */
+export interface OutputLimits {
+  maxLines: number;
+  maxBytes: number;
+}
+
+/** The settings of the user other than logins, which hold for every chat. */
+export interface Settings {
+  shell: ShellKind | null;
+  disabledTools: string[];
+  outputLimits: OutputLimits;
 }
 
 /** One entry of the open chat as Pi saves it, as the Context place lists it. */

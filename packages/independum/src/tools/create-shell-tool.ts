@@ -1,19 +1,19 @@
 import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import type { ShellDetails, ShellProgress } from "../api-types.ts";
-import { createOutputLog, type OutputLimits } from "./create-output-log.ts";
+import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
+import { createOutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { type RunEnd, runCommand } from "./run-command.ts";
 
 /**
- * What the Shell tool needs: the shell, where outputs that are cut stay, their limits, and where
- * each running command leaves a way to stop it on its own.
+ * What the Shell tool needs: the shell and the output limits that the user chose, where outputs
+ * that are cut stay, and where each running command leaves a way to stop it on its own.
  */
 interface ShellToolOptions {
-  shell: Shell;
+  getShell: () => Shell | undefined;
+  getLimits: () => OutputLimits;
   outputFolder: string;
-  limits: OutputLimits;
   stops: Map<string, () => void>;
 }
 
@@ -39,19 +39,28 @@ const progressInterval = 100;
  * and how it ended.
  */
 export function createShellTool({
-  shell,
+  getShell,
+  getLimits,
   outputFolder,
-  limits,
   stops,
 }: ShellToolOptions): ToolDefinition {
   return defineTool({
     name: "Shell",
     label: "Shell",
-    description: `Runs a command in ${shell.name} and returns its output and exit code. Each call starts a new process in the project folder, with no input.`,
+    // The user can choose another shell while a chat is open, so the description names the shell
+    // each time Pi reads it.
+    get description() {
+      return `Runs a command in ${getShell()?.name ?? "the shell"} and returns its output and exit code. Each call starts a new process in the project folder, with no input.`;
+    },
     parameters,
     async execute(toolCallId, { command, timeout }, signal, onUpdate, context) {
+      const found = getShell();
+      if (found === undefined) {
+        throw new Error("The chosen shell is not installed on this computer.");
+      }
+      const shell: Shell = found;
       const path = join(outputFolder, context.sessionManager.getSessionId(), `${toolCallId}.log`);
-      const log = createOutputLog(path, limits);
+      const log = createOutputLog(path, getLimits());
       let timer: NodeJS.Timeout | undefined;
       function report(): void {
         const progress: ShellProgress = { shell: shell.name, output: log.latest() };

@@ -1,11 +1,6 @@
 import { createWriteStream, mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
-
-/** How much of the output of a tool reaches the model, whichever limit comes first. */
-export interface OutputLimits {
-  maxLines: number;
-  maxBytes: number;
-}
+import type { OutputLimits } from "../api-types.ts";
 
 /** The output of a tool as the model gets it. */
 interface LimitedOutput {

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
+import type { ShellKind } from "../api-types.ts";
 
 /** A shell that the Shell tool runs commands in. */
 export interface Shell {
@@ -7,9 +8,6 @@ export interface Shell {
   name: string;
   path: string;
 }
-
-/** The kinds of shell that the Shell tool can run. */
-export type ShellKind = "bash" | "powershell";
 
 /**
  * Returns the shell of a kind on this computer, or the default kind of the system when none is
@@ -47,7 +45,7 @@ export function findShell(kind: ShellKind = defaultShellKind()): Shell | undefin
 }
 
 /** Returns the kind of shell that a system uses when the user has not chosen one. */
-function defaultShellKind(): ShellKind {
+export function defaultShellKind(): ShellKind {
   return process.platform === "win32" ? "powershell" : "bash";
 }
 
