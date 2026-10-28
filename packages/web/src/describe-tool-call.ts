@@ -1,11 +1,15 @@
-import type { ShellDetails, ShellProgress, ToolCallPart } from "independum/api-types";
+import type { CommandEnd, ShellDetails, ShellProgress, ToolCallPart } from "independum/api-types";
 import { describeDuration } from "./describe-duration.ts";
 import type { StepStatus } from "./status-label.tsx";
 
-/** A call to a tool that has started, with when it started and the latest progress of the tool. */
+/**
+ * A call to a tool that has started, with when it started, the latest progress of the tool, and
+ * how a command in the background ended.
+ */
 export interface ToolRun {
   startedAt: number;
   details: unknown;
+  end?: CommandEnd;
 }
 
 /** How a call to a tool reads: its label, what went in, what came back, and how it is going. */
@@ -25,14 +29,18 @@ interface DescribedCall {
 export function describeToolCall(
   part: ToolCallPart,
   run: ToolRun | undefined,
+  end: CommandEnd | undefined,
   isReplying: boolean,
   elapsed: number,
 ): DescribedCall {
-  const isRunning = part.result === null && isReplying && run !== undefined;
-  const status = statusOf(part, run, isReplying, elapsed);
+  const isRunning = isCallRunning(part, run, end, isReplying);
+  const status = statusOf(part, run, end, isReplying, elapsed);
   if (part.name !== "Shell") {
     return {
-      label: part.name,
+      label:
+        part.name === "StopCommand"
+          ? `Stop background command ${String(part.input.id ?? "")}`
+          : part.name,
       language: "json",
       input: JSON.stringify(part.input, null, 2),
       output: part.result?.text ?? "",
@@ -44,41 +52,81 @@ export function describeToolCall(
   const description =
     typeof part.input.description === "string" ? part.input.description.trim() : "";
   const progress = shellProgressOf(run?.details);
+  const details = shellDetailsOf(part.result?.details);
+  // A running command shows what it prints. A command in the background keeps showing what it
+  // printed, because its result only says that it started.
+  const isPrinting = part.result === null || details?.ending === "background";
   return {
     label: description || command.split("\n")[0]?.trim() || "Shell",
-    language: shellDetailsOf(part.result?.details)?.shell ?? progress?.shell ?? "shell",
+    language: details?.shell ?? progress?.shell ?? "shell",
     input: command,
-    output: part.result?.text ?? progress?.output ?? "",
+    output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
     status,
     isRunning,
   };
 }
 
+/**
+ * Returns whether a call to a tool still runs: in the reply until its result comes, or in the
+ * background until the command ends.
+ */
+export function isCallRunning(
+  part: ToolCallPart,
+  run: ToolRun | undefined,
+  end: CommandEnd | undefined,
+  isReplying: boolean,
+): boolean {
+  if (part.result === null) {
+    return isReplying && run !== undefined;
+  }
+  return (
+    shellDetailsOf(part.result.details)?.ending === "background" &&
+    end === undefined &&
+    run !== undefined
+  );
+}
+
+/** Returns how a background command ended, as its step and the note about it show it. */
+export function statusOfEnd(
+  end: Pick<CommandEnd, "ending" | "exitCode" | "durationMs">,
+): StepStatus {
+  if (end.ending === "timedOut") {
+    return { text: "Timed out", tone: "alert" };
+  }
+  if (end.ending === "stopped") {
+    return { text: "Stopped", tone: "quiet" };
+  }
+  return end.exitCode === 0
+    ? { text: describeDuration(end.durationMs), tone: "quiet" }
+    : { text: `Exit code ${end.exitCode ?? "unknown"}`, tone: "alert" };
+}
+
 function statusOf(
   part: ToolCallPart,
   run: ToolRun | undefined,
+  end: CommandEnd | undefined,
   isReplying: boolean,
   elapsed: number,
 ): StepStatus | undefined {
+  const running: StepStatus = { text: describeDuration(elapsed), tone: "running" };
   if (part.result === null) {
     if (!isReplying) {
       return { text: "Not run", tone: "quiet" };
     }
-    return run === undefined ? undefined : { text: describeDuration(elapsed), tone: "running" };
+    return run === undefined ? undefined : running;
   }
   const details = shellDetailsOf(part.result.details);
   if (details === undefined) {
     return part.result.isError ? { text: "Failed", tone: "alert" } : undefined;
   }
-  if (details.ending === "timedOut") {
-    return { text: "Timed out", tone: "alert" };
+  if (details.ending !== "background") {
+    const { ending, exitCode, durationMs } = details;
+    return statusOfEnd({ ending, exitCode, durationMs });
   }
-  if (details.ending === "stopped") {
-    return { text: "Stopped", tone: "quiet" };
+  if (end !== undefined) {
+    return statusOfEnd(end);
   }
-  return details.exitCode === 0
-    ? { text: describeDuration(details.durationMs), tone: "quiet" }
-    : { text: `Exit code ${details.exitCode ?? "unknown"}`, tone: "alert" };
+  return run === undefined ? { text: "In the background", tone: "quiet" } : running;
 }
 
 function shellDetailsOf(details: unknown): ShellDetails | undefined {

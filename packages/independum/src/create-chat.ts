@@ -17,6 +17,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  CommandEnd,
   ContextSummary,
   MessagePart,
   ProjectSummary,
@@ -29,7 +30,13 @@ import type {
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { createSettings } from "./create-settings.ts";
+import {
+  type BackgroundEnded,
+  createBackgroundCommands,
+  describeBackgroundEnded,
+} from "./tools/create-background-commands.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
+import { createStopCommandTool } from "./tools/create-stop-command-tool.ts";
 import { defaultShellKind, findShell } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
@@ -49,6 +56,8 @@ interface ThinkingTimes {
 // Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
 // chat file and never sends to the model.
 const thinkingTimesType = "independum-thinking-times";
+// The note that wakes the agent when one of its background commands ends.
+const commandEndType = "independum-command-end";
 
 // The prompt says only where the agent is and where it works, and leaves how to work to the model
 // and the descriptions of its tools.
@@ -80,6 +89,7 @@ export interface Chat {
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
+  stopAll(): void;
   startNew(folder?: string): Promise<boolean>;
   rename(id: string, name: string): Promise<boolean>;
   pin(id: string, isPinned: boolean): Promise<boolean>;
@@ -98,6 +108,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
   const commandStops = new Map<string, () => void>();
+  const background = createBackgroundCommands({
+    onProgress(chatId, toolCallId, progress) {
+      if (session?.sessionId === chatId) {
+        emit({ type: "toolProgress", id: toolCallId, details: progress });
+      }
+    },
+    onEnd: noteEnd,
+  });
   // Independum's own tools, which every chat shares. Pi registers its built-in tools too, and they
   // stay off.
   const ownTools = [
@@ -106,7 +124,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       getLimits: () => settings.get().outputLimits,
       outputFolder,
       stops: commandStops,
+      background,
     }),
+    createStopCommandTool(background),
   ];
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
@@ -140,7 +160,46 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
       messages: chatMessagesOf(session?.messages ?? [], savedTimes),
       isReplying,
+      backgroundCommands: session === undefined ? [] : background.listRunning(session.sessionId),
     };
+  }
+
+  // A background command that ends wakes the agent of its chat with a note of how it ended. A chat
+  // that is not open keeps the note for its next turn. A command that the model stopped needs no
+  // note, because the result of StopCommand says how it ended.
+  function noteEnd(ended: BackgroundEnded): void {
+    const isOpen = session?.sessionId === ended.chatId;
+    if (isOpen) {
+      emit({ type: "commandEnd", end: ended.end });
+    }
+    if (ended.isStoppedByModel) {
+      return;
+    }
+    const note = {
+      customType: commandEndType,
+      content: describeBackgroundEnded(ended),
+      display: true,
+      details: ended.end,
+    };
+    if (isOpen) {
+      session
+        ?.sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" })
+        .catch(() => undefined);
+    } else {
+      findSaved(ended.chatId).then(
+        (saved) => {
+          if (saved !== undefined) {
+            SessionManager.open(saved.path, sessionDirectory).appendCustomMessageEntry(
+              note.customType,
+              note.content,
+              note.display,
+              note.details,
+            );
+          }
+        },
+        () => undefined,
+      );
+    }
   }
 
   function readThinkingTimes(): Map<number, (number | null)[]> {
@@ -521,6 +580,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           message: {
             role: "assistant",
             parts: [],
+            commandEnd: null,
             error: messageOf(error),
             timestamp: Date.now(),
             durationMs: null,
@@ -637,7 +697,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     stopCommand(id) {
       const stop = commandStops.get(id);
       stop?.();
-      return stop !== undefined;
+      return stop !== undefined || background.stopByUser(id);
+    },
+    stopAll() {
+      background.stopAll();
     },
     async startNew(newFolder) {
       const target = newFolder === undefined ? folder : toFolder(newFolder);
@@ -666,7 +729,11 @@ function markdownOf(title: string, messages: AgentMessage[]): string {
     const text = (shown?.parts ?? [])
       .flatMap((part) => (part.type === "text" ? [part.text] : []))
       .join("");
-    if (shown !== undefined && (text.trim() !== "" || shown.error !== null)) {
+    if (
+      shown !== undefined &&
+      shown.role !== "note" &&
+      (text.trim() !== "" || shown.error !== null)
+    ) {
       const heading = message.role === "assistant" ? `Agent (${message.model})` : "You";
       const body = shown.error === null ? text : `${text}\n\n*${shown.error}*`;
       parts.push(`## ${heading}`, body.trim());
@@ -722,6 +789,17 @@ function toChatMessage(
       error: null,
       timestamp: message.timestamp,
       durationMs: null,
+      commandEnd: null,
+    };
+  }
+  if (message.role === "custom" && message.customType === commandEndType) {
+    return {
+      role: "note",
+      parts: partsOf(message.content, []),
+      error: null,
+      timestamp: message.timestamp,
+      durationMs: null,
+      commandEnd: message.details as CommandEnd,
     };
   }
   if (message.role !== "assistant") {
@@ -733,6 +811,7 @@ function toChatMessage(
     error: errorOf(message),
     timestamp: message.timestamp,
     durationMs: message.durationMs ?? null,
+    commandEnd: null,
   };
 }
 

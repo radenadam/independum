@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Commands that run in the background, such as servers and watchers, which join the Commands place of decision 0030. The maintainer sees the plan first.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
 
 ## Next
@@ -33,5 +32,5 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?
 - The settings of tools belong to the user, as decision 0031 describes. Do some settings also belong to a project?
-- What triggers a message injection, and what can it see?
+- The end of a background command adds a note that wakes the agent, as decision 0032 describes. What else may add a message to a chat, and what can it see?
 - What does memory mean in Independum?

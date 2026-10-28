@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  CommandEnd,
   MessagePart,
   ModelSummary,
   ProjectSummary,
@@ -31,7 +32,7 @@ import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
 import { chatWidth, readColumnWidth } from "./column-width.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
-import type { ToolRun } from "./describe-tool-call.ts";
+import { isCallRunning, type ToolRun } from "./describe-tool-call.ts";
 import { downloadText } from "./download-text.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
@@ -95,7 +96,9 @@ export function WorkingScreen({
           setReply((current) => updateReply(current, event));
         }
         if (event.type === "state") {
-          setToolRuns({});
+          setToolRuns(runsOf(event.state));
+        } else if (event.type === "commandEnd") {
+          setToolRuns((current) => withEnd(current, event.end));
         } else if (event.type === "toolStart" || event.type === "toolProgress") {
           setToolRuns((current) => ({
             ...current,
@@ -195,16 +198,18 @@ export function WorkingScreen({
   }
 
   // A command that ends on its own just before the user stops it needs no notice.
+  const ends = chat === undefined ? {} : endsOf(chat.messages, toolRuns);
   const tools: ToolCalls = {
     runs: toolRuns,
+    ends,
     shown: shownStep,
     onStop: (id) => {
       stopCommand(id).catch(() => undefined);
     },
   };
   const commands = chat === undefined ? [] : commandsOf(chat.messages, reply);
-  const runningCount = commands.filter(
-    (part) => part.result === null && chat?.isReplying === true && toolRuns[part.id] !== undefined,
+  const runningCount = commands.filter((part) =>
+    isCallRunning(part, toolRuns[part.id], ends[part.id], chat?.isReplying === true),
   ).length;
 
   function openLogins(): void {
@@ -446,6 +451,57 @@ function commandsOf(messages: ChatMessage[], reply: MessagePart[]): ToolCallPart
   return [...messages.flatMap((message) => message.parts), ...reply].filter(
     (part): part is ToolCallPart => part.type === "toolCall" && part.name === "Shell",
   );
+}
+
+// The background commands that still run come with the chat, so their steps keep their timers
+// after a reload.
+function runsOf(state: ChatState): Record<string, ToolRun> {
+  return Object.fromEntries(
+    state.backgroundCommands.map((command) => [
+      command.toolCallId,
+      { startedAt: command.startedAt, details: command.progress },
+    ]),
+  );
+}
+
+function withEnd(runs: Record<string, ToolRun>, end: CommandEnd): Record<string, ToolRun> {
+  const run = runs[end.toolCallId];
+  return {
+    ...runs,
+    [end.toolCallId]: {
+      startedAt: run?.startedAt ?? Date.now(),
+      details: run?.details ?? null,
+      end,
+    },
+  };
+}
+
+// A background command ended while the chat was open, or before, as a note in the chat or the
+// result of StopCommand says.
+function endsOf(
+  messages: ChatMessage[],
+  runs: Record<string, ToolRun>,
+): Record<string, CommandEnd> {
+  const ends: Record<string, CommandEnd> = {};
+  for (const message of messages) {
+    if (message.commandEnd !== null) {
+      ends[message.commandEnd.toolCallId] = message.commandEnd;
+    }
+    for (const part of message.parts) {
+      const details =
+        part.type === "toolCall" && part.name === "StopCommand" ? part.result?.details : undefined;
+      if (typeof details === "object" && details !== null && "toolCallId" in details) {
+        const end = details as CommandEnd;
+        ends[end.toolCallId] = end;
+      }
+    }
+  }
+  for (const [id, run] of Object.entries(runs)) {
+    if (run.end !== undefined) {
+      ends[id] = run.end;
+    }
+  }
+  return ends;
 }
 
 function withResult(message: ChatMessage, id: string, result: ToolResult): ChatMessage {

@@ -50,6 +50,16 @@ httpServer.on("request", (request, response) => {
   }
 });
 
+// Background commands of the agent can run in process groups of their own, so they end with
+// Independum instead of outliving it.
+process.once("exit", () => chat.stopAll());
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    chat.stopAll();
+    process.kill(process.pid, signal);
+  });
+}
+
 // The token sits after the # because browsers never send that part of a link to a server.
 httpServer.listen(port, host, () => {
   process.stdout.write(

@@ -6,6 +6,7 @@ import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
 import { ToggleSwitch } from "./toggle-switch.tsx";
 import styles from "./tool-card.module.css";
+import { toolIconOf } from "./tool-icon.ts";
 
 /** Properties of a tool card. */
 interface ToolCardProps {
@@ -26,7 +27,7 @@ export function ToolCard({ tool, shells, disabledTools, onChange }: ToolCardProp
   return (
     <div className={styles.card}>
       <div className={styles.head}>
-        <Icon name={tool.name === "Shell" ? "shell" : "agent"} size={16} />
+        <Icon name={toolIconOf(tool.name)} size={16} />
         <span className={styles.name}>{tool.name}</span>
         <ToggleSwitch
           label={`Use ${tool.name}`}

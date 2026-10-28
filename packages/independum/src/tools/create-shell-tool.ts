@@ -2,19 +2,22 @@ import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
+import type { BackgroundCommands } from "./create-background-commands.ts";
 import { createOutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
-import { type RunEnd, runCommand } from "./run-command.ts";
+import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
 
 /**
  * What the Shell tool needs: the shell and the output limits that the user chose, where outputs
- * that are cut stay, and where each running command leaves a way to stop it on its own.
+ * stay, where each running command leaves a way to stop it on its own, and the commands that run in
+ * the background.
  */
 interface ShellToolOptions {
   getShell: () => Shell | undefined;
   getLimits: () => OutputLimits;
   outputFolder: string;
   stops: Map<string, () => void>;
+  background: BackgroundCommands;
 }
 
 const parameters = Type.Object({
@@ -29,10 +32,13 @@ const parameters = Type.Object({
         "Seconds before the command is stopped. Without it, the command runs until it ends.",
     }),
   ),
+  background: Type.Optional(
+    Type.Boolean({
+      description:
+        "Runs the command in the background, so the call returns at once with the id of the command and the file that receives its output. When the command ends, a new turn starts with a note of how it ended.",
+    }),
+  ),
 });
-
-// The latest output reaches the chat at most this often while a command runs.
-const progressInterval = 100;
 
 /**
  * Creates the Shell tool, which runs a command in the shell of the user and returns what it printed
@@ -43,6 +49,7 @@ export function createShellTool({
   getLimits,
   outputFolder,
   stops,
+  background,
 }: ShellToolOptions): ToolDefinition {
   return defineTool({
     name: "Shell",
@@ -53,20 +60,53 @@ export function createShellTool({
       return `Runs a command in ${getShell()?.name ?? "the shell"} and returns its output and exit code. Each call starts a new process in the project folder, with no input.`;
     },
     parameters,
-    async execute(toolCallId, { command, timeout }, signal, onUpdate, context) {
+    async execute(
+      toolCallId,
+      { command, timeout, background: isBackground },
+      signal,
+      onUpdate,
+      context,
+    ) {
       const found = getShell();
       if (found === undefined) {
         throw new Error("The chosen shell is not installed on this computer.");
       }
       const shell: Shell = found;
-      const path = join(outputFolder, context.sessionManager.getSessionId(), `${toolCallId}.log`);
-      const log = createOutputLog(path, getLimits());
-      let timer: NodeJS.Timeout | undefined;
-      function report(): void {
-        const progress: ShellProgress = { shell: shell.name, output: log.latest() };
+      const chatId = context.sessionManager.getSessionId();
+      const path = join(outputFolder, chatId, `${toolCallId}.log`);
+      const timeoutMs = timeout === undefined ? undefined : timeout * 1000;
+      if (isBackground === true) {
+        const id = background.start({
+          toolCallId,
+          chatId,
+          shell,
+          command,
+          folder: context.cwd,
+          timeoutMs,
+          outputPath: path,
+          limits: getLimits(),
+        });
+        const started: ShellDetails = {
+          shell: shell.name,
+          ending: "background",
+          exitCode: null,
+          durationMs: 0,
+          outputPath: path,
+          backgroundId: id,
+        };
+        return {
+          content: [
+            { type: "text", text: `Background command ${id} runs. Its output goes to ${path}` },
+          ],
+          details: started,
+        };
+      }
+      function report(latest: string): void {
+        const progress: ShellProgress = { shell: shell.name, output: latest };
         onUpdate?.({ content: [], details: progress });
       }
-      report();
+      const log = createOutputLog(path, { limits: getLimits(), onLatest: report });
+      report("");
       // A command ends when the reply stops, or when the user stops this command alone, and then
       // the agent goes on with the result.
       const own = new AbortController();
@@ -77,21 +117,14 @@ export function createShellTool({
           shell,
           command,
           folder: context.cwd,
-          timeoutMs: timeout === undefined ? undefined : timeout * 1000,
+          timeoutMs,
           signal: signal === undefined ? own.signal : AbortSignal.any([signal, own.signal]),
-          onOutput(text) {
-            log.append(text);
-            timer ??= setTimeout(() => {
-              timer = undefined;
-              report();
-            }, progressInterval);
-          },
+          onOutput: (text) => log.append(text),
         });
       } catch (error) {
         await log.finish();
         throw error;
       } finally {
-        clearTimeout(timer);
         stops.delete(toolCallId);
       }
       const output = await log.finish();
@@ -102,6 +135,7 @@ export function createShellTool({
         exitCode: end.exitCode,
         durationMs: end.durationMs,
         outputPath: output.isCut ? path : null,
+        backgroundId: null,
       };
       return {
         content: [
@@ -115,7 +149,7 @@ export function createShellTool({
 }
 
 function describeEnd(end: RunEnd, timeout: number | undefined): string {
-  const seconds = `${(end.durationMs / 1000).toFixed(1)} s`;
+  const seconds = describeSeconds(end.durationMs);
   if (end.ending === "timedOut") {
     return `Stopped at its timeout of ${timeout} s.`;
   }

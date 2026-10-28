@@ -7,10 +7,11 @@ import { createOutputLog } from "./create-output-log.ts";
 const folder = mkdtempSync(join(tmpdir(), "independum-output-"));
 afterAll(() => rmSync(folder, { recursive: true, force: true }));
 const limits = { maxLines: 10, maxBytes: 1000 };
+const options = { limits };
 
 test("output within the limits reaches the model whole and leaves no file", async () => {
   const path = join(folder, "short.log");
-  const log = createOutputLog(path, limits);
+  const log = createOutputLog(path, options);
   log.append("one\ntw");
   log.append("o\nthree");
   expect(log.latest()).toBe("one\ntwo\nthree");
@@ -20,7 +21,7 @@ test("output within the limits reaches the model whole and leaves no file", asyn
 
 test("long output keeps its start and its end, and names the cut lines and the whole file", async () => {
   const path = join(folder, "long.log");
-  const log = createOutputLog(path, limits);
+  const log = createOutputLog(path, options);
   log.append(Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n"));
   const output = await log.finish();
   expect(output.isCut).toBe(true);
@@ -35,7 +36,7 @@ test("long output keeps its start and its end, and names the cut lines and the w
 });
 
 test("terminal colors and redrawn progress lines read as plain text", async () => {
-  const log = createOutputLog(join(folder, "plain.log"), limits);
+  const log = createOutputLog(join(folder, "plain.log"), options);
   log.append("\u001b[32mpassed\u001b[0m\r\n");
   log.append("10%\r50%\r");
   log.append("100%\ndone");
