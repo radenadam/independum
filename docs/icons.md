@@ -55,6 +55,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
 | Context | A ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
+| Stop command | A circle around a small box, on a running command, which stops that command alone. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -97,6 +98,7 @@ Decision 0024 records why icons move and where the line falls.
 | Effort | The needle revs up. |
 | Context | The orange part of the ring turns a little. |
 | Shell | The prompt nudges forward, and the cursor stretches as if it types. |
+| Stop command | The box squeezes. |
 
 ## Building icons
 

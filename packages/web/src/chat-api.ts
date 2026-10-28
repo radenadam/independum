@@ -163,6 +163,11 @@ export async function openChat(id: string): Promise<void> {
   }
 }
 
+/** Stops one running command, and the reply goes on with what it printed. */
+export async function stopCommand(id: string): Promise<void> {
+  await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/stop`, { method: "POST" });
+}
+
 /** Stops the reply in progress. */
 export async function stopReply(): Promise<void> {
   await requestApi("/api/chat/stop", { method: "POST" });

@@ -6,11 +6,15 @@ import { createOutputLog, type OutputLimits } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { type RunEnd, runCommand } from "./run-command.ts";
 
-/** What the Shell tool needs: the shell, where outputs that are cut stay, and their limits. */
+/**
+ * What the Shell tool needs: the shell, where outputs that are cut stay, their limits, and where
+ * each running command leaves a way to stop it on its own.
+ */
 interface ShellToolOptions {
   shell: Shell;
   outputFolder: string;
   limits: OutputLimits;
+  stops: Map<string, () => void>;
 }
 
 const parameters = Type.Object({
@@ -34,7 +38,12 @@ const progressInterval = 100;
  * Creates the Shell tool, which runs a command in the shell of the user and returns what it printed
  * and how it ended.
  */
-export function createShellTool({ shell, outputFolder, limits }: ShellToolOptions): ToolDefinition {
+export function createShellTool({
+  shell,
+  outputFolder,
+  limits,
+  stops,
+}: ShellToolOptions): ToolDefinition {
   return defineTool({
     name: "Shell",
     label: "Shell",
@@ -49,6 +58,10 @@ export function createShellTool({ shell, outputFolder, limits }: ShellToolOption
         onUpdate?.({ content: [], details: progress });
       }
       report();
+      // A command ends when the reply stops, or when the user stops this command alone, and then
+      // the agent goes on with the result.
+      const own = new AbortController();
+      stops.set(toolCallId, () => own.abort());
       let end: RunEnd;
       try {
         end = await runCommand({
@@ -56,7 +69,7 @@ export function createShellTool({ shell, outputFolder, limits }: ShellToolOption
           command,
           folder: context.cwd,
           timeoutMs: timeout === undefined ? undefined : timeout * 1000,
-          signal,
+          signal: signal === undefined ? own.signal : AbortSignal.any([signal, own.signal]),
           onOutput(text) {
             log.append(text);
             timer ??= setTimeout(() => {
@@ -70,6 +83,7 @@ export function createShellTool({ shell, outputFolder, limits }: ShellToolOption
         throw error;
       } finally {
         clearTimeout(timer);
+        stops.delete(toolCallId);
       }
       const output = await log.finish();
       const status = describeEnd(end, timeout);

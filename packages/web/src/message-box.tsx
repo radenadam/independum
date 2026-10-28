@@ -20,6 +20,7 @@ import { ModelMenu } from "./model-menu.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
+import { StatusLabel } from "./status-label.tsx";
 import { thinkingRatio } from "./thinking-ratio.ts";
 
 /** A menu that opens from the message box. */
@@ -44,6 +45,8 @@ interface MessageBoxProps {
   onChooseFolder: (folder: string) => void;
   onManageLogins: () => void;
   onOpenContext: () => void;
+  runningCount: number;
+  onOpenCommands: () => void;
 }
 
 /**
@@ -68,6 +71,8 @@ export function MessageBox({
   onChooseFolder,
   onManageLogins,
   onOpenContext,
+  runningCount,
+  onOpenCommands,
 }: MessageBoxProps): ReactElement {
   const [draft, setDraft] = useState(() => readDraft(chatId));
   const [draftChatId, setDraftChatId] = useState(chatId);
@@ -284,6 +289,21 @@ export function MessageBox({
               <Icon name="folder" size={14} />
               <SlidingTitle text={project?.name ?? folder} />
             </span>
+          )}
+          {runningCount === 0 ? null : (
+            <button
+              type="button"
+              className={`${styles.pill} ${styles.running}`}
+              onClick={onOpenCommands}
+            >
+              <StatusLabel
+                status={{
+                  text:
+                    runningCount === 1 ? "1 command running" : `${runningCount} commands running`,
+                  tone: "running",
+                }}
+              />
+            </button>
           )}
         </div>
       </div>

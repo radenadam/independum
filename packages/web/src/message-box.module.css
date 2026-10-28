@@ -85,6 +85,12 @@
   padding: 8px 4px 0;
 }
 
+/* The count of running commands sits at the far end of the row under the box. */
+.running {
+  height: 28px;
+  margin-left: auto;
+}
+
 .folder {
   height: 28px;
   font: 12px / 1 var(--font-mono);

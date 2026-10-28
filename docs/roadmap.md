@@ -6,7 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- The next steps of Shell, as decision 0029 describes. First a Commands place in the side panel, with running commands on top and the earlier commands of the chat below, a count of running commands beside the message box that opens it, and a stop for each command. Then settings for the shell and the output limits, with switches for tools in the Agent place. Then commands that run in the background.
+- The next steps of Shell, as decision 0029 describes. First settings for the shell and the output limits, with switches for tools in the Agent place. Then commands that run in the background, which join the Commands place of decision 0030.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
 
 ## Next
@@ -28,7 +28,7 @@ The maintainer agreed to these, and they come in this order, one small change at
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
 - How do permissions and sandboxing work for commands and the other tools? Study the options once the tools are done. See decision 0029.
-- Which places come after Agent and Context in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016 and 0026.
+- Which places come after Agent, Context, and Commands in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016, 0026, and 0030.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?

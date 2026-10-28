@@ -4,6 +4,7 @@ import { CodeWell } from "./code-well.tsx";
 import styles from "./context-place.module.css";
 import { describeUsage } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
+import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 
 /** Properties of the Context place. */
@@ -21,16 +22,16 @@ const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", tim
 export function ContextPlace({ context }: ContextPlaceProps): ReactElement {
   if (context === undefined) {
     return (
-      <div className={styles.place}>
-        <p className={styles.note}>Loading the context.</p>
-      </div>
+      <PlaceFrame>
+        <PlaceNote>Loading the context.</PlaceNote>
+      </PlaceFrame>
     );
   }
   const request =
     context.lastRequest === null ? undefined : JSON.stringify(context.lastRequest, null, 2);
 
   return (
-    <div className={styles.place}>
+    <PlaceFrame>
       <dl className={styles.facts}>
         {factsOf(context).map(([label, value]) => (
           <div key={label} className={styles.fact}>
@@ -41,7 +42,7 @@ export function ContextPlace({ context }: ContextPlaceProps): ReactElement {
       </dl>
       <PlaceSection heading="Raw messages">
         {context.entries.length === 0 ? (
-          <p className={styles.note}>Pi saves the chat with its first message.</p>
+          <PlaceNote>Pi saves the chat with its first message.</PlaceNote>
         ) : (
           <ul className={styles.entries}>
             {context.entries.map((entry) => (
@@ -66,14 +67,14 @@ export function ContextPlace({ context }: ContextPlaceProps): ReactElement {
       </PlaceSection>
       <PlaceSection heading="Last request">
         {request === undefined ? (
-          <p className={styles.note}>No request yet since this chat opened.</p>
+          <PlaceNote>No request yet since this chat opened.</PlaceNote>
         ) : (
           <Disclosure label="The exact request">
             <CodeWell code={request} copyLabel="Copy request" />
           </Disclosure>
         )}
       </PlaceSection>
-    </div>
+    </PlaceFrame>
   );
 }
 

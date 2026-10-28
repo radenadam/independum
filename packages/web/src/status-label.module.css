@@ -1,0 +1,34 @@
+.status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font: 12px var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.status[data-tone="alert"] {
+  color: var(--signal);
+}
+
+/* A step under way shows a small orange dot beside its timer. */
+.status[data-tone="running"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .status[data-tone="running"]::before {
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    50% {
+      opacity: 0.3;
+    }
+  }
+}

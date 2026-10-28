@@ -73,6 +73,7 @@ export interface Chat {
   chooseThinking(level: string): boolean;
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
+  stopCommand(id: string): boolean;
   startNew(folder?: string): Promise<boolean>;
   rename(id: string, name: string): Promise<boolean>;
   pin(id: string, isPinned: boolean): Promise<boolean>;
@@ -89,6 +90,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const startFolder = toFolder(cwd);
   const shell = findShell();
   const outputFolder = join(directory, "outputs");
+  const commandStops = new Map<string, () => void>();
   const listeners = new Set<(event: ChatEvent) => void>();
   let session: AgentSession | undefined;
   let folder = startFolder;
@@ -351,7 +353,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       resourceLoader,
       noTools: "builtin",
       customTools:
-        shell === undefined ? [] : [createShellTool({ shell, outputFolder, limits: outputLimits })],
+        shell === undefined
+          ? []
+          : [createShellTool({ shell, outputFolder, limits: outputLimits, stops: commandStops })],
       sessionManager: manager,
       settingsManager: SettingsManager.inMemory(),
       ...(model === undefined ? {} : { model }),
@@ -564,6 +568,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     },
     async stop() {
       await session?.abort();
+    },
+    stopCommand(id) {
+      const stop = commandStops.get(id);
+      stop?.();
+      return stop !== undefined;
     },
     async startNew(newFolder) {
       const target = newFolder === undefined ? folder : toFolder(newFolder);
