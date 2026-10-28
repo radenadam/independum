@@ -6,18 +6,20 @@ interface ModalDialogProps {
   isOpen: boolean;
   label: string;
   className: string | undefined;
+  isFullOnPhone?: boolean;
   onClose: () => void;
   children: ReactNode;
 }
 
 /**
  * Draws a dialog over the page while it is open, which keeps the focus inside it and closes on
- * Escape or a click outside it.
+ * Escape or a click outside it. A large dialog can cover the whole screen of a phone.
  */
 export function ModalDialog({
   isOpen,
   label,
   className,
+  isFullOnPhone = false,
   onClose,
   children,
 }: ModalDialogProps): ReactElement {
@@ -45,7 +47,7 @@ export function ModalDialog({
     // biome-ignore lint/a11y/useKeyWithClickEvents: A click on the backdrop is for a pointer, and the keyboard closes the dialog with Escape, which the browser handles.
     <dialog
       ref={dialog}
-      className={`${styles.dialog} ${className ?? ""}`}
+      className={`${styles.dialog} ${isFullOnPhone ? styles.fullOnPhone : ""} ${className ?? ""}`}
       aria-label={label}
       onClose={closeOnOwnEvent}
       onClick={closeOnOwnEvent}

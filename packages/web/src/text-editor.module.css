@@ -1,0 +1,142 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.head {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 10px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.parameter {
+  font: 500 13px var(--font-mono);
+}
+
+.type {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.field {
+  width: 100%;
+  min-height: 44px;
+  max-height: 360px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px / 1.6 var(--font-mono);
+  resize: vertical;
+  field-sizing: content;
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--muted);
+}
+
+.slots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.slotName {
+  flex: none;
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 12px var(--font-mono);
+}
+
+.slotName:hover {
+  background: var(--raised);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--well);
+}
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.previewText,
+.builtIn {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.builtIn {
+  font-family: var(--font-mono);
+}
+
+.warning {
+  margin: 0;
+  font-size: 12px;
+  color: var(--signal);
+}
+
+.changed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--signal-soft);
+}
+
+.changedNote {
+  margin: 0;
+  font-size: 13px;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

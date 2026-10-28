@@ -1,4 +1,5 @@
 import type { CommandEnd, OutputLimits, RunningCommand, ShellProgress } from "../api-types.ts";
+import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 import { createOutputLog, type OutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
@@ -24,11 +25,80 @@ export interface BackgroundEnded {
   isStoppedByModel: boolean;
 }
 
-/** Who hears about background commands as they print and when they end. */
-interface BackgroundListeners {
+/**
+ * What background commands need: the model texts, and who hears about them as they print and when
+ * they end.
+ */
+interface BackgroundOptions {
+  texts: ModelTexts;
   onProgress: (chatId: string, toolCallId: string, progress: ShellProgress) => void;
   onEnd: (ended: BackgroundEnded) => void;
 }
+
+const endSlots = {
+  id: { meaning: "The number of the background command.", example: "3" },
+  time: { meaning: "How long the command ran.", example: "84.2 s" },
+  path: {
+    meaning: "The file that holds the whole output.",
+    example: "~/.independum/outputs/chat/call.log",
+  },
+};
+
+/**
+ * The texts that say how a background command ended, in a note that wakes the agent or in the
+ * result of StopCommand, which the user can edit.
+ */
+const backgroundTexts = {
+  ended: defineText({
+    id: "background.ended",
+    group: "Shell",
+    section: "note",
+    label: "When a background command ends",
+    builtIn:
+      "Background command {id} ended with exit code {code} after {time}. Its output is in {path}",
+    slots: {
+      ...endSlots,
+      code: { meaning: "The exit code of the command.", example: "0" },
+    },
+  }),
+  timedOut: defineText({
+    id: "background.timedOut",
+    group: "Shell",
+    section: "note",
+    label: "When its timeout stops a background command",
+    builtIn: "Background command {id} stopped at its timeout after {time}. Its output is in {path}",
+    slots: endSlots,
+  }),
+  stoppedByUser: defineText({
+    id: "background.stoppedByUser",
+    group: "Shell",
+    section: "note",
+    label: "When the user stops a background command",
+    builtIn: "The user stopped background command {id} after {time}. Its output is in {path}",
+    slots: endSlots,
+  }),
+  lastLines: defineText({
+    id: "background.lastLines",
+    group: "Shell",
+    section: "note",
+    label: "Below the note or the result of StopCommand, when the command printed anything",
+    builtIn: "Its last lines:\n{lines}",
+    slots: {
+      lines: {
+        meaning: "The last 20 lines of its output.",
+        example: "Listening on http://localhost:5173\nReady in 812 ms",
+      },
+    },
+  }),
+  stoppedByModel: defineText({
+    id: "stopCommand.stopped",
+    group: "StopCommand",
+    section: "result",
+    label: "When it stops the command",
+    builtIn: "Stopped background command {id} after {time}. Its output is in {path}",
+    slots: endSlots,
+  }),
+};
 
 /** The commands that run in the background, which the user and the model can stop. */
 export interface BackgroundCommands {
@@ -38,6 +108,9 @@ export interface BackgroundCommands {
   listRunning(chatId: string): RunningCommand[];
   stopAll(): void;
 }
+
+/** The texts that say how a background command ended, in the order that the Agent place shows them. */
+export const backgroundTextList: ModelText[] = Object.values(backgroundTexts);
 
 /** One background command while it runs. */
 interface Running {
@@ -55,9 +128,10 @@ const lastLineCount = 20;
  * the model can name one, and they keep running while the user opens other chats.
  */
 export function createBackgroundCommands({
+  texts,
   onProgress,
   onEnd,
-}: BackgroundListeners): BackgroundCommands {
+}: BackgroundOptions): BackgroundCommands {
   const running = new Map<number, Running>();
   let nextId = 1;
 
@@ -70,6 +144,7 @@ export function createBackgroundCommands({
       let stoppedBy: "user" | "model" | undefined;
       const log = createOutputLog(start.outputPath, {
         limits: start.limits,
+        texts,
         isKept: true,
         onLatest: (latest) =>
           onProgress(start.chatId, start.toolCallId, { shell: start.shell.name, output: latest }),
@@ -149,14 +224,21 @@ export function createBackgroundCommands({
  * Returns how a background command ended, where its whole output is, and its last lines, as the
  * model reads it in a note or in the result of StopCommand.
  */
-export function describeBackgroundEnded({ end, outputPath, lastLines }: BackgroundEnded): string {
-  const time = describeSeconds(end.durationMs);
+export function describeBackgroundEnded(
+  { end, outputPath, lastLines }: BackgroundEnded,
+  texts: ModelTexts,
+): string {
+  const values = { id: end.id, time: describeSeconds(end.durationMs), path: outputPath };
   const how =
     end.ending === "timedOut"
-      ? `Background command ${end.id} stopped at its timeout after ${time}.`
+      ? texts.fill(backgroundTexts.timedOut, values)
       : end.ending === "stopped"
-        ? `${end.isStoppedByUser ? "The user stopped" : "Stopped"} background command ${end.id} after ${time}.`
-        : `Background command ${end.id} ended with exit code ${end.exitCode ?? "unknown"} after ${time}.`;
-  const last = lastLines === "" ? "" : `\n\nIts last lines:\n${lastLines}`;
-  return `${how} Its output is in ${outputPath}${last}`;
+        ? texts.fill(
+            end.isStoppedByUser ? backgroundTexts.stoppedByUser : backgroundTexts.stoppedByModel,
+            values,
+          )
+        : texts.fill(backgroundTexts.ended, { ...values, code: end.exitCode ?? "unknown" });
+  return lastLines === ""
+    ? how
+    : `${how}\n\n${texts.fill(backgroundTexts.lastLines, { lines: lastLines })}`;
 }

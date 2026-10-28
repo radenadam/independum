@@ -14,6 +14,16 @@
   background: var(--scrim);
 }
 
+@media (max-width: 760px) {
+  /* Two classes, so a phone size wins over the size that each dialog sets for itself. */
+  .dialog.fullOnPhone {
+    width: 100vw;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .dialog[open] {
     animation: pop 150ms ease-out both;

@@ -18,20 +18,9 @@
   color: var(--muted);
 }
 
-.builtIn,
-.readOnly {
-  padding: 2px 7px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.builtIn {
-  background: var(--signal-soft);
-  color: var(--signal);
-}
-
-.readOnly {
-  background: var(--raised);
-  color: var(--muted);
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
 }

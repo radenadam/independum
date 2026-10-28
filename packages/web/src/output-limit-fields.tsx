@@ -19,6 +19,14 @@ const kilobyteRange = { min: 1, max: 102_400 };
 export function OutputLimitFields({ limits, onChange }: OutputLimitFieldsProps): ReactElement {
   const [lines, setLines] = useState(String(limits.maxLines));
   const [kilobytes, setKilobytes] = useState(String(Math.round(limits.maxBytes / 1024)));
+  // The fields follow the limits when they change elsewhere, such as with a reset.
+  const limitsKey = `${limits.maxLines}:${limits.maxBytes}`;
+  const [shownKey, setShownKey] = useState(limitsKey);
+  if (shownKey !== limitsKey) {
+    setShownKey(limitsKey);
+    setLines(String(limits.maxLines));
+    setKilobytes(String(Math.round(limits.maxBytes / 1024)));
+  }
   const maxLines = Number(lines);
   const maxBytes = Number(kilobytes) * 1024;
   const isValid = isWithin(maxLines, lineRange) && isWithin(Number(kilobytes), kilobyteRange);

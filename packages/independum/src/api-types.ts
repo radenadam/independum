@@ -126,13 +126,52 @@ export interface ChatState {
   backgroundCommands: RunningCommand[];
 }
 
-/** What the agent of the open chat works with, as the Agent place shows it. */
+/**
+ * What the agent of the open chat works with, as the Agent place shows it, with the built-in
+ * settings that a reset goes back to.
+ */
 export interface AgentSummary {
   systemPrompt: string;
   addedByPi: string;
   tools: ToolSummary[];
   shells: ShellChoice[];
+  chosenShell: ShellKind | null;
   outputLimits: OutputLimits;
+  builtInOutputLimits: OutputLimits;
+  texts: TextSummary[];
+}
+
+/** Where a model text sits among the texts of its group. */
+export type TextSection = "prompt" | "description" | "parameter" | "result" | "note";
+
+/** A value that Independum puts into a model text where its name stands in braces. */
+export interface TextSlot {
+  name: string;
+  meaning: string;
+  example: string;
+}
+
+/**
+ * A model text as the user sees and edits it: when the model gets it, the text it has now, and its
+ * built-in text. The built-in text that an edit started from shows when Independum has changed it
+ * since.
+ */
+export interface TextSummary {
+  id: string;
+  group: string;
+  section: TextSection;
+  label: string;
+  text: string;
+  builtIn: string;
+  isEdited: boolean;
+  editedFrom: string | null;
+  slots: TextSlot[];
+}
+
+/** A model text that the user edited, with the built-in text that the edit started from. */
+export interface EditedText {
+  text: string;
+  builtIn: string;
 }
 
 /** A tool of the agent, with why it cannot run when it cannot, as the Agent place shows it. */
@@ -165,7 +204,16 @@ export interface Settings {
   shell: ShellKind | null;
   disabledTools: string[];
   outputLimits: OutputLimits;
+  texts: Record<string, EditedText>;
 }
+
+/**
+ * A change to the settings. Each model text in it gets a new text, or goes back to its built-in
+ * text with null.
+ */
+export type SettingsChange = Partial<Omit<Settings, "texts">> & {
+  texts?: Record<string, string | null>;
+};
 
 /** One entry of the open chat as Pi saves it, as the Context place lists it. */
 export interface ContextEntry {

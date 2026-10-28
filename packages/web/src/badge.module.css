@@ -1,0 +1,18 @@
+.signal,
+.quiet {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.signal {
+  background: var(--signal-soft);
+  color: var(--signal);
+}
+
+.quiet {
+  background: var(--raised);
+  color: var(--muted);
+}

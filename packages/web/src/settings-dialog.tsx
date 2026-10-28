@@ -39,6 +39,7 @@ export function SettingsDialog({
       isOpen={section !== undefined}
       label="Settings"
       className={styles.dialog}
+      isFullOnPhone
       onClose={onClose}
     >
       {section === undefined ? null : (

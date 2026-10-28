@@ -21,7 +21,8 @@ export type IconName =
   | "agent"
   | "close"
   | "more"
-  | "rename"
+  | "edit"
+  | "reset"
   | "pin"
   | "archive"
   | "export"
@@ -119,11 +120,17 @@ const drawings: Record<IconName, ReactElement> = {
       <circle className={moves(styles.thirdDot)} cx="19" cy="12" r="1" />
     </>
   ),
-  rename: (
+  edit: (
     <g className={moves(styles.pencil)}>
       <path d="M15 4l5 5L9 20H4v-5z" />
       <path d="M12.5 6.5l5 5" />
     </g>
+  ),
+  reset: (
+    <>
+      <path className={moves(styles.nudgeLeft)} d="M9 4L4 9l5 5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10" />
+    </>
   ),
   pin: (
     <g className={moves(styles.press)}>

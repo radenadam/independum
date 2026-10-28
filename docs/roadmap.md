@@ -6,6 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
+- Show every text that Pi can send to the model in the Agent place, with the condition for each, read-only. See decision 0033.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
 
 ## Next
@@ -14,7 +15,6 @@ The maintainer agreed to these, and they come in this order, one small change at
 - Branching: edit and resend a prompt, retry a reply with the same or another model or effort, and fork a chat. Each makes a branch, which Pi already keeps, and a switcher under a message moves between branches. The look needs a decision first.
 - Attachments: paste or drop images and files into a message.
 - Queue and steer: while a reply runs, queue a message for after it, or steer the reply with it.
-- Built-ins in the UI: edit the system prompt and the other built-ins from the Agent place. See decisions 0002, 0013, and 0016.
 - Network access and phone pairing with a QR code. See decision 0005.
 - Packaging: build the `independum` command, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
@@ -30,7 +30,8 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - Which places come after Agent, Context, and Commands in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016, 0026, and 0030.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
-- When the user edits a built-in and a new Independum version changes the same built-in, what happens to the edit?
+- Pi compacts a chat by itself when it nears the limit of the context window, with prompts of its own. Does that stay on, and how does the chat show it?
+- Should Independum edit the texts that Pi writes, or only show them? See decision 0033.
 - The settings of tools belong to the user, as decision 0031 describes. Do some settings also belong to a project?
 - The end of a background command adds a note that wakes the agent, as decision 0032 describes. What else may add a message to a chat, and what can it see?
 - What does memory mean in Independum?
