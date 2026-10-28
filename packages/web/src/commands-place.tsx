@@ -1,7 +1,7 @@
 import type { ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
 import styles from "./commands-place.module.css";
-import { describeToolCall } from "./describe-tool-call.ts";
+import { describeToolCall, isCallRunning } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
@@ -31,7 +31,13 @@ export function CommandsPlace({
   isReplying,
   onShow,
 }: CommandsPlaceProps): ReactElement {
-  const underWay = commands.filter((part) => part.result === null && isReplying);
+  // A command is under way while the model writes it, while it runs in the reply, and while it
+  // runs in the background after the reply.
+  const underWay = commands.filter(
+    (part) =>
+      (part.result === null && isReplying) ||
+      isCallRunning(part, tools.runs[part.id], tools.ends[part.id], isReplying),
+  );
   const earlier = commands.filter((part) => !underWay.includes(part)).reverse();
   const groups = [
     { heading: "Running", parts: underWay },
@@ -75,11 +81,9 @@ interface CommandRowProps {
 // A command without a description already reads as its first line, so the line shows only once.
 function CommandRow({ part, tools, isReplying, onShow }: CommandRowProps): ReactElement {
   const run = tools.runs[part.id];
-  const elapsed = useElapsed(
-    run?.startedAt,
-    part.result === null && isReplying && run !== undefined,
-  );
-  const call = describeToolCall(part, run, isReplying, elapsed);
+  const commandEnd = tools.ends[part.id];
+  const elapsed = useElapsed(run?.startedAt, isCallRunning(part, run, commandEnd, isReplying));
+  const call = describeToolCall(part, run, commandEnd, isReplying, elapsed);
   const firstLine = call.input.split("\n")[0]?.trim() ?? "";
   const row = (
     <button type="button" className={styles.row} onClick={() => onShow(part.id)}>

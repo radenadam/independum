@@ -10,6 +10,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Add-on | A feature that the user adds to Independum. It follows the same contract as a built-in, so it gets the same visibility and controls. | "plugin", "extension", "custom", "module" |
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. Its place in the side panel shows all of it. | "bot", "assistant", "AI" |
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
+| Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation", "session" |
 | Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
@@ -17,6 +18,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
+| Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |

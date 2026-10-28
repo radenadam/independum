@@ -89,6 +89,11 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
   };
 }
 
+/** Returns a duration as the model reads it, such as 3.4 s. */
+export function describeSeconds(durationMs: number): string {
+  return `${(durationMs / 1000).toFixed(1)} s`;
+}
+
 const powerShellArguments = [
   "-NoLogo",
   "-NoProfile",

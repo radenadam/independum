@@ -78,19 +78,41 @@ export interface ShellProgress {
 /** What the Shell tool keeps about a command once it has ended. */
 export interface ShellDetails {
   shell: string;
-  ending: "exited" | "timedOut" | "stopped";
+  ending: "exited" | "timedOut" | "stopped" | "background";
   exitCode: number | null;
   durationMs: number;
   outputPath: string | null;
+  backgroundId: number | null;
 }
 
-/** A message of the chat, as the UI shows it. */
+/** How a background command ended, as the note about it in the chat tells. */
+export interface CommandEnd {
+  id: number;
+  toolCallId: string;
+  ending: "exited" | "timedOut" | "stopped";
+  exitCode: number | null;
+  durationMs: number;
+  isStoppedByUser: boolean;
+}
+
+/** A background command of the open chat that still runs, with the latest lines it printed. */
+export interface RunningCommand {
+  toolCallId: string;
+  startedAt: number;
+  progress: ShellProgress;
+}
+
+/**
+ * A message of the chat, as the UI shows it: a prompt, a turn of the agent, or a note that wakes the
+ * agent, such as the end of a background command.
+ */
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "note";
   parts: MessagePart[];
   error: string | null;
   timestamp: number;
   durationMs: number | null;
+  commandEnd: CommandEnd | null;
 }
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
@@ -101,6 +123,7 @@ export interface ChatState {
   thinking: { level: string; levels: string[] } | null;
   messages: ChatMessage[];
   isReplying: boolean;
+  backgroundCommands: RunningCommand[];
 }
 
 /** What the agent of the open chat works with, as the Agent place shows it. */
@@ -208,4 +231,5 @@ export type ChatEvent =
   | { type: "replying"; isReplying: boolean }
   | { type: "toolStart"; id: string }
   | { type: "toolProgress"; id: string; details: unknown }
-  | { type: "toolResult"; id: string; result: ToolResult };
+  | { type: "toolResult"; id: string; result: ToolResult }
+  | { type: "commandEnd"; end: CommandEnd };

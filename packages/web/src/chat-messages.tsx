@@ -16,7 +16,7 @@ import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
 import { ThinkingMark } from "./thinking-mark.tsx";
 import { ThoughtBox } from "./thought-box.tsx";
-import { type ToolCalls, ToolStep } from "./tool-step.tsx";
+import { NoteStep, type ToolCalls, ToolStep } from "./tool-step.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
@@ -162,6 +162,13 @@ export function ChatMessages({
               </li>
             );
           }
+          if (turn.type === "note") {
+            return (
+              <li key={`note-${turn.message.timestamp}`}>
+                <NoteStep message={turn.message} />
+              </li>
+            );
+          }
           const isCurrent = isReplying && turnIndex === turns.length - 1;
           return (
             <li key={`reply-${turn.index}`} className={styles.reply}>
@@ -197,6 +204,7 @@ export function ChatMessages({
 /** A prompt of the user, or the turns of the agent that answer one, with their place in the chat. */
 type Turn =
   | { type: "prompt"; index: number; message: ChatMessage }
+  | { type: "note"; index: number; message: ChatMessage }
   | { type: "reply"; index: number; messages: ChatMessage[] };
 
 /** A stretch of a reply: a text, thinking that runs on across parts, or a call to a tool. */
@@ -326,6 +334,8 @@ function turnsOf(messages: ChatMessage[]): Turn[] {
     const last = turns.at(-1);
     if (message.role === "user") {
       turns.push({ type: "prompt", index, message });
+    } else if (message.role === "note") {
+      turns.push({ type: "note", index, message });
     } else if (last?.type === "reply") {
       last.messages.push(message);
     } else {

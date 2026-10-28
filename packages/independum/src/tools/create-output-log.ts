@@ -9,6 +9,16 @@ interface LimitedOutput {
   isCut: boolean;
 }
 
+/**
+ * How an output log works: the limits of what reaches the model, whether its file stays even when
+ * nothing is cut, as a background command needs, and who hears about its latest lines.
+ */
+interface OutputLogOptions {
+  limits: OutputLimits;
+  isKept?: boolean;
+  onLatest?: (latest: string) => void;
+}
+
 /** The output of one tool call, which grows as the tool prints. */
 export interface OutputLog {
   append(text: string): void;
@@ -20,6 +30,8 @@ export interface OutputLog {
 // test run usually says how it went.
 const startShare = 0.2;
 const latestLineCount = 40;
+// The latest lines reach a listener at most this often while a tool prints.
+const latestInterval = 100;
 // A line that never ends, such as a stream of dots, is broken once it grows this long.
 const longestPending = 1024 * 1024;
 const numberFormat = new Intl.NumberFormat("en-US");
@@ -33,7 +45,10 @@ const terminalCodes =
  * writes all of it to the file at the path. When the output passes the limits, the model gets its
  * start and its end with a note of the lines that are cut, and the file stays for the rest.
  */
-export function createOutputLog(path: string, limits: OutputLimits): OutputLog {
+export function createOutputLog(
+  path: string,
+  { limits, isKept = false, onLatest }: OutputLogOptions,
+): OutputLog {
   mkdirSync(dirname(path), { recursive: true });
   const file = createWriteStream(path);
   let isSaved = true;
@@ -55,6 +70,12 @@ export function createOutputLog(path: string, limits: OutputLimits): OutputLog {
   let isEndPartial = false;
   let lineCount = 0;
   let pending = "";
+  let timer: NodeJS.Timeout | undefined;
+
+  function latest(): string {
+    const lines = (isStartFull ? end : start).slice(-latestLineCount);
+    return [...lines, ...(pending === "" ? [] : [clean(pending)])].join("\n");
+  }
 
   function addLine(line: string): void {
     lineCount += 1;
@@ -124,19 +145,25 @@ export function createOutputLog(path: string, limits: OutputLimits): OutputLog {
         addLine(clean(pending));
         pending = "";
       }
+      if (onLatest !== undefined) {
+        timer ??= setTimeout(() => {
+          timer = undefined;
+          onLatest(latest());
+        }, latestInterval);
+      }
     },
-    latest() {
-      const lines = (isStartFull ? end : start).slice(-latestLineCount);
-      return [...lines, ...(pending === "" ? [] : [clean(pending)])].join("\n");
-    },
+    latest,
     async finish() {
+      clearTimeout(timer);
       if (pending !== "") {
         addLine(clean(pending));
         pending = "";
       }
       await new Promise<void>((resolve) => file.end(resolve));
-      if (whole !== undefined) {
+      if (whole !== undefined && !isKept) {
         rmSync(path, { force: true });
+      }
+      if (whole !== undefined) {
         return { text: whole.join("\n"), lineCount, isCut: false };
       }
       return { text: [...start, note(), ...end].join("\n"), lineCount, isCut: true };

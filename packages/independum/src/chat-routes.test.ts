@@ -279,7 +279,7 @@ test("the agent shows its prompts and its tools", async () => {
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.systemPrompt).toContain("Independum");
   expect(agent.addedByPi).toContain("<cwd>");
-  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell"]);
+  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell", "StopCommand"]);
   expect(agent.tools[0]?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
 });
@@ -448,6 +448,73 @@ test("a tool that is turned off never runs, and the output limits change", async
   );
   expect(ran?.type === "toolResult" ? ran.result.text : "").toContain("it ran");
   expect((await put("/settings", { shell: "fish" })).status).toBe(400);
+});
+
+test("a background command runs on, and its end wakes the agent with a note", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const command =
+    process.platform === "win32"
+      ? 'echo "started"; Start-Sleep -Milliseconds 800'
+      : "echo started; sleep 0.8";
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", { command, background: true })], {
+      stopReason: "toolUse",
+    }),
+    fauxAssistantMessage("It runs."),
+    fauxAssistantMessage("It ended."),
+  ]);
+  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  await events.next();
+  expect((await post("/chat/messages", { text: "Start it" })).status).toBe(202);
+  const seen: ChatEvent[] = [];
+  let event = await events.next();
+  while (event.type !== "message" || textOf(event.message) !== "It ended.") {
+    seen.push(event);
+    event = await events.next();
+  }
+  await events.close();
+  const started = seen.find((each) => each.type === "toolResult");
+  expect(started?.type === "toolResult" ? started.result.text : "").toMatch(
+    /^Background command \d+ runs\. Its output goes to /,
+  );
+  const ended = seen.find((each) => each.type === "commandEnd");
+  expect(ended?.type === "commandEnd" ? ended.end : undefined).toMatchObject({
+    ending: "exited",
+    exitCode: 0,
+    isStoppedByUser: false,
+  });
+  const note = seen.find((each) => each.type === "message" && each.message.role === "note");
+  const noteText = note?.type === "message" ? textOf(note.message) : "";
+  expect(noteText).toMatch(/^Background command \d+ ended with exit code 0 after /);
+  expect(noteText).toContain("started");
+});
+
+test("StopCommand stops a background command, and no note follows", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", { command: pause, background: true })], {
+      stopReason: "toolUse",
+    }),
+    (context) => {
+      const last = context.messages.at(-1);
+      const details = last?.role === "toolResult" ? last.details : undefined;
+      const id = (details as { backgroundId: number } | undefined)?.backgroundId ?? 0;
+      return fauxAssistantMessage([fauxToolCall("StopCommand", { id })], { stopReason: "toolUse" });
+    },
+    fauxAssistantMessage("Stopped it."),
+  ]);
+  const { updates, reply } = await sendAndReadReply("Start it and stop it");
+  expect(textOf(reply)).toBe("Stopped it.");
+  const results = updates.flatMap((update) =>
+    update.type === "toolResult" ? [update.result.text] : [],
+  );
+  expect(results[1]).toMatch(/^Stopped background command \d+ after /);
+  const { state } = await readStart();
+  expect(state.backgroundCommands).toEqual([]);
+  expect(state.messages.some((message) => message.role === "note")).toBe(false);
 });
 
 function put(path: string, body: unknown): Promise<Response> {
