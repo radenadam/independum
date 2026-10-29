@@ -54,6 +54,8 @@ interface WorkingScreenProps {
 
 // How long New chat stays orange before it fades back.
 const flashTime = 140;
+// The tools whose result says how a background command ended.
+const endTools = new Set(["StopCommand", "CheckCommand"]);
 
 /** Draws the sidebar with the projects and their chats, and the open chat with its message box. */
 export function WorkingScreen({
@@ -481,7 +483,7 @@ function withEnd(runs: Record<string, ToolRun>, end: CommandEnd): Record<string,
 }
 
 // A background command ended while the chat was open, or before, as a note in the chat or the
-// result of StopCommand says.
+// result of StopCommand or CheckCommand says.
 function endsOf(
   messages: ChatMessage[],
   runs: Record<string, ToolRun>,
@@ -493,7 +495,7 @@ function endsOf(
     }
     for (const part of message.parts) {
       const details =
-        part.type === "toolCall" && part.name === "StopCommand" ? part.result?.details : undefined;
+        part.type === "toolCall" && endTools.has(part.name) ? part.result?.details : undefined;
       if (typeof details === "object" && details !== null && "toolCallId" in details) {
         const end = details as CommandEnd;
         ends[end.toolCallId] = end;

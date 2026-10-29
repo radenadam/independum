@@ -98,8 +98,10 @@ export interface CommandEnd {
   isStoppedByUser: boolean;
 }
 
-/** A background command of the open chat that still runs, with the latest lines it printed. */
+/** A background command of the open chat that still runs, with its id, its command, and the latest lines it printed. */
 export interface RunningCommand {
+  id: number;
+  command: string;
   toolCallId: string;
   startedAt: number;
   progress: ShellProgress;
