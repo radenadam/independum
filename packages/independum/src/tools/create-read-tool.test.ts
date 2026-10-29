@@ -1,58 +1,30 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { OutputLimits } from "../api-types.ts";
 import { createModelTexts } from "../model-texts.ts";
 import { createReadTool } from "./create-read-tool.ts";
-import { createTestFolder } from "./create-test-folder.ts";
+import { createTestChat } from "./create-test-chat.ts";
 
-const folder = createTestFolder("read");
+const chat = createTestChat("read");
+const { folder } = chat;
+const write = chat.place;
 const texts = createModelTexts(() => ({}));
 const builtInLimits = { maxLines: 2000, maxBytes: 51_200 };
-const visionModel = { input: ["text", "image"] };
-// The results that the chat keeps, as Pi saves them, so a read can tell what the chat saw before.
-const branch: unknown[] = [];
 // A PNG image of one pixel.
 const pixel =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
-interface ReadOutcome {
-  text: string;
-  images: number;
-  details: unknown;
-  isError: boolean;
-}
-
-async function read(
+function read(
   input: Record<string, unknown>,
   limits: OutputLimits = builtInLimits,
-  model: unknown = visionModel,
-): Promise<ReadOutcome> {
-  const tool = createReadTool({ getLimits: () => limits, texts });
-  const sessionManager = { getBranch: () => branch };
-  const context = { cwd: folder, model, sessionManager } as unknown as Parameters<
-    typeof tool.execute
-  >[4];
-  try {
-    const result = await tool.execute("call", input as never, undefined, undefined, context);
-    branch.push({ type: "message", message: { role: "toolResult", details: result.details } });
-    return {
-      text: result.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
-      images: result.content.filter((block) => block.type === "image").length,
-      details: result.details,
-      isError: false,
-    };
-  } catch (error) {
-    return { text: (error as Error).message, images: 0, details: null, isError: true };
-  }
+  model?: unknown,
+): ReturnType<typeof chat.run> {
+  return chat.run(createReadTool({ getLimits: () => limits, texts }), input, model);
 }
 
 function numbered(count: number, from = 1): string {
   return Array.from({ length: count }, (_, index) => `line ${index + from}`).join("\n");
-}
-
-function write(name: string, content: string | Buffer): void {
-  writeFileSync(join(folder, name), content);
 }
 
 test("a file comes back as numbered lines, and a read that reaches its end has no note", async () => {

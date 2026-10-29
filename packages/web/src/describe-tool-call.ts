@@ -1,12 +1,13 @@
 import type {
   CommandEnd,
   DiffHunk,
-  EditDetails,
+  FileDiff,
   ReadDetails,
   ShellDetails,
   ShellProgress,
   ToolCallPart,
   ToolImage,
+  WriteDetails,
 } from "independum/api-types";
 import { describeDuration } from "./describe-duration.ts";
 import type { StepStatus } from "./status-label.tsx";
@@ -62,7 +63,7 @@ export function describeToolCall(
     quietMs === undefined
       ? statusOf(part, run, end, isReplying, elapsed)
       : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
-  if (part.name === "Read" || part.name === "Edit") {
+  if (part.name === "Read" || part.name === "Write" || part.name === "Edit") {
     return describeFileCall(part, status, isRunning);
   }
   if (part.name !== "Shell") {
@@ -105,8 +106,9 @@ export function describeToolCall(
 }
 
 // A call to a tool on a file is labeled with the name of the file, which a long path would push out
-// of sight, and shows the whole path above what it holds: the text that Read returned, or the diff
-// of Edit above the text that it returned to the model. The user cannot stop it.
+// of sight, and shows the whole path above what it holds: the text that Read returned, a new file
+// that Write made, or the diff of Write or Edit above the text that it returned to the model. The
+// user cannot stop it.
 function describeFileCall(
   part: ToolCallPart,
   running: StepStatus | undefined,
@@ -116,19 +118,26 @@ function describeFileCall(
   const path = typeof part.input.path === "string" ? part.input.path : "";
   const name = path.split(/[\\/]/).at(-1) ?? path;
   const shared = { language: path, isRunning, canStop: false, canMove: false, quietMs: undefined };
-  if (part.name === "Edit") {
-    const details = result === null || result.isError ? undefined : (result.details as EditDetails);
+  if (part.name === "Write" || part.name === "Edit") {
+    // A new file that Write made shows its content, and every other change shows its diff.
+    const details =
+      result === null || result.isError
+        ? undefined
+        : (result.details as FileDiff & Partial<WriteDetails>);
+    const content = typeof part.input.content === "string" ? part.input.content : "";
     return {
       ...shared,
       label: name,
-      input: "",
+      input: details?.isNew === true ? content : "",
       output: result?.text ?? "",
       images: [],
       hunks: details?.hunks ?? [],
       status:
         details === undefined
           ? running
-          : { text: `+${details.added} -${details.removed}`, tone: "quiet" },
+          : details.isNew === true
+            ? { text: `New, ${numberFormat.format(details.added)} lines`, tone: "quiet" }
+            : { text: `+${details.added} -${details.removed}`, tone: "quiet" },
     };
   }
   const details = result?.details as ReadDetails | null | undefined;

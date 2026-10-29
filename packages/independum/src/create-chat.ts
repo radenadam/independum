@@ -51,6 +51,7 @@ import { outputTextList } from "./tools/create-output-log.ts";
 import { createReadTool, readTextList } from "./tools/create-read-tool.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
+import { createWriteTool, writeTextList } from "./tools/create-write-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
 import { fingerprintTextList } from "./tools/file-fingerprint.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
@@ -94,6 +95,7 @@ const allTexts: ModelText[] = [
   ...readTextList,
   ...fingerprintTextList,
   ...fileTextList,
+  ...writeTextList,
   ...editTextList,
   ...shellTextList,
   ...backgroundTextList,
@@ -161,6 +163,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // stay off.
   const ownTools = [
     createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
+    createWriteTool(texts),
     createEditTool(texts),
     createShellTool({
       getShell: () => shell,

@@ -1,6 +1,8 @@
 import { readdirSync, type Stats, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
+import { structuredPatch } from "diff";
+import type { FileDiff } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
 /** A file that a tool found at the path that the model gave. */
@@ -98,11 +100,20 @@ export function findFile(path: string, folder: string, texts: ModelTexts): Found
   return { file, stats };
 }
 
-/**
- * Returns the text of a file from its bytes, or fails as a binary file. A file is text in UTF-16
- * when it starts with the mark of that encoding, and otherwise in UTF-8.
- */
+/** Returns the text of a file from its bytes, or fails as a binary file. */
 export function decodeText(bytes: Buffer, path: string, texts: ModelTexts): DecodedText {
+  const decoded = decodeBytes(bytes);
+  if (decoded === undefined) {
+    throw new Error(texts.fill(fileTexts.binary, { path, size: describeSize(bytes.length) }));
+  }
+  return decoded;
+}
+
+/**
+ * Returns the text of a file from its bytes, or undefined for a binary file. A file is text in
+ * UTF-16 when it starts with the mark of that encoding, and otherwise in UTF-8.
+ */
+export function decodeBytes(bytes: Buffer): DecodedText | undefined {
   if (bytes[0] === 0xff && bytes[1] === 0xfe) {
     const text = new TextDecoder("utf-16le").decode(bytes);
     return { text, encoding: "utf-16le", hasMark: true, isUtf8: true };
@@ -112,7 +123,7 @@ export function decodeText(bytes: Buffer, path: string, texts: ModelTexts): Deco
     return { text, encoding: "utf-16be", hasMark: true, isUtf8: true };
   }
   if (bytes.subarray(0, binaryProbe).includes(0)) {
-    throw new Error(texts.fill(fileTexts.binary, { path, size: describeSize(bytes.length) }));
+    return undefined;
   }
   const hasMark = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
   try {
@@ -140,6 +151,40 @@ export function encodeText(text: string, { encoding, hasMark }: DecodedText): Bu
     return Buffer.concat([Buffer.from([0xfe, 0xff]), body]);
   }
   return Buffer.concat([Buffer.from([0xff, 0xfe]), body]);
+}
+
+/** Returns the line break that a text uses most, the one of Windows or the one of other systems. */
+export function lineBreakOf(text: string): "\r\n" | "\n" {
+  const windows = text.match(/\r\n/g)?.length ?? 0;
+  const others = (text.match(/\n/g)?.length ?? 0) - windows;
+  return windows > others ? "\r\n" : "\n";
+}
+
+/** Fails with the reason when a path that a tool writes to is a folder. */
+export function checkNotFolder(file: string, path: string, texts: ModelTexts): void {
+  if (statOf(file)?.isDirectory() === true) {
+    throw new Error(texts.fill(fileTexts.folder, { path }));
+  }
+}
+
+/** Returns the diff between two texts in lines, for the UI, which the model never sees. */
+export function diffOf(before: string, after: string): FileDiff {
+  const { hunks } = structuredPatch("before", "after", before, after, undefined, undefined, {
+    context: 3,
+  });
+  let added = 0;
+  let removed = 0;
+  for (const hunk of hunks) {
+    for (const line of hunk.lines) {
+      added += line.startsWith("+") ? 1 : 0;
+      removed += line.startsWith("-") ? 1 : 0;
+    }
+  }
+  return {
+    hunks: hunks.map(({ oldStart, newStart, lines }) => ({ oldStart, newStart, lines })),
+    added,
+    removed,
+  };
 }
 
 /** Returns the lines of a text as Read shows them, without the line breaks of any system. */

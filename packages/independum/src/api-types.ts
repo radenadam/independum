@@ -96,11 +96,16 @@ export interface DiffHunk {
   lines: string[];
 }
 
-/** What the Edit tool keeps about an edit: its diff, and how many lines it added and removed. */
-export interface EditDetails {
+/** The diff of a file that a tool changed, with how many lines it added and removed. */
+export interface FileDiff {
   hunks: DiffHunk[];
   added: number;
   removed: number;
+}
+
+/** What the Write tool keeps about a write: whether the file is new, and its diff. */
+export interface WriteDetails extends FileDiff {
+  isNew: boolean;
 }
 
 /** What the Shell tool keeps about a command once it has ended. */
