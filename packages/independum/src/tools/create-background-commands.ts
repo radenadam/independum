@@ -1,5 +1,6 @@
 import type { CommandEnd, RunningCommand, ShellProgress } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
+import { wrapNote } from "../wrap-note.ts";
 import type { LimitedOutput, OutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd } from "./run-command.ts";
@@ -73,6 +74,14 @@ export const outputOpenText: ModelText = defineText({
  * result of StopCommand or CheckCommand, which the user can edit.
  */
 const backgroundTexts = {
+  source: defineText({
+    id: "background.source",
+    group: "Shell",
+    section: "note",
+    label: "The source in the envelope of a note about a background command",
+    builtIn: "background command {id}",
+    slots: { id: endSlots.id },
+  }),
   ended: defineText({
     id: "background.ended",
     group: "Shell",
@@ -330,6 +339,12 @@ export function describeBackgroundEnded(ended: BackgroundEnded, texts: ModelText
   return ended.lastLines === ""
     ? how
     : `${how}\n\n${texts.fill(backgroundTexts.lastLines, { lines: ended.lastLines })}`;
+}
+
+/** Returns the note that wakes the agent when a background command ends, in its envelope. */
+export function describeBackgroundNote(ended: BackgroundEnded, texts: ModelTexts): string {
+  const source = texts.fill(backgroundTexts.source, { id: ended.end.id });
+  return wrapNote(source, describeBackgroundEnded(ended, texts), texts);
 }
 
 /**
