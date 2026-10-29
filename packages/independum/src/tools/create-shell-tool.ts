@@ -338,7 +338,7 @@ export function createShellTool({
       }
       if (first.kind !== "ended") {
         signal?.removeEventListener("abort", stopWithReply);
-        const output = log.snapshot();
+        const output = log.take();
         const id = background.adopt({ start, startedAt, log, run, controller: own });
         const values = { id, time: describeSeconds(Date.now() - startedAt), path };
         const moved =

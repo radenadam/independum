@@ -13,8 +13,9 @@ export interface ToolRun {
 }
 
 /**
- * How a call to a tool reads: its label, what went in, what came back, how it is going, and how
- * long a running command has printed nothing, once that is long enough to tell the user.
+ * How a call to a tool reads: its label, what went in, what came back, how it is going, what the
+ * user can do with a running command, and how long a running command has printed nothing, once
+ * that is long enough to tell the user.
  */
 interface DescribedCall {
   label: string;
@@ -23,6 +24,7 @@ interface DescribedCall {
   output: string;
   status: StepStatus | undefined;
   isRunning: boolean;
+  canStop: boolean;
   canMove: boolean;
   quietMs: number | undefined;
 }
@@ -50,15 +52,13 @@ export function describeToolCall(
       : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
   if (part.name !== "Shell") {
     return {
-      label:
-        part.name === "StopCommand"
-          ? `Stop background command ${String(part.input.id ?? "")}`
-          : part.name,
+      label: labelOf(part),
       language: "json",
       input: JSON.stringify(part.input, null, 2),
       output: part.result?.text ?? "",
       status,
       isRunning,
+      canStop: false,
       canMove: false,
       quietMs,
     };
@@ -78,10 +78,22 @@ export function describeToolCall(
     output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
     status,
     isRunning,
+    canStop: isRunning,
     // A command of the reply can go on in the background, and one already there cannot.
     canMove: isRunning && part.result === null,
     quietMs,
   };
+}
+
+function labelOf(part: ToolCallPart): string {
+  const id = String(part.input.id ?? "");
+  if (part.name === "StopCommand") {
+    return `Stop background command ${id}`;
+  }
+  if (part.name === "CheckCommand") {
+    return id === "" ? "List background commands" : `Check background command ${id}`;
+  }
+  return part.name;
 }
 
 // The time now is when the run started plus how long it has run.

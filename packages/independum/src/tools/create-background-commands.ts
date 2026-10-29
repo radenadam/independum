@@ -1,6 +1,6 @@
 import type { CommandEnd, RunningCommand, ShellProgress } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import type { OutputLog } from "./create-output-log.ts";
+import type { LimitedOutput, OutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd } from "./run-command.ts";
 
@@ -9,6 +9,7 @@ interface BackgroundStart {
   toolCallId: string;
   chatId: string;
   shell: Shell;
+  command: string;
   outputPath: string;
 }
 
@@ -19,7 +20,24 @@ export interface BackgroundEnded {
   lastLines: string;
   end: CommandEnd;
   isOutputOpen: boolean;
-  isStoppedByModel: boolean;
+  isSeenByModel: boolean;
+}
+
+/** How a check of a background command waits: at most a time, or until a text appears. */
+interface CheckWait {
+  waitMs: number;
+  until: string | undefined;
+  signal: AbortSignal | undefined;
+}
+
+/**
+ * What a check of a background command finds: what it printed since the last check, how long it
+ * has run, and how it ended, once it has.
+ */
+interface CommandCheck {
+  output: LimitedOutput;
+  runMs: number;
+  ended: BackgroundEnded | undefined;
 }
 
 /** What background commands need: who hears about them as they print and when they end. */
@@ -52,7 +70,7 @@ export const outputOpenText: ModelText = defineText({
 
 /**
  * The texts that say how a background command ended, in a note that wakes the agent or in the
- * result of StopCommand, which the user can edit.
+ * result of StopCommand or CheckCommand, which the user can edit.
  */
 const backgroundTexts = {
   ended: defineText({
@@ -127,9 +145,10 @@ interface Adoption {
   controller: AbortController;
 }
 
-/** The commands that run in the background, which the user and the model can stop. */
+/** The commands that run in the background, which the model can check and the user and the model can stop. */
 export interface BackgroundCommands {
   adopt(adoption: Adoption): number;
+  check(chatId: string, id: number, wait: CheckWait): Promise<CommandCheck | undefined>;
   stopByModel(id: number): Promise<BackgroundEnded | undefined>;
   stopByUser(toolCallId: string): boolean;
   listRunning(chatId: string): RunningCommand[];
@@ -139,12 +158,13 @@ export interface BackgroundCommands {
 /** The texts that say how a background command ended, in the order that the Agent place shows them. */
 export const backgroundTextList: ModelText[] = Object.values(backgroundTexts);
 
-/** One background command while it runs. */
-interface Running {
+/** One background command, while it runs and after it ends, with the checks that wait on it. */
+interface BackgroundCommand {
   start: BackgroundStart;
   startedAt: number;
   log: OutputLog;
   ended: Promise<BackgroundEnded>;
+  checks: Set<() => void>;
   stop: (by: "user" | "model") => void;
 }
 
@@ -152,20 +172,30 @@ const lastLineCount = 20;
 
 /**
  * Keeps track of the background commands of every chat. They are numbered from 1, so the model can
- * name one, and they keep running while the user opens other chats.
+ * name one, and they keep running while the user opens other chats. An ended one stays, so the
+ * model can still check it.
  */
 export function createBackgroundCommands({
   onProgress,
   onEnd,
 }: BackgroundOptions): BackgroundCommands {
-  const running = new Map<number, Running>();
+  const commands = new Map<number, BackgroundCommand>();
+  const finished = new Map<number, BackgroundEnded>();
   let nextId = 1;
+
+  function runningOf(chatId?: string): [number, BackgroundCommand][] {
+    return [...commands].filter(
+      ([id, command]) =>
+        !finished.has(id) && (chatId === undefined || command.start.chatId === chatId),
+    );
+  }
 
   // A background command keeps its file, and its latest lines reach the chat of its call.
   function adopt({ start, startedAt, log, run, controller }: Adoption): number {
     const id = nextId;
     nextId += 1;
     let stoppedBy: "user" | "model" | undefined;
+    const checks = new Set<() => void>();
     log.keep();
     log.follow((latest) =>
       onProgress(start.chatId, start.toolCallId, {
@@ -187,7 +217,6 @@ export function createBackgroundCommands({
       )
       .then(async (end) => {
         await log.finish();
-        running.delete(id);
         const result: BackgroundEnded = {
           chatId: start.chatId,
           outputPath: start.outputPath,
@@ -202,16 +231,22 @@ export function createBackgroundCommands({
             isStoppedByUser: stoppedBy === "user",
           },
           isOutputOpen: end.isOutputOpen,
-          isStoppedByModel: stoppedBy === "model",
+          // The model learns how the command ended from StopCommand, or from a check that waits.
+          isSeenByModel: stoppedBy === "model" || checks.size > 0,
         };
+        finished.set(id, result);
+        for (const check of checks) {
+          check();
+        }
         onEnd(result);
         return result;
       });
-    running.set(id, {
+    commands.set(id, {
       start,
       startedAt,
       log,
       ended,
+      checks,
       stop: (by) => {
         stoppedBy = by;
         controller.abort();
@@ -222,31 +257,64 @@ export function createBackgroundCommands({
 
   return {
     adopt,
+    async check(chatId, id, { waitMs, until, signal }) {
+      const command = commands.get(id);
+      if (command === undefined || command.start.chatId !== chatId) {
+        return undefined;
+      }
+      const isWaiting =
+        !finished.has(id) &&
+        waitMs > 0 &&
+        signal?.aborted !== true &&
+        (until === undefined || !command.log.hasPrinted(until));
+      if (isWaiting) {
+        const { checks, log } = command;
+        await new Promise<void>((resolve) => {
+          const timer = setTimeout(stopWaiting, waitMs);
+          const unwatch = until === undefined ? undefined : log.watch(until, stopWaiting);
+          checks.add(stopWaiting);
+          signal?.addEventListener("abort", stopWaiting, { once: true });
+          function stopWaiting(): void {
+            clearTimeout(timer);
+            unwatch?.();
+            checks.delete(stopWaiting);
+            signal?.removeEventListener("abort", stopWaiting);
+            resolve();
+          }
+        });
+      }
+      const ended = finished.get(id);
+      return {
+        output: command.log.take(),
+        runMs: ended?.end.durationMs ?? Date.now() - command.startedAt,
+        ended,
+      };
+    },
     async stopByModel(id) {
-      const command = running.get(id);
+      const command = finished.has(id) ? undefined : commands.get(id);
       command?.stop("model");
       return command?.ended;
     },
     stopByUser(toolCallId) {
-      const command = [...running.values()].find((each) => each.start.toolCallId === toolCallId);
+      const command = runningOf().find(([, each]) => each.start.toolCallId === toolCallId)?.[1];
       command?.stop("user");
       return command !== undefined;
     },
     listRunning(chatId) {
-      return [...running.values()]
-        .filter((command) => command.start.chatId === chatId)
-        .map((command) => ({
-          toolCallId: command.start.toolCallId,
-          startedAt: command.startedAt,
-          progress: {
-            shell: command.start.shell.name,
-            output: command.log.latest(),
-            lastOutputAt: command.log.lastOutputAt(),
-          },
-        }));
+      return runningOf(chatId).map(([id, command]) => ({
+        id,
+        command: command.start.command,
+        toolCallId: command.start.toolCallId,
+        startedAt: command.startedAt,
+        progress: {
+          shell: command.start.shell.name,
+          output: command.log.latest(),
+          lastOutputAt: command.log.lastOutputAt(),
+        },
+      }));
     },
     stopAll() {
-      for (const command of running.values()) {
+      for (const [, command] of runningOf()) {
         command.stop("user");
       }
     },
@@ -257,8 +325,19 @@ export function createBackgroundCommands({
  * Returns how a background command ended, where its whole output is, and its last lines, as the
  * model reads it in a note or in the result of StopCommand.
  */
-export function describeBackgroundEnded(
-  { end, outputPath, lastLines, isOutputOpen }: BackgroundEnded,
+export function describeBackgroundEnded(ended: BackgroundEnded, texts: ModelTexts): string {
+  const how = describeHowItEnded(ended, texts);
+  return ended.lastLines === ""
+    ? how
+    : `${how}\n\n${texts.fill(backgroundTexts.lastLines, { lines: ended.lastLines })}`;
+}
+
+/**
+ * Returns how a background command ended and where its whole output is, as the model reads it
+ * after the output of a check.
+ */
+export function describeHowItEnded(
+  { end, outputPath, isOutputOpen }: BackgroundEnded,
   texts: ModelTexts,
 ): string {
   const values = { id: end.id, time: describeSeconds(end.durationMs), path: outputPath };
@@ -273,8 +352,5 @@ export function describeBackgroundEnded(
         : end.exitCode === null && end.signal !== null
           ? texts.fill(backgroundTexts.signaled, { ...values, signal: end.signal })
           : texts.fill(backgroundTexts.ended, { ...values, code: end.exitCode ?? "unknown" });
-  const ended = isOutputOpen ? `${how} ${texts.get(outputOpenText)}` : how;
-  return lastLines === ""
-    ? ended
-    : `${ended}\n\n${texts.fill(backgroundTexts.lastLines, { lines: lastLines })}`;
+  return isOutputOpen ? `${how} ${texts.get(outputOpenText)}` : how;
 }

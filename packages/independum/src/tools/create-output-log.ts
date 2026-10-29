@@ -1,10 +1,10 @@
-import { createWriteStream, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import type { OutputLimits } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
 /** The output of a tool as the model gets it. */
-interface LimitedOutput {
+export interface LimitedOutput {
   text: string;
   lineCount: number;
   isCut: boolean;
@@ -94,14 +94,17 @@ const outputTexts = {
 };
 
 /**
- * The output of one tool call, which grows as the tool prints. A command that goes on in the
- * background keeps its file and gets a new listener for its latest lines.
+ * The output of one tool call, which grows as the tool prints. Each take returns what is new since
+ * the last one, and a check of a background command can wait for a text to appear. A command that
+ * goes on in the background keeps its file and gets a new listener for its latest lines.
  */
 export interface OutputLog {
   append(text: string): void;
   latest(): string;
   lastOutputAt(): number;
-  snapshot(): LimitedOutput;
+  take(): LimitedOutput;
+  hasPrinted(text: string): boolean;
+  watch(text: string, onFound: () => void): () => void;
   keep(): void;
   follow(onLatest: (latest: string) => void): void;
   finish(): Promise<LimitedOutput>;
@@ -121,6 +124,23 @@ const terminalCodes =
   // biome-ignore lint/suspicious/noControlCharactersInRegex: The codes start with the escape character.
   /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)|[@-Z\\-_])/g;
 
+/** Where the lines of an output are cut, counted from the first line of the whole output. */
+interface Cut {
+  first: number;
+  last: number;
+  total: number;
+  isEndPartial: boolean;
+}
+
+/** The lines of an output from one line on, as the model gets them: all of them, or a start and an end. */
+interface OutputWindow {
+  add(line: string): void;
+  latest(): string[];
+  includes(text: string): boolean;
+  isCut(): boolean;
+  limited(rest: string[], describeCut: (cut: Cut) => string): LimitedOutput;
+}
+
 /** The texts of the note that marks where output is cut, in the order that the Agent place shows them. */
 export const outputTextList: ModelText[] = Object.values(outputTexts);
 
@@ -139,86 +159,60 @@ export function createOutputLog(path: string, options: OutputLogOptions): Output
   file.on("error", () => {
     isSaved = false;
   });
-  const startLines = Math.floor(limits.maxLines * startShare);
-  const startBytes = Math.floor(limits.maxBytes * startShare);
-  const endLines = limits.maxLines - startLines;
-  const endBytes = limits.maxBytes - startBytes;
-  // Every line, until the output passes a limit.
-  let whole: string[] | undefined = [];
-  let wholeBytes = 0;
-  const start: string[] = [];
-  let startSize = 0;
-  let isStartFull = false;
-  const end: string[] = [];
-  let endSize = 0;
-  let isEndPartial = false;
+  // The whole output reaches the model when the command ends in the reply, and the output since
+  // the last take reaches it when the command goes on in the background, and at each check.
+  const whole = openWindow(limits, 0);
+  let sinceTake = openWindow(limits, 0);
+  const watchers = new Map<() => void, string>();
   let lineCount = 0;
+  let fileBytes = 0;
+  let takenBytes = 0;
   let pending = "";
   let timer: NodeJS.Timeout | undefined;
   let lastOutputAt = Date.now();
 
   function latest(): string {
-    const lines = (isStartFull ? end : start).slice(-latestLineCount);
-    return [...lines, ...(pending === "" ? [] : [clean(pending)])].join("\n");
+    return [...whole.latest(), ...(pending === "" ? [] : [clean(pending)])].join("\n");
   }
 
   function addLine(line: string): void {
     lineCount += 1;
     file.write(`${line}\n`);
-    const bytes = Buffer.byteLength(line) + 1;
-    if (whole !== undefined) {
-      whole.push(line);
-      wholeBytes += bytes;
-      if (whole.length > limits.maxLines || wholeBytes > limits.maxBytes) {
-        whole = undefined;
+    fileBytes += Buffer.byteLength(line) + 1;
+    whole.add(line);
+    sinceTake.add(line);
+    findWatched(line);
+  }
+
+  function findWatched(text: string): void {
+    for (const [onFound, watched] of watchers) {
+      if (text.includes(watched)) {
+        watchers.delete(onFound);
+        onFound();
       }
-    }
-    if (!isStartFull && start.length < startLines && startSize + bytes <= startBytes) {
-      start.push(line);
-      startSize += bytes;
-      return;
-    }
-    isStartFull = true;
-    end.push(line);
-    endSize += bytes;
-    while (end.length > 1 && (end.length > endLines || endSize > endBytes)) {
-      endSize -= Buffer.byteLength(end.shift() ?? "") + 1;
-      isEndPartial = false;
-    }
-    const only = end[0];
-    if (end.length === 1 && only !== undefined && endSize > endBytes) {
-      end[0] = only.slice(-endBytes);
-      endSize = Buffer.byteLength(end[0]) + 1;
-      isEndPartial = true;
     }
   }
 
-  function note(): string {
-    const firstCut = start.length + 1;
-    const lastCut = lineCount - end.length;
-    const line = numberFormat.format(lastCut + 1);
-    const total = numberFormat.format(lineCount);
+  function describeCut({ first, last, total, isEndPartial }: Cut): string {
+    const line = numberFormat.format(last + 1);
+    const lines = numberFormat.format(total);
     const parts =
-      firstCut <= lastCut
+      first <= last
         ? [
             texts.fill(outputTexts.linesCut, {
-              first: numberFormat.format(firstCut),
-              last: numberFormat.format(lastCut),
-              total,
+              first: numberFormat.format(first),
+              last: numberFormat.format(last),
+              total: lines,
             }),
             ...(isEndPartial ? [texts.fill(outputTexts.lineStartAlsoCut, { line })] : []),
           ]
-        : [texts.fill(outputTexts.lineStartCut, { line, total })];
+        : [texts.fill(outputTexts.lineStartCut, { line, total: lines })];
     parts.push(isSaved ? texts.fill(outputTexts.saved, { path }) : texts.get(outputTexts.notSaved));
     return texts.fill(outputTexts.frame, { note: parts.join(" ") });
   }
 
-  function limited(): LimitedOutput {
-    const rest = pending === "" ? [] : [clean(pending)];
-    if (whole !== undefined) {
-      return { text: [...whole, ...rest].join("\n"), lineCount, isCut: false };
-    }
-    return { text: [...start, note(), ...end, ...rest].join("\n"), lineCount, isCut: true };
+  function rest(): string[] {
+    return pending === "" ? [] : [clean(pending)];
   }
 
   return {
@@ -244,6 +238,9 @@ export function createOutputLog(path: string, options: OutputLogOptions): Output
         addLine(clean(pending));
         pending = "";
       }
+      if (pending !== "") {
+        findWatched(clean(pending));
+      }
       if (onLatest !== undefined) {
         timer ??= setTimeout(() => {
           timer = undefined;
@@ -253,7 +250,33 @@ export function createOutputLog(path: string, options: OutputLogOptions): Output
     },
     latest,
     lastOutputAt: () => lastOutputAt,
-    snapshot: limited,
+    // A line that is still being printed comes again, whole, with the next take.
+    take() {
+      const taken = sinceTake.limited(rest(), describeCut);
+      sinceTake = openWindow(limits, lineCount);
+      takenBytes = fileBytes;
+      return taken;
+    },
+    hasPrinted(text) {
+      if (clean(pending).includes(text) || sinceTake.includes(text)) {
+        return true;
+      }
+      if (!sinceTake.isCut()) {
+        return false;
+      }
+      // The lines cut from the middle of the output are only in its file.
+      try {
+        return readFileSync(path).subarray(takenBytes).toString("utf8").includes(text);
+      } catch {
+        return false;
+      }
+    },
+    watch(text, onFound) {
+      watchers.set(onFound, text);
+      return () => {
+        watchers.delete(onFound);
+      };
+    },
     keep() {
       isKept = true;
     },
@@ -267,10 +290,75 @@ export function createOutputLog(path: string, options: OutputLogOptions): Output
         pending = "";
       }
       await new Promise<void>((resolve) => file.end(resolve));
-      if (whole !== undefined && !isKept) {
+      if (!whole.isCut() && !isKept) {
         rmSync(path, { force: true });
       }
-      return limited();
+      return whole.limited([], describeCut);
+    },
+  };
+}
+
+// The window keeps every line until the output passes a limit, and then its start and its end.
+function openWindow(limits: OutputLimits, firstLine: number): OutputWindow {
+  const startLines = Math.floor(limits.maxLines * startShare);
+  const startBytes = Math.floor(limits.maxBytes * startShare);
+  const endLines = limits.maxLines - startLines;
+  const endBytes = limits.maxBytes - startBytes;
+  let all: string[] | undefined = [];
+  let allBytes = 0;
+  const start: string[] = [];
+  let startSize = 0;
+  let isStartFull = false;
+  const end: string[] = [];
+  let endSize = 0;
+  let isEndPartial = false;
+  let lineCount = 0;
+
+  return {
+    add(line) {
+      lineCount += 1;
+      const bytes = Buffer.byteLength(line) + 1;
+      if (all !== undefined) {
+        all.push(line);
+        allBytes += bytes;
+        if (all.length > limits.maxLines || allBytes > limits.maxBytes) {
+          all = undefined;
+        }
+      }
+      if (!isStartFull && start.length < startLines && startSize + bytes <= startBytes) {
+        start.push(line);
+        startSize += bytes;
+        return;
+      }
+      isStartFull = true;
+      end.push(line);
+      endSize += bytes;
+      while (end.length > 1 && (end.length > endLines || endSize > endBytes)) {
+        endSize -= Buffer.byteLength(end.shift() ?? "") + 1;
+        isEndPartial = false;
+      }
+      const only = end[0];
+      if (end.length === 1 && only !== undefined && endSize > endBytes) {
+        end[0] = only.slice(-endBytes);
+        endSize = Buffer.byteLength(end[0]) + 1;
+        isEndPartial = true;
+      }
+    },
+    latest: () => (isStartFull ? end : start).slice(-latestLineCount),
+    includes: (text) => [...start, ...end].some((line) => line.includes(text)),
+    isCut: () => all === undefined,
+    limited(rest, describeCut) {
+      if (all !== undefined) {
+        return { text: [...all, ...rest].join("\n"), lineCount, isCut: false };
+      }
+      const total = firstLine + lineCount;
+      const cut = describeCut({
+        first: firstLine + start.length + 1,
+        last: total - end.length,
+        total,
+        isEndPartial,
+      });
+      return { text: [...start, cut, ...end, ...rest].join("\n"), lineCount, isCut: true };
     },
   };
 }

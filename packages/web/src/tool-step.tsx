@@ -48,7 +48,7 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
       label={call.label}
       status={call.status}
       action={
-        call.isRunning ? (
+        call.canStop ? (
           <CommandActions id={part.id} canMove={call.canMove} tools={tools} />
         ) : undefined
       }

@@ -2,11 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
+  type AssistantMessage,
   fauxAssistantMessage,
   fauxProvider,
   fauxText,
   fauxThinking,
   fauxToolCall,
+  type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
@@ -115,6 +117,17 @@ async function sendAndReadReply(
       return { updates, reply };
     }
   }
+}
+
+function callTool(name: string, input: Parameters<typeof fauxToolCall>[1]): AssistantMessage {
+  return fauxAssistantMessage([fauxToolCall(name, input)], { stopReason: "toolUse" });
+}
+
+// The model reads the id of a background command from the result of the Shell call before.
+function backgroundIdOf(context: TranscriptContext): number {
+  const last = context.messages.at(-1);
+  const details = last?.role === "toolResult" ? last.details : undefined;
+  return (details as { backgroundId: number } | undefined)?.backgroundId ?? 0;
 }
 
 function textOf(message: ChatMessage | undefined): string {
@@ -279,7 +292,7 @@ test("the agent shows its prompts and its tools", async () => {
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.systemPrompt).toContain("Independum");
   expect(agent.addedByPi).toContain("<cwd>");
-  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell", "StopCommand"]);
+  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell", "CheckCommand", "StopCommand"]);
   expect(agent.tools[0]?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
 });
@@ -377,10 +390,7 @@ test("the agent runs a command in the shell, sees how it ended, and goes on", as
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const input = { command: 'echo "hello from the shell"', description: "Say hello" };
-  faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", input)], { stopReason: "toolUse" }),
-    fauxAssistantMessage("The shell said hello."),
-  ]);
+  faux.setResponses([callTool("Shell", input), fauxAssistantMessage("The shell said hello.")]);
   const { updates, reply } = await sendAndReadReply("Say hello in the shell");
   expect(textOf(reply)).toBe("The shell said hello.");
   const types = updates.map((update) => update.type);
@@ -406,7 +416,7 @@ test("a command can be stopped on its own, and the agent goes on", async () => {
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
   faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", { command: pause })], { stopReason: "toolUse" }),
+    callTool("Shell", { command: pause }),
     fauxAssistantMessage("Going on without it."),
   ]);
   const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
@@ -434,16 +444,10 @@ test("a long command goes on in the background when the user moves it or after a
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const windows = process.platform === "win32";
   faux.setResponses([
-    fauxAssistantMessage(
-      [fauxToolCall("Shell", { command: windows ? "Start-Sleep -Seconds 30" : "sleep 30" })],
-      { stopReason: "toolUse" },
-    ),
+    callTool("Shell", { command: windows ? "Start-Sleep -Seconds 30" : "sleep 30" }),
     fauxAssistantMessage("It runs on."),
     fauxAssistantMessage("Noted the stop."),
-    fauxAssistantMessage(
-      [fauxToolCall("Shell", { command: windows ? "Start-Sleep -Seconds 7" : "sleep 7" })],
-      { stopReason: "toolUse" },
-    ),
+    callTool("Shell", { command: windows ? "Start-Sleep -Seconds 7" : "sleep 7" }),
     fauxAssistantMessage("It runs on too."),
     fauxAssistantMessage("Noted the end."),
   ]);
@@ -558,10 +562,7 @@ test("variables that the user adds reach commands, and the model reads only thei
   expect(agent.tools[0]?.description).not.toContain("kept-out");
   const read =
     process.platform === "win32" ? "echo $env:INDEPENDUM_SECRET" : "echo $INDEPENDUM_SECRET";
-  faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", { command: read })], { stopReason: "toolUse" }),
-    fauxAssistantMessage("Done."),
-  ]);
+  faux.setResponses([callTool("Shell", { command: read }), fauxAssistantMessage("Done.")]);
   const result = (await sendAndReadReply("Read the variable")).updates.find(
     (update) => update.type === "toolResult",
   );
@@ -599,9 +600,7 @@ test("edited texts reach the model with the next turn, and null brings back the 
   faux.setResponses([
     (context) => {
       prompt = JSON.stringify(context.messages[0]);
-      return fauxAssistantMessage([fauxToolCall("Shell", { command: 'echo "edited"' })], {
-        stopReason: "toolUse",
-      });
+      return callTool("Shell", { command: 'echo "edited"' });
     },
     fauxAssistantMessage("Done."),
   ]);
@@ -631,9 +630,7 @@ test("a background command runs on, and its end wakes the agent with a note", as
       ? 'echo "started"; Start-Sleep -Milliseconds 3000'
       : "echo started; sleep 3";
   faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", { command, background: true })], {
-      stopReason: "toolUse",
-    }),
+    callTool("Shell", { command, background: true }),
     fauxAssistantMessage("It runs."),
     fauxAssistantMessage("It ended."),
   ]);
@@ -668,9 +665,7 @@ test("a background command that ends before its call returns gives its whole res
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const quick = "echo quick; exit 3";
   faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", { command: quick, background: true })], {
-      stopReason: "toolUse",
-    }),
+    callTool("Shell", { command: quick, background: true }),
     fauxAssistantMessage("It failed."),
   ]);
   const { updates, reply } = await sendAndReadReply("Start it");
@@ -688,14 +683,9 @@ test("StopCommand stops a background command, and no note follows", async () => 
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
   faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("Shell", { command: pause, background: true })], {
-      stopReason: "toolUse",
-    }),
+    callTool("Shell", { command: pause, background: true }),
     (context) => {
-      const last = context.messages.at(-1);
-      const details = last?.role === "toolResult" ? last.details : undefined;
-      const id = (details as { backgroundId: number } | undefined)?.backgroundId ?? 0;
-      return fauxAssistantMessage([fauxToolCall("StopCommand", { id })], { stopReason: "toolUse" });
+      return callTool("StopCommand", { id: backgroundIdOf(context) });
     },
     fauxAssistantMessage("Stopped it."),
   ]);
@@ -707,6 +697,41 @@ test("StopCommand stops a background command, and no note follows", async () => 
   expect(results[1]).toMatch(/^Stopped background command \d+ after /);
   await expectNothingInBackground();
 });
+
+test("CheckCommand returns what a background command printed since the last check, and waits for it", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const command =
+    process.platform === "win32"
+      ? 'echo "one"; Start-Sleep -Milliseconds 2500; echo "ready"; Start-Sleep -Milliseconds 1500; echo "done"'
+      : "echo one; sleep 2.5; echo ready; sleep 1.5; echo done";
+  let id = 0;
+  faux.setResponses([
+    callTool("Shell", { command, background: true }),
+    (context) => {
+      id = backgroundIdOf(context);
+      return callTool("CheckCommand", { id, wait: 20, until: "ready" });
+    },
+    () => callTool("CheckCommand", { id, wait: 20 }),
+    callTool("CheckCommand", {}),
+    callTool("CheckCommand", { id: 999 }),
+    fauxAssistantMessage("Checked it."),
+  ]);
+  const { updates, reply } = await sendAndReadReply("Start it and check it");
+  expect(textOf(reply)).toBe("Checked it.");
+  const results = updates.flatMap((update) =>
+    update.type === "toolResult" ? [update.result] : [],
+  );
+  expect(results[0]?.text).toMatch(/^one\n\nBackground command \d+ runs\./);
+  expect(results[1]?.text).toMatch(/^ready\n\nBackground command \d+ still runs after /);
+  expect(results[2]?.text).toMatch(/^done\n\nBackground command \d+ ended with exit code 0 after /);
+  expect(results[3]?.text).toBe("No background command runs.");
+  expect(results[4]).toMatchObject({
+    isError: true,
+    text: "No background command has the id 999.",
+  });
+  await expectNothingInBackground();
+}, 20_000);
 
 async function expectNothingInBackground(): Promise<void> {
   const { state } = await readStart();

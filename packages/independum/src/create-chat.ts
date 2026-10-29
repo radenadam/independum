@@ -45,6 +45,7 @@ import {
   createBackgroundCommands,
   describeBackgroundEnded,
 } from "./tools/create-background-commands.ts";
+import { checkCommandTextList, createCheckCommandTool } from "./tools/create-check-command-tool.ts";
 import { outputTextList } from "./tools/create-output-log.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
@@ -87,6 +88,7 @@ const allTexts: ModelText[] = [
   systemPromptText,
   ...shellTextList,
   ...backgroundTextList,
+  ...checkCommandTextList,
   ...stopCommandTextList,
   ...outputTextList,
 ];
@@ -159,6 +161,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       stops: commandStops,
       background,
     }),
+    createCheckCommandTool(background, texts),
     createStopCommandTool(background, texts),
   ];
   const listeners = new Set<(event: ChatEvent) => void>();
@@ -201,14 +204,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   }
 
   // A background command that ends wakes the agent of its chat with a note of how it ended. A chat
-  // that is not open keeps the note for its next turn. A command that the model stopped needs no
-  // note, because the result of StopCommand says how it ended.
+  // that is not open keeps the note for its next turn. A command that the model stopped, or waited
+  // on with CheckCommand, needs no note, because the result of that tool says how it ended.
   function noteEnd(ended: BackgroundEnded): void {
     const isOpen = session?.sessionId === ended.chatId;
     if (isOpen) {
       emit({ type: "commandEnd", end: ended.end });
     }
-    if (ended.isStoppedByModel) {
+    if (ended.isSeenByModel) {
       return;
     }
     const note = {
