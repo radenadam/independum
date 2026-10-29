@@ -1,0 +1,36 @@
+.slots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slot {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.name,
+.insert {
+  flex: none;
+  color: var(--ink);
+  font: 12px var(--font-mono);
+}
+
+.insert {
+  min-height: 26px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.insert:hover {
+  background: var(--raised);
+}

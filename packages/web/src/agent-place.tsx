@@ -12,6 +12,7 @@ import { CodeWell } from "./code-well.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { EditActions } from "./edit-actions.tsx";
 import { OutputLimitFields } from "./output-limit-fields.tsx";
+import { PiTextList } from "./pi-text-list.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
@@ -124,6 +125,14 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
       <PlaceSection heading="Added by Pi" badge="read-only">
         <CodeWell code={agent?.addedByPi ?? ""} copyLabel="Copy what Pi adds" />
         <PlaceNote>Pi adds this to the system prompt on every request.</PlaceNote>
+      </PlaceSection>
+      <PlaceSection heading="Other texts of Pi" badge="read-only">
+        <PlaceNote>
+          Pi sends each of these when its condition holds, and the mark shows the ones in the last
+          request of this chat. Pi has more texts for features that Independum does not use, such as
+          skills and branch summaries.
+        </PlaceNote>
+        {agent === undefined ? null : <PiTextList texts={agent.piTexts} />}
       </PlaceSection>
       <PlaceSection heading="Tools" badge="built-in">
         {failure === undefined ? null : <p className={styles.failure}>{failure}</p>}

@@ -73,6 +73,13 @@ export function ContextPlace({ context }: ContextPlaceProps): ReactElement {
             <CodeWell code={request} copyLabel="Copy request" />
           </Disclosure>
         )}
+        {context.cacheWarmings === 0 ? null : (
+          <PlaceNote>
+            Pi sent it again {numberFormat.format(context.cacheWarmings)}{" "}
+            {context.cacheWarmings === 1 ? "time" : "times"} with a limit of one output token, to
+            keep the prompt cache of the provider warm.
+          </PlaceNote>
+        )}
       </PlaceSection>
     </PlaceFrame>
   );

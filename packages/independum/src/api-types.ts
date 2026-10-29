@@ -139,6 +139,20 @@ export interface AgentSummary {
   outputLimits: OutputLimits;
   builtInOutputLimits: OutputLimits;
   texts: TextSummary[];
+  piTexts: PiTextSummary[];
+}
+
+/**
+ * A text that Pi sends to the model, with when it sends it and the slots where it puts values,
+ * marked when the last request of the open chat holds it.
+ */
+export interface PiTextSummary {
+  id: string;
+  group: string;
+  condition: string;
+  text: string;
+  slots: { name: string; meaning: string }[];
+  isInLastRequest: boolean;
 }
 
 /** Where a model text sits among the texts of its group. */
@@ -246,6 +260,7 @@ export interface ContextSummary {
   lastActivity: string | null;
   entries: ContextEntry[];
   lastRequest: unknown;
+  cacheWarmings: number;
 }
 
 /** A saved chat, as a project lists it. */

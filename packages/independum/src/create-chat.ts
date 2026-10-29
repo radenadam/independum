@@ -38,6 +38,7 @@ import {
   type ModelText,
   summarizeTexts,
 } from "./model-texts.ts";
+import { summarizePiTexts } from "./pi-texts.ts";
 import {
   type BackgroundEnded,
   backgroundTextList,
@@ -165,6 +166,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let isModelChosen = false;
   let isReplying = false;
   let lastRequest: unknown = null;
+  let cacheWarmings = 0;
   // The thinking of the reply in progress, by the place of each part in the message.
   const thinkingStarts = new Map<number, number>();
   const thinkingTimes = new Map<number, number>();
@@ -447,21 +449,31 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       noThemes: true,
       // This hidden extension registers Independum's tools and sets the prompt of the user before
       // each turn. Pi hands it every request before sending it, and it keeps a copy for the Context
-      // place and leaves the request as it is.
+      // place and leaves the request as it is. Pi says when it is about to send a request again
+      // only to keep the cache of the provider warm, and such a request counts apart.
       extensionFactories: [
         {
           name: "independum",
           hidden: true,
           factory: (pi) => {
             extension = pi;
+            let isWarming = false;
             for (const tool of ownTools) {
               pi.registerTool(tool);
             }
             pi.on("before_agent_start", (event) => {
               event.systemPromptOptions.customPrompt = texts.get(systemPromptText);
             });
+            pi.on("cache_warming_decision", (event) => {
+              isWarming = event.action === "warm";
+            });
             pi.on("before_provider_request", (event) => {
-              lastRequest = event.payload;
+              if (isWarming) {
+                isWarming = false;
+                cacheWarmings += 1;
+              } else {
+                lastRequest = event.payload;
+              }
             });
           },
         },
@@ -490,6 +502,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       (model !== undefined || isSaved);
     isReplying = false;
     lastRequest = null;
+    cacheWarmings = 0;
     emit({ type: "state", state: getState() });
     emitProjects();
   }
@@ -524,6 +537,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       outputLimits: settings.get().outputLimits,
       builtInOutputLimits: builtInSettings.outputLimits,
       texts: summarizeTexts(allTexts, settings.get().texts),
+      piTexts: summarizePiTexts(lastRequest),
     };
   }
 
@@ -614,6 +628,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         data: entry,
       })),
       lastRequest,
+      cacheWarmings,
     };
   }
 

@@ -6,8 +6,9 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Show every text that Pi can send to the model in the Agent place, with the condition for each, read-only. See decision 0033.
+- Shell, planned with the maintainer before it is built: hand control back after a set time, turn off editors and prompts with a visible list of environment variables, the facts and bugs of Windows PowerShell 5.1, a `workdir` parameter, a quick check of a background command when it starts, a CheckCommand tool, the drain and stop fixes, and one envelope for the messages that Independum adds to a chat.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
+- Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
 ## Next
 
