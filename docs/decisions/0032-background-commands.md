@@ -1,6 +1,6 @@
 # Background commands
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0038](0038-background-start-check.md), which returns a background call after two seconds
 - Date: 2026-10-28
 
 ## Context

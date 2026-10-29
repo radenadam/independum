@@ -1,20 +1,15 @@
-import type { CommandEnd, OutputLimits, RunningCommand, ShellProgress } from "../api-types.ts";
+import type { CommandEnd, RunningCommand, ShellProgress } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import { createOutputLog, type OutputLog } from "./create-output-log.ts";
+import type { OutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
-import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
+import { describeSeconds, type RunEnd } from "./run-command.ts";
 
-/** A command to start in the background, for a call of the Shell tool in one chat. */
+/** The call of the Shell tool that a background command came from, in one chat. */
 interface BackgroundStart {
   toolCallId: string;
   chatId: string;
   shell: Shell;
-  command: string;
-  folder: string;
-  environment: Record<string, string>;
-  timeoutMs: number | undefined;
   outputPath: string;
-  limits: OutputLimits;
 }
 
 /** A background command that has ended, with where its output is and its last lines. */
@@ -27,12 +22,8 @@ export interface BackgroundEnded {
   isStoppedByModel: boolean;
 }
 
-/**
- * What background commands need: the model texts, and who hears about them as they print and when
- * they end.
- */
+/** What background commands need: who hears about them as they print and when they end. */
 interface BackgroundOptions {
-  texts: ModelTexts;
   onProgress: (chatId: string, toolCallId: string, progress: ShellProgress) => void;
   onEnd: (ended: BackgroundEnded) => void;
 }
@@ -125,8 +116,8 @@ const backgroundTexts = {
 };
 
 /**
- * A command that started in the foreground of a reply and goes on in the background, with its
- * output log, its run, and the controller that stops it.
+ * A command that started in a reply and goes on in the background, with its output log, its run,
+ * and the controller that stops it.
  */
 interface Adoption {
   start: BackgroundStart;
@@ -138,7 +129,6 @@ interface Adoption {
 
 /** The commands that run in the background, which the user and the model can stop. */
 export interface BackgroundCommands {
-  start(start: BackgroundStart): number;
   adopt(adoption: Adoption): number;
   stopByModel(id: number): Promise<BackgroundEnded | undefined>;
   stopByUser(toolCallId: string): boolean;
@@ -161,11 +151,10 @@ interface Running {
 const lastLineCount = 20;
 
 /**
- * Starts and keeps track of the background commands of every chat. They are numbered from 1, so
- * the model can name one, and they keep running while the user opens other chats.
+ * Keeps track of the background commands of every chat. They are numbered from 1, so the model can
+ * name one, and they keep running while the user opens other chats.
  */
 export function createBackgroundCommands({
-  texts,
   onProgress,
   onEnd,
 }: BackgroundOptions): BackgroundCommands {
@@ -173,7 +162,7 @@ export function createBackgroundCommands({
   let nextId = 1;
 
   // A background command keeps its file, and its latest lines reach the chat of its call.
-  function track({ start, startedAt, log, run, controller }: Adoption): number {
+  function adopt({ start, startedAt, log, run, controller }: Adoption): number {
     const id = nextId;
     nextId += 1;
     let stoppedBy: "user" | "model" | undefined;
@@ -232,21 +221,7 @@ export function createBackgroundCommands({
   }
 
   return {
-    start(start) {
-      const controller = new AbortController();
-      const log = createOutputLog(start.outputPath, { limits: start.limits, texts });
-      const run = runCommand({
-        shell: start.shell,
-        command: start.command,
-        folder: start.folder,
-        environment: start.environment,
-        timeoutMs: start.timeoutMs,
-        signal: controller.signal,
-        onOutput: (text) => log.append(text),
-      });
-      return track({ start, startedAt: Date.now(), log, run, controller });
-    },
-    adopt: track,
+    adopt,
     async stopByModel(id) {
       const command = running.get(id);
       command?.stop("model");
