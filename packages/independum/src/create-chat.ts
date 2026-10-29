@@ -51,6 +51,7 @@ import { createReadTool, readTextList } from "./tools/create-read-tool.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
+import { fingerprintTextList } from "./tools/file-fingerprint.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
 import { envelopeText } from "./wrap-note.ts";
 
@@ -89,6 +90,7 @@ const systemPromptText = defineText({
 const allTexts: ModelText[] = [
   systemPromptText,
   ...readTextList,
+  ...fingerprintTextList,
   ...shellTextList,
   ...backgroundTextList,
   ...checkCommandTextList,
@@ -866,6 +868,15 @@ function chatMessagesOf(
   return shown;
 }
 
+// The fingerprints of a file stay in the chat file for the tools, and never go to the UI.
+function withoutFingerprint(details: unknown): unknown {
+  if (typeof details !== "object" || details === null || !("fingerprint" in details)) {
+    return details;
+  }
+  const { fingerprint: _fingerprint, ...rest } = details as Record<string, unknown>;
+  return rest;
+}
+
 function toolResultOf(message: ToolResultMessage): ToolResult {
   return {
     text: message.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
@@ -873,7 +884,7 @@ function toolResultOf(message: ToolResultMessage): ToolResult {
       block.type === "image" ? [{ mimeType: block.mimeType, data: block.data }] : [],
     ),
     isError: message.isError,
-    details: message.details ?? null,
+    details: withoutFingerprint(message.details ?? null),
   };
 }
 

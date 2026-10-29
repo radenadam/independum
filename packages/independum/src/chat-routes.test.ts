@@ -771,6 +771,30 @@ test("an output file gets a name that every system accepts, whatever the id of i
   expect(readFileSync(outputPath, "utf8")).toBe("kept\n");
 }, 20_000);
 
+test("a chat opened again still knows which version of a file it saw", async () => {
+  const notes = join(startFolder, "fingerprint-notes.txt");
+  writeFileSync(notes, "one\ntwo\nthree\n");
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  faux.setResponses([callTool("Read", { path: notes }), fauxAssistantMessage("Read it.")]);
+  const first = await sendAndReadReply("Read the notes once");
+  expect(first.updates.find((update) => update.type === "toolResult")).toMatchObject({
+    result: { details: { kind: "text", lineCount: 3 } },
+  });
+  writeFileSync(notes, "one\nTWO\nthree\n");
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await openSaved("Read the notes once")).status).toBe(204);
+  faux.setResponses([callTool("Read", { path: notes }), fauxAssistantMessage("Read it again.")]);
+  const second = await sendAndReadReply("Read them again");
+  const result = second.updates.find((update) => update.type === "toolResult");
+  expect(result?.type === "toolResult" ? result.result.text : "").toBe(
+    `1\tone\n2\tTWO\n3\tthree\n[${notes} changed since this chat last saw it, at line 2.]`,
+  );
+  expect(result?.type === "toolResult" ? result.result.details : null).not.toHaveProperty(
+    "fingerprint",
+  );
+});
+
 async function expectNothingInBackground(): Promise<void> {
   const { state } = await readStart();
   expect(state.backgroundCommands).toEqual([]);

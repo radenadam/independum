@@ -205,6 +205,9 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.5
         version: 2.1.5(hono@4.13.13)
+      diff:
+        specifier: ^8.0.4
+        version: 8.0.4
       hono:
         specifier: ^4.13.13
         version: 4.13.13
