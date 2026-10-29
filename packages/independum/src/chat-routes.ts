@@ -97,6 +97,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       : context.json(agent);
   });
 
+  routes.post("/chat/commands/:id/background", (context) =>
+    chat.moveToBackground(context.req.param("id"))
+      ? context.body(null, 204)
+      : context.json({ error: "No command that runs in a reply has that id." }, 404),
+  );
+
   routes.post("/chat/commands/:id/stop", (context) =>
     chat.stopCommand(context.req.param("id"))
       ? context.body(null, 204)

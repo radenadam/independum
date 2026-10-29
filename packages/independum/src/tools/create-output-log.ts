@@ -93,11 +93,17 @@ const outputTexts = {
   }),
 };
 
-/** The output of one tool call, which grows as the tool prints. */
+/**
+ * The output of one tool call, which grows as the tool prints. A command that goes on in the
+ * background keeps its file and gets a new listener for its latest lines.
+ */
 export interface OutputLog {
   append(text: string): void;
   latest(): string;
   lastOutputAt(): number;
+  snapshot(): LimitedOutput;
+  keep(): void;
+  follow(onLatest: (latest: string) => void): void;
   finish(): Promise<LimitedOutput>;
 }
 
@@ -123,10 +129,10 @@ export const outputTextList: ModelText[] = Object.values(outputTexts);
  * writes all of it to the file at the path. When the output passes the limits, the model gets its
  * start and its end with a note of the lines that are cut, and the file stays for the rest.
  */
-export function createOutputLog(
-  path: string,
-  { limits, texts, isKept = false, onLatest }: OutputLogOptions,
-): OutputLog {
+export function createOutputLog(path: string, options: OutputLogOptions): OutputLog {
+  const { limits, texts } = options;
+  let isKept = options.isKept ?? false;
+  let onLatest = options.onLatest;
   mkdirSync(dirname(path), { recursive: true });
   const file = createWriteStream(path);
   let isSaved = true;
@@ -207,6 +213,14 @@ export function createOutputLog(
     return texts.fill(outputTexts.frame, { note: parts.join(" ") });
   }
 
+  function limited(): LimitedOutput {
+    const rest = pending === "" ? [] : [clean(pending)];
+    if (whole !== undefined) {
+      return { text: [...whole, ...rest].join("\n"), lineCount, isCut: false };
+    }
+    return { text: [...start, note(), ...end, ...rest].join("\n"), lineCount, isCut: true };
+  }
+
   return {
     append(text) {
       if (text !== "") {
@@ -233,12 +247,19 @@ export function createOutputLog(
       if (onLatest !== undefined) {
         timer ??= setTimeout(() => {
           timer = undefined;
-          onLatest(latest());
+          onLatest?.(latest());
         }, latestInterval);
       }
     },
     latest,
     lastOutputAt: () => lastOutputAt,
+    snapshot: limited,
+    keep() {
+      isKept = true;
+    },
+    follow(listener) {
+      onLatest = listener;
+    },
     async finish() {
       clearTimeout(timer);
       if (pending !== "") {
@@ -249,10 +270,7 @@ export function createOutputLog(
       if (whole !== undefined && !isKept) {
         rmSync(path, { force: true });
       }
-      if (whole !== undefined) {
-        return { text: whole.join("\n"), lineCount, isCut: false };
-      }
-      return { text: [...start, note(), ...end].join("\n"), lineCount, isCut: true };
+      return limited();
     },
   };
 }

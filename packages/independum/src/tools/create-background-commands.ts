@@ -124,9 +124,22 @@ const backgroundTexts = {
   }),
 };
 
+/**
+ * A command that started in the foreground of a reply and goes on in the background, with its
+ * output log, its run, and the controller that stops it.
+ */
+interface Adoption {
+  start: BackgroundStart;
+  startedAt: number;
+  log: OutputLog;
+  run: Promise<RunEnd>;
+  controller: AbortController;
+}
+
 /** The commands that run in the background, which the user and the model can stop. */
 export interface BackgroundCommands {
   start(start: BackgroundStart): number;
+  adopt(adoption: Adoption): number;
   stopByModel(id: number): Promise<BackgroundEnded | undefined>;
   stopByUser(toolCallId: string): boolean;
   listRunning(chatId: string): RunningCommand[];
@@ -159,26 +172,70 @@ export function createBackgroundCommands({
   const running = new Map<number, Running>();
   let nextId = 1;
 
+  // A background command keeps its file, and its latest lines reach the chat of its call.
+  function track({ start, startedAt, log, run, controller }: Adoption): number {
+    const id = nextId;
+    nextId += 1;
+    let stoppedBy: "user" | "model" | undefined;
+    log.keep();
+    log.follow((latest) =>
+      onProgress(start.chatId, start.toolCallId, {
+        shell: start.shell.name,
+        output: latest,
+        lastOutputAt: log.lastOutputAt(),
+      }),
+    );
+    // A shell that cannot start ends the command at once, as a failure.
+    const ended = run
+      .catch(
+        (): RunEnd => ({
+          ending: "exited",
+          exitCode: null,
+          signal: null,
+          isOutputOpen: false,
+          durationMs: Date.now() - startedAt,
+        }),
+      )
+      .then(async (end) => {
+        await log.finish();
+        running.delete(id);
+        const result: BackgroundEnded = {
+          chatId: start.chatId,
+          outputPath: start.outputPath,
+          lastLines: log.latest().split("\n").slice(-lastLineCount).join("\n"),
+          end: {
+            id,
+            toolCallId: start.toolCallId,
+            ending: end.ending,
+            exitCode: end.exitCode,
+            signal: end.signal,
+            durationMs: end.durationMs,
+            isStoppedByUser: stoppedBy === "user",
+          },
+          isOutputOpen: end.isOutputOpen,
+          isStoppedByModel: stoppedBy === "model",
+        };
+        onEnd(result);
+        return result;
+      });
+    running.set(id, {
+      start,
+      startedAt,
+      log,
+      ended,
+      stop: (by) => {
+        stoppedBy = by;
+        controller.abort();
+      },
+    });
+    return id;
+  }
+
   return {
     start(start) {
-      const id = nextId;
-      nextId += 1;
-      const startedAt = Date.now();
       const controller = new AbortController();
-      let stoppedBy: "user" | "model" | undefined;
-      const log = createOutputLog(start.outputPath, {
-        limits: start.limits,
-        texts,
-        isKept: true,
-        onLatest: (latest) =>
-          onProgress(start.chatId, start.toolCallId, {
-            shell: start.shell.name,
-            output: latest,
-            lastOutputAt: log.lastOutputAt(),
-          }),
-      });
-      // A shell that cannot start ends the command at once, as a failure.
-      const ended = runCommand({
+      const log = createOutputLog(start.outputPath, { limits: start.limits, texts });
+      const run = runCommand({
         shell: start.shell,
         command: start.command,
         folder: start.folder,
@@ -186,50 +243,10 @@ export function createBackgroundCommands({
         timeoutMs: start.timeoutMs,
         signal: controller.signal,
         onOutput: (text) => log.append(text),
-      })
-        .catch(
-          (): RunEnd => ({
-            ending: "exited",
-            exitCode: null,
-            signal: null,
-            isOutputOpen: false,
-            durationMs: Date.now() - startedAt,
-          }),
-        )
-        .then(async (end) => {
-          await log.finish();
-          running.delete(id);
-          const result: BackgroundEnded = {
-            chatId: start.chatId,
-            outputPath: start.outputPath,
-            lastLines: log.latest().split("\n").slice(-lastLineCount).join("\n"),
-            end: {
-              id,
-              toolCallId: start.toolCallId,
-              ending: end.ending,
-              exitCode: end.exitCode,
-              signal: end.signal,
-              durationMs: end.durationMs,
-              isStoppedByUser: stoppedBy === "user",
-            },
-            isOutputOpen: end.isOutputOpen,
-            isStoppedByModel: stoppedBy === "model",
-          };
-          onEnd(result);
-          return result;
-        });
-      running.set(id, {
-        start,
-        startedAt,
-        log,
-        ended,
-        stop: (by) => {
-          stoppedBy = by;
-          controller.abort();
-        },
       });
-      return id;
+      return track({ start, startedAt: Date.now(), log, run, controller });
     },
+    adopt: track,
     async stopByModel(id) {
       const command = running.get(id);
       command?.stop("model");

@@ -16,6 +16,14 @@
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+/* On a phone, a row of five choices still fits beside the edges of a card. */
+@media (max-width: 420px) {
+  .choice {
+    padding: 0 9px;
+  }
 }
 
 .choice[aria-pressed="true"] {

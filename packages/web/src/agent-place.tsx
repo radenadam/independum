@@ -144,6 +144,7 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
               key={tool.name}
               tool={tool}
               shells={agent.shells}
+              handBackSeconds={agent.handBackSeconds}
               environment={agent.environment}
               environmentSuggestions={agent.environmentSuggestions}
               disabledTools={disabledTools ?? []}
@@ -151,7 +152,9 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
                 tool.name,
                 !tool.isEnabled ||
                   (tool.name === "Shell" &&
-                    (agent.chosenShell !== null || Object.keys(agent.environment).length > 0)),
+                    (agent.chosenShell !== null ||
+                      agent.handBackSeconds !== agent.builtInHandBackSeconds ||
+                      Object.keys(agent.environment).length > 0)),
               )}
               onChange={change}
               onEdit={() => setEditing(tool.name)}
@@ -159,7 +162,13 @@ export function AgentPlace({ chat, models }: AgentPlaceProps): ReactElement {
                 change({
                   texts: builtInTextsOf(tool.name),
                   disabledTools: (disabledTools ?? []).filter((name) => name !== tool.name),
-                  ...(tool.name === "Shell" ? { shell: null, environment: {} } : {}),
+                  ...(tool.name === "Shell"
+                    ? {
+                        shell: null,
+                        handBackSeconds: agent.builtInHandBackSeconds,
+                        environment: {},
+                      }
+                    : {}),
                 })
               }
             />

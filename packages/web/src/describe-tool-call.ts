@@ -23,6 +23,7 @@ interface DescribedCall {
   output: string;
   status: StepStatus | undefined;
   isRunning: boolean;
+  canMove: boolean;
   quietMs: number | undefined;
 }
 
@@ -58,6 +59,7 @@ export function describeToolCall(
       output: part.result?.text ?? "",
       status,
       isRunning,
+      canMove: false,
       quietMs,
     };
   }
@@ -76,6 +78,8 @@ export function describeToolCall(
     output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
     status,
     isRunning,
+    // A command of the reply can go on in the background, and one already there cannot.
+    canMove: isRunning && part.result === null,
     quietMs,
   };
 }

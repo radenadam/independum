@@ -115,6 +115,7 @@ export interface Chat {
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
+  moveToBackground(id: string): boolean;
   stopAll(): void;
   startNew(folder?: string): Promise<boolean>;
   rename(id: string, name: string): Promise<boolean>;
@@ -135,6 +136,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
   const commandStops = new Map<string, () => void>();
+  const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
     texts,
     onProgress(chatId, toolCallId, progress) {
@@ -151,6 +153,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       getShell: () => shell,
       getLimits: () => settings.get().outputLimits,
       getEnvironment: () => settings.get().environment,
+      getHandBackSeconds: () => settings.get().handBackSeconds,
+      handBacks: commandHandBacks,
       texts,
       outputFolder,
       stops: commandStops,
@@ -538,6 +542,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       chosenShell: settings.get().shell,
       outputLimits: settings.get().outputLimits,
       builtInOutputLimits: builtInSettings.outputLimits,
+      handBackSeconds: settings.get().handBackSeconds,
+      builtInHandBackSeconds: builtInSettings.handBackSeconds,
       texts: summarizeTexts(allTexts, settings.get().texts),
       piTexts: summarizePiTexts(lastRequest),
       environment: settings.get().environment,
@@ -776,6 +782,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       const stop = commandStops.get(id);
       stop?.();
       return stop !== undefined || background.stopByUser(id);
+    },
+    moveToBackground(id) {
+      const handBack = commandHandBacks.get(id);
+      handBack?.();
+      return handBack !== undefined;
     },
     stopAll() {
       background.stopAll();

@@ -429,6 +429,89 @@ test("a command can be stopped on its own, and the agent goes on", async () => {
   expect((await post("/chat/commands/no-such-command/stop", {})).status).toBe(404);
 });
 
+test("a long command goes on in the background when the user moves it or after a while", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const windows = process.platform === "win32";
+  faux.setResponses([
+    fauxAssistantMessage(
+      [fauxToolCall("Shell", { command: windows ? "Start-Sleep -Seconds 30" : "sleep 30" })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage("It runs on."),
+    fauxAssistantMessage("Noted the stop."),
+    fauxAssistantMessage(
+      [fauxToolCall("Shell", { command: windows ? "Start-Sleep -Seconds 7" : "sleep 7" })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage("It runs on too."),
+    fauxAssistantMessage("Noted the end."),
+  ]);
+  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  async function nextWhere(isWanted: (event: ChatEvent) => boolean): Promise<ChatEvent> {
+    let event = await events.next();
+    while (!isWanted(event)) {
+      event = await events.next();
+    }
+    return event;
+  }
+  function replyOf(text: string): (event: ChatEvent) => boolean {
+    return (event) =>
+      event.type === "message" &&
+      event.message.role === "assistant" &&
+      textOf(event.message) === text;
+  }
+  await events.next();
+
+  expect((await post("/chat/messages", { text: "Wait a while" })).status).toBe(202);
+  const started = await nextWhere((event) => event.type === "toolStart");
+  const id = started.type === "toolStart" ? started.id : "";
+  expect((await post(`/chat/commands/${id}/background`, {})).status).toBe(204);
+  const moved = await nextWhere((event) => event.type === "toolResult");
+  expect(moved.type === "toolResult" ? moved.result.text : "").toMatch(
+    /^The user moved it to the background as background command \d+ after \d+\.\d s\./,
+  );
+  await nextWhere(replyOf("It runs on."));
+  expect((await readStart()).state.backgroundCommands.map((each) => each.toolCallId)).toContain(id);
+  expect((await post(`/chat/commands/${id}/stop`, {})).status).toBe(204);
+  await nextWhere(replyOf("Noted the stop."));
+
+  await put("/settings", { handBackSeconds: 5 });
+  expect((await post("/chat/messages", { text: "Wait again" })).status).toBe(202);
+  const handedBack = await nextWhere((event) => event.type === "toolResult");
+  expect(handedBack.type === "toolResult" ? handedBack.result.text : "").toMatch(
+    /^Still running after 5\.\d s, so it goes on as background command \d+\./,
+  );
+  await nextWhere(replyOf("It runs on too."));
+  await nextWhere(replyOf("Noted the end."));
+  await events.close();
+  await put("/settings", { handBackSeconds: 120 });
+  expect((await post("/chat/commands/no-such-command/background", {})).status).toBe(404);
+  expect((await put("/settings", { handBackSeconds: 2 })).status).toBe(400);
+}, 30_000);
+
+test("a command runs in the folder that workdir names, and a missing one fails", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  mkdirSync(join(startFolder, "inner"), { recursive: true });
+  const where = process.platform === "win32" ? "(Get-Location).Path" : "pwd";
+  faux.setResponses([
+    fauxAssistantMessage(
+      [
+        fauxToolCall("Shell", { command: where, workdir: "inner" }),
+        fauxToolCall("Shell", { command: where, workdir: "no-such-folder" }),
+      ],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage("Done."),
+  ]);
+  const results = (await sendAndReadReply("Where are you")).updates.flatMap((update) =>
+    update.type === "toolResult" ? [update.result] : [],
+  );
+  expect(results[0]?.text).toContain("inner");
+  expect(results[1]).toMatchObject({ isError: true, text: "No folder at no-such-folder." });
+});
+
 test("a tool that is turned off never runs, and the output limits change", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
@@ -501,7 +584,9 @@ test("edited texts reach the model with the next turn, and null brings back the 
   });
   const agent = (await edited.json()) as AgentSummary;
   expect(agent.systemPrompt).toBe("You are a test agent.");
-  expect(agent.tools[0]?.description).toMatch(/^Runs .+ for tests\.$/);
+  expect(agent.tools[0]?.description).toMatch(
+    /^Runs .+ for tests\. A command that still runs after 120 s goes on as a background command\.$/,
+  );
   expect(agent.tools[0]?.parameters).toMatchObject({
     properties: { command: { description: "What to run." } },
   });

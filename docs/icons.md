@@ -57,6 +57,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Context | A ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | A circle around a small box, on a running command, which stops that command alone. |
+| Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -101,6 +102,7 @@ Decision 0024 records why icons move and where the line falls.
 | Context | The orange part of the ring turns a little. |
 | Shell | The prompt nudges forward, and the cursor stretches as if it types. |
 | Stop command | The box squeezes. |
+| Background | The arrow nudges toward the box behind. |
 
 ## Building icons
 

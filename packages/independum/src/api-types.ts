@@ -141,6 +141,8 @@ export interface AgentSummary {
   chosenShell: ShellKind | null;
   outputLimits: OutputLimits;
   builtInOutputLimits: OutputLimits;
+  handBackSeconds: number;
+  builtInHandBackSeconds: number;
   texts: TextSummary[];
   piTexts: PiTextSummary[];
   environment: Record<string, string>;
@@ -234,6 +236,7 @@ export interface Settings {
   shell: ShellKind | null;
   disabledTools: string[];
   outputLimits: OutputLimits;
+  handBackSeconds: number;
   environment: Record<string, string>;
   texts: Record<string, EditedText>;
 }

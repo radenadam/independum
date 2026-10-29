@@ -6,7 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Shell, as planned with the maintainer: hand control back after a set time with a button that does it by hand, a `workdir` parameter, a quick check of a background command when it starts, a CheckCommand tool, one envelope for the messages that Independum adds to a chat, and an end on Windows for the programs that a command leaves behind. See decisions 0035 and 0036.
+- Shell, as planned with the maintainer: a quick check of a background command when it starts, a CheckCommand tool, one envelope for the messages that Independum adds to a chat, and an end on Windows for the programs that a command leaves behind. See decisions 0035, 0036, and 0037.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
