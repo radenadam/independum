@@ -1,5 +1,7 @@
 import type {
   CommandEnd,
+  DiffHunk,
+  EditDetails,
   ReadDetails,
   ShellDetails,
   ShellProgress,
@@ -30,6 +32,7 @@ interface DescribedCall {
   input: string;
   output: string;
   images: ToolImage[];
+  hunks: DiffHunk[];
   status: StepStatus | undefined;
   isRunning: boolean;
   canStop: boolean;
@@ -59,8 +62,8 @@ export function describeToolCall(
     quietMs === undefined
       ? statusOf(part, run, end, isReplying, elapsed)
       : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
-  if (part.name === "Read") {
-    return describeRead(part, status, isRunning);
+  if (part.name === "Read" || part.name === "Edit") {
+    return describeFileCall(part, status, isRunning);
   }
   if (part.name !== "Shell") {
     return {
@@ -69,6 +72,7 @@ export function describeToolCall(
       input: JSON.stringify(part.input, null, 2),
       output: part.result?.text ?? "",
       images: part.result?.images ?? [],
+      hunks: [],
       status,
       isRunning,
       canStop: false,
@@ -90,6 +94,7 @@ export function describeToolCall(
     input: command,
     output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
     images: [],
+    hunks: [],
     status,
     isRunning,
     canStop: isRunning,
@@ -99,28 +104,43 @@ export function describeToolCall(
   };
 }
 
-// A read is labeled with the name of its file, which a long path would push out of sight, and the
-// block with the text that the model read shows the whole path.
-function describeRead(
+// A call to a tool on a file is labeled with the name of the file, which a long path would push out
+// of sight, and shows the whole path above what it holds: the text that Read returned, or the diff
+// of Edit above the text that it returned to the model. The user cannot stop it.
+function describeFileCall(
   part: ToolCallPart,
   running: StepStatus | undefined,
   isRunning: boolean,
 ): DescribedCall {
-  const path = typeof part.input.path === "string" ? part.input.path : "";
   const { result } = part;
+  const path = typeof part.input.path === "string" ? part.input.path : "";
+  const name = path.split(/[\\/]/).at(-1) ?? path;
+  const shared = { language: path, isRunning, canStop: false, canMove: false, quietMs: undefined };
+  if (part.name === "Edit") {
+    const details = result === null || result.isError ? undefined : (result.details as EditDetails);
+    return {
+      ...shared,
+      label: name,
+      input: "",
+      output: result?.text ?? "",
+      images: [],
+      hunks: details?.hunks ?? [],
+      status:
+        details === undefined
+          ? running
+          : { text: `+${details.added} -${details.removed}`, tone: "quiet" },
+    };
+  }
   const details = result?.details as ReadDetails | null | undefined;
   const isText = result !== null && !result.isError && details?.kind === "text";
   return {
-    label: readLabelOf(part.input, path.split(/[\\/]/).at(-1) ?? path),
-    language: path,
+    ...shared,
+    label: readLabelOf(part.input, name),
     input: isText ? result.text : "",
     output: result === null || isText ? "" : result.text,
     images: result?.images ?? [],
+    hunks: [],
     status: result === null || result.isError ? running : readStatusOf(details),
-    isRunning,
-    canStop: false,
-    canMove: false,
-    quietMs: undefined,
   };
 }
 

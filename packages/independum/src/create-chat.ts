@@ -46,6 +46,7 @@ import {
   describeBackgroundNote,
 } from "./tools/create-background-commands.ts";
 import { checkCommandTextList, createCheckCommandTool } from "./tools/create-check-command-tool.ts";
+import { createEditTool, editTextList } from "./tools/create-edit-tool.ts";
 import { outputTextList } from "./tools/create-output-log.ts";
 import { createReadTool, readTextList } from "./tools/create-read-tool.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
@@ -53,6 +54,7 @@ import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
 import { fingerprintTextList } from "./tools/file-fingerprint.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
+import { fileTextList } from "./tools/text-file.ts";
 import { envelopeText } from "./wrap-note.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
@@ -91,6 +93,8 @@ const allTexts: ModelText[] = [
   systemPromptText,
   ...readTextList,
   ...fingerprintTextList,
+  ...fileTextList,
+  ...editTextList,
   ...shellTextList,
   ...backgroundTextList,
   ...checkCommandTextList,
@@ -157,6 +161,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // stay off.
   const ownTools = [
     createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
+    createEditTool(texts),
     createShellTool({
       getShell: () => shell,
       getLimits: () => settings.get().outputLimits,

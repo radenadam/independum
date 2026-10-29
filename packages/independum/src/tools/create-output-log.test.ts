@@ -1,12 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import { createModelTexts } from "../model-texts.ts";
 import { createOutputLog } from "./create-output-log.ts";
+import { createTestFolder } from "./create-test-folder.ts";
 
-const folder = mkdtempSync(join(tmpdir(), "independum-output-"));
-afterAll(() => rmSync(folder, { recursive: true, force: true }));
+const folder = createTestFolder("output");
 const limits = { maxLines: 10, maxBytes: 1000 };
 const options = { limits, texts: createModelTexts(() => ({})) };
 

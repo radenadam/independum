@@ -305,6 +305,7 @@ test("the agent shows its prompts and its tools", async () => {
   expect(agent.addedByPi).toContain("<cwd>");
   expect(agent.tools.map((tool) => tool.name)).toEqual([
     "Read",
+    "Edit",
     "Shell",
     "CheckCommand",
     "StopCommand",

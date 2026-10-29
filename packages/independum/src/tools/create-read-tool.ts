@@ -1,6 +1,4 @@
-import { readdirSync, type Stats, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import {
   defineTool,
@@ -8,16 +6,12 @@ import {
   formatDimensionNote,
   resizeImage,
   type ToolDefinition,
+  withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ReadDetails } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import {
-  describeChange,
-  type FileFingerprint,
-  fileKeyOf,
-  fingerprintOf,
-  lastSeenOf,
-} from "./file-fingerprint.ts";
+import { type FileFingerprint, versionOf } from "./file-fingerprint.ts";
+import { decodeText, findFile, pathParameterOf, splitLines } from "./text-file.ts";
 
 /** What the Read tool needs: the output limits that it shares with Shell, and the model texts. */
 interface ReadToolOptions {
@@ -233,40 +227,6 @@ const readTexts = {
       column: { meaning: "The column that the model gave.", example: "2" },
     },
   }),
-  folder: defineText({
-    id: "read.folder",
-    group,
-    section: "result",
-    label: "When the path is a folder",
-    builtIn: "{path} is a folder, not a file.",
-    slots: { path: pathSlot },
-  }),
-  missing: defineText({
-    id: "read.missing",
-    group,
-    section: "result",
-    label: "When no file is at the path",
-    builtIn: "No file at {path}.",
-    slots: { path: pathSlot },
-  }),
-  similar: defineText({
-    id: "read.similar",
-    group,
-    section: "result",
-    label: "After a missing file, when its folder holds names like it",
-    builtIn: "Similar names: {names}.",
-    slots: {
-      names: { meaning: "Up to three paths in the same folder.", example: "src/app.ts, src/apps" },
-    },
-  }),
-  binary: defineText({
-    id: "read.binary",
-    group,
-    section: "result",
-    label: "When the file is binary and not an image that Read takes",
-    builtIn: "{path} is a binary file of {size}, so it has no text to show.",
-    slots: { path: pathSlot, size: { meaning: "The size of the file.", example: "2.4 MB" } },
-  }),
   image: defineText({
     id: "read.image",
     group,
@@ -302,9 +262,6 @@ export const readTextList: ModelText[] = Object.values(readTexts);
 
 const numberFormat = new Intl.NumberFormat("en-US");
 const sizeFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
-// A zero byte in the start of a file marks it as binary, because text almost never holds one.
-const binaryProbe = 8192;
-const similarCount = 3;
 
 /**
  * Creates the Read tool, which returns the lines of a text file with their numbers, or an image,
@@ -319,7 +276,7 @@ export function createReadTool({ getLimits, texts }: ReadToolOptions): ToolDefin
     },
     get parameters() {
       return Type.Object({
-        path: Type.String({ minLength: 1, description: texts.get(readTexts.path) }),
+        path: pathParameterOf(texts.get(readTexts.path)),
         offset: Type.Optional(positionOf(texts.get(readTexts.offset))),
         limit: Type.Optional(positionOf(texts.get(readTexts.limit))),
         column: Type.Optional(positionOf(texts.get(readTexts.column))),
@@ -333,99 +290,78 @@ export function createReadTool({ getLimits, texts }: ReadToolOptions): ToolDefin
       _onUpdate,
       context,
     ) {
-      const file = resolve(context.cwd, path);
-      const found = statOf(file);
-      if (found === undefined) {
-        const similar = similarNames(file, path);
-        const missing = texts.fill(readTexts.missing, { path });
-        throw new Error(
-          similar.length === 0
-            ? missing
-            : `${missing} ${texts.fill(readTexts.similar, { names: similar.join(", ") })}`,
-        );
-      }
-      if (found.isDirectory()) {
-        throw new Error(texts.fill(readTexts.folder, { path }));
-      }
-      const mimeType = await detectSupportedImageMimeTypeFromFile(file);
-      const bytes = await readFile(file);
-      // The chat remembers each version of a file that it saw, so a later read, write, or edit can
-      // tell whether the file changed since and where.
-      const key = fileKeyOf(file);
-      const seen = lastSeenOf(context, key);
-      // Pi detects BMP too, but it only turns BMP into a format that models take inside its own tool.
-      const { model } = context;
-      if (mimeType !== null && mimeType !== undefined && mimeType !== "image/bmp") {
-        if (model === undefined || !model.input.includes("image")) {
+      const { file } = findFile(path, context.cwd, texts);
+      // Pi runs the calls of one reply at the same time, so a read waits in the queue of its file
+      // for an edit or a write of it that came before.
+      return withFileMutationQueue(file, async () => {
+        const mimeType = await detectSupportedImageMimeTypeFromFile(file);
+        const bytes = await readFile(file);
+        // Pi detects BMP too, but it only turns BMP into a format that models take inside its own tool.
+        const { model } = context;
+        if (mimeType !== null && mimeType !== undefined && mimeType !== "image/bmp") {
+          if (model === undefined || !model.input.includes("image")) {
+            return {
+              content: [{ type: "text", text: texts.fill(readTexts.imageNotTaken, { path }) }],
+              details: null,
+            };
+          }
+          const resized = await resizeImage(bytes, mimeType, model.inputLimits?.images?.resize);
+          if (resized === null) {
+            throw new Error(texts.fill(readTexts.imageTooLarge, { path }));
+          }
+          const { fingerprint, change } = versionOf(context, file, bytes, undefined, path, texts);
+          const about = texts.fill(readTexts.image, {
+            path,
+            width: numberFormat.format(resized.originalWidth),
+            height: numberFormat.format(resized.originalHeight),
+          });
+          const notes = [formatDimensionNote(resized), change];
+          const details: ReadDetails & { fingerprint: FileFingerprint } = {
+            kind: "image",
+            width: resized.originalWidth,
+            height: resized.originalHeight,
+            fingerprint,
+          };
           return {
-            content: [{ type: "text", text: texts.fill(readTexts.imageNotTaken, { path }) }],
-            details: null,
+            content: [
+              { type: "text", text: [about, ...notes.filter(isText)].join("\n") },
+              { type: "image", data: resized.data, mimeType: resized.mimeType },
+            ],
+            details,
           };
         }
-        const resized = await resizeImage(bytes, mimeType, model.inputLimits?.images?.resize);
-        if (resized === null) {
-          throw new Error(texts.fill(readTexts.imageTooLarge, { path }));
+        const decoded = decodeText(bytes, path, texts);
+        const lines = splitLines(decoded.text);
+        // The chat remembers each version of a file that it saw, so a later read, write, or edit can
+        // tell whether the file changed since and where.
+        const { fingerprint, change } = versionOf(context, file, bytes, lines, path, texts);
+        if (lines.length === 0) {
+          const details: ReadDetails & { fingerprint: FileFingerprint } = {
+            kind: "empty",
+            fingerprint,
+          };
+          const empty = texts.fill(readTexts.empty, { path });
+          return {
+            content: [{ type: "text", text: change === undefined ? empty : `${empty}\n${change}` }],
+            details,
+          };
         }
-        const fingerprint = fingerprintOf(key, bytes, undefined, seen);
-        const about = texts.fill(readTexts.image, {
-          path,
-          width: numberFormat.format(resized.originalWidth),
-          height: numberFormat.format(resized.originalHeight),
-        });
-        const notes = [
-          formatDimensionNote(resized),
-          describeChange(seen, fingerprint, undefined, path, texts),
-        ];
+        const window = { offset: offset ?? 1, limit, column: column ?? 1, length };
+        checkStart(lines, window, path, texts);
+        const read = readLines(lines, window, getLimits(), texts);
         const details: ReadDetails & { fingerprint: FileFingerprint } = {
-          kind: "image",
-          width: resized.originalWidth,
-          height: resized.originalHeight,
+          kind: "text",
+          firstLine: read.firstLine,
+          lastLine: read.lastLine,
+          lineCount: lines.length,
           fingerprint,
         };
+        const notes = [decoded.isUtf8 ? undefined : texts.get(readTexts.notUtf8), change];
         return {
-          content: [
-            { type: "text", text: [about, ...notes.filter(isText)].join("\n") },
-            { type: "image", data: resized.data, mimeType: resized.mimeType },
-          ],
+          content: [{ type: "text", text: [read.text, ...notes.filter(isText)].join("\n") }],
           details,
         };
-      }
-      const decoded = decode(bytes);
-      if (decoded === undefined) {
-        throw new Error(texts.fill(readTexts.binary, { path, size: describeSize(found.size) }));
-      }
-      const lines = decoded.text.split(/\r?\n/);
-      if (lines.at(-1) === "") {
-        lines.pop();
-      }
-      const fingerprint = fingerprintOf(key, bytes, lines, seen);
-      const change = describeChange(seen, fingerprint, lines, path, texts);
-      if (lines.length === 0) {
-        const details: ReadDetails & { fingerprint: FileFingerprint } = {
-          kind: "empty",
-          fingerprint,
-        };
-        const empty = texts.fill(readTexts.empty, { path });
-        return {
-          content: [{ type: "text", text: change === undefined ? empty : `${empty}\n${change}` }],
-          details,
-        };
-      }
-      const window = { offset: offset ?? 1, limit, column: column ?? 1, length };
-      checkStart(lines, window, path, texts);
-      const read = readLines(lines, window, getLimits(), texts);
-      const details: ReadDetails & { fingerprint: FileFingerprint } = {
-        kind: "text",
-        firstLine: read.firstLine,
-        lastLine: read.lastLine,
-        lineCount: lines.length,
-        fingerprint,
-      };
-      const notes = [decoded.isUtf8 ? undefined : texts.get(readTexts.notUtf8), change];
-      return {
-        content: [{ type: "text", text: [read.text, ...notes.filter(isText)].join("\n") }],
-        details,
-      };
+      });
     },
   });
 }
@@ -436,84 +372,6 @@ function isText(note: string | undefined): note is string {
 
 function positionOf(description: string): ReturnType<typeof Type.Integer> {
   return Type.Integer({ minimum: 1, description });
-}
-
-function statOf(file: string): Stats | undefined {
-  try {
-    return statSync(file);
-  } catch {
-    return undefined;
-  }
-}
-
-// The names in the folder of a missing file that are closest to its own, as paths like the one
-// that the model gave.
-function similarNames(file: string, path: string): string[] {
-  let names: string[];
-  try {
-    names = readdirSync(dirname(file));
-  } catch {
-    return [];
-  }
-  const wanted = basename(file).toLowerCase();
-  const stem = wanted.replace(/\.[^.]*$/, "");
-  const given = dirname(path);
-  return names
-    .map((name) => ({ name, distance: distanceOf(name.toLowerCase(), wanted) }))
-    .filter(
-      ({ name, distance }) =>
-        distance <= Math.max(2, Math.floor(wanted.length / 4)) ||
-        name.toLowerCase().startsWith(stem),
-    )
-    .sort((first, second) => first.distance - second.distance)
-    .slice(0, similarCount)
-    .map(({ name }) => (given === "." ? name : join(given, name).replaceAll("\\", "/")));
-}
-
-// The number of single characters to add, remove, or change to turn one name into the other.
-function distanceOf(first: string, second: string): number {
-  let previous = Array.from({ length: second.length + 1 }, (_, index) => index);
-  for (const [row, letter] of [...first].entries()) {
-    const current = [row + 1];
-    for (const [index, other] of [...second].entries()) {
-      current.push(
-        Math.min(
-          (previous[index + 1] ?? 0) + 1,
-          (current[index] ?? 0) + 1,
-          (previous[index] ?? 0) + (letter === other ? 0 : 1),
-        ),
-      );
-    }
-    previous = current;
-  }
-  return previous[second.length] ?? 0;
-}
-
-// A file is text in UTF-16 when it starts with the mark of that encoding, and otherwise in UTF-8.
-// It is binary when a zero byte comes early.
-function decode(bytes: Buffer): { text: string; isUtf8: boolean } | undefined {
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
-    return { text: new TextDecoder("utf-16le").decode(bytes), isUtf8: true };
-  }
-  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
-    return { text: new TextDecoder("utf-16be").decode(bytes), isUtf8: true };
-  }
-  if (bytes.subarray(0, binaryProbe).includes(0)) {
-    return undefined;
-  }
-  try {
-    return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), isUtf8: true };
-  } catch {
-    return { text: new TextDecoder("utf-8").decode(bytes), isUtf8: false };
-  }
-}
-
-function describeSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${numberFormat.format(bytes)} bytes`;
-  }
-  const kilobytes = bytes / 1024;
-  return kilobytes < 1024 ? `${kilobytes.toFixed(1)} KB` : `${(kilobytes / 1024).toFixed(1)} MB`;
 }
 
 // A read that starts past the end of the file, or past the end of its first line, fails.
