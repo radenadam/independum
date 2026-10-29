@@ -47,6 +47,7 @@ import {
 } from "./tools/create-background-commands.ts";
 import { checkCommandTextList, createCheckCommandTool } from "./tools/create-check-command-tool.ts";
 import { outputTextList } from "./tools/create-output-log.ts";
+import { createReadTool, readTextList } from "./tools/create-read-tool.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
@@ -87,6 +88,7 @@ const systemPromptText = defineText({
 // Every model text. The Agent place groups them, and keeps this order within each group.
 const allTexts: ModelText[] = [
   systemPromptText,
+  ...readTextList,
   ...shellTextList,
   ...backgroundTextList,
   ...checkCommandTextList,
@@ -152,6 +154,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // Independum's own tools, which every chat shares. Pi registers its built-in tools too, and they
   // stay off.
   const ownTools = [
+    createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
     createShellTool({
       getShell: () => shell,
       getLimits: () => settings.get().outputLimits,
@@ -866,6 +869,9 @@ function chatMessagesOf(
 function toolResultOf(message: ToolResultMessage): ToolResult {
   return {
     text: message.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
+    images: message.content.flatMap((block) =>
+      block.type === "image" ? [{ mimeType: block.mimeType, data: block.data }] : [],
+    ),
     isError: message.isError,
     details: message.details ?? null,
   };

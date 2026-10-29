@@ -1,4 +1,11 @@
-import type { CommandEnd, ShellDetails, ShellProgress, ToolCallPart } from "independum/api-types";
+import type {
+  CommandEnd,
+  ReadDetails,
+  ShellDetails,
+  ShellProgress,
+  ToolCallPart,
+  ToolImage,
+} from "independum/api-types";
 import { describeDuration } from "./describe-duration.ts";
 import type { StepStatus } from "./status-label.tsx";
 
@@ -13,15 +20,16 @@ export interface ToolRun {
 }
 
 /**
- * How a call to a tool reads: its label, what went in, what came back, how it is going, what the
- * user can do with a running command, and how long a running command has printed nothing, once
- * that is long enough to tell the user.
+ * How a call to a tool reads: its label, the block of code inside it, what came back, how it is
+ * going, what the user can do with a running command, and how long a running command has printed
+ * nothing, once that is long enough to tell the user.
  */
 interface DescribedCall {
   label: string;
   language: string;
   input: string;
   output: string;
+  images: ToolImage[];
   status: StepStatus | undefined;
   isRunning: boolean;
   canStop: boolean;
@@ -32,6 +40,7 @@ interface DescribedCall {
 // A running command that prints nothing for this long may be waiting for input that never comes,
 // so the user hears about it. The model hears nothing.
 const quietTime = 30_000;
+const numberFormat = new Intl.NumberFormat("en-US");
 
 /**
  * Returns how a call to a tool reads in the chat and in the Commands place. A call to the Shell
@@ -50,12 +59,16 @@ export function describeToolCall(
     quietMs === undefined
       ? statusOf(part, run, end, isReplying, elapsed)
       : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
+  if (part.name === "Read") {
+    return describeRead(part, status, isRunning);
+  }
   if (part.name !== "Shell") {
     return {
       label: labelOf(part),
       language: "json",
       input: JSON.stringify(part.input, null, 2),
       output: part.result?.text ?? "",
+      images: part.result?.images ?? [],
       status,
       isRunning,
       canStop: false,
@@ -76,6 +89,7 @@ export function describeToolCall(
     language: details?.shell ?? progress?.shell ?? "shell",
     input: command,
     output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
+    images: [],
     status,
     isRunning,
     canStop: isRunning,
@@ -83,6 +97,77 @@ export function describeToolCall(
     canMove: isRunning && part.result === null,
     quietMs,
   };
+}
+
+// A read is labeled with the name of its file, which a long path would push out of sight, and the
+// block with the text that the model read shows the whole path.
+function describeRead(
+  part: ToolCallPart,
+  running: StepStatus | undefined,
+  isRunning: boolean,
+): DescribedCall {
+  const path = typeof part.input.path === "string" ? part.input.path : "";
+  const { result } = part;
+  const details = result?.details as ReadDetails | null | undefined;
+  const isText = result !== null && !result.isError && details?.kind === "text";
+  return {
+    label: readLabelOf(part.input, path.split(/[\\/]/).at(-1) ?? path),
+    language: path,
+    input: isText ? result.text : "",
+    output: result === null || isText ? "" : result.text,
+    images: result?.images ?? [],
+    status: result === null || result.isError ? running : readStatusOf(details),
+    isRunning,
+    canStop: false,
+    canMove: false,
+    quietMs: undefined,
+  };
+}
+
+function readLabelOf(input: Record<string, unknown>, name: string): string {
+  const offset = numberOf(input.offset);
+  const limit = numberOf(input.limit);
+  const column = numberOf(input.column);
+  const first = offset ?? 1;
+  if (column !== undefined) {
+    return `${name}, line ${numberFormat.format(first)} from column ${numberFormat.format(column)}`;
+  }
+  if (limit !== undefined) {
+    const last = first + limit - 1;
+    return last === first
+      ? `${name}, line ${numberFormat.format(first)}`
+      : `${name}, lines ${numberFormat.format(first)} to ${numberFormat.format(last)}`;
+  }
+  return offset === undefined ? name : `${name}, from line ${numberFormat.format(offset)}`;
+}
+
+function numberOf(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
+function readStatusOf(details: ReadDetails | null | undefined): StepStatus | undefined {
+  if (details?.kind === "image") {
+    return {
+      text: `${numberFormat.format(details.width)} by ${numberFormat.format(details.height)}`,
+      tone: "quiet",
+    };
+  }
+  if (details?.kind === "empty") {
+    return { text: "Empty", tone: "quiet" };
+  }
+  if (details?.kind !== "text") {
+    return undefined;
+  }
+  const { firstLine, lastLine, lineCount } = details;
+  if (firstLine === 1 && lastLine === lineCount) {
+    return {
+      text: lineCount === 1 ? "1 line" : `${numberFormat.format(lineCount)} lines`,
+      tone: "quiet",
+    };
+  }
+  // The label already names the range that the model asked for, so the status says how much came.
+  const shown = numberFormat.format(lastLine - firstLine + 1);
+  return { text: `${shown} of ${numberFormat.format(lineCount)} lines`, tone: "quiet" };
 }
 
 function labelOf(part: ToolCallPart): string {

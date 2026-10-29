@@ -50,9 +50,16 @@ export interface ThinkingPart {
   durationMs: number | null;
 }
 
+/** An image that a tool sent back to the model, as base64 data. */
+export interface ToolImage {
+  mimeType: string;
+  data: string;
+}
+
 /** What a tool sent back to the model, and the details it keeps for the chat. */
 export interface ToolResult {
   text: string;
+  images: ToolImage[];
   isError: boolean;
   details: unknown;
 }
@@ -75,6 +82,12 @@ export interface ShellProgress {
   output: string;
   lastOutputAt: number;
 }
+
+/** What the Read tool keeps about a read: the lines that it returned, or the size of an image. */
+export type ReadDetails =
+  | { kind: "text"; firstLine: number; lastLine: number; lineCount: number }
+  | { kind: "image"; width: number; height: number }
+  | { kind: "empty" };
 
 /** What the Shell tool keeps about a command once it has ended. */
 export interface ShellDetails {

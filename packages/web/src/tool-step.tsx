@@ -53,13 +53,23 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
         ) : undefined
       }
       isFollowing={isUnderWay}
-      hasBody={call.input !== ""}
+      hasBody={call.input !== "" || call.output !== "" || call.images.length > 0}
       shownAt={tools.shown?.id === part.id ? tools.shown.at : undefined}
     >
-      <div className={styles.input}>
-        <CodeBlock language={call.language} code={call.input} />
-      </div>
+      {call.input === "" ? null : (
+        <div className={styles.input}>
+          <CodeBlock language={call.language} code={call.input} />
+        </div>
+      )}
       {call.output === "" ? null : <pre className={styles.output}>{call.output}</pre>}
+      {call.images.map((image) => (
+        <img
+          key={image.data.slice(-32)}
+          className={styles.image}
+          src={`data:${image.mimeType};base64,${image.data}`}
+          alt="What the model saw"
+        />
+      ))}
       {call.quietMs === undefined ? null : (
         <p className={styles.quiet}>
           It has printed nothing for {describeDuration(call.quietMs)}, so it may be waiting for

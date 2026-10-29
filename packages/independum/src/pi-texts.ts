@@ -185,7 +185,7 @@ export const piTexts: PiText[] = [
   {
     id: "attachedImage",
     group: "Images",
-    condition: "When a tool result holds only images. Independum does not send images yet.",
+    condition: "When a tool result holds only images.",
     text: "(see attached image)",
     slots: {},
   },

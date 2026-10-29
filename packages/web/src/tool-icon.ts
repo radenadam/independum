@@ -1,6 +1,7 @@
 import type { IconName } from "./icon.tsx";
 
 const toolIcons = new Map<string, IconName>([
+  ["Read", "read"],
   ["Shell", "shell"],
   ["CheckCommand", "checkCommand"],
   ["StopCommand", "stopCommand"],
