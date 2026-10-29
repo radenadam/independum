@@ -27,7 +27,7 @@ The maintainer agreed to these, and they come in this order, one small change at
 
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
-- How do permissions and sandboxing work for commands and the other tools? Study the options once the tools are done. See decision 0029.
+- How do permissions and sandboxing work for commands and the other tools? Study the options once the tools are done, together with whether Independum ships its own PowerShell 7 or Git Bash instead of asking the user to install one. A PowerShell from its zip would also keep every program of a command in its job. See decisions 0029, 0035, and 0041.
 - Which places come after Agent, Context, and Commands in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016, 0026, and 0030.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
