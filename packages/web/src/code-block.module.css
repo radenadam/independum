@@ -7,7 +7,7 @@
 }
 
 .header {
-  height: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -15,6 +15,14 @@
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font: 12px var(--font-mono);
+}
+
+/* A long name, such as the path of a file that Read returned, wraps instead of leaving the block. */
+.header span {
+  min-width: 0;
+  padding: 6px 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .code {

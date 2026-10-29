@@ -6,12 +6,13 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Read, Write, and Edit, each planned with the maintainer before it is built.
+- Write and Edit, each planned with the maintainer before it is built. Read then remembers, for each chat, the files that it read with their size and the time they changed, so Write and Edit can refuse a file that the model never read and catch one that changed since. See decision 0042.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
 ## Next
 
 - More tools, each planned the same way, such as web search, web fetch, an agent tool, and a browser.
+- More for Read: outlines of large files, PDF, Word, Excel, and notebook files as text, several files in one call, folders, and no second read of a file that has not changed.
 - Branching: edit and resend a prompt, retry a reply with the same or another model or effort, and fork a chat. Each makes a branch, which Pi already keeps, and a switcher under a message moves between branches. The look needs a decision first.
 - Attachments: paste or drop images and files into a message.
 - Queue and steer: while a reply runs, queue a message for after it, or steer the reply with it.

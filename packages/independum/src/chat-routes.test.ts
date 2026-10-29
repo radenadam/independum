@@ -135,6 +135,10 @@ function backgroundIdOf(context: TranscriptContext): number {
   return (details as { backgroundId: number } | undefined)?.backgroundId ?? 0;
 }
 
+function shellOf(agent: AgentSummary): AgentSummary["tools"][number] | undefined {
+  return agent.tools.find((tool) => tool.name === "Shell");
+}
+
 function textOf(message: ChatMessage | undefined): string {
   return (message?.parts ?? []).map((part) => (part.type === "text" ? part.text : "")).join("");
 }
@@ -297,8 +301,13 @@ test("the agent shows its prompts and its tools", async () => {
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.systemPrompt).toContain("Independum");
   expect(agent.addedByPi).toContain("<cwd>");
-  expect(agent.tools.map((tool) => tool.name)).toEqual(["Shell", "CheckCommand", "StopCommand"]);
-  expect(agent.tools[0]?.description).toMatch(/^Runs a command in /);
+  expect(agent.tools.map((tool) => tool.name)).toEqual([
+    "Read",
+    "Shell",
+    "CheckCommand",
+    "StopCommand",
+  ]);
+  expect(shellOf(agent)?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
 });
 
@@ -532,7 +541,7 @@ test("a tool that is turned off never runs, and the output limits change", async
     ]),
   );
   const off = await put("/settings", { disabledTools: ["Shell"] });
-  expect(((await off.json()) as AgentSummary).tools[0]?.isEnabled).toBe(false);
+  expect(shellOf((await off.json()) as AgentSummary)?.isEnabled).toBe(false);
   const blocked = (await sendAndReadReply("Run it")).updates.find(
     (update) => update.type === "toolResult",
   );
@@ -563,8 +572,8 @@ test("variables that the user adds reach commands, and the model reads only thei
   expect(agent.environment).toEqual({ INDEPENDUM_SECRET: "kept-out" });
   // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
   expect(agent.environmentSuggestions.length).toBeGreaterThan(0);
-  expect(agent.tools[0]?.description).toContain("INDEPENDUM_SECRET");
-  expect(agent.tools[0]?.description).not.toContain("kept-out");
+  expect(shellOf(agent)?.description).toContain("INDEPENDUM_SECRET");
+  expect(shellOf(agent)?.description).not.toContain("kept-out");
   const read =
     process.platform === "win32" ? "echo $env:INDEPENDUM_SECRET" : "echo $INDEPENDUM_SECRET";
   faux.setResponses([callTool("Shell", { command: read }), fauxAssistantMessage("Done.")]);
@@ -573,7 +582,7 @@ test("variables that the user adds reach commands, and the model reads only thei
   );
   expect(result?.type === "toolResult" ? result.result.text : "").toContain("kept-out");
   const cleared = (await (await put("/settings", { environment: {} })).json()) as AgentSummary;
-  expect(cleared.tools[0]?.description).not.toContain("INDEPENDUM_SECRET");
+  expect(shellOf(cleared)?.description).not.toContain("INDEPENDUM_SECRET");
   expect((await put("/settings", { environment: { "NOT A NAME": "x" } })).status).toBe(400);
 });
 
@@ -590,10 +599,10 @@ test("edited texts reach the model with the next turn, and null brings back the 
   });
   const agent = (await edited.json()) as AgentSummary;
   expect(agent.systemPrompt).toBe("You are a test agent.");
-  expect(agent.tools[0]?.description).toMatch(
+  expect(shellOf(agent)?.description).toMatch(
     /^Runs .+ for tests\. A command that still runs after 120 s goes on as a background command\.$/,
   );
-  expect(agent.tools[0]?.parameters).toMatchObject({
+  expect(shellOf(agent)?.parameters).toMatchObject({
     properties: { command: { description: "What to run." } },
   });
   expect(agent.texts.find((text) => text.id === "shell.exited")).toMatchObject({
