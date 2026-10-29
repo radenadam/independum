@@ -138,7 +138,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const commandStops = new Map<string, () => void>();
   const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
-    texts,
     onProgress(chatId, toolCallId, progress) {
       if (session?.sessionId === chatId) {
         emit({ type: "toolProgress", id: toolCallId, details: progress });

@@ -628,8 +628,8 @@ test("a background command runs on, and its end wakes the agent with a note", as
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const command =
     process.platform === "win32"
-      ? 'echo "started"; Start-Sleep -Milliseconds 800'
-      : "echo started; sleep 0.8";
+      ? 'echo "started"; Start-Sleep -Milliseconds 3000'
+      : "echo started; sleep 3";
   faux.setResponses([
     fauxAssistantMessage([fauxToolCall("Shell", { command, background: true })], {
       stopReason: "toolUse",
@@ -649,7 +649,7 @@ test("a background command runs on, and its end wakes the agent with a note", as
   await events.close();
   const started = seen.find((each) => each.type === "toolResult");
   expect(started?.type === "toolResult" ? started.result.text : "").toMatch(
-    /^Background command \d+ runs\. Its output goes to /,
+    /^started\n\nBackground command \d+ runs\. Its output goes to /,
   );
   const ended = seen.find((each) => each.type === "commandEnd");
   expect(ended?.type === "commandEnd" ? ended.end : undefined).toMatchObject({
@@ -661,6 +661,26 @@ test("a background command runs on, and its end wakes the agent with a note", as
   const noteText = note?.type === "message" ? textOf(note.message) : "";
   expect(noteText).toMatch(/^Background command \d+ ended with exit code 0 after /);
   expect(noteText).toContain("started");
+});
+
+test("a background command that ends before its call returns gives its whole result", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const quick = "echo quick; exit 3";
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", { command: quick, background: true })], {
+      stopReason: "toolUse",
+    }),
+    fauxAssistantMessage("It failed."),
+  ]);
+  const { updates, reply } = await sendAndReadReply("Start it");
+  expect(textOf(reply)).toBe("It failed.");
+  const result = updates.find((update) => update.type === "toolResult");
+  expect(result?.type === "toolResult" ? result.result : undefined).toMatchObject({
+    isError: true,
+    text: expect.stringMatching(/^quick\n\nExit code 3 after /),
+  });
+  await expectNothingInBackground();
 });
 
 test("StopCommand stops a background command, and no note follows", async () => {
@@ -685,10 +705,14 @@ test("StopCommand stops a background command, and no note follows", async () => 
     update.type === "toolResult" ? [update.result.text] : [],
   );
   expect(results[1]).toMatch(/^Stopped background command \d+ after /);
+  await expectNothingInBackground();
+});
+
+async function expectNothingInBackground(): Promise<void> {
   const { state } = await readStart();
   expect(state.backgroundCommands).toEqual([]);
   expect(state.messages.some((message) => message.role === "note")).toBe(false);
-});
+}
 
 function put(path: string, body: unknown): Promise<Response> {
   return Promise.resolve(

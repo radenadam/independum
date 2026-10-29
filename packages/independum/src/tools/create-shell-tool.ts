@@ -27,6 +27,9 @@ interface ShellToolOptions {
   background: BackgroundCommands;
 }
 
+// PowerShell 7 takes most of a second to start on Windows, so a background command that fails at
+// once still ends before its call returns.
+const startCheckSeconds = 2;
 const timeSlot = { meaning: "How long the command ran.", example: "2.4 s" };
 const idSlot = { meaning: "The number of the background command.", example: "3" };
 const outputSlot = {
@@ -107,8 +110,8 @@ const shellTexts = {
     section: "parameter",
     label: "background",
     builtIn:
-      "Runs the command in the background, so the call returns at once with the id of the command and the file that receives its output. When the command ends, a new turn starts with a note of how it ended.",
-    slots: {},
+      "Runs the command in the background. The call returns after {seconds} s with what it printed so far, the id of the command, and the file that receives its output, or with its whole result when it ends sooner. When a background command ends, a new turn starts with a note of how it ended.",
+    slots: { seconds: { meaning: "The seconds that a background call waits.", example: "2" } },
   }),
   exited: defineText({
     id: "shell.exited",
@@ -172,7 +175,7 @@ const shellTexts = {
     id: "shell.backgroundStarted",
     group: "Shell",
     section: "result",
-    label: "When the command starts in the background",
+    label: "When the command still runs as its background call returns, after its output",
     builtIn: "Background command {id} runs. Its output goes to {path}",
     slots: {
       id: idSlot,
@@ -245,7 +248,11 @@ export function createShellTool({
         timeout: Type.Optional(
           Type.Number({ exclusiveMinimum: 0, description: texts.get(shellTexts.timeout) }),
         ),
-        background: Type.Optional(Type.Boolean({ description: texts.get(shellTexts.background) })),
+        background: Type.Optional(
+          Type.Boolean({
+            description: texts.fill(shellTexts.background, { seconds: startCheckSeconds }),
+          }),
+        ),
       });
     },
     async execute(
@@ -277,22 +284,6 @@ export function createShellTool({
         outputPath: path,
         limits: getLimits(),
       };
-      if (isBackground === true) {
-        const id = background.start(start);
-        const started: ShellDetails = {
-          shell: shell.name,
-          ending: "background",
-          exitCode: null,
-          signal: null,
-          durationMs: 0,
-          outputPath: path,
-          backgroundId: id,
-        };
-        return {
-          content: [{ type: "text", text: texts.fill(shellTexts.backgroundStarted, { id, path }) }],
-          details: started,
-        };
-      }
       function report(latest: string): void {
         const progress: ShellProgress = {
           shell: shell.name,
@@ -319,15 +310,20 @@ export function createShellTool({
         signal: own.signal,
         onOutput: (text) => log.append(text),
       });
-      let first: { kind: "ended"; end: RunEnd } | { kind: "handedBack" | "movedByUser" };
+      let first:
+        | { kind: "ended"; end: RunEnd }
+        | { kind: "started" | "handedBack" | "movedByUser" };
       let timer: NodeJS.Timeout | undefined;
       try {
         first = await Promise.race([
           run.then((end) => ({ kind: "ended" as const, end })),
-          new Promise<{ kind: "handedBack" | "movedByUser" }>((resolveMove) => {
-            const seconds = getHandBackSeconds();
+          new Promise<{ kind: "started" | "handedBack" | "movedByUser" }>((resolveMove) => {
+            // A background command that fails at once returns its whole result, so no note wakes
+            // the agent for it.
+            const seconds = isBackground === true ? startCheckSeconds : getHandBackSeconds();
+            const kind = isBackground === true ? "started" : "handedBack";
             if (seconds > 0) {
-              timer = setTimeout(() => resolveMove({ kind: "handedBack" }), seconds * 1000);
+              timer = setTimeout(() => resolveMove({ kind }), seconds * 1000);
             }
             handBacks.set(toolCallId, () => resolveMove({ kind: "movedByUser" }));
           }),
@@ -344,14 +340,14 @@ export function createShellTool({
         signal?.removeEventListener("abort", stopWithReply);
         const output = log.snapshot();
         const id = background.adopt({ start, startedAt, log, run, controller: own });
-        const moved = texts.fill(
-          first.kind === "handedBack" ? shellTexts.handedBack : shellTexts.movedByUser,
-          {
-            id,
-            time: describeSeconds(Date.now() - startedAt),
-            path,
-          },
-        );
+        const values = { id, time: describeSeconds(Date.now() - startedAt), path };
+        const moved =
+          first.kind === "started"
+            ? texts.fill(shellTexts.backgroundStarted, values)
+            : texts.fill(
+                first.kind === "handedBack" ? shellTexts.handedBack : shellTexts.movedByUser,
+                values,
+              );
         const handedBack: ShellDetails = {
           shell: shell.name,
           ending: "background",
