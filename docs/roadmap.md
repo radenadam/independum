@@ -6,7 +6,6 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- Shell, as planned with the maintainer: an end on Windows for the programs that a command leaves behind. See decisions 0035 to 0040.
 - Read, Write, and Edit, each planned with the maintainer before it is built.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
@@ -17,7 +16,7 @@ The maintainer agreed to these, and they come in this order, one small change at
 - Attachments: paste or drop images and files into a message.
 - Queue and steer: while a reply runs, queue a message for after it, or steer the reply with it.
 - Network access and phone pairing with a QR code. See decision 0005.
-- Packaging: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
+- Packaging: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, recommend PowerShell from its installer over the one from the Microsoft Store as decision 0041 explains, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
 ## Later
 
