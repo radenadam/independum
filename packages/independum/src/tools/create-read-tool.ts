@@ -11,6 +11,13 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ReadDetails } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
+import {
+  describeChange,
+  type FileFingerprint,
+  fileKeyOf,
+  fingerprintOf,
+  lastSeenOf,
+} from "./file-fingerprint.ts";
 
 /** What the Read tool needs: the output limits that it shares with Shell, and the model texts. */
 interface ReadToolOptions {
@@ -47,7 +54,7 @@ const readTexts = {
     section: "description",
     label: "Every request",
     builtIn:
-      "Reads a file and returns its lines, each after its line number and a tab. Reads PNG, JPEG, GIF, and WebP images as images.",
+      "Reads a file and returns its lines. Read puts each line after its number and a tab, which are not part of the file. Reads PNG, JPEG, GIF, and WebP images as images.",
     slots: {},
   }),
   path: defineText({
@@ -341,6 +348,11 @@ export function createReadTool({ getLimits, texts }: ReadToolOptions): ToolDefin
         throw new Error(texts.fill(readTexts.folder, { path }));
       }
       const mimeType = await detectSupportedImageMimeTypeFromFile(file);
+      const bytes = await readFile(file);
+      // The chat remembers each version of a file that it saw, so a later read, write, or edit can
+      // tell whether the file changed since and where.
+      const key = fileKeyOf(file);
+      const seen = lastSeenOf(context, key);
       // Pi detects BMP too, but it only turns BMP into a format that models take inside its own tool.
       const { model } = context;
       if (mimeType !== null && mimeType !== undefined && mimeType !== "image/bmp") {
@@ -350,34 +362,35 @@ export function createReadTool({ getLimits, texts }: ReadToolOptions): ToolDefin
             details: null,
           };
         }
-        const resized = await resizeImage(
-          await readFile(file),
-          mimeType,
-          model.inputLimits?.images?.resize,
-        );
+        const resized = await resizeImage(bytes, mimeType, model.inputLimits?.images?.resize);
         if (resized === null) {
           throw new Error(texts.fill(readTexts.imageTooLarge, { path }));
         }
+        const fingerprint = fingerprintOf(key, bytes, undefined, seen);
         const about = texts.fill(readTexts.image, {
           path,
           width: numberFormat.format(resized.originalWidth),
           height: numberFormat.format(resized.originalHeight),
         });
-        const sizeNote = formatDimensionNote(resized);
-        const details: ReadDetails = {
+        const notes = [
+          formatDimensionNote(resized),
+          describeChange(seen, fingerprint, undefined, path, texts),
+        ];
+        const details: ReadDetails & { fingerprint: FileFingerprint } = {
           kind: "image",
           width: resized.originalWidth,
           height: resized.originalHeight,
+          fingerprint,
         };
         return {
           content: [
-            { type: "text", text: sizeNote === undefined ? about : `${about}\n${sizeNote}` },
+            { type: "text", text: [about, ...notes.filter(isText)].join("\n") },
             { type: "image", data: resized.data, mimeType: resized.mimeType },
           ],
           details,
         };
       }
-      const decoded = decode(await readFile(file));
+      const decoded = decode(bytes);
       if (decoded === undefined) {
         throw new Error(texts.fill(readTexts.binary, { path, size: describeSize(found.size) }));
       }
@@ -385,33 +398,40 @@ export function createReadTool({ getLimits, texts }: ReadToolOptions): ToolDefin
       if (lines.at(-1) === "") {
         lines.pop();
       }
+      const fingerprint = fingerprintOf(key, bytes, lines, seen);
+      const change = describeChange(seen, fingerprint, lines, path, texts);
       if (lines.length === 0) {
-        const details: ReadDetails = { kind: "empty" };
+        const details: ReadDetails & { fingerprint: FileFingerprint } = {
+          kind: "empty",
+          fingerprint,
+        };
+        const empty = texts.fill(readTexts.empty, { path });
         return {
-          content: [{ type: "text", text: texts.fill(readTexts.empty, { path }) }],
+          content: [{ type: "text", text: change === undefined ? empty : `${empty}\n${change}` }],
           details,
         };
       }
       const window = { offset: offset ?? 1, limit, column: column ?? 1, length };
       checkStart(lines, window, path, texts);
       const read = readLines(lines, window, getLimits(), texts);
-      const details: ReadDetails = {
+      const details: ReadDetails & { fingerprint: FileFingerprint } = {
         kind: "text",
         firstLine: read.firstLine,
         lastLine: read.lastLine,
         lineCount: lines.length,
+        fingerprint,
       };
+      const notes = [decoded.isUtf8 ? undefined : texts.get(readTexts.notUtf8), change];
       return {
-        content: [
-          {
-            type: "text",
-            text: decoded.isUtf8 ? read.text : `${read.text}\n${texts.get(readTexts.notUtf8)}`,
-          },
-        ],
+        content: [{ type: "text", text: [read.text, ...notes.filter(isText)].join("\n") }],
         details,
       };
     },
   });
+}
+
+function isText(note: string | undefined): note is string {
+  return note !== undefined;
 }
 
 function positionOf(description: string): ReturnType<typeof Type.Integer> {
