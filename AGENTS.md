@@ -4,6 +4,15 @@ Independum is an agent harness built for transparency and control. The user star
 
 This file is the rulebook for every change to this repository, made by a person or an agent. Follow it exactly. `CLAUDE.md` imports this file, so every agent reads the same rules.
 
+## Principles
+
+Every decision about what the model gets follows these, from the system prompt to each tool and its results.
+
+- Independum is sufficient. It gives the model complete facts, without gaps, and functions that cover every workflow the model may need, and the model decides what to do with them.
+- Independum never steers or pads the model. It gives no best practices, and a tool never guesses at what the model meant or quietly fixes what it sent. When a call cannot do exactly what the model asked, it fails and says exactly why, so the model can decide again.
+- Independum tells the model where it works and offers the user options. It never changes how a program behaves to make up for what a model does not know. See decision 0035.
+- Research into other harnesses shows what works and what fails. It informs a choice that fits these principles, and it is never a design to copy.
+
 ## Map
 
 - `packages/independum`: the `independum` command and the local server.
@@ -130,7 +139,6 @@ To review a Pi update with the maintainer:
 - Independum builds its own tools and registers them with Pi through its hidden extension, which registers them anew when their texts change. The built-in tools of Pi stay off. See decisions 0029 and 0033.
 - A tool is planned with the maintainer before it is built: what it does, its description, its parameters, and its life from call to result.
 - A tool description holds only what the model needs to know about the tool and the harness to choose the tool and use it. It states facts and gives no rules of conduct.
-- Independum tells the model where it works and offers the user options. It never changes how a program behaves to make up for what a model does not know. See decision 0035.
 - What applies to every tool, such as output that is cut, stays out of the descriptions, because the harness says so in the result when it happens.
 - Every text that a tool sends to the model is a model text: its description, the descriptions of its parameters, and what its results and notes say under each condition. The user can then edit it and reset it from the day the tool ships. See decision 0033.
 
