@@ -1,6 +1,7 @@
 import type { ChatMessage, CommandEnd, ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
 import { CodeBlock } from "./code-block.tsx";
+import { describeDuration } from "./describe-duration.ts";
 import {
   describeToolCall,
   isCallRunning,
@@ -56,6 +57,12 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
         <CodeBlock language={call.language} code={call.input} />
       </div>
       {call.output === "" ? null : <pre className={styles.output}>{call.output}</pre>}
+      {call.quietMs === undefined ? null : (
+        <p className={styles.quiet}>
+          It has printed nothing for {describeDuration(call.quietMs)}, so it may be waiting for
+          input that never comes. Stop it, or let it run.
+        </p>
+      )}
     </StepBox>
   );
 }

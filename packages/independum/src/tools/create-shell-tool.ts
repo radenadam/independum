@@ -9,13 +9,14 @@ import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
 
 /**
- * What the Shell tool needs: the shell and the output limits that the user chose, the model texts,
- * where outputs stay, where each running command leaves a way to stop it on its own, and the
- * commands that run in the background.
+ * What the Shell tool needs: the shell, the output limits, and the variables that the user chose,
+ * the model texts, where outputs stay, where each running command leaves a way to stop it on its
+ * own, and the commands that run in the background.
  */
 interface ShellToolOptions {
   getShell: () => Shell | undefined;
   getLimits: () => OutputLimits;
+  getEnvironment: () => Record<string, string>;
   texts: ModelTexts;
   outputFolder: string;
   stops: Map<string, () => void>;
@@ -35,6 +36,19 @@ const shellTexts = {
       "Runs a command in {shell} and returns its output and exit code. Each call starts a new process in the project folder, with no input.",
     slots: {
       shell: { meaning: "The name of the chosen shell.", example: "PowerShell 7.6.9" },
+    },
+  }),
+  environment: defineText({
+    id: "shell.environment",
+    group: "Shell",
+    section: "description",
+    label: "After the description, when the user added variables for commands",
+    builtIn: "Each command also gets these environment variables from the user: {names}.",
+    slots: {
+      names: {
+        meaning: "The names of the variables, without their values, which can be secret.",
+        example: "GIT_EDITOR, PYTHONUNBUFFERED",
+      },
     },
   }),
   command: defineText({
@@ -137,6 +151,7 @@ export const shellTextList: ModelText[] = Object.values(shellTexts);
 export function createShellTool({
   getShell,
   getLimits,
+  getEnvironment,
   texts,
   outputFolder,
   stops,
@@ -148,7 +163,13 @@ export function createShellTool({
     // Pi reads the description and the parameters each time Independum registers the tools, so a
     // new shell or an edited text reaches the model with the next turn.
     get description() {
-      return texts.fill(shellTexts.description, { shell: getShell()?.name ?? "the shell" });
+      const described = texts.fill(shellTexts.description, {
+        shell: getShell()?.name ?? "the shell",
+      });
+      const names = Object.keys(getEnvironment());
+      return names.length === 0
+        ? described
+        : `${described} ${texts.fill(shellTexts.environment, { names: names.join(", ") })}`;
     },
     get parameters() {
       return Type.Object({
@@ -184,6 +205,7 @@ export function createShellTool({
           shell,
           command,
           folder: context.cwd,
+          environment: getEnvironment(),
           timeoutMs,
           outputPath: path,
           limits: getLimits(),
@@ -203,7 +225,11 @@ export function createShellTool({
         };
       }
       function report(latest: string): void {
-        const progress: ShellProgress = { shell: shell.name, output: latest };
+        const progress: ShellProgress = {
+          shell: shell.name,
+          output: latest,
+          lastOutputAt: log.lastOutputAt(),
+        };
         onUpdate?.({ content: [], details: progress });
       }
       const log = createOutputLog(path, { limits: getLimits(), texts, onLatest: report });
@@ -218,6 +244,7 @@ export function createShellTool({
           shell,
           command,
           folder: context.cwd,
+          environment: getEnvironment(),
           timeoutMs,
           signal: signal === undefined ? own.signal : AbortSignal.any([signal, own.signal]),
           onOutput: (text) => log.append(text),

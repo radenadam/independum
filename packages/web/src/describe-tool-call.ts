@@ -12,7 +12,10 @@ export interface ToolRun {
   end?: CommandEnd;
 }
 
-/** How a call to a tool reads: its label, what went in, what came back, and how it is going. */
+/**
+ * How a call to a tool reads: its label, what went in, what came back, how it is going, and how
+ * long a running command has printed nothing, once that is long enough to tell the user.
+ */
 interface DescribedCall {
   label: string;
   language: string;
@@ -20,7 +23,12 @@ interface DescribedCall {
   output: string;
   status: StepStatus | undefined;
   isRunning: boolean;
+  quietMs: number | undefined;
 }
+
+// A running command that prints nothing for this long may be waiting for input that never comes,
+// so the user hears about it. The model hears nothing.
+const quietTime = 30_000;
 
 /**
  * Returns how a call to a tool reads in the chat and in the Commands place. A call to the Shell
@@ -34,7 +42,11 @@ export function describeToolCall(
   elapsed: number,
 ): DescribedCall {
   const isRunning = isCallRunning(part, run, end, isReplying);
-  const status = statusOf(part, run, end, isReplying, elapsed);
+  const quietMs = isRunning ? quietOf(run, elapsed) : undefined;
+  const status: StepStatus | undefined =
+    quietMs === undefined
+      ? statusOf(part, run, end, isReplying, elapsed)
+      : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
   if (part.name !== "Shell") {
     return {
       label:
@@ -46,6 +58,7 @@ export function describeToolCall(
       output: part.result?.text ?? "",
       status,
       isRunning,
+      quietMs,
     };
   }
   const command = typeof part.input.command === "string" ? part.input.command : "";
@@ -63,7 +76,18 @@ export function describeToolCall(
     output: (isPrinting ? progress?.output : undefined) ?? part.result?.text ?? "",
     status,
     isRunning,
+    quietMs,
   };
+}
+
+// The time now is when the run started plus how long it has run.
+function quietOf(run: ToolRun | undefined, elapsed: number): number | undefined {
+  const lastOutputAt = shellProgressOf(run?.details)?.lastOutputAt;
+  if (run === undefined || lastOutputAt === undefined) {
+    return undefined;
+  }
+  const quietMs = run.startedAt + elapsed - lastOutputAt;
+  return quietMs >= quietTime ? quietMs : undefined;
 }
 
 /**
