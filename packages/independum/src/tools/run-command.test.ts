@@ -42,6 +42,36 @@ test("a command that fails without an exit code of its own ends with a failure",
   expect(end.exitCode).not.toBe(0);
 });
 
+test("a shell is named with its version, and its output keeps every character", async () => {
+  expect(shell.name).toMatch(/^(PowerShell|Git Bash|Bash) \d+\.\d+/);
+  const { output, end } = await run('echo "h\u00e9llo \u2713 \u65e5\u672c"');
+  expect(output).toContain("h\u00e9llo \u2713 \u65e5\u672c");
+  expect(end.exitCode).toBe(0);
+});
+
+const bash = findShell("bash");
+
+test.skipIf(bash === undefined)(
+  "the run ends when a program that the command started still holds its output",
+  async () => {
+    const { output, end } = await run("(sleep 6; echo late) & echo early", {
+      shell: bash as NonNullable<typeof bash>,
+    });
+    expect(output).toContain("early");
+    expect(output).not.toContain("late");
+    expect(end).toMatchObject({ ending: "exited", exitCode: 0, isOutputOpen: true });
+    expect(end.durationMs).toBeLessThan(5000);
+  },
+);
+
+test.skipIf(bash === undefined || process.platform === "win32")(
+  "a command that a signal ends says which signal",
+  async () => {
+    const { end } = await run("kill -KILL $$", { shell: bash as NonNullable<typeof bash> });
+    expect(end).toMatchObject({ ending: "exited", exitCode: null, signal: "SIGKILL" });
+  },
+);
+
 test("a command stops at its timeout and when its signal aborts", async () => {
   const timedOut = await run(pause, { timeoutMs: 300 });
   expect(timedOut.end.ending).toBe("timedOut");

@@ -1,7 +1,4 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Shell } from "./find-shell.ts";
 
@@ -15,44 +12,49 @@ export interface RunOptions {
   onOutput: (text: string) => void;
 }
 
-/** How a command ended: on its own with an exit code, at its timeout, or stopped by the user. */
+/**
+ * How a command ended: on its own with an exit code or a signal, at its timeout, or stopped by the
+ * user, and whether a program that it started still held its output when the run ended.
+ */
 export interface RunEnd {
   ending: "exited" | "timedOut" | "stopped";
   exitCode: number | null;
+  signal: string | null;
+  isOutputOpen: boolean;
   durationMs: number;
 }
 
-// A program that a command starts in the background can hold the output open after the shell ends,
-// so the output gets this long to drain before the run counts as ended.
-const drainTime = 250;
+// After the shell ends, its last output still arrives until the output has been quiet this long. A
+// program that the command started can keep the output open, so the wait ends after the longest
+// drain at the latest.
+const quietTime = 100;
+const longestDrain = 2000;
 // A process tree that ignores the polite request to end gets this long before it is killed.
 const killDelay = 2000;
 
+const powerShellArguments = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"];
+// PowerShell writes to a pipe in the code page of the console, which loses most characters before
+// Independum can read them. So the first line of each command sets UTF-8 for the way to Independum,
+// and the command keeps its own line numbers.
+const powerShellPrefix = "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ";
+
 /**
- * Runs one command in a new process of the shell, in the folder, with no input, and ends the whole
- * process tree on timeout or when the signal aborts.
+ * Runs one command, as written, in a new process of the shell, in the folder, with no input, and
+ * ends the whole process tree on timeout or when the signal aborts.
  */
 export async function runCommand(options: RunOptions): Promise<RunEnd> {
   const { shell, command, folder, timeoutMs, signal, onOutput } = options;
   const startedAt = performance.now();
   if (signal?.aborted === true) {
-    return { ending: "stopped", exitCode: null, durationMs: 0 };
+    return { ending: "stopped", exitCode: null, signal: null, isOutputOpen: false, durationMs: 0 };
   }
-  const script = shell.kind === "powershell" ? writePowerShellScript(command) : undefined;
   const child = spawn(
     shell.path,
-    script === undefined ? ["-c", command] : [...powerShellArguments, "-File", script],
+    shell.kind === "powershell"
+      ? [...powerShellArguments, `${powerShellPrefix}${command}`]
+      : ["-c", command],
     {
       cwd: folder,
-      env: {
-        ...process.env,
-        // Pagers and password prompts wait for input that never comes.
-        // biome-ignore-start lint/style/useNamingConvention: Git and the system name these variables.
-        PAGER: "cat",
-        GIT_PAGER: "cat",
-        GIT_TERMINAL_PROMPT: "0",
-        // biome-ignore-end lint/style/useNamingConvention: Git and the system name these variables.
-      },
       stdio: ["ignore", "pipe", "pipe"],
       // On other systems the shell leads its own process group, so the whole tree can be ended.
       detached: process.platform !== "win32",
@@ -69,22 +71,26 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
   }
   signal?.addEventListener("abort", onAbort, { once: true });
   const timer = timeoutMs === undefined ? undefined : setTimeout(() => stop("timedOut"), timeoutMs);
+  let lastOutputAt = startedAt;
   for (const stream of [child.stdout, child.stderr]) {
     const decoder = new TextDecoder();
-    stream?.on("data", (chunk: Buffer) => onOutput(decoder.decode(chunk, { stream: true })));
+    stream?.on("data", (chunk: Buffer) => {
+      lastOutputAt = performance.now();
+      onOutput(decoder.decode(chunk, { stream: true }));
+    });
   }
+  let isOutputOpen = false;
   try {
-    await waitForEnd(child);
+    isOutputOpen = await waitForEnd(child, () => lastOutputAt);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
-    if (script !== undefined) {
-      rmSync(script, { force: true });
-    }
   }
   return {
     ending,
     exitCode: child.exitCode,
+    signal: child.signalCode,
+    isOutputOpen,
     durationMs: Math.round(performance.now() - startedAt),
   };
 }
@@ -94,40 +100,27 @@ export function describeSeconds(durationMs: number): string {
   return `${(durationMs / 1000).toFixed(1)} s`;
 }
 
-const powerShellArguments = [
-  "-NoLogo",
-  "-NoProfile",
-  "-NonInteractive",
-  "-ExecutionPolicy",
-  "Bypass",
-];
-
-// A script file takes the command exactly as written, with any quotes and lines. PowerShell reports
-// success for most failures, so the script ends with the exit code of the last command, as a shell
-// does. Windows PowerShell reads a script without a byte order mark in the code page of the system.
-function writePowerShellScript(command: string): string {
-  const path = join(tmpdir(), `independum-${randomUUID()}.ps1`);
-  const script = [
-    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
-    "$OutputEncoding = [System.Text.Encoding]::UTF8",
-    command,
-    "if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } exit 1 }",
-    "exit 0",
-  ].join("\n");
-  writeFileSync(path, `\uFEFF${script}`);
-  return path;
-}
-
-function waitForEnd(child: ChildProcess): Promise<void> {
+// Resolves when all output has closed, or when the output has been quiet since the shell ended, in
+// which case a program that the command started still holds it. It resolves to whether that is so.
+function waitForEnd(child: ChildProcess, lastOutputAt: () => number): Promise<boolean> {
   return new Promise((resolve, reject) => {
     child.once("error", reject);
-    child.once("close", () => resolve());
+    child.once("close", () => resolve(false));
     child.once("exit", () => {
-      setTimeout(() => {
-        child.stdout?.destroy();
-        child.stderr?.destroy();
-        resolve();
-      }, drainTime);
+      const exitedAt = performance.now();
+      const timer = setInterval(() => {
+        const now = performance.now();
+        if (
+          now - Math.max(exitedAt, lastOutputAt()) >= quietTime ||
+          now - exitedAt >= longestDrain
+        ) {
+          clearInterval(timer);
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          resolve(true);
+        }
+      }, quietTime / 2);
+      child.once("close", () => clearInterval(timer));
     });
   });
 }
