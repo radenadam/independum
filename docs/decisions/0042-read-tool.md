@@ -1,6 +1,6 @@
 # Read tool
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0043](0043-file-fingerprints.md), which adds fingerprints, the note of a changed file, and a description that says the line numbers are not part of the file
 - Date: 2026-10-29
 
 ## Context

@@ -11,6 +11,8 @@ afterAll(() => rmSync(folder, { recursive: true, force: true }));
 const texts = createModelTexts(() => ({}));
 const builtInLimits = { maxLines: 2000, maxBytes: 51_200 };
 const visionModel = { input: ["text", "image"] };
+// The results that the chat keeps, as Pi saves them, so a read can tell what the chat saw before.
+const branch: unknown[] = [];
 // A PNG image of one pixel.
 const pixel =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
@@ -28,9 +30,13 @@ async function read(
   model: unknown = visionModel,
 ): Promise<ReadOutcome> {
   const tool = createReadTool({ getLimits: () => limits, texts });
-  const context = { cwd: folder, model } as unknown as Parameters<typeof tool.execute>[4];
+  const sessionManager = { getBranch: () => branch };
+  const context = { cwd: folder, model, sessionManager } as unknown as Parameters<
+    typeof tool.execute
+  >[4];
   try {
     const result = await tool.execute("call", input as never, undefined, undefined, context);
+    branch.push({ type: "message", message: { role: "toolResult", details: result.details } });
     return {
       text: result.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
       images: result.content.filter((block) => block.type === "image").length,
@@ -52,7 +58,7 @@ function write(name: string, content: string | Buffer): void {
 
 test("a file comes back as numbered lines, and a read that reaches its end has no note", async () => {
   write("short.ts", "one\ntwo\nthree\n");
-  expect(await read({ path: "short.ts" })).toEqual({
+  expect(await read({ path: "short.ts" })).toMatchObject({
     text: "1\tone\n2\ttwo\n3\tthree",
     images: 0,
     details: { kind: "text", firstLine: 1, lastLine: 3, lineCount: 3 },
@@ -83,7 +89,7 @@ test("the output limit ends the read between lines and names which limit it was"
   expect(byBytes.text.split("\n").at(-1)).toBe(
     "[Lines 10 to 30 are not shown. The read stops at the output limit of 1 KB.]",
   );
-  expect(byBytes.details).toEqual({ kind: "text", firstLine: 1, lastLine: 9, lineCount: 30 });
+  expect(byBytes.details).toMatchObject({ kind: "text", firstLine: 1, lastLine: 9, lineCount: 30 });
 });
 
 test("a next line longer than the whole limit is named with its length", async () => {
@@ -188,4 +194,29 @@ test("an image comes back as an image, or as a note for a model that cannot take
     images: 0,
     isError: false,
   });
+});
+
+test("a read notes the lines that changed since this chat last saw the file", async () => {
+  write("notes.ts", "one\ntwo\nthree\nfour\n");
+  expect((await read({ path: "notes.ts", limit: 1 })).text).toBe(
+    "1\tone\n[Lines 2 to 4 are not shown.]",
+  );
+  write("notes.ts", "one\nTWO\nthree\nfour\nfive\n");
+  expect((await read({ path: "notes.ts", offset: 4 })).text).toBe(
+    "4\tfour\n5\tfive\n[notes.ts changed since this chat last saw it, at lines 2 and 5.]",
+  );
+  expect((await read({ path: "notes.ts", offset: 4 })).text).toBe("4\tfour\n5\tfive");
+  write("notes.ts", "one\nTWO\nfour\nfive\n");
+  expect((await read({ path: "notes.ts", offset: 4 })).text).toBe(
+    "4\tfive\n[notes.ts changed since this chat last saw it, at line 3.]",
+  );
+});
+
+test("a file with more than 100,000 lines is noted as changed without its lines", async () => {
+  write("huge.log", "x\n".repeat(100_001));
+  await read({ path: "huge.log", limit: 1 });
+  write("huge.log", `y\n${"x\n".repeat(100_000)}`);
+  expect((await read({ path: "huge.log", limit: 1 })).text).toBe(
+    "1\ty\n[Lines 2 to 100,001 are not shown.]\n[huge.log changed since this chat last saw it.]",
+  );
 });
