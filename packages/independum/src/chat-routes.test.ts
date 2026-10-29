@@ -295,6 +295,8 @@ test("a new chat starts in a chosen project, and only in a project", async () =>
   expect((await post("/chat/new", { folder: 5 })).status).toBe(400);
 });
 
+// The first summary of the agent asks each installed shell for its version, which takes seconds
+// on a cold machine, such as a runner of CI.
 test("the agent shows its prompts and its tools", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
@@ -309,7 +311,7 @@ test("the agent shows its prompts and its tools", async () => {
   ]);
   expect(shellOf(agent)?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
-});
+}, 20_000);
 
 test("files that Pi would add to the system prompt stay out of it", async () => {
   const addendum = "Text from a file that the Agent place does not show.";
