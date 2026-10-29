@@ -60,6 +60,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
 | Check command | A circle around three short lines of output, for the tool that checks a background command. |
 | Read | A page with its top right corner folded down at 45 degrees, around three lines of text, for the tool that reads a file. |
+| Write | The page of Read around a plus, for the tool that writes a whole file. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -107,6 +108,7 @@ Decision 0024 records why icons move and where the line falls.
 | Background | The arrow nudges toward the box behind. |
 | Check command | The lines rise, as if new output comes in. |
 | Read | The lines nudge right, as the eye moves along them. |
+| Write | The plus twists a little and back. |
 
 ## Building icons
 

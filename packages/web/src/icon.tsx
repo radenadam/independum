@@ -33,7 +33,8 @@ export type IconName =
   | "stopCommand"
   | "background"
   | "checkCommand"
-  | "read";
+  | "read"
+  | "write";
 
 // Returns the class names of a part that moves when its button is pointed at, as `docs/icons.md`
 // describes under Motion. The second class sets how that part moves.
@@ -204,6 +205,12 @@ const drawings: Record<IconName, ReactElement> = {
     <>
       <path d="M7 3h8l4 4v12l-2 2H7l-2-2V5z" />
       <path className={moves(styles.nudgeRight)} d="M8.5 11h7M8.5 14h7M8.5 17h4" />
+    </>
+  ),
+  write: (
+    <>
+      <path d="M7 3h8l4 4v12l-2 2H7l-2-2V5z" />
+      <path className={moves(styles.twist)} d="M12 10v7M8.5 13.5h7" />
     </>
   ),
   checkCommand: (

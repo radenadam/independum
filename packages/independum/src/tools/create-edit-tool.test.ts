@@ -1,41 +1,14 @@
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { createModelTexts } from "../model-texts.ts";
 import { createEditTool } from "./create-edit-tool.ts";
-import { createReadTool } from "./create-read-tool.ts";
-import { createTestFolder } from "./create-test-folder.ts";
+import { createTestChat } from "./create-test-chat.ts";
 
-const folder = createTestFolder("edit");
+const chat = createTestChat("edit");
+const run = chat.run;
+const write = chat.place;
 const texts = createModelTexts(() => ({}));
 const editTool = createEditTool(texts);
-const readTool = createReadTool({
-  getLimits: () => ({ maxLines: 2000, maxBytes: 51_200 }),
-  texts,
-});
-// The results that the chat keeps, as Pi saves them, so a tool can tell what the chat saw before.
-const branch: unknown[] = [];
-const context = {
-  cwd: folder,
-  sessionManager: { getBranch: () => branch },
-} as unknown as Parameters<typeof editTool.execute>[4];
-
-interface EditOutcome {
-  text: string;
-  isError: boolean;
-  details: unknown;
-}
-
-async function run(tool: typeof editTool, input: Record<string, unknown>): Promise<EditOutcome> {
-  try {
-    const result = await tool.execute("call", input as never, undefined, undefined, context);
-    branch.push({ type: "message", message: { role: "toolResult", details: result.details } });
-    const text = result.content.map((block) => (block.type === "text" ? block.text : "")).join("");
-    return { text, isError: false, details: result.details };
-  } catch (error) {
-    return { text: (error as Error).message, isError: true, details: null };
-  }
-}
 
 /** What a test asks Edit for, in the names that this code uses. */
 interface EditInput {
@@ -47,7 +20,12 @@ interface EditInput {
   column?: number;
 }
 
-function edit({ oldString, newString, replaceAll, ...rest }: EditInput): Promise<EditOutcome> {
+function edit({
+  oldString,
+  newString,
+  replaceAll,
+  ...rest
+}: EditInput): ReturnType<typeof chat.run> {
   // biome-ignore-start lint/style/useNamingConvention: These are the names of the parameters of Edit.
   return run(editTool, {
     ...rest,
@@ -56,12 +34,6 @@ function edit({ oldString, newString, replaceAll, ...rest }: EditInput): Promise
     replace_all: replaceAll,
   });
   // biome-ignore-end lint/style/useNamingConvention: These are the names of the parameters of Edit.
-}
-
-function write(name: string, content: string | Buffer): string {
-  const path = join(folder, name);
-  writeFileSync(path, content);
-  return path;
 }
 
 test("an exact text is replaced, and the result names the lines before and after", async () => {
@@ -257,7 +229,7 @@ test("a file that is not valid UTF-8, a binary file, and a missing file are refu
 
 test("an edit of a file that changed since the chat saw it goes through with a note", async () => {
   write("seen.txt", "one\ntwo\nthree\n");
-  await run(readTool, { path: "seen.txt" });
+  await chat.read({ path: "seen.txt" });
   write("seen.txt", "one\nTWO\nthree\n");
   expect((await edit({ path: "seen.txt", oldString: "three", newString: "3" })).text).toBe(
     "Replaced line 3 of seen.txt with line 3.\n[seen.txt changed since this chat last saw it, at line 2.]",
@@ -271,7 +243,7 @@ test("a read that comes after an edit in the same reply sees the edit", async ()
   write("order.txt", "before\n");
   const [edited, read] = await Promise.all([
     edit({ path: "order.txt", oldString: "before", newString: "after" }),
-    run(readTool, { path: "order.txt" }),
+    chat.read({ path: "order.txt" }),
   ]);
   expect(edited.isError).toBe(false);
   expect(read.text).toBe("1\tafter");

@@ -17,12 +17,15 @@ export interface FileFingerprint {
 }
 
 /**
- * The version of a file that a tool sees now: its fingerprints, and the note that it changed since
- * the chat last saw it, when it did.
+ * The version of a file that a tool sees now: its fingerprints, whether the chat saw the file before,
+ * and how it changed since: the lines that differ now as words, null when it changed in lines that
+ * are not tracked, or undefined when it did not change, with the note that says so.
  */
 interface FileVersion {
   key: string;
   fingerprint: FileFingerprint;
+  isSeen: boolean;
+  changedLines: string | null | undefined;
   change: string | undefined;
 }
 
@@ -82,7 +85,14 @@ export function versionOf(
   const key = fileKeyOf(file);
   const seen = lastSeenOf(context, key);
   const fingerprint = fingerprintOf(key, bytes, lines, seen);
-  return { key, fingerprint, change: describeChange(seen, fingerprint, lines, path, texts) };
+  const changedLines = changedLinesOf(seen, fingerprint, lines);
+  const change =
+    changedLines === undefined
+      ? undefined
+      : changedLines === null
+        ? texts.fill(fingerprintTexts.changedSomewhere, { path })
+        : texts.fill(fingerprintTexts.changed, { path, lines: changedLines });
+  return { key, fingerprint, isSeen: seen !== undefined, changedLines, change };
 }
 
 // The path that names a file in its fingerprints is the same for every way of writing it.
@@ -94,11 +104,9 @@ function fileKeyOf(file: string): string {
   }
 }
 
-/**
- * Returns the fingerprints of a version of a file, from its bytes and, for a text file, its lines
- * as Read shows them.
- */
-export function fingerprintOf(
+// The fingerprints of a version of a file come from its bytes and, for a text file, its lines as
+// Read shows them.
+function fingerprintOf(
   file: string,
   bytes: Uint8Array,
   lines: string[] | undefined,
@@ -134,20 +142,16 @@ function lastSeenOf(context: ExtensionToolContext, file: string): SeenVersion | 
   return content === undefined ? undefined : { content, lines: null };
 }
 
-function describeChange(
+function changedLinesOf(
   seen: SeenVersion | undefined,
   current: FileFingerprint,
   lines: string[] | undefined,
-  path: string,
-  texts: ModelTexts,
-): string | undefined {
+): string | null | undefined {
   if (seen === undefined || seen.content === current.content) {
     return undefined;
   }
   const places = seen.lines === null || lines === undefined ? [] : changedPlaces(seen.lines, lines);
-  return places.length === 0
-    ? texts.fill(fingerprintTexts.changedSomewhere, { path })
-    : texts.fill(fingerprintTexts.changed, { path, lines: describePlaces(places) });
+  return places.length === 0 ? null : describePlaces(places);
 }
 
 function fingerprintIn(entry: unknown): FileFingerprint | undefined {

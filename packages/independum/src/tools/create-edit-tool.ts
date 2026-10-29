@@ -5,11 +5,17 @@ import {
   type ToolDefinition,
   withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
-import { structuredPatch } from "diff";
-import type { EditDetails } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import { type FileFingerprint, fingerprintOf, versionOf } from "./file-fingerprint.ts";
-import { decodeText, encodeText, findFile, pathParameterOf, splitLines } from "./text-file.ts";
+import { versionOf } from "./file-fingerprint.ts";
+import {
+  decodeText,
+  diffOf,
+  encodeText,
+  findFile,
+  lineBreakOf,
+  pathParameterOf,
+  splitLines,
+} from "./text-file.ts";
 
 /**
  * A text as Edit matches it: its lines joined by line feeds, with where each line starts and how
@@ -399,17 +405,14 @@ export function createEditTool(texts: ModelTexts): ToolDefinition {
         const chosen = isReplaceAll
           ? apart(starts, wanted.length)
           : [choosePlace(text, starts, line, column, path, texts)];
-        const { key, change } = versionOf(context, file, bytes, lines, path, texts);
+        const { change } = versionOf(context, file, bytes, lines, path, texts);
         const edited = replaceAt(decoded.text, text, chosen, wanted.length, replacement);
         const editedBytes = encodeText(edited, decoded);
         await writeFile(file, editedBytes);
         const editedLines = splitLines(edited);
-        const fingerprint = fingerprintOf(key, editedBytes, editedLines, undefined);
+        const { fingerprint } = versionOf(context, file, editedBytes, editedLines, path, texts);
         const result = describeResult(text, chosen, wanted, replacement, path, texts);
-        const details: EditDetails & { fingerprint: FileFingerprint } = {
-          ...diffOf(text.view, viewOf(edited).view),
-          fingerprint,
-        };
+        const details = { ...diffOf(text.view, viewOf(edited).view), fingerprint };
         return {
           content: [{ type: "text", text: change === undefined ? result : `${result}\n${change}` }],
           details,
@@ -449,7 +452,6 @@ function viewOf(text: string): TextView {
   const lineStarts: number[] = [];
   const windowsBreaksBefore: number[] = [];
   let windowsBreaks = 0;
-  let unixBreaks = 0;
   for (let index = 0; index < parts.length; index += 2) {
     const line = parts[index] ?? "";
     const lineBreak = parts[index + 1];
@@ -461,8 +463,6 @@ function viewOf(text: string): TextView {
     view += line;
     if (lineBreak === "\r\n") {
       windowsBreaks += 1;
-    } else if (lineBreak !== undefined) {
-      unixBreaks += 1;
     }
     view += lineBreak === undefined ? "" : "\n";
   }
@@ -470,7 +470,7 @@ function viewOf(text: string): TextView {
     view,
     lineStarts,
     windowsBreaksBefore,
-    lineBreak: windowsBreaks > unixBreaks ? "\r\n" : "\n",
+    lineBreak: lineBreakOf(text),
   };
 }
 
@@ -664,25 +664,6 @@ function describeNumbers(numbers: number[], one: string, many: string): string {
     return `${prefix}${named.join(" and ")}`;
   }
   return `${prefix}${named.slice(0, -1).join(", ")}, and ${named.at(-1)}`;
-}
-
-function diffOf(before: string, after: string): EditDetails {
-  const { hunks } = structuredPatch("before", "after", before, after, undefined, undefined, {
-    context: 3,
-  });
-  let added = 0;
-  let removed = 0;
-  for (const hunk of hunks) {
-    for (const line of hunk.lines) {
-      added += line.startsWith("+") ? 1 : 0;
-      removed += line.startsWith("-") ? 1 : 0;
-    }
-  }
-  return {
-    hunks: hunks.map(({ oldStart, newStart, lines }) => ({ oldStart, newStart, lines })),
-    added,
-    removed,
-  };
 }
 
 // A missed old_string is compared with the file once more, line by line, without the differences
