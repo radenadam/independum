@@ -43,7 +43,7 @@ import {
   type BackgroundEnded,
   backgroundTextList,
   createBackgroundCommands,
-  describeBackgroundEnded,
+  describeBackgroundNote,
 } from "./tools/create-background-commands.ts";
 import { checkCommandTextList, createCheckCommandTool } from "./tools/create-check-command-tool.ts";
 import { outputTextList } from "./tools/create-output-log.ts";
@@ -51,6 +51,7 @@ import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
+import { envelopeText } from "./wrap-note.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -91,6 +92,7 @@ const allTexts: ModelText[] = [
   ...checkCommandTextList,
   ...stopCommandTextList,
   ...outputTextList,
+  envelopeText,
 ];
 const shellKinds: ShellKind[] = ["powershell", "bash"];
 // A tool call that the model is still writing reaches the chat at most this often.
@@ -216,7 +218,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     }
     const note = {
       customType: commandEndType,
-      content: describeBackgroundEnded(ended, texts),
+      content: describeBackgroundNote(ended, texts),
       display: true,
       details: ended.end,
     };

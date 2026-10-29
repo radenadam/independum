@@ -656,8 +656,10 @@ test("a background command runs on, and its end wakes the agent with a note", as
   });
   const note = seen.find((each) => each.type === "message" && each.message.role === "note");
   const noteText = note?.type === "message" ? textOf(note.message) : "";
-  expect(noteText).toMatch(/^Background command \d+ ended with exit code 0 after /);
-  expect(noteText).toContain("started");
+  expect(noteText).toMatch(
+    /^<independum source="background command \d+">\nBackground command \d+ ended with exit code 0 after /,
+  );
+  expect(noteText).toMatch(/started\n<\/independum>$/);
 });
 
 test("a background command that ends before its call returns gives its whole result", async () => {

@@ -15,6 +15,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation", "session" |
 | Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
 | Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. Its place in the side panel shows all of it. | "session details", "stats", "info" |
+| Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
