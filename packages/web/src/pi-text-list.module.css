@@ -1,0 +1,28 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* A condition can run over several lines, so the row keeps room above and below it. */
+.condition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 9px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}

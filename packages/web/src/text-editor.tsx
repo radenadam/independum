@@ -3,6 +3,7 @@ import { fillText, slotNamesOf } from "independum/text-slots";
 import { type ReactElement, useRef, useState } from "react";
 import { Badge } from "./badge.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { SlotList } from "./slot-list.tsx";
 import { TextButton } from "./text-button.tsx";
 import styles from "./text-editor.module.css";
 
@@ -98,21 +99,7 @@ export function TextEditor({ text, draft, type, onChange }: TextEditorProps): Re
       />
       {text.slots.length === 0 ? null : (
         <>
-          <ul className={styles.slots} aria-label="Slots">
-            {text.slots.map((slot) => (
-              <li key={slot.name} className={styles.slot}>
-                <button
-                  type="button"
-                  className={styles.slotName}
-                  aria-label={`Insert {${slot.name}}`}
-                  onClick={() => insert(slot.name)}
-                >
-                  {`{${slot.name}}`}
-                </button>
-                <span>{slot.meaning}</span>
-              </li>
-            ))}
-          </ul>
+          <SlotList slots={text.slots} onInsert={insert} />
           <div className={styles.preview}>
             <span className={styles.previewLabel}>Preview</span>
             <p className={styles.previewText}>{fillText(draft, examples)}</p>
