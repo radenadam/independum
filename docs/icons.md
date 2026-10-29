@@ -47,7 +47,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
 | More | Three dots in a row. |
-| Edit | A pencil at 45 degrees, to rename a chat or to edit a text. |
+| Edit | A pencil at 45 degrees, to rename a chat or to edit a text, and for the tool that edits a file. |
 | Reset | An arrow that points left and curves back under itself, to go back to the built-in text or setting. |
 | Pin | A pushpin with its needle down. |
 | Export | An arrow that points down into an open tray. |

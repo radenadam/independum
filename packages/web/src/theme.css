@@ -17,6 +17,10 @@
   --well: light-dark(#ffffff, #0e0e0e);
   --scrim: light-dark(rgba(20, 20, 18, 0.28), rgba(0, 0, 0, 0.55));
   --shadow: light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.5));
+  --added: light-dark(#15803d, #4ade80);
+  --added-soft: light-dark(rgba(22, 163, 74, 0.1), rgba(74, 222, 128, 0.1));
+  --removed: light-dark(#b91c1c, #f87171);
+  --removed-soft: light-dark(rgba(220, 38, 38, 0.08), rgba(248, 113, 113, 0.1));
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
 }

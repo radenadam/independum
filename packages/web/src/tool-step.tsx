@@ -9,6 +9,7 @@ import {
   statusOfEnd,
   type ToolRun,
 } from "./describe-tool-call.ts";
+import { DiffView } from "./diff-view.tsx";
 import { Icon } from "./icon.tsx";
 import { StepBox } from "./step-box.tsx";
 import { toolIconOf } from "./tool-icon.ts";
@@ -53,7 +54,9 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
         ) : undefined
       }
       isFollowing={isUnderWay}
-      hasBody={call.input !== "" || call.output !== "" || call.images.length > 0}
+      hasBody={
+        call.input !== "" || call.output !== "" || call.images.length > 0 || call.hunks.length > 0
+      }
       shownAt={tools.shown?.id === part.id ? tools.shown.at : undefined}
     >
       {call.input === "" ? null : (
@@ -61,6 +64,7 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
           <CodeBlock language={call.language} code={call.input} />
         </div>
       )}
+      {call.hunks.length === 0 ? null : <DiffView path={call.language} hunks={call.hunks} />}
       {call.output === "" ? null : <pre className={styles.output}>{call.output}</pre>}
       {call.images.map((image) => (
         <img

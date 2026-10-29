@@ -1,13 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterAll, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import type { OutputLimits } from "../api-types.ts";
 import { createModelTexts } from "../model-texts.ts";
 import { createReadTool } from "./create-read-tool.ts";
+import { createTestFolder } from "./create-test-folder.ts";
 
-const folder = mkdtempSync(join(tmpdir(), "independum-read-"));
-afterAll(() => rmSync(folder, { recursive: true, force: true }));
+const folder = createTestFolder("read");
 const texts = createModelTexts(() => ({}));
 const builtInLimits = { maxLines: 2000, maxBytes: 51_200 };
 const visionModel = { input: ["text", "image"] };

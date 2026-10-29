@@ -89,6 +89,20 @@ export type ReadDetails =
   | { kind: "image"; width: number; height: number }
   | { kind: "empty" };
 
+/** One part of a diff: where it starts in the file before and after, and its lines, each after +, -, or a space. */
+export interface DiffHunk {
+  oldStart: number;
+  newStart: number;
+  lines: string[];
+}
+
+/** What the Edit tool keeps about an edit: its diff, and how many lines it added and removed. */
+export interface EditDetails {
+  hunks: DiffHunk[];
+  added: number;
+  removed: number;
+}
+
 /** What the Shell tool keeps about a command once it has ended. */
 export interface ShellDetails {
   shell: string;

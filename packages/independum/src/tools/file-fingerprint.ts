@@ -16,6 +16,16 @@ export interface FileFingerprint {
   lines?: string | null;
 }
 
+/**
+ * The version of a file that a tool sees now: its fingerprints, and the note that it changed since
+ * the chat last saw it, when it did.
+ */
+interface FileVersion {
+  key: string;
+  fingerprint: FileFingerprint;
+  change: string | undefined;
+}
+
 /** The version of a file that a chat saw last, with the fingerprint of each line when it has one. */
 interface SeenVersion {
   content: string;
@@ -58,9 +68,25 @@ const fingerprintTexts = {
 export const fingerprintTextList: ModelText[] = Object.values(fingerprintTexts);
 
 /**
- * Returns the path that names a file in its fingerprints, the same for every way of writing it.
+ * Returns the version of a file that a tool sees now, compared with the version that the chat saw
+ * last on its branch, so the tool can keep it and say how the file changed.
  */
-export function fileKeyOf(file: string): string {
+export function versionOf(
+  context: ExtensionToolContext,
+  file: string,
+  bytes: Uint8Array,
+  lines: string[] | undefined,
+  path: string,
+  texts: ModelTexts,
+): FileVersion {
+  const key = fileKeyOf(file);
+  const seen = lastSeenOf(context, key);
+  const fingerprint = fingerprintOf(key, bytes, lines, seen);
+  return { key, fingerprint, change: describeChange(seen, fingerprint, lines, path, texts) };
+}
+
+// The path that names a file in its fingerprints is the same for every way of writing it.
+function fileKeyOf(file: string): string {
   try {
     return realpathSync.native(file);
   } catch {
@@ -85,11 +111,8 @@ export function fingerprintOf(
   return seen?.content === content ? { file, content } : { file, content, lines: packLines(lines) };
 }
 
-/**
- * Returns the version of a file that this chat saw last on its current branch, from the
- * fingerprints in the results of its tools, or undefined when it never saw the file.
- */
-export function lastSeenOf(context: ExtensionToolContext, file: string): SeenVersion | undefined {
+// The version that the chat saw last comes from the fingerprints in the results of its tools.
+function lastSeenOf(context: ExtensionToolContext, file: string): SeenVersion | undefined {
   const branch = context.sessionManager.getBranch();
   let content: string | undefined;
   for (let index = branch.length - 1; index >= 0; index -= 1) {
@@ -111,11 +134,7 @@ export function lastSeenOf(context: ExtensionToolContext, file: string): SeenVer
   return content === undefined ? undefined : { content, lines: null };
 }
 
-/**
- * Returns the note that a file changed since this chat last saw it, naming the lines that differ
- * now, or undefined when it did not change or the chat never saw it.
- */
-export function describeChange(
+function describeChange(
   seen: SeenVersion | undefined,
   current: FileFingerprint,
   lines: string[] | undefined,
