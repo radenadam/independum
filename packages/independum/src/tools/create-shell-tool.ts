@@ -30,6 +30,9 @@ interface ShellToolOptions {
 // PowerShell 7 takes most of a second to start on Windows, so a background command that fails at
 // once still ends before its call returns.
 const startCheckSeconds = 2;
+// The id of a tool call can hold characters that a file name cannot, such as the "|" that Windows
+// refuses.
+const unsafeInFileName = /[^\w.-]/g;
 const timeSlot = { meaning: "How long the command ran.", example: "2.4 s" };
 const idSlot = { meaning: "The number of the background command.", example: "3" };
 const outputSlot = {
@@ -272,7 +275,7 @@ export function createShellTool({
         throw new Error(texts.fill(shellTexts.workdirMissing, { path: workdir ?? folder }));
       }
       const chatId = context.sessionManager.getSessionId();
-      const path = join(outputFolder, chatId, `${toolCallId}.log`);
+      const path = join(outputFolder, chatId, `${toolCallId.replace(unsafeInFileName, "_")}.log`);
       const start = {
         toolCallId,
         chatId,
