@@ -1,6 +1,6 @@
 # Own tools
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0035](0035-shells-as-they-are.md), which runs PowerShell 7 or Git Bash on Windows
 - Date: 2026-10-28
 
 ## Context

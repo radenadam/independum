@@ -130,6 +130,7 @@ To review a Pi update with the maintainer:
 - Independum builds its own tools and registers them with Pi through its hidden extension, which registers them anew when their texts change. The built-in tools of Pi stay off. See decisions 0029 and 0033.
 - A tool is planned with the maintainer before it is built: what it does, its description, its parameters, and its life from call to result.
 - A tool description holds only what the model needs to know about the tool and the harness to choose the tool and use it. It states facts and gives no rules of conduct.
+- Independum tells the model where it works and offers the user options. It never changes how a program behaves to make up for what a model does not know. See decision 0035.
 - What applies to every tool, such as output that is cut, stays out of the descriptions, because the harness says so in the result when it happens.
 - Every text that a tool sends to the model is a model text: its description, the descriptions of its parameters, and what its results and notes say under each condition. The user can then edit it and reset it from the day the tool ships. See decision 0033.
 

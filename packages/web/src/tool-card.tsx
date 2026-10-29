@@ -71,10 +71,7 @@ export function ToolCard({
           choices={shells.map((choice) => ({
             value: choice.kind,
             label: shellLabels[choice.kind],
-            unavailable:
-              choice.name === null
-                ? `${shellLabels[choice.kind]} is not installed on this computer.`
-                : undefined,
+            unavailable: choice.name === null ? choice.missing : undefined,
           }))}
           current={chosen}
           onChoose={(kind) => onChange({ shell: kind })}

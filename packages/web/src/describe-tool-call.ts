@@ -88,13 +88,16 @@ export function isCallRunning(
 
 /** Returns how a background command ended, as its step and the note about it show it. */
 export function statusOfEnd(
-  end: Pick<CommandEnd, "ending" | "exitCode" | "durationMs">,
+  end: Pick<CommandEnd, "ending" | "exitCode" | "signal" | "durationMs">,
 ): StepStatus {
   if (end.ending === "timedOut") {
     return { text: "Timed out", tone: "alert" };
   }
   if (end.ending === "stopped") {
     return { text: "Stopped", tone: "quiet" };
+  }
+  if (end.exitCode === null && end.signal !== null) {
+    return { text: end.signal, tone: "alert" };
   }
   return end.exitCode === 0
     ? { text: describeDuration(end.durationMs), tone: "quiet" }
@@ -120,8 +123,8 @@ function statusOf(
     return part.result.isError ? { text: "Failed", tone: "alert" } : undefined;
   }
   if (details.ending !== "background") {
-    const { ending, exitCode, durationMs } = details;
-    return statusOfEnd({ ending, exitCode, durationMs });
+    const { ending, exitCode, signal, durationMs } = details;
+    return statusOfEnd({ ending, exitCode, signal, durationMs });
   }
   if (end !== undefined) {
     return statusOfEnd(end);

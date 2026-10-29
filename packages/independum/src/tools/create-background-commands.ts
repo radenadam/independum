@@ -22,6 +22,7 @@ export interface BackgroundEnded {
   outputPath: string;
   lastLines: string;
   end: CommandEnd;
+  isOutputOpen: boolean;
   isStoppedByModel: boolean;
 }
 
@@ -43,6 +44,19 @@ const endSlots = {
     example: "~/.independum/outputs/chat/call.log",
   },
 };
+
+/**
+ * The text after how a command ended, in the foreground or in the background, when a program that
+ * it started still holds its output. It shows with the texts of Shell.
+ */
+export const outputOpenText: ModelText = defineText({
+  id: "shell.outputOpen",
+  group: "Shell",
+  section: "result",
+  label: "After how a command ended, when a program that it started still holds its output",
+  builtIn: "A program that the command started still runs, so what it prints later is not here.",
+  slots: {},
+});
 
 /**
  * The texts that say how a background command ended, in a note that wakes the agent or in the
@@ -89,6 +103,15 @@ const backgroundTexts = {
         example: "Listening on http://localhost:5173\nReady in 812 ms",
       },
     },
+  }),
+  signaled: defineText({
+    id: "background.signaled",
+    group: "Shell",
+    section: "note",
+    label: "When a signal ends a background command",
+    builtIn:
+      "Background command {id} ended by signal {signal} after {time}. Its output is in {path}",
+    slots: { ...endSlots, signal: { meaning: "The signal that ended it.", example: "SIGKILL" } },
   }),
   stoppedByModel: defineText({
     id: "stopCommand.stopped",
@@ -159,7 +182,13 @@ export function createBackgroundCommands({
         onOutput: (text) => log.append(text),
       })
         .catch(
-          (): RunEnd => ({ ending: "exited", exitCode: null, durationMs: Date.now() - startedAt }),
+          (): RunEnd => ({
+            ending: "exited",
+            exitCode: null,
+            signal: null,
+            isOutputOpen: false,
+            durationMs: Date.now() - startedAt,
+          }),
         )
         .then(async (end) => {
           await log.finish();
@@ -173,9 +202,11 @@ export function createBackgroundCommands({
               toolCallId: start.toolCallId,
               ending: end.ending,
               exitCode: end.exitCode,
+              signal: end.signal,
               durationMs: end.durationMs,
               isStoppedByUser: stoppedBy === "user",
             },
+            isOutputOpen: end.isOutputOpen,
             isStoppedByModel: stoppedBy === "model",
           };
           onEnd(result);
@@ -225,7 +256,7 @@ export function createBackgroundCommands({
  * model reads it in a note or in the result of StopCommand.
  */
 export function describeBackgroundEnded(
-  { end, outputPath, lastLines }: BackgroundEnded,
+  { end, outputPath, lastLines, isOutputOpen }: BackgroundEnded,
   texts: ModelTexts,
 ): string {
   const values = { id: end.id, time: describeSeconds(end.durationMs), path: outputPath };
@@ -237,8 +268,11 @@ export function describeBackgroundEnded(
             end.isStoppedByUser ? backgroundTexts.stoppedByUser : backgroundTexts.stoppedByModel,
             values,
           )
-        : texts.fill(backgroundTexts.ended, { ...values, code: end.exitCode ?? "unknown" });
+        : end.exitCode === null && end.signal !== null
+          ? texts.fill(backgroundTexts.signaled, { ...values, signal: end.signal })
+          : texts.fill(backgroundTexts.ended, { ...values, code: end.exitCode ?? "unknown" });
+  const ended = isOutputOpen ? `${how} ${texts.get(outputOpenText)}` : how;
   return lastLines === ""
-    ? how
-    : `${how}\n\n${texts.fill(backgroundTexts.lastLines, { lines: lastLines })}`;
+    ? ended
+    : `${ended}\n\n${texts.fill(backgroundTexts.lastLines, { lines: lastLines })}`;
 }

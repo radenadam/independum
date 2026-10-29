@@ -48,7 +48,7 @@ import {
 import { outputTextList } from "./tools/create-output-log.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
-import { defaultShellKind, findShell } from "./tools/find-shell.ts";
+import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -90,7 +90,6 @@ const allTexts: ModelText[] = [
   ...outputTextList,
 ];
 const shellKinds: ShellKind[] = ["powershell", "bash"];
-const shellNames: Record<ShellKind, string> = { bash: "Bash", powershell: "PowerShell" };
 // A tool call that the model is still writing reaches the chat at most this often.
 const callUpdateInterval = 80;
 
@@ -530,6 +529,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         (kind): ShellChoice => ({
           kind,
           name: findShell(kind)?.name ?? null,
+          missing: missingShellOf(kind),
           isChosen: kind === (settings.get().shell ?? defaultShellKind()),
         }),
       ),
@@ -560,10 +560,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (toolName !== "Shell" || shell !== undefined) {
       return null;
     }
-    const kind = settings.get().shell ?? defaultShellKind();
-    return kind === "bash" && process.platform === "win32"
-      ? "Git Bash is not installed on this computer."
-      : `${shellNames[kind]} is not installed on this computer.`;
+    return missingShellOf(settings.get().shell ?? defaultShellKind());
   }
 
   // A change names model texts by their ids, so one that names a text that does not exist is

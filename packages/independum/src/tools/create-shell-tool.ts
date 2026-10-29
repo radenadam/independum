@@ -3,7 +3,7 @@ import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import type { BackgroundCommands } from "./create-background-commands.ts";
+import { type BackgroundCommands, outputOpenText } from "./create-background-commands.ts";
 import { createOutputLog } from "./create-output-log.ts";
 import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
@@ -34,7 +34,7 @@ const shellTexts = {
     builtIn:
       "Runs a command in {shell} and returns its output and exit code. Each call starts a new process in the project folder, with no input.",
     slots: {
-      shell: { meaning: "The name of the chosen shell.", example: "Windows PowerShell 5.1" },
+      shell: { meaning: "The name of the chosen shell.", example: "PowerShell 7.6.9" },
     },
   }),
   command: defineText({
@@ -108,6 +108,15 @@ const shellTexts = {
       },
     },
   }),
+  signaled: defineText({
+    id: "shell.signaled",
+    group: "Shell",
+    section: "result",
+    label: "When a signal ends the command, after its output",
+    builtIn: "Ended by signal {signal} after {time}.",
+    slots: { signal: { meaning: "The signal that ended it.", example: "SIGKILL" }, time: timeSlot },
+  }),
+  outputOpen: outputOpenText,
   missing: defineText({
     id: "shell.missing",
     group: "Shell",
@@ -183,6 +192,7 @@ export function createShellTool({
           shell: shell.name,
           ending: "background",
           exitCode: null,
+          signal: null,
           durationMs: 0,
           outputPath: path,
           backgroundId: id,
@@ -224,6 +234,7 @@ export function createShellTool({
         shell: shell.name,
         ending: end.ending,
         exitCode: end.exitCode,
+        signal: end.signal,
         durationMs: end.durationMs,
         outputPath: output.isCut ? path : null,
         backgroundId: null,
@@ -247,5 +258,9 @@ function describeEnd(end: RunEnd, timeout: number | undefined, texts: ModelTexts
   if (end.ending === "stopped") {
     return texts.fill(shellTexts.stoppedByUser, { time });
   }
-  return texts.fill(shellTexts.exited, { code: end.exitCode ?? "unknown", time });
+  const how =
+    end.exitCode === null && end.signal !== null
+      ? texts.fill(shellTexts.signaled, { signal: end.signal, time })
+      : texts.fill(shellTexts.exited, { code: end.exitCode ?? "unknown", time });
+  return end.isOutputOpen ? `${how} ${texts.get(shellTexts.outputOpen)}` : how;
 }

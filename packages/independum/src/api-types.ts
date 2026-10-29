@@ -80,6 +80,7 @@ export interface ShellDetails {
   shell: string;
   ending: "exited" | "timedOut" | "stopped" | "background";
   exitCode: number | null;
+  signal: string | null;
   durationMs: number;
   outputPath: string | null;
   backgroundId: number | null;
@@ -91,6 +92,7 @@ export interface CommandEnd {
   toolCallId: string;
   ending: "exited" | "timedOut" | "stopped";
   exitCode: number | null;
+  signal: string | null;
   durationMs: number;
   isStoppedByUser: boolean;
 }
@@ -200,10 +202,14 @@ export interface ToolSummary {
 /** A kind of shell that the Shell tool can run. */
 export type ShellKind = "bash" | "powershell";
 
-/** A shell that the user can choose for the Shell tool, with its name when it is installed. */
+/**
+ * A shell that the user can choose for the Shell tool, with its name when it is installed, or what
+ * is missing when it is not.
+ */
 export interface ShellChoice {
   kind: ShellKind;
   name: string | null;
+  missing: string;
   isChosen: boolean;
 }
 
