@@ -14,6 +14,7 @@ test("settings start from their defaults and keep each change across a restart",
     shell: null,
     disabledTools: [],
     outputLimits: { maxLines: 2000, maxBytes: 51200 },
+    handBackSeconds: 120,
     environment: {},
     texts: {},
   });

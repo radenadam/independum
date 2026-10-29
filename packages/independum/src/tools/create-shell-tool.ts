@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
@@ -9,14 +10,17 @@ import type { Shell } from "./find-shell.ts";
 import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
 
 /**
- * What the Shell tool needs: the shell, the output limits, and the variables that the user chose,
- * the model texts, where outputs stay, where each running command leaves a way to stop it on its
- * own, and the commands that run in the background.
+ * What the Shell tool needs: the shell, the output limits, the variables, and the time before a
+ * command goes on in the background that the user chose, the model texts, where outputs stay,
+ * where each running command leaves a way to stop it or to move it to the background, and the
+ * commands that run in the background.
  */
 interface ShellToolOptions {
   getShell: () => Shell | undefined;
   getLimits: () => OutputLimits;
   getEnvironment: () => Record<string, string>;
+  getHandBackSeconds: () => number;
+  handBacks: Map<string, () => void>;
   texts: ModelTexts;
   outputFolder: string;
   stops: Map<string, () => void>;
@@ -24,6 +28,11 @@ interface ShellToolOptions {
 }
 
 const timeSlot = { meaning: "How long the command ran.", example: "2.4 s" };
+const idSlot = { meaning: "The number of the background command.", example: "3" };
+const outputSlot = {
+  meaning: "The file that receives its output.",
+  example: "~/.independum/outputs/chat/call.log",
+};
 
 /** The texts of the Shell tool that the model reads, which the user can edit. */
 const shellTexts = {
@@ -37,6 +46,14 @@ const shellTexts = {
     slots: {
       shell: { meaning: "The name of the chosen shell.", example: "PowerShell 7.6.9" },
     },
+  }),
+  handBack: defineText({
+    id: "shell.handBack",
+    group: "Shell",
+    section: "description",
+    label: "After the description, while commands go on in the background after a while",
+    builtIn: "A command that still runs after {seconds} s goes on as a background command.",
+    slots: { seconds: { meaning: "The seconds that the user chose.", example: "120" } },
   }),
   environment: defineText({
     id: "shell.environment",
@@ -65,6 +82,15 @@ const shellTexts = {
     section: "parameter",
     label: "description",
     builtIn: "A few words on what the command does, shown to the user.",
+    slots: {},
+  }),
+  workdir: defineText({
+    id: "shell.parameters.workdir",
+    group: "Shell",
+    section: "parameter",
+    label: "workdir",
+    builtIn:
+      "The folder to run the command in, as a path in the project folder or an absolute path. Defaults to the project folder.",
     slots: {},
   }),
   timeout: defineText({
@@ -108,6 +134,40 @@ const shellTexts = {
     builtIn: "Stopped by the user after {time}.",
     slots: { time: timeSlot },
   }),
+  handedBack: defineText({
+    id: "shell.handedBack",
+    group: "Shell",
+    section: "result",
+    label: "When the command still runs after the time that the user chose, after its output",
+    builtIn:
+      "Still running after {time}, so it goes on as background command {id}. Its output goes to {path}",
+    slots: {
+      time: timeSlot,
+      id: idSlot,
+      path: outputSlot,
+    },
+  }),
+  movedByUser: defineText({
+    id: "shell.movedByUser",
+    group: "Shell",
+    section: "result",
+    label: "When the user moves the command to the background, after its output",
+    builtIn:
+      "The user moved it to the background as background command {id} after {time}. Its output goes to {path}",
+    slots: {
+      id: idSlot,
+      time: timeSlot,
+      path: outputSlot,
+    },
+  }),
+  workdirMissing: defineText({
+    id: "shell.workdirMissing",
+    group: "Shell",
+    section: "result",
+    label: "When the folder in workdir does not exist",
+    builtIn: "No folder at {path}.",
+    slots: { path: { meaning: "The folder that the model gave.", example: "src/app" } },
+  }),
   backgroundStarted: defineText({
     id: "shell.backgroundStarted",
     group: "Shell",
@@ -115,11 +175,8 @@ const shellTexts = {
     label: "When the command starts in the background",
     builtIn: "Background command {id} runs. Its output goes to {path}",
     slots: {
-      id: { meaning: "The number of the background command.", example: "3" },
-      path: {
-        meaning: "The file that receives its output.",
-        example: "~/.independum/outputs/chat/call.log",
-      },
+      id: idSlot,
+      path: outputSlot,
     },
   }),
   signaled: defineText({
@@ -152,6 +209,8 @@ export function createShellTool({
   getShell,
   getLimits,
   getEnvironment,
+  getHandBackSeconds,
+  handBacks,
   texts,
   outputFolder,
   stops,
@@ -166,10 +225,15 @@ export function createShellTool({
       const described = texts.fill(shellTexts.description, {
         shell: getShell()?.name ?? "the shell",
       });
+      const seconds = getHandBackSeconds();
       const names = Object.keys(getEnvironment());
-      return names.length === 0
-        ? described
-        : `${described} ${texts.fill(shellTexts.environment, { names: names.join(", ") })}`;
+      return [
+        described,
+        ...(seconds === 0 ? [] : [texts.fill(shellTexts.handBack, { seconds })]),
+        ...(names.length === 0
+          ? []
+          : [texts.fill(shellTexts.environment, { names: names.join(", ") })]),
+      ].join(" ");
     },
     get parameters() {
       return Type.Object({
@@ -177,6 +241,7 @@ export function createShellTool({
         description: Type.Optional(
           Type.String({ description: texts.get(shellTexts.descriptionParameter) }),
         ),
+        workdir: Type.Optional(Type.String({ description: texts.get(shellTexts.workdir) })),
         timeout: Type.Optional(
           Type.Number({ exclusiveMinimum: 0, description: texts.get(shellTexts.timeout) }),
         ),
@@ -185,7 +250,7 @@ export function createShellTool({
     },
     async execute(
       toolCallId,
-      { command, timeout, background: isBackground },
+      { command, workdir, timeout, background: isBackground },
       signal,
       onUpdate,
       context,
@@ -195,21 +260,25 @@ export function createShellTool({
         throw new Error(texts.get(shellTexts.missing));
       }
       const shell: Shell = found;
+      const folder = workdir === undefined ? context.cwd : resolve(context.cwd, workdir);
+      if (!isFolder(folder)) {
+        throw new Error(texts.fill(shellTexts.workdirMissing, { path: workdir ?? folder }));
+      }
       const chatId = context.sessionManager.getSessionId();
       const path = join(outputFolder, chatId, `${toolCallId}.log`);
-      const timeoutMs = timeout === undefined ? undefined : timeout * 1000;
+      const start = {
+        toolCallId,
+        chatId,
+        shell,
+        command,
+        folder,
+        environment: getEnvironment(),
+        timeoutMs: timeout === undefined ? undefined : timeout * 1000,
+        outputPath: path,
+        limits: getLimits(),
+      };
       if (isBackground === true) {
-        const id = background.start({
-          toolCallId,
-          chatId,
-          shell,
-          command,
-          folder: context.cwd,
-          environment: getEnvironment(),
-          timeoutMs,
-          outputPath: path,
-          limits: getLimits(),
-        });
+        const id = background.start(start);
         const started: ShellDetails = {
           shell: shell.name,
           ending: "background",
@@ -232,29 +301,75 @@ export function createShellTool({
         };
         onUpdate?.({ content: [], details: progress });
       }
-      const log = createOutputLog(path, { limits: getLimits(), texts, onLatest: report });
+      const log = createOutputLog(path, { limits: start.limits, texts, onLatest: report });
       report("");
       // A command ends when the reply stops, or when the user stops this command alone, and then
-      // the agent goes on with the result.
+      // the agent goes on with the result. A command that goes on in the background no longer ends
+      // with the reply.
+      const startedAt = Date.now();
       const own = new AbortController();
+      const stopWithReply = (): void => own.abort();
+      if (signal?.aborted === true) {
+        own.abort();
+      }
+      signal?.addEventListener("abort", stopWithReply, { once: true });
       stops.set(toolCallId, () => own.abort());
-      let end: RunEnd;
+      const run = runCommand({
+        ...start,
+        signal: own.signal,
+        onOutput: (text) => log.append(text),
+      });
+      let first: { kind: "ended"; end: RunEnd } | { kind: "handedBack" | "movedByUser" };
+      let timer: NodeJS.Timeout | undefined;
       try {
-        end = await runCommand({
-          shell,
-          command,
-          folder: context.cwd,
-          environment: getEnvironment(),
-          timeoutMs,
-          signal: signal === undefined ? own.signal : AbortSignal.any([signal, own.signal]),
-          onOutput: (text) => log.append(text),
-        });
+        first = await Promise.race([
+          run.then((end) => ({ kind: "ended" as const, end })),
+          new Promise<{ kind: "handedBack" | "movedByUser" }>((resolveMove) => {
+            const seconds = getHandBackSeconds();
+            if (seconds > 0) {
+              timer = setTimeout(() => resolveMove({ kind: "handedBack" }), seconds * 1000);
+            }
+            handBacks.set(toolCallId, () => resolveMove({ kind: "movedByUser" }));
+          }),
+        ]);
       } catch (error) {
         await log.finish();
         throw error;
       } finally {
+        clearTimeout(timer);
         stops.delete(toolCallId);
+        handBacks.delete(toolCallId);
       }
+      if (first.kind !== "ended") {
+        signal?.removeEventListener("abort", stopWithReply);
+        const output = log.snapshot();
+        const id = background.adopt({ start, startedAt, log, run, controller: own });
+        const moved = texts.fill(
+          first.kind === "handedBack" ? shellTexts.handedBack : shellTexts.movedByUser,
+          {
+            id,
+            time: describeSeconds(Date.now() - startedAt),
+            path,
+          },
+        );
+        const handedBack: ShellDetails = {
+          shell: shell.name,
+          ending: "background",
+          exitCode: null,
+          signal: null,
+          durationMs: Date.now() - startedAt,
+          outputPath: path,
+          backgroundId: id,
+        };
+        return {
+          content: [
+            { type: "text", text: output.text === "" ? moved : `${output.text}\n\n${moved}` },
+          ],
+          details: handedBack,
+        };
+      }
+      signal?.removeEventListener("abort", stopWithReply);
+      const { end } = first;
       const output = await log.finish();
       const status = describeEnd(end, timeout, texts);
       const details: ShellDetails = {
@@ -275,6 +390,14 @@ export function createShellTool({
       };
     },
   });
+}
+
+function isFolder(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function describeEnd(end: RunEnd, timeout: number | undefined, texts: ModelTexts): string {

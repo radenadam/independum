@@ -1,5 +1,6 @@
 import type { ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
+import { CommandActions } from "./command-actions.tsx";
 import styles from "./commands-place.module.css";
 import { describeToolCall, isCallRunning } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
@@ -8,7 +9,6 @@ import { PlaceSection } from "./place-section.tsx";
 import { RowWithAction } from "./row-with-action.tsx";
 import { SlidingTitle } from "./sliding-title.tsx";
 import { StatusLabel } from "./status-label.tsx";
-import { StopCommandButton } from "./stop-command-button.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 import { useElapsed } from "./use-elapsed.ts";
 
@@ -104,7 +104,7 @@ function CommandRow({ part, tools, isReplying, onShow }: CommandRowProps): React
   return call.isRunning ? (
     <RowWithAction
       isActionShown
-      action={<StopCommandButton onStop={() => tools.onStop(part.id)} />}
+      action={<CommandActions id={part.id} canMove={call.canMove} tools={tools} />}
     >
       {row}
     </RowWithAction>

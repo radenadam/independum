@@ -1,6 +1,7 @@
 import type { ChatMessage, CommandEnd, ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
 import { CodeBlock } from "./code-block.tsx";
+import { CommandActions } from "./command-actions.tsx";
 import { describeDuration } from "./describe-duration.ts";
 import {
   describeToolCall,
@@ -10,7 +11,6 @@ import {
 } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
 import { StepBox } from "./step-box.tsx";
-import { StopCommandButton } from "./stop-command-button.tsx";
 import { toolIconOf } from "./tool-icon.ts";
 import styles from "./tool-step.module.css";
 import { useElapsed } from "./use-elapsed.ts";
@@ -20,6 +20,7 @@ export interface ToolCalls {
   runs: Record<string, ToolRun>;
   ends: Record<string, CommandEnd>;
   shown: { id: string; at: number } | undefined;
+  onMove: (id: string) => void;
   onStop: (id: string) => void;
 }
 
@@ -47,7 +48,9 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
       label={call.label}
       status={call.status}
       action={
-        call.isRunning ? <StopCommandButton onStop={() => tools.onStop(part.id)} /> : undefined
+        call.isRunning ? (
+          <CommandActions id={part.id} canMove={call.canMove} tools={tools} />
+        ) : undefined
       }
       isFollowing={isUnderWay}
       hasBody={call.input !== ""}

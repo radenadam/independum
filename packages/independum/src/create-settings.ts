@@ -9,12 +9,14 @@ export interface SettingsStore {
 
 const lineRange = { min: 10, max: 1_000_000 };
 const byteRange = { min: 1024, max: 100 * 1024 * 1024 };
+const handBackRange = { min: 5, max: 86_400 };
 
 /** The settings that Independum starts with, which a reset goes back to. */
 export const builtInSettings: Settings = {
   shell: null,
   disabledTools: [],
   outputLimits: { maxLines: 2000, maxBytes: 50 * 1024 },
+  handBackSeconds: 120,
   environment: {},
   texts: {},
 };
@@ -34,6 +36,7 @@ export async function createSettings(path: string): Promise<SettingsStore> {
     shell: change.shell ?? builtInSettings.shell,
     disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
     outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
+    handBackSeconds: change.handBackSeconds ?? builtInSettings.handBackSeconds,
     environment: change.environment ?? builtInSettings.environment,
     texts: editedTextsOf(saved),
   };
@@ -80,6 +83,15 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
       isValid = false;
     } else {
       change.outputLimits = limits;
+    }
+  }
+  if ("handBackSeconds" in fields) {
+    const { handBackSeconds } = fields;
+    // Zero turns hand-back off, so a command holds the reply until it ends.
+    if (handBackSeconds === 0 || isWhole(handBackSeconds, handBackRange)) {
+      change.handBackSeconds = handBackSeconds;
+    } else {
+      isValid = false;
     }
   }
   if ("environment" in fields) {

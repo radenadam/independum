@@ -31,6 +31,17 @@
   color: var(--muted);
 }
 
+.setting {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settingLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .unavailable {
   color: var(--signal);
 }

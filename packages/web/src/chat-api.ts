@@ -176,6 +176,11 @@ export async function openChat(id: string): Promise<void> {
   }
 }
 
+/** Moves a command of the reply to the background, and the reply goes on while it runs. */
+export async function moveCommandToBackground(id: string): Promise<void> {
+  await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/background`, { method: "POST" });
+}
+
 /** Stops one running command, and the reply goes on with what it printed. */
 export async function stopCommand(id: string): Promise<void> {
   await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/stop`, { method: "POST" });

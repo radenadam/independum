@@ -20,6 +20,7 @@ import {
   fetchContext,
   fetchModels,
   followChat,
+  moveCommandToBackground,
   openChat,
   pinChat,
   renameChat,
@@ -203,6 +204,9 @@ export function WorkingScreen({
     runs: toolRuns,
     ends,
     shown: shownStep,
+    onMove: (id) => {
+      moveCommandToBackground(id).catch(() => undefined);
+    },
     onStop: (id) => {
       stopCommand(id).catch(() => undefined);
     },

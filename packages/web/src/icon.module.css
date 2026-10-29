@@ -107,6 +107,11 @@
   --shift-x: -1.5px;
 }
 
+.nudgeUpRight {
+  --shift-x: 1.5px;
+  --shift-y: -1.5px;
+}
+
 .nudgeRight {
   --shift-x: 1.5px;
 }

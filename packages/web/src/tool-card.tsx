@@ -21,6 +21,7 @@ import { toolIconOf } from "./tool-icon.ts";
 interface ToolCardProps {
   tool: ToolSummary;
   shells: ShellChoice[];
+  handBackSeconds: number;
   environment: Record<string, string>;
   environmentSuggestions: EnvironmentSuggestion[];
   disabledTools: string[];
@@ -31,6 +32,14 @@ interface ToolCardProps {
 }
 
 const shellLabels: Record<ShellKind, string> = { powershell: "PowerShell", bash: "Bash" };
+// Zero keeps a command in the reply until it ends.
+const handBackChoices = [
+  { value: "0", label: "Never" },
+  { value: "60", label: "1 min" },
+  { value: "120", label: "2 min" },
+  { value: "300", label: "5 min" },
+  { value: "600", label: "10 min" },
+];
 
 /**
  * Draws a tool of the agent with a switch that turns it on or off, the description that the model
@@ -40,6 +49,7 @@ const shellLabels: Record<ShellKind, string> = { powershell: "PowerShell", bash:
 export function ToolCard({
   tool,
   shells,
+  handBackSeconds,
   environment,
   environmentSuggestions,
   disabledTools,
@@ -87,6 +97,17 @@ export function ToolCard({
           current={chosen}
           onChoose={(kind) => onChange({ shell: kind })}
         />
+      ) : null}
+      {tool.name === "Shell" ? (
+        <div className={styles.setting}>
+          <span className={styles.settingLabel}>A command goes on in the background after</span>
+          <ChoiceGroup
+            label="A command goes on in the background after"
+            choices={handBackChoices}
+            current={String(handBackSeconds)}
+            onChoose={(seconds) => onChange({ handBackSeconds: Number(seconds) })}
+          />
+        </div>
       ) : null}
       {tool.name === "Shell" ? (
         <Disclosure label={`Environment of commands (${Object.keys(environment).length})`}>
