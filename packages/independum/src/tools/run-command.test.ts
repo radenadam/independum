@@ -18,6 +18,7 @@ async function run(
     shell: shell as NonNullable<typeof shell>,
     command,
     folder: tmpdir(),
+    environment: {},
     timeoutMs: undefined,
     signal: undefined,
     onOutput: (text) => {
@@ -40,6 +41,20 @@ test("a command that fails without an exit code of its own ends with a failure",
   );
   expect(end.ending).toBe("exited");
   expect(end.exitCode).not.toBe(0);
+});
+
+test("a command gets the variables that the user added, on top of the environment", async () => {
+  const read =
+    shell.kind === "powershell"
+      ? "echo $env:INDEPENDUM_ADDED $env:INDEPENDUM_PATH_SEEN"
+      : "echo $INDEPENDUM_ADDED $INDEPENDUM_PATH_SEEN";
+  // biome-ignore-start lint/style/useNamingConvention: Shells name environment variables in capitals.
+  const { output } = await run(read, {
+    environment: { INDEPENDUM_ADDED: "added", INDEPENDUM_PATH_SEEN: "kept" },
+  });
+  // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
+  expect(output).toContain("added");
+  expect(output).toContain("kept");
 });
 
 test("a shell is named with its version, and its output keeps every character", async () => {

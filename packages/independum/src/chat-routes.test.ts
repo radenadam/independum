@@ -462,6 +462,32 @@ test("a tool that is turned off never runs, and the output limits change", async
   expect((await put("/settings", { shell: "fish" })).status).toBe(400);
 });
 
+test("variables that the user adds reach commands, and the model reads only their names", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  // biome-ignore-start lint/style/useNamingConvention: Shells name environment variables in capitals.
+  const added = await put("/settings", { environment: { INDEPENDUM_SECRET: "kept-out" } });
+  const agent = (await added.json()) as AgentSummary;
+  expect(agent.environment).toEqual({ INDEPENDUM_SECRET: "kept-out" });
+  // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
+  expect(agent.environmentSuggestions.length).toBeGreaterThan(0);
+  expect(agent.tools[0]?.description).toContain("INDEPENDUM_SECRET");
+  expect(agent.tools[0]?.description).not.toContain("kept-out");
+  const read =
+    process.platform === "win32" ? "echo $env:INDEPENDUM_SECRET" : "echo $INDEPENDUM_SECRET";
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("Shell", { command: read })], { stopReason: "toolUse" }),
+    fauxAssistantMessage("Done."),
+  ]);
+  const result = (await sendAndReadReply("Read the variable")).updates.find(
+    (update) => update.type === "toolResult",
+  );
+  expect(result?.type === "toolResult" ? result.result.text : "").toContain("kept-out");
+  const cleared = (await (await put("/settings", { environment: {} })).json()) as AgentSummary;
+  expect(cleared.tools[0]?.description).not.toContain("INDEPENDUM_SECRET");
+  expect((await put("/settings", { environment: { "NOT A NAME": "x" } })).status).toBe(400);
+});
+
 test("edited texts reach the model with the next turn, and null brings back the built-in text", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);

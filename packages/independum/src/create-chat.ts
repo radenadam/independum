@@ -48,6 +48,7 @@ import {
 import { outputTextList } from "./tools/create-output-log.ts";
 import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
+import { environmentSuggestions } from "./tools/environment-suggestions.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
@@ -149,6 +150,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     createShellTool({
       getShell: () => shell,
       getLimits: () => settings.get().outputLimits,
+      getEnvironment: () => settings.get().environment,
       texts,
       outputFolder,
       stops: commandStops,
@@ -538,6 +540,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       builtInOutputLimits: builtInSettings.outputLimits,
       texts: summarizeTexts(allTexts, settings.get().texts),
       piTexts: summarizePiTexts(lastRequest),
+      environment: settings.get().environment,
+      environmentSuggestions,
     };
   }
 

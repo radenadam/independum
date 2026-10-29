@@ -7,6 +7,7 @@ export interface RunOptions {
   shell: Shell;
   command: string;
   folder: string;
+  environment: Record<string, string>;
   timeoutMs: number | undefined;
   signal: AbortSignal | undefined;
   onOutput: (text: string) => void;
@@ -40,10 +41,11 @@ const powerShellPrefix = "[Console]::OutputEncoding = [System.Text.UTF8Encoding]
 
 /**
  * Runs one command, as written, in a new process of the shell, in the folder, with no input, and
- * ends the whole process tree on timeout or when the signal aborts.
+ * ends the whole process tree on timeout or when the signal aborts. The command gets the
+ * environment of the user with the variables that the user added for commands.
  */
 export async function runCommand(options: RunOptions): Promise<RunEnd> {
-  const { shell, command, folder, timeoutMs, signal, onOutput } = options;
+  const { shell, command, folder, environment, timeoutMs, signal, onOutput } = options;
   const startedAt = performance.now();
   if (signal?.aborted === true) {
     return { ending: "stopped", exitCode: null, signal: null, isOutputOpen: false, durationMs: 0 };
@@ -55,6 +57,7 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
       : ["-c", command],
     {
       cwd: folder,
+      env: { ...process.env, ...environment },
       stdio: ["ignore", "pipe", "pipe"],
       // On other systems the shell leads its own process group, so the whole tree can be ended.
       detached: process.platform !== "win32",

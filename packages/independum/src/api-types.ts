@@ -69,10 +69,11 @@ export interface ToolCallPart {
 /** One part of a message: its text, thinking that the model did, or a call to a tool. */
 export type MessagePart = { type: "text"; text: string } | ThinkingPart | ToolCallPart;
 
-/** The latest output of the Shell tool while its command runs. */
+/** The latest output of the Shell tool while its command runs, and when it last printed. */
 export interface ShellProgress {
   shell: string;
   output: string;
+  lastOutputAt: number;
 }
 
 /** What the Shell tool keeps about a command once it has ended. */
@@ -142,6 +143,15 @@ export interface AgentSummary {
   builtInOutputLimits: OutputLimits;
   texts: TextSummary[];
   piTexts: PiTextSummary[];
+  environment: Record<string, string>;
+  environmentSuggestions: EnvironmentSuggestion[];
+}
+
+/** A variable that the user can add to the environment of commands, with what it changes. */
+export interface EnvironmentSuggestion {
+  name: string;
+  value: string;
+  reason: string;
 }
 
 /**
@@ -224,6 +234,7 @@ export interface Settings {
   shell: ShellKind | null;
   disabledTools: string[];
   outputLimits: OutputLimits;
+  environment: Record<string, string>;
   texts: Record<string, EditedText>;
 }
 

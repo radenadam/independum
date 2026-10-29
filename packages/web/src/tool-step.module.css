@@ -11,6 +11,13 @@
   overflow-wrap: anywhere;
 }
 
+.quiet {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--signal);
+}
+
 /* Opened by the user, a long output scrolls inside the step instead of stretching the chat. */
 [data-following="false"] .output {
   max-height: 420px;

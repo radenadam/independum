@@ -97,6 +97,7 @@ const outputTexts = {
 export interface OutputLog {
   append(text: string): void;
   latest(): string;
+  lastOutputAt(): number;
   finish(): Promise<LimitedOutput>;
 }
 
@@ -148,6 +149,7 @@ export function createOutputLog(
   let lineCount = 0;
   let pending = "";
   let timer: NodeJS.Timeout | undefined;
+  let lastOutputAt = Date.now();
 
   function latest(): string {
     const lines = (isStartFull ? end : start).slice(-latestLineCount);
@@ -207,6 +209,9 @@ export function createOutputLog(
 
   return {
     append(text) {
+      if (text !== "") {
+        lastOutputAt = Date.now();
+      }
       pending += text;
       const lastBreak = pending.lastIndexOf("\n");
       if (lastBreak !== -1) {
@@ -233,6 +238,7 @@ export function createOutputLog(
       }
     },
     latest,
+    lastOutputAt: () => lastOutputAt,
     async finish() {
       clearTimeout(timer);
       if (pending !== "") {

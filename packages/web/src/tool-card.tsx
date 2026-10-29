@@ -1,10 +1,17 @@
-import type { SettingsChange, ShellChoice, ShellKind, ToolSummary } from "independum/api-types";
+import type {
+  EnvironmentSuggestion,
+  SettingsChange,
+  ShellChoice,
+  ShellKind,
+  ToolSummary,
+} from "independum/api-types";
 import type { ReactElement } from "react";
 import { Badge } from "./badge.tsx";
 import { ChoiceGroup } from "./choice-group.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { Disclosure } from "./disclosure.tsx";
 import { EditActions } from "./edit-actions.tsx";
+import { EnvironmentEditor } from "./environment-editor.tsx";
 import { Icon } from "./icon.tsx";
 import { ToggleSwitch } from "./toggle-switch.tsx";
 import styles from "./tool-card.module.css";
@@ -14,6 +21,8 @@ import { toolIconOf } from "./tool-icon.ts";
 interface ToolCardProps {
   tool: ToolSummary;
   shells: ShellChoice[];
+  environment: Record<string, string>;
+  environmentSuggestions: EnvironmentSuggestion[];
   disabledTools: string[];
   mark: string | undefined;
   onChange: (change: SettingsChange) => void;
@@ -31,6 +40,8 @@ const shellLabels: Record<ShellKind, string> = { powershell: "PowerShell", bash:
 export function ToolCard({
   tool,
   shells,
+  environment,
+  environmentSuggestions,
   disabledTools,
   mark,
   onChange,
@@ -76,6 +87,15 @@ export function ToolCard({
           current={chosen}
           onChoose={(kind) => onChange({ shell: kind })}
         />
+      ) : null}
+      {tool.name === "Shell" ? (
+        <Disclosure label={`Environment of commands (${Object.keys(environment).length})`}>
+          <EnvironmentEditor
+            environment={environment}
+            suggestions={environmentSuggestions}
+            onChange={(next) => onChange({ environment: next })}
+          />
+        </Disclosure>
       ) : null}
       <Disclosure label="Parameters">
         <CodeWell code={JSON.stringify(tool.parameters, null, 2)} copyLabel="Copy the parameters" />

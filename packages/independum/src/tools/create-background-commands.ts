@@ -11,6 +11,7 @@ interface BackgroundStart {
   shell: Shell;
   command: string;
   folder: string;
+  environment: Record<string, string>;
   timeoutMs: number | undefined;
   outputPath: string;
   limits: OutputLimits;
@@ -170,13 +171,18 @@ export function createBackgroundCommands({
         texts,
         isKept: true,
         onLatest: (latest) =>
-          onProgress(start.chatId, start.toolCallId, { shell: start.shell.name, output: latest }),
+          onProgress(start.chatId, start.toolCallId, {
+            shell: start.shell.name,
+            output: latest,
+            lastOutputAt: log.lastOutputAt(),
+          }),
       });
       // A shell that cannot start ends the command at once, as a failure.
       const ended = runCommand({
         shell: start.shell,
         command: start.command,
         folder: start.folder,
+        environment: start.environment,
         timeoutMs: start.timeoutMs,
         signal: controller.signal,
         onOutput: (text) => log.append(text),
@@ -240,7 +246,11 @@ export function createBackgroundCommands({
         .map((command) => ({
           toolCallId: command.start.toolCallId,
           startedAt: command.startedAt,
-          progress: { shell: command.start.shell.name, output: command.log.latest() },
+          progress: {
+            shell: command.start.shell.name,
+            output: command.log.latest(),
+            lastOutputAt: command.log.lastOutputAt(),
+          },
         }));
     },
     stopAll() {

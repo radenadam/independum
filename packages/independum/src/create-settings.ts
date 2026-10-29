@@ -15,6 +15,7 @@ export const builtInSettings: Settings = {
   shell: null,
   disabledTools: [],
   outputLimits: { maxLines: 2000, maxBytes: 50 * 1024 },
+  environment: {},
   texts: {},
 };
 
@@ -33,6 +34,7 @@ export async function createSettings(path: string): Promise<SettingsStore> {
     shell: change.shell ?? builtInSettings.shell,
     disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
     outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
+    environment: change.environment ?? builtInSettings.environment,
     texts: editedTextsOf(saved),
   };
   return {
@@ -80,6 +82,14 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
       change.outputLimits = limits;
     }
   }
+  if ("environment" in fields) {
+    const environment = environmentOf(fields.environment);
+    if (environment === undefined) {
+      isValid = false;
+    } else {
+      change.environment = environment;
+    }
+  }
   if ("texts" in fields) {
     const texts = textChangesOf(fields.texts);
     if (texts === undefined) {
@@ -91,13 +101,32 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
   return isValid || isLenient ? change : undefined;
 }
 
+// A name of a variable starts with a letter or an underscore, as every shell accepts.
+function environmentOf(value: unknown): Record<string, string> | undefined {
+  return recordOf(
+    value,
+    (name, text): text is string =>
+      /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && typeof text === "string",
+  );
+}
+
 function textChangesOf(value: unknown): Record<string, string | null> | undefined {
+  return recordOf(
+    value,
+    (_id, text): text is string | null => text === null || typeof text === "string",
+  );
+}
+
+function recordOf<Value>(
+  value: unknown,
+  isValid: (key: string, entry: unknown) => entry is Value,
+): Record<string, Value> | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
   }
   const entries = Object.entries(value);
-  return entries.every(([, text]) => text === null || typeof text === "string")
-    ? Object.fromEntries(entries)
+  return entries.every(([key, entry]) => isValid(key, entry))
+    ? (Object.fromEntries(entries) as Record<string, Value>)
     : undefined;
 }
 

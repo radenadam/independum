@@ -14,6 +14,7 @@ test("settings start from their defaults and keep each change across a restart",
     shell: null,
     disabledTools: [],
     outputLimits: { maxLines: 2000, maxBytes: 51200 },
+    environment: {},
     texts: {},
   });
   const texts = { "shell.description": { text: "Runs it.", builtIn: "Runs a command." } };
@@ -63,5 +64,12 @@ test("a change with a setting that is not valid is refused whole", () => {
     texts: { a: "Text.", b: null },
   });
   expect(readSettingsChange({ texts: { a: 5 } })).toBeUndefined();
+  // biome-ignore-start lint/style/useNamingConvention: Shells name environment variables in capitals.
+  expect(readSettingsChange({ environment: { GIT_EDITOR: "true" } })).toEqual({
+    environment: { GIT_EDITOR: "true" },
+  });
+  expect(readSettingsChange({ environment: { "NOT A NAME": "x" } })).toBeUndefined();
+  expect(readSettingsChange({ environment: { NAME: 1 } })).toBeUndefined();
+  // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
   expect(readSettingsChange("everything")).toBeUndefined();
 });
