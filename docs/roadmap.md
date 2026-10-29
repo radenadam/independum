@@ -7,6 +7,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
 - Write and Edit, each planned with the maintainer before it is built. Read then remembers, for each chat, the files that it read with their size and the time they changed, so Write and Edit can refuse a file that the model never read and catch one that changed since. See decision 0042.
+- An evaluation of the build so far with the maintainer, once Shell, Read, Write, and Edit are done, before any other work starts.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
 ## Next
