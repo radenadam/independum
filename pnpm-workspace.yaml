@@ -2,5 +2,6 @@ packages:
   - packages/*
 allowBuilds:
   "@google/genai": false
+  koffi: false
   protobufjs: false
   simple-git-hooks: false

@@ -1,4 +1,6 @@
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import { findShell } from "./find-shell.ts";
 import { type RunOptions, runCommand } from "./run-command.ts";
@@ -85,6 +87,55 @@ test.skipIf(bash === undefined || process.platform === "win32")(
     const { end } = await run("kill -KILL $$", { shell: bash as NonNullable<typeof bash> });
     expect(end).toMatchObject({ ending: "exited", exitCode: null, signal: "SIGKILL" });
   },
+);
+
+// PowerShell from the Microsoft Store starts other programs outside the job, so the test runs in
+// Git Bash, where a program that a detached Node process starts stays in the job.
+test.skipIf(process.platform !== "win32" || bash === undefined)(
+  "stopping a command ends a program that it started whose parent has already ended",
+  async () => {
+    const folder = mkdtempSync(join(tmpdir(), "independum-job-"));
+    const pidFile = join(folder, "program.pid");
+    const program = join(folder, "program.cjs");
+    const starter = join(folder, "starter.cjs");
+    writeFileSync(
+      program,
+      'require("node:fs").writeFileSync(process.argv[2], String(process.pid));\nsetTimeout(() => undefined, 60000);\n',
+    );
+    writeFileSync(
+      starter,
+      'require("node:child_process").spawn(process.execPath, process.argv.slice(2), { detached: true, stdio: "ignore" }).unref();\n',
+    );
+    const start = [process.execPath, starter, program, pidFile].map(
+      (part) => `"${part.replaceAll("\\", "/")}"`,
+    );
+    const controller = new AbortController();
+    const running = run(`${start.join(" ")}; sleep 20`, {
+      shell: bash as NonNullable<typeof bash>,
+      signal: controller.signal,
+    });
+    for (let tries = 0; tries < 100 && !existsSync(pidFile); tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const pid = Number(readFileSync(pidFile, "utf8"));
+    controller.abort();
+    expect((await running).end.ending).toBe("stopped");
+    let isRunning = true;
+    for (let tries = 0; tries < 20 && isRunning; tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      try {
+        process.kill(pid, 0);
+      } catch {
+        isRunning = false;
+      }
+    }
+    if (isRunning) {
+      process.kill(pid);
+    }
+    rmSync(folder, { recursive: true, force: true });
+    expect(isRunning).toBe(false);
+  },
+  20_000,
 );
 
 test("a command stops at its timeout and when its signal aborts", async () => {

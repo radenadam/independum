@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { join } from "node:path";
 import type { Shell } from "./find-shell.ts";
+import { openWindowsJob, type WindowsJob } from "./open-windows-job.ts";
 
 /** What to run, where, and what to do with its output as it comes. */
 export interface RunOptions {
@@ -64,10 +65,15 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
       windowsHide: true,
     },
   );
+  // On Windows a job holds the shell with every program that it starts, even one whose parent has
+  // ended, which the tree of parents no longer reaches.
+  const job =
+    process.platform === "win32" && child.pid !== undefined ? openWindowsJob(child.pid) : undefined;
   let ending: RunEnd["ending"] = "exited";
+  let stopping: Promise<void> | undefined;
   function stop(reason: RunEnd["ending"]): void {
     ending = reason;
-    endTree(child);
+    stopping = endTree(child, job);
   }
   function onAbort(): void {
     stop("stopped");
@@ -88,6 +94,8 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
+    await stopping;
+    job?.close();
   }
   return {
     ending,
@@ -128,16 +136,20 @@ function waitForEnd(child: ChildProcess, lastOutputAt: () => number): Promise<bo
   });
 }
 
-function endTree(child: ChildProcess): void {
+// On Windows, taskkill first ends every program whose parents still run, even one that left the
+// job, as the programs that PowerShell from the Microsoft Store starts do. The job then ends every
+// program in it whose parent has already ended, which the tree of parents no longer reaches.
+async function endTree(child: ChildProcess, job: WindowsJob | undefined): Promise<void> {
   const { pid } = child;
-  if (pid === undefined || child.exitCode !== null) {
+  const isShellRunning = pid !== undefined && child.exitCode === null;
+  if (process.platform === "win32") {
+    if (isShellRunning) {
+      await killTree(pid);
+    }
+    job?.end();
     return;
   }
-  if (process.platform === "win32") {
-    const systemRoot = process.env.SystemRoot ?? process.env.windir;
-    const taskkill =
-      systemRoot === undefined ? "taskkill.exe" : join(systemRoot, "System32", "taskkill.exe");
-    spawn(taskkill, ["/pid", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+  if (!isShellRunning) {
     return;
   }
   signalGroup(pid, "SIGTERM");
@@ -146,6 +158,20 @@ function endTree(child: ChildProcess): void {
       signalGroup(pid, "SIGKILL");
     }
   }, killDelay).unref();
+}
+
+function killTree(pid: number): Promise<void> {
+  const systemRoot = process.env.SystemRoot ?? process.env.windir;
+  const taskkill =
+    systemRoot === undefined ? "taskkill.exe" : join(systemRoot, "System32", "taskkill.exe");
+  return new Promise((resolve) => {
+    const killing = spawn(taskkill, ["/pid", String(pid), "/T", "/F"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    killing.once("close", () => resolve());
+    killing.once("error", () => resolve());
+  });
 }
 
 function signalGroup(pid: number, signal: NodeJS.Signals): void {

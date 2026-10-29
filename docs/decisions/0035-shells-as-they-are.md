@@ -1,6 +1,6 @@
 # Shells as they are
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0041](0041-windows-jobs.md), which ends on Stop the programs that a command leaves behind on Windows
 - Date: 2026-10-29
 
 ## Context
