@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import {
@@ -119,8 +119,13 @@ async function sendAndReadReply(
   }
 }
 
-function callTool(name: string, input: Parameters<typeof fauxToolCall>[1]): AssistantMessage {
-  return fauxAssistantMessage([fauxToolCall(name, input)], { stopReason: "toolUse" });
+function callTool(
+  name: string,
+  input: Parameters<typeof fauxToolCall>[1],
+  id?: string,
+): AssistantMessage {
+  const call = fauxToolCall(name, input, id === undefined ? undefined : { id });
+  return fauxAssistantMessage([call], { stopReason: "toolUse" });
 }
 
 // The model reads the id of a background command from the result of the Shell call before.
@@ -733,6 +738,28 @@ test("CheckCommand returns what a background command printed since the last chec
     text: "No background command has the id 999.",
   });
   await expectNothingInBackground();
+}, 20_000);
+
+test("an output file gets a name that every system accepts, whatever the id of its call", async () => {
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const command =
+    process.platform === "win32"
+      ? 'echo "kept"; Start-Sleep -Milliseconds 2500'
+      : "echo kept; sleep 2.5";
+  faux.setResponses([
+    callTool("Shell", { command, background: true }, "call_1|fc_2"),
+    (context) => callTool("CheckCommand", { id: backgroundIdOf(context), wait: 20 }),
+    fauxAssistantMessage("It ended."),
+  ]);
+  const { updates } = await sendAndReadReply("Start it and wait for it");
+  const started = updates.find((update) => update.type === "toolResult");
+  const outputPath =
+    started?.type === "toolResult"
+      ? (started.result.details as { outputPath: string }).outputPath
+      : "";
+  expect(basename(outputPath)).toBe("call_1_fc_2.log");
+  expect(readFileSync(outputPath, "utf8")).toBe("kept\n");
 }, 20_000);
 
 async function expectNothingInBackground(): Promise<void> {
