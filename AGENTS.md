@@ -47,6 +47,14 @@ Every decision about what the model gets follows these, from the system prompt t
 
 GitHub rejects direct pushes to `main`, so every change goes through a pull request.
 
+## Evaluation
+
+The maintainer holds an evaluation after a milestone, at regular times, and whenever something feels off. It audits the build against the standard of the maintainer in three areas: how the agent works, the repository, and Independum itself. Small unevenness counts, because it can point to a problem at the root.
+
+1. The maintainer drives. Fix each thing that the maintainer raises, one small change at a time.
+2. The agent asks. Probe the maintainer with questions until the agent knows what the maintainer expects, and the maintainer has nothing left to raise.
+3. Every finding becomes lasting: a rule in this file, a check in `pnpm check`, or a decision record. The maintainer never has to say a thing twice.
+
 ## Consistency
 
 - Match the existing code. When unsure, find the closest existing example and copy its shape.

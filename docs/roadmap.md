@@ -6,7 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- An evaluation of the build so far with the maintainer, once Shell, Read, Write, and Edit are done, before any other work starts.
+- An evaluation of the build so far with the maintainer, now that Shell, Read, Write, and Edit are done, before any other work starts. See the Evaluation section of `AGENTS.md`.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
 ## Next
