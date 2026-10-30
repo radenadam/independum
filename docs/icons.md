@@ -61,7 +61,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | The box of Shell struck through from its lower left to its upper right, with a gap where the line crosses the box and the cursor, on a running command, which stops that command alone. |
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
-| Check command | The box of Shell, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
+| Check command | The box of Shell with half of its cursor, and a lens over its lower right corner, for the tool that checks a background command. |
 | Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
 | Steps | Three short boxes stacked, for a group of steps that came one after another. |
 | Info | A circle with an i inside, a short stroke for its dot over a longer one for its stem. |
