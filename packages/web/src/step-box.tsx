@@ -78,13 +78,7 @@ export function StepBox({
   });
 
   return (
-    <div
-      ref={box}
-      className={styles.box}
-      data-open={isOpen}
-      data-following={choice === undefined}
-      data-copy="skip"
-    >
+    <div ref={box} className={styles.box} data-open={isOpen} data-copy="skip">
       <div className={styles.top}>
         {hasBody ? (
           <button
@@ -106,7 +100,12 @@ export function StepBox({
       <div className={styles.body} inert={!isOpen}>
         <div className={styles.clip}>
           <div className={styles.content}>
-            <div ref={view} className={styles.view} data-clipped={isClipped}>
+            <div
+              ref={view}
+              className={styles.view}
+              data-following={choice === undefined}
+              data-clipped={isClipped}
+            >
               <div>{children}</div>
             </div>
           </div>

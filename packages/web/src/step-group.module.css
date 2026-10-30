@@ -1,0 +1,6 @@
+/* The steps inside a group sit as close as the steps of a reply. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
