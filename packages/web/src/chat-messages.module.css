@@ -61,15 +61,19 @@
   gap: 8px;
 }
 
-.text {
+/* The label that waits for the model sits where its text will, so it keeps the same space. */
+.text,
+.thinking {
   margin-block: 10px;
 }
 
-.text:first-child {
+.text:first-child,
+.thinking:first-child {
   margin-top: 0;
 }
 
-.text:last-child {
+.text:last-child,
+.thinking:last-child {
   margin-bottom: 0;
 }
 
