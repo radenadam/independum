@@ -69,6 +69,13 @@
   white-space: nowrap;
 }
 
+/* The thinking effort of the model sits beside its name, quieter than it. */
+.effort {
+  flex: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .pill:hover {
   background: var(--raised);
   color: var(--ink);

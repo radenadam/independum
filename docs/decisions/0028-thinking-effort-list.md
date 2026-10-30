@@ -1,6 +1,6 @@
 # Thinking effort list
 
-- Status: accepted
+- Status: superseded by [decision 0046](0046-thinking-effort-in-the-model-menu.md)
 - Date: 2026-10-27
 
 ## Context
