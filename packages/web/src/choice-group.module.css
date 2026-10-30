@@ -32,7 +32,7 @@
 }
 
 /* A choice out of reach stays readable, so the user still sees what it would be. */
-.choice:disabled {
+.choice[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }

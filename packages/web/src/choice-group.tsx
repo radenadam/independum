@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import styles from "./choice-group.module.css";
+import { useTooltip } from "./use-tooltip.tsx";
 
 /** One choice of a group, which can be out of reach, such as a shell that is not installed. */
 interface Choice<Value extends string> {
@@ -26,18 +27,47 @@ export function ChoiceGroup<Value extends string>({
   return (
     <fieldset className={styles.choices} aria-label={label}>
       {choices.map((choice) => (
-        <button
+        <ChoiceButton
           key={choice.value}
-          type="button"
-          className={styles.choice}
-          title={choice.unavailable}
-          aria-pressed={choice.value === current}
-          disabled={choice.unavailable !== undefined}
-          onClick={() => onChoose(choice.value)}
-        >
-          {choice.label}
-        </button>
+          choice={choice}
+          isCurrent={choice.value === current}
+          onChoose={onChoose}
+        />
       ))}
     </fieldset>
+  );
+}
+
+/** Properties of one choice button. */
+interface ChoiceButtonProps<Value extends string> {
+  choice: Choice<Value>;
+  isCurrent: boolean;
+  onChoose: (value: Value) => void;
+}
+
+// A choice out of reach stays focusable and hoverable, so its tooltip can say why it is out of reach.
+function ChoiceButton<Value extends string>({
+  choice,
+  isCurrent,
+  onChoose,
+}: ChoiceButtonProps<Value>): ReactElement {
+  const isUnavailable = choice.unavailable !== undefined;
+  const tip = useTooltip(choice.unavailable);
+  return (
+    <button
+      type="button"
+      className={styles.choice}
+      aria-pressed={isCurrent}
+      aria-disabled={isUnavailable}
+      onClick={() => {
+        if (!isUnavailable) {
+          onChoose(choice.value);
+        }
+      }}
+      {...tip.handlers}
+    >
+      {choice.label}
+      {tip.tooltip}
+    </button>
   );
 }
