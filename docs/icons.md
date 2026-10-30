@@ -111,7 +111,7 @@ Decision 0024 records why icons move and where the line falls.
 | Check command | The lines rise, as if new output comes in. |
 | Read | The lens slides left, as if it reads along a line. |
 | Write | The plus twists a little and back, around its own center. |
-| Steps | It stays still, because the chevron of its group shows that it opens. |
+| Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |
 | Info | The dot of the i hops up and back. |
 
 ## Building icons

@@ -218,8 +218,8 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   steps: (
     <>
-      <path d="M5 4h14l1 1v2l-1 1H5L4 7V5z" />
-      <path d="M5 10h14l1 1v2l-1 1H5l-1-1v-2z" />
+      <path className={moves(styles.nudgeUp)} d="M5 4h14l1 1v2l-1 1H5L4 7V5z" />
+      <path className={moves(styles.nudgeUpLittle)} d="M5 10h14l1 1v2l-1 1H5l-1-1v-2z" />
       <path d="M5 16h14l1 1v2l-1 1H5l-1-1v-2z" />
     </>
   ),
