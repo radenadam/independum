@@ -1,0 +1,20 @@
+/* The i sits in the line of the text it explains, and quieter than it. */
+.info {
+  position: relative;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+.info:hover,
+.info:focus-visible {
+  color: var(--ink);
+}
+
+/* The i is small, so a wider area around it takes the tap of a finger. */
+.info::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
