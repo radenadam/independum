@@ -218,8 +218,7 @@ const drawings: Record<IconName, ReactElement> = {
   write: (
     <>
       <path d={page} />
-      <circle cx="17" cy="17" r="4.5" />
-      <path className={moves(styles.twistBadge)} d="M17 15.25v3.5M15.25 17h3.5" />
+      <path className={moves(styles.twistBadge)} d="M17 13v8M13 17h8" />
     </>
   ),
   editFile: (
@@ -254,13 +253,14 @@ const drawings: Record<IconName, ReactElement> = {
       </g>
     </>
   ),
+  // The line strikes through the box of Shell, and the box and the cursor break where it crosses.
   stopCommand: (
     <>
-      {commandBox}
-      <g className={moves(styles.squeezeBadge)}>
-        <path d="M16 13h2l3 3v2l-3 3h-2l-3-3v-2z" />
-        <path d="M16.125 17h1.75" />
-      </g>
+      <path d="M10 20h9l2-2V9" />
+      <path d="M4.5 19.5L3 18V6l2-2h14" />
+      <path d="M7 9l3 3-3 3" />
+      <path d="M15 15h2" />
+      <path className={moves(styles.strike)} d="M5.5 21.5l16-16" />
     </>
   ),
 };

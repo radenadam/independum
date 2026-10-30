@@ -204,11 +204,12 @@
   --shift-y: 2px;
 }
 
-.squeezeBadge {
-  --stretch-x: 0.8;
-  --stretch-y: 0.8;
+/* The line of Stop command pulls back toward its lower end and strikes again. */
+.strike {
+  --stretch-x: 0.25;
+  --stretch-y: 0.25;
 
-  transform-origin: 17px 17px;
+  transform-origin: 5.5px 21.5px;
 }
 
 .blink {
