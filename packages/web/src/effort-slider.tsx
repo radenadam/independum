@@ -18,6 +18,8 @@ interface EffortSliderProps {
 export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactElement {
   const input = useRef<HTMLInputElement>(null);
   const [held, setHeld] = useState<string | undefined>();
+  const [pointed, setPointed] = useState<number | undefined>();
+  const bar = useRef<HTMLDivElement>(null);
   // The knob keeps the level it was let go on until the chat reports that level, so it never jumps
   // back while the choice is on its way.
   if (held !== undefined && held === thinking.level) {
@@ -25,7 +27,18 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
   }
   const level = held ?? thinking.level;
   const index = Math.max(0, thinking.levels.indexOf(level));
-  const ratio = index / Math.max(1, thinking.levels.length - 1);
+  const last = Math.max(1, thinking.levels.length - 1);
+  const ratio = index / last;
+
+  // The stop nearest the mouse is the one it points at, measured on the stops themselves.
+  function point(x: number): void {
+    const stops = [...(bar.current?.querySelectorAll(`.${styles.stop}`) ?? [])];
+    const distances = stops.map((stop) => {
+      const box = stop.getBoundingClientRect();
+      return Math.abs(box.left + box.width / 2 - x);
+    });
+    setPointed(distances.indexOf(Math.min(...distances)));
+  }
 
   // The change event of a range fires once the knob is let go, while React reports every move.
   useEffect(() => {
@@ -50,14 +63,15 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
         <InfoTip text="How much the model thinks before it answers. More effort takes longer and uses more tokens." />
         <span className={styles.level}>{describeThinking(level)}</span>
       </div>
-      <div className={styles.bar} style={{ "--ratio": ratio } as CSSProperties}>
+      <div ref={bar} className={styles.bar} style={{ "--ratio": ratio } as CSSProperties}>
         <span className={styles.fill} />
         {thinking.levels.map((stop, at) => (
           <span
             key={stop}
             className={styles.stop}
             data-reached={at <= index}
-            style={{ "--at": at / Math.max(1, thinking.levels.length - 1) } as CSSProperties}
+            data-pointed={at === pointed}
+            style={{ "--at": at / last } as CSSProperties}
           />
         ))}
         <input
@@ -71,8 +85,19 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
           aria-label="Thinking effort"
           aria-valuetext={describeThinking(level)}
           onChange={(event) => setHeld(thinking.levels[Number(event.target.value)])}
+          onPointerMove={(event) => {
+            if (event.pointerType === "mouse") {
+              point(event.clientX);
+            }
+          }}
+          onPointerLeave={() => setPointed(undefined)}
         />
         <span className={styles.knob} />
+        {pointed === undefined ? null : (
+          <span className={styles.peek} style={{ "--at": pointed / last } as CSSProperties}>
+            {describeThinking(thinking.levels[pointed] ?? level)}
+          </span>
+        )}
       </div>
     </div>
   );

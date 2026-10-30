@@ -8,17 +8,19 @@ interface DiffViewProps {
   hunks: DiffHunk[];
 }
 
-/** One line of a diff with its numbers in the file before and after, and whether it went or came. */
+/**
+ * One line of a diff with its number, in the file before for a removed line and after for the rest,
+ * and whether it went or came.
+ */
 interface DiffRow {
   id: string;
   kind: "kept" | "added" | "removed" | "gap";
-  before: number | undefined;
-  after: number | undefined;
+  number: number | undefined;
   text: string;
 }
 
 /**
- * Draws the change that a tool made to a file as its lines, each with its numbers before and after,
+ * Draws the change that a tool made to a file as its lines, each with one number,
  * the removed lines in red and the added lines in green.
  */
 export function DiffView({ path, hunks }: DiffViewProps): ReactElement {
@@ -28,8 +30,7 @@ export function DiffView({ path, hunks }: DiffViewProps): ReactElement {
       <div className={styles.rows}>
         {rowsOf(hunks).map((row) => (
           <div key={row.id} className={styles.row} data-kind={row.kind}>
-            <span className={styles.number}>{row.before ?? ""}</span>
-            <span className={styles.number}>{row.after ?? ""}</span>
+            <span className={styles.number}>{row.number ?? ""}</span>
             <span className={styles.sign}>{signOf(row.kind)}</span>
             <span className={styles.text}>{row.text}</span>
           </div>
@@ -43,7 +44,7 @@ function rowsOf(hunks: DiffHunk[]): DiffRow[] {
   const rows: DiffRow[] = [];
   for (const [index, hunk] of hunks.entries()) {
     if (index > 0) {
-      rows.push({ id: `${index}`, kind: "gap", before: undefined, after: undefined, text: "" });
+      rows.push({ id: `${index}`, kind: "gap", number: undefined, text: "" });
     }
     let before = hunk.oldStart;
     let after = hunk.newStart;
@@ -51,13 +52,13 @@ function rowsOf(hunks: DiffHunk[]): DiffRow[] {
       const id = `${index}:${place}`;
       const text = line.slice(1);
       if (line.startsWith("+")) {
-        rows.push({ id, kind: "added", before: undefined, after, text });
+        rows.push({ id, kind: "added", number: after, text });
         after += 1;
       } else if (line.startsWith("-")) {
-        rows.push({ id, kind: "removed", before, after: undefined, text });
+        rows.push({ id, kind: "removed", number: before, text });
         before += 1;
       } else if (line.startsWith(" ")) {
-        rows.push({ id, kind: "kept", before, after, text });
+        rows.push({ id, kind: "kept", number: after, text });
         before += 1;
         after += 1;
       }
