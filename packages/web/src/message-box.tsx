@@ -176,10 +176,7 @@ export function MessageBox({
                     current={model}
                     thinking={thinking}
                     onChooseThinking={onChooseThinking}
-                    onChoose={(chosen) => {
-                      setMenu(undefined);
-                      onChooseModel(chosen);
-                    }}
+                    onChoose={onChooseModel}
                     onManageLogins={onManageLogins}
                   />
                 </Popover>
