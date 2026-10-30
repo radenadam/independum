@@ -45,16 +45,9 @@ function moves(part: string | undefined): string {
 }
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
-// The tools that act on a file share the page of Read, and the tools that act on a command share the
-// box of Shell, each with its own mark over the lower right corner.
+// The tools that act on a file share the page of Read, each with its own mark over its lower right
+// corner.
 const page = "M10 21H7l-2-2V5l2-2h7l4 4v4";
-const commandBox = (
-  <>
-    <path d="M10 20H5l-2-2V6l2-2h14l2 2v5" />
-    <path d="M6 7.5l2.5 2.5L6 12.5" />
-    <path d="M10 12.5h3" />
-  </>
-);
 
 const drawings: Record<IconName, ReactElement> = {
   sidebar: (
@@ -246,10 +239,12 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   checkCommand: (
     <>
-      {commandBox}
+      <path d="M13.5 20H5l-2-2V6l2-2h14l2 2v8.5" />
+      <path d="M7 9l3 3-3 3" />
+      <path d="M12 15h2.5" />
       <g className={moves(styles.nudgeLeft)}>
-        <circle cx="17" cy="17" r="3.25" />
-        <path d="M19.5 19.5l2.5 2.5" />
+        <circle cx="18.5" cy="18.5" r="3.25" />
+        <path d="M21 21l2.5 2.5" />
       </g>
     </>
   ),
