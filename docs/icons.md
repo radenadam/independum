@@ -35,7 +35,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New chat | A box open at its top right corner, with a pencil across the gap. |
 | Search | A circle with a handle at 45 degrees. |
 | Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. Open, its back keeps the width of the closed box, and its front has cut corners like every box, with its right side slanting forward. |
+| Folder | A box with a tab at its top left. Open, its back is a little narrower, and its front tips forward. Both sides of the front slant, its top reaches past the right side of the back, and it meets the bottom 2 units in from the left side of the back, so the two never merge. |
 | Expand | A chevron that points right, and down while open. |
 | Menu | A chevron that points down. |
 | Add | A plus. |
@@ -116,3 +116,4 @@ Decision 0024 records why icons move and where the line falls.
 - Each icon is an inline SVG with a `viewBox` of `0 0 24 24`, no fill, a `currentColor` stroke 1.75 wide, butt caps, and miter joins. The `Icon` component in `packages/web/src/icon.tsx` draws them, and a new icon is added there.
 - An icon is decoration, so it is marked `aria-hidden`. The button that holds it carries the name, and its tooltip shows the name and the shortcut.
 - Icons ship with Independum, never from an icon font or the network.
+- Before a new or changed icon ships, set it beside common icons of the same thing, and look at it large on the 24 unit grid and at 16 and 18 pixels in both themes. A familiar thing keeps the parts that make it familiar, such as the slanted front of an open folder.
