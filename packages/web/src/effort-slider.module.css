@@ -62,6 +62,31 @@
   opacity: 0.6;
 }
 
+/* The stop that the mouse points at grows, and the name of its level shows above it. */
+.stop[data-pointed="true"] {
+  background: var(--ink);
+  opacity: 1;
+  scale: 2;
+}
+
+.stop[data-reached="true"][data-pointed="true"] {
+  background: var(--on-signal);
+}
+
+.peek {
+  composes: tooltip from "./use-tooltip.module.css";
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: calc(var(--inset) + var(--knob-size) / 2 + var(--at) * var(--travel));
+  translate: -50% 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stop {
+    transition: scale 120ms ease;
+  }
+}
+
 /*
   The range stays on top for the pointer, the keyboard, and screen readers, but draws nothing. Its
   thumb keeps the size of the knob, so a drag maps to the same levels as the drawing.
