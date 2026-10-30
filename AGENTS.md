@@ -160,6 +160,7 @@ To review a Pi update with the maintainer:
 - On the welcome screen, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too.
 - Action labels use sentence case. The top bar of the welcome screen uses lowercase.
 - Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its tables of shapes and motion.
+- Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.

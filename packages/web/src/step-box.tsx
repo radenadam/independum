@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import { Icon } from "./icon.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
-import { SlidingTitle } from "./sliding-title.tsx";
 import { StatusLabel, type StepStatus } from "./status-label.tsx";
 import styles from "./step-box.module.css";
 
@@ -48,7 +48,7 @@ export function StepBox({
   const header = (
     <>
       {leading}
-      <SlidingTitle text={label} />
+      <OneLineTitle text={label} />
       {status === undefined ? null : <StatusLabel status={status} />}
     </>
   );

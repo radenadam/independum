@@ -2,7 +2,7 @@ import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import styles from "./menu-list.module.css";
-import { SlidingTitle } from "./sliding-title.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 
 /** One choice in a menu list, with its name and an optional detail in a smaller monospace font. */
 interface MenuChoice {
@@ -68,11 +68,11 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
               {choice.logo}
               <span className={styles.text}>
                 <span className={styles.name}>
-                  <SlidingTitle text={choice.name} />
+                  <OneLineTitle text={choice.name} />
                 </span>
                 {choice.detail === undefined ? null : (
                   <span className={styles.detail}>
-                    <SlidingTitle text={choice.detail} align={layout === "row" ? "end" : "start"} />
+                    <OneLineTitle text={choice.detail} align={layout === "row" ? "end" : "start"} />
                   </span>
                 )}
               </span>

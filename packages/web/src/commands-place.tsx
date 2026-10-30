@@ -4,10 +4,10 @@ import { CommandActions } from "./command-actions.tsx";
 import styles from "./commands-place.module.css";
 import { describeToolCall, isCallRunning } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { RowWithAction } from "./row-with-action.tsx";
-import { SlidingTitle } from "./sliding-title.tsx";
 import { StatusLabel } from "./status-label.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 import { useElapsed } from "./use-elapsed.ts";
@@ -90,11 +90,11 @@ function CommandRow({ part, tools, isReplying, onShow }: CommandRowProps): React
       <Icon name="shell" size={16} />
       <span className={styles.text}>
         <span className={styles.label}>
-          <SlidingTitle text={call.label} />
+          <OneLineTitle text={call.label} />
         </span>
         {firstLine === "" || firstLine === call.label ? null : (
           <span className={styles.command}>
-            <SlidingTitle text={firstLine} />
+            <OneLineTitle text={firstLine} />
           </span>
         )}
       </span>
