@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import styles from "./row-button.module.css";
 import { describeShortcut, type Shortcut } from "./shortcut.ts";
+import { useTooltip } from "./use-tooltip.tsx";
 
 /** Properties of a row button. */
 interface RowButtonProps {
@@ -8,7 +9,7 @@ interface RowButtonProps {
   leading: ReactNode;
   onClick: () => void;
   shortcut?: Shortcut;
-  title?: string;
+  tooltip?: string;
   role?: "menuitem";
   isExpanded?: boolean;
   isStrong?: boolean;
@@ -22,7 +23,7 @@ export function RowButton({
   leading,
   onClick,
   shortcut,
-  title,
+  tooltip,
   role,
   isExpanded,
   isStrong = false,
@@ -31,20 +32,22 @@ export function RowButton({
 }: RowButtonProps): ReactElement {
   const classes = [styles.row, isStrong ? styles.strong : "", isQuiet ? styles.quiet : ""];
   const keyName = shortcut === undefined ? undefined : describeShortcut(shortcut);
+  const tip = useTooltip(tooltip);
   return (
     <button
       type="button"
       className={classes.join(" ")}
-      title={title}
       role={role}
       aria-keyshortcuts={keyName}
       aria-expanded={isExpanded}
       data-flashing={isFlashing}
       onClick={onClick}
+      {...tip.handlers}
     >
       {leading}
       <span className={styles.label}>{label}</span>
       {keyName === undefined ? null : <span className={styles.key}>{keyName}</span>}
+      {tip.tooltip}
     </button>
   );
 }

@@ -13,6 +13,7 @@ import { OneLineTitle } from "./one-line-title.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { StatusLabel } from "./status-label.tsx";
+import { useTooltip } from "./use-tooltip.tsx";
 
 /** A menu that opens from the message box. */
 type Menu = "model" | "folder";
@@ -73,6 +74,9 @@ export function MessageBox({
     setDraft(readDraft(chatId));
   }
   const [menu, setMenu] = useState<Menu | undefined>();
+  const modelTip = useTooltip(
+    menu === "model" ? undefined : "Choose a model and its thinking effort",
+  );
   const field = useRef<HTMLTextAreaElement>(null);
   const isReady = draft.trim() !== "" && model !== null && !isReplying;
   const modelName =
@@ -151,6 +155,7 @@ export function MessageBox({
                 className={styles.pill}
                 aria-expanded={menu === "model"}
                 onClick={() => toggleMenu("model")}
+                {...modelTip.handlers}
               >
                 {model === null ? null : <ProviderLogo providerId={model.providerId} size={15} />}
                 <OneLineTitle text={modelName} />
@@ -158,6 +163,7 @@ export function MessageBox({
                   <span className={styles.effort}>{describeThinking(thinking.level)}</span>
                 )}
                 <Icon name="menu" size={14} />
+                {modelTip.tooltip}
               </button>
               {menu === "model" ? (
                 <Popover
@@ -212,12 +218,11 @@ export function MessageBox({
               <button
                 type="button"
                 className={`${styles.pill} ${styles.folder}`}
-                title={folder}
                 aria-expanded={menu === "folder"}
                 onClick={() => toggleMenu("folder")}
               >
                 <Icon name="folder" size={14} />
-                <OneLineTitle text={project?.name ?? folder} />
+                <OneLineTitle text={project?.name ?? folder} tooltip={folder} />
                 <Icon name="menu" size={13} />
               </button>
               {menu === "folder" ? (
@@ -239,9 +244,9 @@ export function MessageBox({
               ) : null}
             </span>
           ) : (
-            <span className={`${styles.pill} ${styles.folder} ${styles.still}`} title={folder}>
+            <span className={`${styles.pill} ${styles.folder} ${styles.still}`}>
               <Icon name="folder" size={14} />
-              <OneLineTitle text={project?.name ?? folder} />
+              <OneLineTitle text={project?.name ?? folder} tooltip={folder} />
             </span>
           )}
           {runningCount === 0 ? null : (

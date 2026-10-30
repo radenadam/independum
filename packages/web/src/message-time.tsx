@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { describeDuration } from "./describe-duration.ts";
 import styles from "./message-time.module.css";
+import { useTooltip } from "./use-tooltip.tsx";
 
 /** Properties of a message time. */
 interface MessageTimeProps {
@@ -24,10 +25,12 @@ const fullFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeS
 export function MessageTime({ timestamp, durationMs }: MessageTimeProps): ReactElement {
   const date = new Date(timestamp);
   const isToday = date.toDateString() === new Date().toDateString();
+  const tip = useTooltip(fullFormat.format(date));
   return (
     <span className={styles.time}>
-      <time dateTime={date.toISOString()} title={fullFormat.format(date)}>
+      <time dateTime={date.toISOString()} {...tip.handlers}>
         {(isToday ? timeFormat : dayFormat).format(date)}
+        {tip.tooltip}
       </time>
       {durationMs === null ? null : <span>Took {describeDuration(durationMs)}</span>}
     </span>

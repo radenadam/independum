@@ -57,7 +57,7 @@
 
 /* A hidden tooltip takes no room, so it never makes a list or a tab strip scroll. */
 .tip {
-  composes: tooltip from "./tooltip.module.css";
+  composes: tooltip from "./use-tooltip.module.css";
   position: absolute;
   display: none;
 }

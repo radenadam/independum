@@ -1,28 +1,29 @@
-import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
 import styles from "./one-line-title.module.css";
 import { TypedText } from "./typed-text.tsx";
+import { useTooltip } from "./use-tooltip.tsx";
 import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of a one line title. */
 interface OneLineTitleProps {
   text: string;
+  tooltip?: string;
   isTyped?: boolean;
   align?: "start" | "end";
 }
 
 // A title catches up on its backlog, so even a long one types in about half a second.
 const titleTyping: Typing = { charactersPerSecond: 40, isCatchingUp: true };
-const tooltipWidth = 420;
-const edge = 16;
 
 /**
  * Draws a title on one line, which fades out at its end when it is too long and then shows the
- * whole title in a tooltip while the pointer rests on it. A title that is typed when it first
+ * whole title in a tooltip while the pointer rests on it. A given tooltip, such as the path of a
+ * folder, shows in its place whether the title fits or not. A title that is typed when it first
  * appears types itself in, and a title aligned to the end sits there while it fits.
  */
 export function OneLineTitle({
   text,
+  tooltip,
   isTyped = false,
   align = "start",
 }: OneLineTitleProps): ReactElement {
@@ -32,7 +33,7 @@ export function OneLineTitle({
   const frame = useRef<HTMLSpanElement>(null);
   const line = useRef<HTMLSpanElement>(null);
   const [isCut, setIsCut] = useState(false);
-  const [tooltip, setTooltip] = useState<{ left: number; top: number } | undefined>();
+  const tip = useTooltip(tooltip ?? (isCut ? text : undefined));
 
   useLayoutEffect(() => {
     const frameElement = frame.current;
@@ -52,47 +53,18 @@ export function OneLineTitle({
     return () => observer.disconnect();
   }, []);
 
-  // The tooltip sits on the page, so the clipped row of the title does not cut it, and it stays
-  // inside the window.
-  function showTooltip(): void {
-    const box = frame.current?.getBoundingClientRect();
-    if (!isCut || box === undefined) {
-      return;
-    }
-    const left = Math.max(edge, Math.min(box.left, window.innerWidth - edge - tooltipWidth));
-    setTooltip({ left, top: box.bottom + 6 });
-  }
-
   return (
     <span
       ref={frame}
       className={styles.frame}
       data-too-long={isCut}
       data-align={align}
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") {
-          showTooltip();
-        }
-      }}
-      onPointerLeave={() => setTooltip(undefined)}
+      {...tip.handlers}
     >
       <span ref={line} className={styles.line}>
         <TypedText text={text} shown={shown} hasCaret={shown < text.length} />
       </span>
-      {tooltip === undefined
-        ? null
-        : createPortal(
-            <span
-              className={styles.tooltip}
-              role="tooltip"
-              style={
-                { "--left": `${tooltip.left}px`, "--top": `${tooltip.top}px` } as CSSProperties
-              }
-            >
-              {text}
-            </span>,
-            document.body,
-          )}
+      {tip.tooltip}
     </span>
   );
 }

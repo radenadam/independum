@@ -17,27 +17,3 @@
 .frame[data-align="end"][data-too-long="false"] {
   text-align: right;
 }
-
-/* A long title wraps in its tooltip instead of running past the window. */
-.tooltip {
-  composes: tooltip from "./tooltip.module.css";
-  position: fixed;
-  top: var(--top);
-  left: var(--left);
-  max-width: min(420px, calc(100vw - 32px));
-  line-height: 1.4;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .tooltip {
-    animation: show 120ms ease 300ms both;
-  }
-
-  @keyframes show {
-    from {
-      opacity: 0;
-    }
-  }
-}

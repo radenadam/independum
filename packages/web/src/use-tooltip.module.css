@@ -1,0 +1,38 @@
+/* The look of every tooltip, the small box that names a thing while the pointer rests on it. */
+.tooltip {
+  z-index: 60;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 500 12px / 1 var(--font-sans);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* A long text wraps in its tooltip instead of running past the window, and keeps its line breaks. */
+.floating {
+  composes: tooltip;
+  position: fixed;
+  top: var(--top, auto);
+  right: var(--right, auto);
+  bottom: var(--bottom, auto);
+  left: var(--left, auto);
+  max-width: min(420px, calc(100vw - 32px));
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .floating {
+    animation: show 120ms ease 300ms both;
+  }
+
+  @keyframes show {
+    from {
+      opacity: 0;
+    }
+  }
+}

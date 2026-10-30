@@ -123,7 +123,7 @@ export function SidebarChats({
                     <Icon name="folder" size={16} />
                   </span>
                 }
-                title={project.folder}
+                tooltip={project.folder}
                 isExpanded={project.isOpen}
                 isStrong
                 onClick={() => setOpen(project.folder, !project.isOpen)}

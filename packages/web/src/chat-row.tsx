@@ -80,7 +80,6 @@ export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowPr
         <button
           type="button"
           className={styles.chat}
-          title={chat.title}
           data-nested={isNested}
           aria-current={isCurrent ? "true" : undefined}
           onClick={() => actions.onOpen(chat.id)}

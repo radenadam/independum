@@ -51,7 +51,7 @@ export function ArchivedSection(): ReactElement {
             key: chat.id,
             name: chat.title,
             detail: `${chat.projectName}, ${dateFormat.format(chat.modified)}`,
-            title: `${chat.title}\n${chat.folder}`,
+            tooltip: `${chat.title}\n${chat.folder}`,
             trailing: (
               <>
                 <TextButton
