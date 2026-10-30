@@ -14,7 +14,8 @@ This is the specification for every icon in Independum. Follow it for each new i
 ## Grid and size
 
 - Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tilts past the edge of the closed one.
-- The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it.
+- The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it. The ring of the Context meter is the exception, at 2.75 units, so its level reads at a glance.
+- No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box.
 - Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones.
 - Place points on whole or half units, so that lines stay sharp.
 
@@ -34,7 +35,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New chat | A box open at its top right corner, with a pencil across the gap. |
 | Search | A circle with a handle at 45 degrees. |
 | Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. Open, its back keeps the width of the closed box, and its front tilts forward past the right edge. |
+| Folder | A box with a tab at its top left. Open, its back keeps the width of the closed box, and its front has cut corners like every box, with its right side slanting forward. |
 | Expand | A chevron that points right, and down while open. |
 | Menu | A chevron that points down. |
 | Add | A plus. |
@@ -54,13 +55,13 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
 | Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
-| Context | A ring around a dot, which fills in orange from its top as the context window of the chat fills. |
+| Context | A thick ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | A circle around a small box, on a running command, which stops that command alone. |
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
 | Check command | A circle around three short lines of output, for the tool that checks a background command. |
-| Read | A page with its top right corner folded down at 45 degrees, around three lines of text, for the tool that reads a file. |
-| Write | The page of Read around a plus, for the tool that writes a whole file. |
+| Read | A page with its top right corner folded down at 45 degrees, and a lens over its lower right corner, for the tool that reads a file. |
+| Write | The page of Read with a plus over its lower right corner, for the tool that writes a file, which is most often a new one. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -107,8 +108,8 @@ Decision 0024 records why icons move and where the line falls.
 | Stop command | The box squeezes. |
 | Background | The arrow nudges toward the box behind. |
 | Check command | The lines rise, as if new output comes in. |
-| Read | The lines nudge right, as the eye moves along them. |
-| Write | The plus twists a little and back. |
+| Read | The lens slides left, as if it reads along a line. |
+| Write | The plus twists a little and back, around its own center. |
 
 ## Building icons
 

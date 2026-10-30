@@ -261,7 +261,7 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
 
   return (
     <>
-      <div ref={body}>
+      <div ref={body} className={styles.parts}>
         {segments.map((segment) => {
           if (segment.type === "thinking") {
             // The model still thinks while nothing has come after its thoughts.
@@ -288,11 +288,9 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
           typedBefore += segment.text.length;
           const shown = segment.text.slice(0, Math.max(0, length - start));
           return shown === "" ? null : (
-            <MarkdownText
-              key={segment.key}
-              text={shown}
-              hasCaret={isTyping && length <= typedBefore}
-            />
+            <div key={segment.key} className={styles.text}>
+              <MarkdownText text={shown} hasCaret={isTyping && length <= typedBefore} />
+            </div>
           );
         })}
         {isWaiting ? (
