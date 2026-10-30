@@ -22,7 +22,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: max-content max-content 1.5em max-content;
+  grid-template-columns: max-content 1.5em max-content;
   min-width: 100%;
   width: max-content;
 }
