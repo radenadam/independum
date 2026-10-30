@@ -35,6 +35,7 @@ export type IconName =
   | "read"
   | "write"
   | "steps"
+  | "editFile"
   | "info";
 
 // Returns the class names of a part that moves when its button is pointed at, as `docs/icons.md`
@@ -44,6 +45,17 @@ function moves(part: string | undefined): string {
 }
 
 // Each drawing follows `docs/icons.md`, on a 24 unit grid with corners cut at 45 degrees.
+// The tools that act on a file share the page of Read, and the tools that act on a command share the
+// box of Shell, each with its own mark over the lower right corner.
+const page = "M10 21H7l-2-2V5l2-2h7l4 4v4";
+const commandBox = (
+  <>
+    <path d="M10 20H5l-2-2V6l2-2h14l2 2v5" />
+    <path d="M6 7.5l2.5 2.5L6 12.5" />
+    <path d="M10 12.5h3" />
+  </>
+);
+
 const drawings: Record<IconName, ReactElement> = {
   sidebar: (
     <>
@@ -196,17 +208,27 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   read: (
     <>
-      <path d="M11 21H7l-2-2V5l2-2h7l4 4v3" />
-      <g className={moves(styles.nudgeLeft)}>
-        <circle cx="15.5" cy="15.5" r="3.5" />
-        <path d="M18 18l3 3" />
+      <path d={page} />
+      <g className={moves(styles.blink)}>
+        <path d="M11.5 17q5.5-7 11 0q-5.5 7-11 0z" />
+        <circle cx="17" cy="17" r="0.125" />
       </g>
     </>
   ),
   write: (
     <>
-      <path d="M11 21H7l-2-2V5l2-2h7l4 4v3" />
-      <path className={moves(styles.twistCorner)} d="M16.5 12.5v8M12.5 16.5h8" />
+      <path d={page} />
+      <circle cx="17" cy="17" r="4.5" />
+      <path className={moves(styles.twistBadge)} d="M17 15.25v3.5M15.25 17h3.5" />
+    </>
+  ),
+  editFile: (
+    <>
+      <path d={page} />
+      <g className={moves(styles.nudgeUpRight)}>
+        <path d="M19.5 12.5l2.5 2.5-6 6h-2.5v-2.5z" />
+        <path d="M18 14l2.5 2.5" />
+      </g>
     </>
   ),
   info: (
@@ -225,14 +247,20 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   checkCommand: (
     <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path className={moves(styles.nudgeUp)} d="M8.5 9.5h7M8.5 12h7M8.5 14.5h4" />
+      {commandBox}
+      <g className={moves(styles.nudgeLeft)}>
+        <circle cx="17" cy="17" r="3.25" />
+        <path d="M19.5 19.5l2.5 2.5" />
+      </g>
     </>
   ),
   stopCommand: (
     <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path className={moves(styles.squeeze)} d="M10 9h4l1 1v4l-1 1h-4l-1-1v-4z" />
+      {commandBox}
+      <g className={moves(styles.squeezeBadge)}>
+        <path d="M16 13h2l3 3v2l-3 3h-2l-3-3v-2z" />
+        <path d="M16.125 17h1.75" />
+      </g>
     </>
   ),
 };

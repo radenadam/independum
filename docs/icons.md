@@ -16,6 +16,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 - Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tips past the edge of the closed one and past the grid.
 - The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it. The ring of the Context meter is the exception, at 2.75 units, so its level reads at a glance.
 - No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box. A slanted box, such as the front of an open folder, has every corner cut, the wide ones too.
+- The icon of a tool that acts on a file is the page of Read with its own mark over the lower right corner, and the icon of a tool that acts on a command is the box of Shell with its own mark there, so each family reads as one.
 - An icon with two states, such as a closed and an open folder, keeps the whole shape of its first state in the second. The second state only adds to it, so the change reads as one thing that moves, never as one that shrinks.
 - Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones.
 - Place points on whole or half units, so that lines stay sharp.
@@ -49,7 +50,8 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
 | More | Three dots in a row. |
-| Edit | A pencil at 45 degrees, to rename a chat or to edit a text, and for the tool that edits a file. |
+| Edit | A pencil at 45 degrees, to rename a chat or to edit a text. |
+| Edit file | The page of Read with a pencil over its lower right corner, for the tool that edits a file. |
 | Reset | An arrow that points left and curves back under itself, to go back to the built-in text or setting. |
 | Pin | A pushpin with its needle down. |
 | Export | An arrow that points down into an open tray. |
@@ -57,13 +59,13 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Delete | A bin under its lid, with a handle and two lines. |
 | Context | A thick ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
-| Stop command | A circle around a small box, on a running command, which stops that command alone. |
+| Stop command | The box of Shell, open at its lower right corner, where an octagon with a square dot sits, on a running command, which stops that command alone. |
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
-| Check command | A circle around three short lines of output, for the tool that checks a background command. |
-| Read | A page with its top right corner folded down at 45 degrees, and a lens over its lower right corner, for the tool that reads a file. |
+| Check command | The box of Shell, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
+| Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
 | Steps | Three short boxes stacked, for a group of steps that came one after another. |
 | Info | A circle with an i inside, a short stroke for its dot over a longer one for its stem. |
-| Write | The page of Read with a plus over its lower right corner, for the tool that writes a file, which is most often a new one. |
+| Write | The page of Read with a plus in a circle over its lower right corner, for the tool that writes a file, which is most often a new one. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
 
@@ -99,18 +101,19 @@ Decision 0024 records why icons move and where the line falls.
 | Agent | The eyes blink. |
 | More | The dots hop one after another. |
 | Edit | The pencil tilts as if it writes. |
+| Edit file | The pencil nudges up and to the right, as if it writes. |
 | Reset | The head of the arrow nudges back to the left. |
 | Pin | The pin presses down. |
 | Export | The arrow drops into the tray. |
 | Archive | The lid lifts. |
 | Delete | The lid lifts and tilts. |
 | Context | The orange part of the ring turns a little. |
-| Shell | The prompt nudges forward, and the cursor stretches as if it types. |
-| Stop command | The box squeezes. |
+| Shell | The prompt tips up around its open side and the cursor tips up around its right end, as if they nod, and both settle back. |
+| Stop command | The octagon squeezes. |
 | Background | The arrow nudges toward the box behind. |
-| Check command | The lines rise, as if new output comes in. |
-| Read | The lens slides left, as if it reads along a line. |
-| Write | The plus twists a little and back, around its own center. |
+| Check command | The lens slides left, as if it reads the output. |
+| Read | The eye blinks. |
+| Write | The plus twists a little and back, inside its circle. |
 | Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |
 | Info | The dot of the i hops up and back. |
 

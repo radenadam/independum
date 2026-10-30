@@ -130,10 +130,11 @@
   transform-origin: 12px 12px;
 }
 
-.twistCorner {
+/* The mark over the lower right corner of a tool icon moves around its own center. */
+.twistBadge {
   --turn: 20deg;
 
-  transform-origin: 16.5px 16.5px;
+  transform-origin: 17px 17px;
 }
 
 /* The ring of a meter is thicker than a line, so its level reads at a glance. */
@@ -203,14 +204,30 @@
   --shift-y: 2px;
 }
 
+.squeezeBadge {
+  --stretch-x: 0.8;
+  --stretch-y: 0.8;
+
+  transform-origin: 17px 17px;
+}
+
+.blink {
+  --stretch-y: 0.1;
+
+  transform-origin: 17px 17px;
+}
+
+/* The prompt tips up around its open side and the cursor around its right end, as if they nod. */
 .prompt {
-  --shift-x: 1px;
+  --turn: -30deg;
+
+  transform-origin: 7px 12px;
 }
 
 .cursor {
-  --stretch-x: 1.4;
+  --turn: 30deg;
 
-  transform-origin: 12px 15px;
+  transform-origin: 17px 15px;
 }
 
 .lid {
