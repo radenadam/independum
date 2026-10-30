@@ -1,12 +1,7 @@
 /* A step of the work has an outline and no fill, so it reads apart from a block of code in the reply. */
 .box {
-  margin-bottom: 18px;
   border: 1px solid var(--line);
   border-radius: 12px;
-}
-
-.box:last-child {
-  margin-bottom: 0;
 }
 
 /* An action, such as a stop button, sits beside the header and never inside its button. */

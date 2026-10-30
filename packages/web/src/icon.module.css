@@ -135,6 +135,17 @@
   transform-origin: 12px 12px;
 }
 
+.twistCorner {
+  --turn: 20deg;
+
+  transform-origin: 16.5px 16.5px;
+}
+
+/* The ring of a meter is thicker than a line, so its level reads at a glance. */
+.thickRing {
+  stroke-width: 2.75px;
+}
+
 .squeeze {
   --stretch-x: 0.8;
   --stretch-y: 0.8;

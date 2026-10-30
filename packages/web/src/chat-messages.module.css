@@ -54,6 +54,25 @@
   }
 }
 
+/* The steps of the work sit close together, and text keeps the same wider space above and below. */
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text {
+  margin-block: 10px;
+}
+
+.text:first-child {
+  margin-top: 0;
+}
+
+.text:last-child {
+  margin-bottom: 0;
+}
+
 .error {
   margin: 6px 0 0;
   font-size: 14px;
