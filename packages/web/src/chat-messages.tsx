@@ -14,6 +14,7 @@ import { IconButton } from "./icon-button.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
+import { StepGroup } from "./step-group.tsx";
 import { ThinkingMark } from "./thinking-mark.tsx";
 import { ThoughtBox } from "./thought-box.tsx";
 import { NoteStep, type ToolCalls, ToolStep } from "./tool-step.tsx";
@@ -213,6 +214,17 @@ type ReplySegment =
   | { type: "thinking"; key: string; parts: ThinkingPart[] }
   | { type: "toolCall"; key: string; part: ToolCallPart };
 
+/** A stretch of a reply that is one step of the work: thinking or a call to a tool. */
+type StepSegment = Exclude<ReplySegment, { type: "text" }>;
+
+/** A run of a reply: a text, or the steps that came one after another between two texts. */
+type ReplyRun =
+  | { type: "text"; segment: Extract<ReplySegment, { type: "text" }> }
+  | {
+      type: "steps";
+      steps: StepSegment[];
+    };
+
 /** Properties of a reply. */
 interface ReplyProps {
   messages: ChatMessage[];
@@ -259,31 +271,42 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
     return body.current ?? document.createDocumentFragment();
   }
 
+  function stepOf(segment: StepSegment): ReactElement {
+    if (segment.type === "thinking") {
+      // The model still thinks while nothing has come after its thoughts.
+      return (
+        <ThoughtBox
+          key={segment.key}
+          parts={segment.parts}
+          isLive={isLive}
+          isThinking={isStreaming && segment === segments.at(-1)}
+        />
+      );
+    }
+    return (
+      <ToolStep key={segment.key} part={segment.part} tools={tools} isReplying={isStreaming} />
+    );
+  }
+
   return (
     <>
       <div ref={body} className={styles.parts}>
-        {segments.map((segment) => {
-          if (segment.type === "thinking") {
-            // The model still thinks while nothing has come after its thoughts.
-            return (
-              <ThoughtBox
-                key={segment.key}
-                parts={segment.parts}
-                isLive={isLive}
-                isThinking={isStreaming && segment === segments.at(-1)}
-              />
+        {runsOf(segments).map((run) => {
+          if (run.type === "steps") {
+            const isLast = run.steps.at(-1) === segments.at(-1);
+            return run.steps.length === 1 ? (
+              stepOf(run.steps[0] as StepSegment)
+            ) : (
+              <StepGroup
+                key={`group-${run.steps[0]?.key}`}
+                count={run.steps.length}
+                isFollowing={isStreaming && isLast}
+              >
+                {run.steps.map(stepOf)}
+              </StepGroup>
             );
           }
-          if (segment.type === "toolCall") {
-            return (
-              <ToolStep
-                key={segment.key}
-                part={segment.part}
-                tools={tools}
-                isReplying={isStreaming}
-              />
-            );
-          }
+          const { segment } = run;
           const start = typedBefore;
           typedBefore += segment.text.length;
           const shown = segment.text.slice(0, Math.max(0, length - start));
@@ -415,4 +438,20 @@ function fitSpacer(
     spacer.style.height = `${nextHeight}px`;
   }
   return anchor;
+}
+
+// Steps that come one after another between two texts form one run, so they can show as a group.
+function runsOf(segments: ReplySegment[]): ReplyRun[] {
+  const runs: ReplyRun[] = [];
+  for (const segment of segments) {
+    const last = runs.at(-1);
+    if (segment.type === "text") {
+      runs.push({ type: "text", segment });
+    } else if (last?.type === "steps") {
+      last.steps.push(segment);
+    } else {
+      runs.push({ type: "steps", steps: [segment] });
+    }
+  }
+  return runs;
 }

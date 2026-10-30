@@ -48,7 +48,7 @@ button.header:hover {
   grid-template-rows: 0fr;
 }
 
-.box[data-open="true"] .body {
+.box[data-open="true"] > .body {
   grid-template-rows: 1fr;
 }
 
@@ -65,16 +65,24 @@ button.header:hover {
 
 /*
   While the box follows its step, it shows only the latest lines, so a long step does not push the
-  reply down, and it keeps showing them while it folds. Opened by the user, it shows every line.
+  reply down, and it keeps showing them while it folds. Opened by the user, it shows every line, and
+  a long block in it scrolls past `--block-height`. Each box sets both on its own view, so a step
+  inside a group keeps its own state.
 */
-.box[data-following="true"] .view {
+.view[data-following="true"] {
+  --block-height: none;
+
   max-height: 154px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
 }
 
-.box[data-following="true"] .view[data-clipped="true"] {
+.view[data-following="false"] {
+  --block-height: 420px;
+}
+
+.view[data-following="true"][data-clipped="true"] {
   mask-image: linear-gradient(to bottom, transparent, var(--ink) 56px);
 }
 

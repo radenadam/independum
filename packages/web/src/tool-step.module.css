@@ -23,8 +23,11 @@
   margin-top: 0;
 }
 
+/* Opened by the user, a long output scrolls inside the step instead of stretching the chat. */
 .output {
+  max-height: var(--block-height);
   margin: 10px 0 0;
+  overflow-y: auto;
   color: var(--muted);
   font: 12.5px / 1.6 var(--font-mono);
   white-space: pre-wrap;
@@ -36,10 +39,4 @@
   font-size: 13px;
   line-height: 1.5;
   color: var(--signal);
-}
-
-/* Opened by the user, a long output scrolls inside the step instead of stretching the chat. */
-[data-following="false"] .output {
-  max-height: 420px;
-  overflow-y: auto;
 }
