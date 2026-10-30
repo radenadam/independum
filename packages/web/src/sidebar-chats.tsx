@@ -68,10 +68,6 @@ export function SidebarChats({
     return [{ ...project, chats, isOpen }];
   });
 
-  // A search looks through the projects alone, so each chat that matches shows once. The open chat
-  // lights up once too, so its copy in a project stays plain while Pinned or Recent lists it.
-  const isOpenListedAbove =
-    search === "" && [...pinned, ...recent].some((chat) => chat.id === chatId);
   return (
     <>
       {search === ""
@@ -136,7 +132,7 @@ export function SidebarChats({
                 ) : (
                   <ChatRows
                     chats={project.chats}
-                    currentId={isOpenListedAbove ? null : chatId}
+                    currentId={chatId}
                     isNested
                     newIds={newIds}
                     actions={actions}
