@@ -13,9 +13,10 @@ This is the specification for every icon in Independum. Follow it for each new i
 
 ## Grid and size
 
-- Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tilts past the edge of the closed one.
+- Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tips past the edge of the closed one and past the grid.
 - The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it. The ring of the Context meter is the exception, at 2.75 units, so its level reads at a glance.
-- No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box.
+- No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box. A slanted box, such as the front of an open folder, has every corner cut, the wide ones too.
+- An icon with two states, such as a closed and an open folder, keeps the whole shape of its first state in the second. The second state only adds to it, so the change reads as one thing that moves, never as one that shrinks.
 - Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones.
 - Place points on whole or half units, so that lines stay sharp.
 
@@ -35,7 +36,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New chat | A box open at its top right corner, with a pencil across the gap. |
 | Search | A circle with a handle at 45 degrees. |
 | Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. Open, its back is a little narrower, and its front tips forward. Both sides of the front slant, its top reaches past the right side of the back, and it meets the bottom 2 units in from the left side of the back, so the two never merge. |
+| Folder | A box with a tab at its top left. Open, its back keeps the size of the closed box, and its front tips forward from the bottom of the box like a hinged lid. Both sides of the front slant, its top reaches past the right side of the back, so the open folder is wider than the closed one, and it meets the bottom 2 units in from the left side of the back, so the two never merge. |
 | Expand | A chevron that points right, and down while open. |
 | Menu | A chevron that points down. |
 | Add | A plus. |
