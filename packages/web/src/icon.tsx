@@ -27,7 +27,6 @@ export type IconName =
   | "archive"
   | "export"
   | "delete"
-  | "effort"
   | "context"
   | "shell"
   | "stopCommand"
@@ -164,14 +163,6 @@ const drawings: Record<IconName, ReactElement> = {
       </g>
       <path d="M6 6v13l2 2h8l2-2V6" />
       <path d="M10 10v7M14 10v7" />
-    </>
-  ),
-  effort: (
-    <>
-      <path className={styles.meterTrack} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" />
-      <path className={styles.meterFill} d="M4.2 18.5A9 9 0 1 1 19.8 18.5" pathLength={1} />
-      <path className={`${styles.needle} ${moves(styles.rev)}`} d="M12 14V8" />
-      <circle cx="12" cy="14" r="1" />
     </>
   ),
   context: (

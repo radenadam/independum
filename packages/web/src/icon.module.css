@@ -6,11 +6,7 @@
   overflow: visible;
 }
 
-/*
-  A meter, such as the effort dial and the context ring, reads its level from `--ratio`, from 0 at
-  the lowest to 1 at the highest, so its orange arc grows and the needle of the dial turns as the
-  level rises.
-*/
+/* The context ring reads its level from `--ratio`, from 0 at the lowest to 1 at the highest. */
 .meterTrack {
   stroke: var(--faint);
 }
@@ -19,11 +15,6 @@
   stroke: var(--signal);
   stroke-dasharray: 1 2;
   stroke-dashoffset: calc(1 - var(--ratio, 0));
-}
-
-.needle {
-  transform: rotate(calc(var(--ratio, 0) * 240deg - 120deg));
-  transform-origin: 12px 14px;
 }
 
 /* The context ring fills from its top, clockwise. */
@@ -232,17 +223,9 @@
   transform-origin: 3px 6px;
 }
 
-.rev {
-  --turn: 30deg;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .meterFill {
     transition: stroke-dashoffset 200ms ease;
-  }
-
-  .needle {
-    transition: transform 200ms ease;
   }
 
   .folderClosed,

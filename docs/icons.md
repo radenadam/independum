@@ -24,7 +24,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 - Icons draw in `currentColor`, so they take the text color of their button.
 - An icon turns orange, the `--signal` token, while its item is selected or open, such as the open project, the active tab, or an open menu. The drawing stays the same outline.
 - An icon has one color. The only filled orange shape is the send button, behind its arrow or its stop box.
-- The meters, the Effort dial and the Context ring, are the exceptions. Each one fills in orange up to its level over a `--faint` arc, so the level reads at a glance. Their arcs are round, and the needle of the dial turns to the level, so the ends of the arcs and the tip of the needle may leave the half unit grid.
+- The Context ring is the exception. It fills in orange up to its level over a `--faint` ring, so the level reads at a glance. It is round, so the ends of its arc may leave the half unit grid.
 
 ## Shapes
 
@@ -54,7 +54,6 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Export | An arrow that points down into an open tray. |
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
-| Effort | A dial open at the bottom, with a hub and a needle, which points to the lower left at the lowest thinking level and to the lower right at the highest. |
 | Context | A thick ring around a dot, which fills in orange from its top as the context window of the chat fills. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | A circle around a small box, on a running command, which stops that command alone. |
@@ -102,7 +101,6 @@ Decision 0024 records why icons move and where the line falls.
 | Export | The arrow drops into the tray. |
 | Archive | The lid lifts. |
 | Delete | The lid lifts and tilts. |
-| Effort | The needle revs up. |
 | Context | The orange part of the ring turns a little. |
 | Shell | The prompt nudges forward, and the cursor stretches as if it types. |
 | Stop command | The box squeezes. |

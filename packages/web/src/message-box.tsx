@@ -1,12 +1,5 @@
 import type { ChatState, ContextSummary, ModelSummary, ProjectSummary } from "independum/api-types";
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
 import { readDraft, saveDraft } from "./chat-draft.ts";
 import { ContextMeter } from "./context-meter.tsx";
 import { describeThinking } from "./describe-thinking.ts";
@@ -14,17 +7,15 @@ import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
-import { MenuList } from "./menu-list.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { StatusLabel } from "./status-label.tsx";
-import { thinkingRatio } from "./thinking-ratio.ts";
 
 /** A menu that opens from the message box. */
-type Menu = "model" | "thinking" | "folder";
+type Menu = "model" | "folder";
 
 /** Properties of the message box. */
 interface MessageBoxProps {
@@ -163,6 +154,9 @@ export function MessageBox({
               >
                 {model === null ? null : <ProviderLogo providerId={model.providerId} size={15} />}
                 <OneLineTitle text={modelName} />
+                {thinking === null ? null : (
+                  <span className={styles.effort}>{describeThinking(thinking.level)}</span>
+                )}
                 <Icon name="menu" size={14} />
               </button>
               {menu === "model" ? (
@@ -174,6 +168,8 @@ export function MessageBox({
                   <ModelMenu
                     models={models}
                     current={model}
+                    thinking={thinking}
+                    onChooseThinking={onChooseThinking}
                     onChoose={(chosen) => {
                       setMenu(undefined);
                       onChooseModel(chosen);
@@ -183,48 +179,6 @@ export function MessageBox({
                 </Popover>
               ) : null}
             </span>
-            {thinking === null ? null : (
-              <span
-                className={styles.anchor}
-                style={{ "--ratio": thinkingRatio(thinking) } as CSSProperties}
-              >
-                <IconButton
-                  icon="effort"
-                  label={`Thinking effort: ${describeThinking(thinking.level)}`}
-                  tipSide="above"
-                  isHighlighted={menu === "thinking"}
-                  isExpanded={menu === "thinking"}
-                  onClick={() => toggleMenu("thinking")}
-                />
-                {menu === "thinking" ? (
-                  <Popover
-                    label="Thinking effort"
-                    place={isEmpty ? "below" : "above"}
-                    onClose={() => setMenu(undefined)}
-                    size="narrow"
-                  >
-                    <MenuList
-                      groups={[
-                        {
-                          key: "levels",
-                          choices: thinking.levels.map((level) => ({
-                            key: level,
-                            name: describeThinking(level),
-                            isCurrent: level === thinking.level,
-                            onChoose: () => {
-                              setMenu(undefined);
-                              onChooseThinking(level);
-                            },
-                          })),
-                        },
-                      ]}
-                      layout="row"
-                      emptyNote="This model offers no thinking levels."
-                    />
-                  </Popover>
-                ) : null}
-              </span>
-            )}
             <span className={styles.space} />
             <ContextMeter context={context} onOpen={onOpenContext} />
             {isReplying ? (
