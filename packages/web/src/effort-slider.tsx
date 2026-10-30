@@ -19,6 +19,7 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
   const input = useRef<HTMLInputElement>(null);
   const [held, setHeld] = useState<string | undefined>();
   const [pointed, setPointed] = useState<number | undefined>();
+  const [isOnKnob, setIsOnKnob] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   // The knob keeps the level it was let go on until the chat reports that level, so it never jumps
   // back while the choice is on its way.
@@ -30,8 +31,11 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
   const last = Math.max(1, thinking.levels.length - 1);
   const ratio = index / last;
 
-  // The stop nearest the mouse is the one it points at, measured on the stops themselves.
+  // The stop nearest the mouse is the one it points at, and the mouse is on the knob while it is
+  // within its width, both measured on the drawing itself.
   function point(x: number): void {
+    const knob = bar.current?.querySelector(`.${styles.knob}`)?.getBoundingClientRect();
+    setIsOnKnob(knob !== undefined && x >= knob.left && x <= knob.right);
     const stops = [...(bar.current?.querySelectorAll(`.${styles.stop}`) ?? [])];
     const distances = stops.map((stop) => {
       const box = stop.getBoundingClientRect();
@@ -90,9 +94,12 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
               point(event.clientX);
             }
           }}
-          onPointerLeave={() => setPointed(undefined)}
+          onPointerLeave={() => {
+            setPointed(undefined);
+            setIsOnKnob(false);
+          }}
         />
-        <span className={styles.knob} />
+        <span className={styles.knob} data-pointed={isOnKnob} />
         {pointed === undefined ? null : (
           <span className={styles.peek} style={{ "--at": pointed / last } as CSSProperties}>
             {describeThinking(thinking.levels[pointed] ?? level)}
