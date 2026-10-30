@@ -57,17 +57,9 @@
 
 /* A hidden tooltip takes no room, so it never makes a list or a tab strip scroll. */
 .tip {
+  composes: tooltip from "./tooltip.module.css";
   position: absolute;
-  z-index: 60;
   display: none;
-  gap: 10px;
-  padding: 7px 9px;
-  border-radius: 7px;
-  background: var(--ink);
-  color: var(--bg);
-  font: 500 12px / 1 var(--font-sans);
-  white-space: nowrap;
-  pointer-events: none;
 }
 
 .key {

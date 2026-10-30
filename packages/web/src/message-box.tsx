@@ -17,9 +17,9 @@ import { IconButton } from "./icon-button.tsx";
 import { MenuList } from "./menu-list.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
-import { SlidingTitle } from "./sliding-title.tsx";
 import { StatusLabel } from "./status-label.tsx";
 import { thinkingRatio } from "./thinking-ratio.ts";
 
@@ -162,7 +162,7 @@ export function MessageBox({
                 onClick={() => toggleMenu("model")}
               >
                 {model === null ? null : <ProviderLogo providerId={model.providerId} size={15} />}
-                <SlidingTitle text={modelName} />
+                <OneLineTitle text={modelName} />
                 <Icon name="menu" size={14} />
               </button>
               {menu === "model" ? (
@@ -263,7 +263,7 @@ export function MessageBox({
                 onClick={() => toggleMenu("folder")}
               >
                 <Icon name="folder" size={14} />
-                <SlidingTitle text={project?.name ?? folder} />
+                <OneLineTitle text={project?.name ?? folder} />
                 <Icon name="menu" size={13} />
               </button>
               {menu === "folder" ? (
@@ -287,7 +287,7 @@ export function MessageBox({
           ) : (
             <span className={`${styles.pill} ${styles.folder} ${styles.still}`} title={folder}>
               <Icon name="folder" size={14} />
-              <SlidingTitle text={project?.name ?? folder} />
+              <OneLineTitle text={project?.name ?? folder} />
             </span>
           )}
           {runningCount === 0 ? null : (

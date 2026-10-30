@@ -37,11 +37,11 @@ import { isCallRunning, type ToolRun } from "./describe-tool-call.ts";
 import { downloadText } from "./download-text.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { SettingsDialog, type SettingsSection } from "./settings-dialog.tsx";
 import { shortcuts, useShortcut } from "./shortcut.ts";
 import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
-import { SlidingTitle } from "./sliding-title.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 import { useChatData } from "./use-chat-data.ts";
 import styles from "./working-screen.module.css";
@@ -318,7 +318,7 @@ export function WorkingScreen({
           )}
           <p className={styles.title}>
             {chat === undefined ? null : (
-              <SlidingTitle key={title} text={title} isTyped={isNewlyListed} />
+              <OneLineTitle key={title} text={title} isTyped={isNewlyListed} />
             )}
           </p>
           {isPanelOpen ? null : (

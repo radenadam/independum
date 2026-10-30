@@ -3,9 +3,9 @@ import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } fr
 import { ActionMenu } from "./action-menu.tsx";
 import styles from "./chat-row.module.css";
 import { IconButton } from "./icon-button.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { Popover } from "./popover.tsx";
 import { RowWithAction } from "./row-with-action.tsx";
-import { SlidingTitle } from "./sliding-title.tsx";
 
 /** What a chat row can do with its chat. */
 export interface ChatActions {
@@ -89,7 +89,7 @@ export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowPr
             setMenuAt({ x: event.clientX, y: event.clientY });
           }}
         >
-          <SlidingTitle text={chat.title} isTyped={isNew} />
+          <OneLineTitle text={chat.title} isTyped={isNew} />
         </button>
       </RowWithAction>
       {menuAt === undefined ? null : (

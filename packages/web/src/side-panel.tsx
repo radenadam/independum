@@ -5,11 +5,11 @@ import { CommandsPlace } from "./commands-place.tsx";
 import { ContextPlace } from "./context-place.tsx";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { shortcuts } from "./shortcut.ts";
 import styles from "./side-panel.module.css";
 import { SlidingColumn } from "./sliding-column.tsx";
-import { SlidingTitle } from "./sliding-title.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 
 /** Properties of the side panel. */
@@ -127,7 +127,7 @@ export function SidePanel({
                 onClick={() => setActiveId(tab.id)}
               >
                 <Icon name={icons[tab.place]} size={15} />
-                <SlidingTitle text={titles[tab.place]} />
+                <OneLineTitle text={titles[tab.place]} />
               </button>
               <IconButton
                 icon="close"

@@ -1,0 +1,43 @@
+.frame {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: clip;
+  white-space: nowrap;
+}
+
+.frame[data-too-long="true"] {
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+}
+
+.line {
+  display: inline-block;
+}
+
+/* A title too long for the end of its space starts at the start, and the tooltip shows the rest. */
+.frame[data-align="end"][data-too-long="false"] {
+  text-align: right;
+}
+
+/* A long title wraps in its tooltip instead of running past the window. */
+.tooltip {
+  composes: tooltip from "./tooltip.module.css";
+  position: fixed;
+  top: var(--top);
+  left: var(--left);
+  max-width: min(420px, calc(100vw - 32px));
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tooltip {
+    animation: show 120ms ease 300ms both;
+  }
+
+  @keyframes show {
+    from {
+      opacity: 0;
+    }
+  }
+}
