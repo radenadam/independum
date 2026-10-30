@@ -76,8 +76,8 @@ const drawings: Record<IconName, ReactElement> = {
     <>
       <path className={styles.folderClosed} d="M3 5l1-1h5l2 3h10l1 1v11l-1 1H4l-1-1z" />
       <g className={styles.folderOpen}>
-        <path d="M3 20V5l1-1h5l2 3h10l1 1v3" />
-        <path d="M3 20v-8l1-1h17.5l1 1-2 7-1 1z" />
+        <path d="M5 20H4l-1-1V5l1-1h5l2 3h8l1 1v2" />
+        <path d="M5 20l3-10h13.5l1 1-2.5 9z" />
       </g>
     </>
   ),
