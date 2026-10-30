@@ -77,7 +77,7 @@ const drawings: Record<IconName, ReactElement> = {
       <path className={styles.folderClosed} d="M3 5l1-1h5l2 3h10l1 1v11l-1 1H4l-1-1z" />
       <g className={styles.folderOpen}>
         <path d="M3 20V5l1-1h5l2 3h10l1 1v3" />
-        <path d="M3 20l2.5-9h18l-2.5 9z" />
+        <path d="M3 20v-8l1-1h17.5l1 1-2 7-1 1z" />
       </g>
     </>
   ),
@@ -176,9 +176,9 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   context: (
     <>
-      <circle className={styles.meterTrack} cx="12" cy="12" r="8.5" />
+      <circle className={`${styles.meterTrack} ${styles.thickRing}`} cx="12" cy="12" r="8.5" />
       <circle
-        className={`${styles.meterFill} ${moves(styles.ringStart)}`}
+        className={`${styles.meterFill} ${styles.thickRing} ${moves(styles.ringStart)}`}
         cx="12"
         cy="12"
         r="8.5"
@@ -203,14 +203,17 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   read: (
     <>
-      <path d="M7 3h8l4 4v12l-2 2H7l-2-2V5z" />
-      <path className={moves(styles.nudgeRight)} d="M8.5 11h7M8.5 14h7M8.5 17h4" />
+      <path d="M11 21H7l-2-2V5l2-2h7l4 4v3" />
+      <g className={moves(styles.nudgeLeft)}>
+        <circle cx="15.5" cy="15.5" r="3.5" />
+        <path d="M18 18l3 3" />
+      </g>
     </>
   ),
   write: (
     <>
-      <path d="M7 3h8l4 4v12l-2 2H7l-2-2V5z" />
-      <path className={moves(styles.twist)} d="M12 10v7M8.5 13.5h7" />
+      <path d="M11 21H7l-2-2V5l2-2h7l4 4v3" />
+      <path className={moves(styles.twistCorner)} d="M16.5 12.5v8M12.5 16.5h8" />
     </>
   ),
   checkCommand: (
