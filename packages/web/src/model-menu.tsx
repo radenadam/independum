@@ -1,6 +1,6 @@
 import type { ChatState, ModelSummary } from "independum/api-types";
 import { type ReactElement, useState } from "react";
-import { describeThinking } from "./describe-thinking.ts";
+import { EffortSlider } from "./effort-slider.tsx";
 import { type MenuGroup, MenuList } from "./menu-list.tsx";
 import styles from "./model-menu.module.css";
 import { ProviderLogo } from "./provider-logo.tsx";
@@ -17,8 +17,8 @@ interface ModelMenuProps {
 }
 
 /**
- * Draws the thinking effort of the current model as a slider, and below it the models of every
- * provider with a login, grouped by provider, with a search field.
+ * Draws a search field, the thinking effort of the current model, and the models of every provider
+ * with a login, grouped by provider.
  */
 export function ModelMenu({
   models,
@@ -36,37 +36,6 @@ export function ModelMenu({
 
   return (
     <>
-      {thinking === null ? null : (
-        <div className={styles.effort}>
-          <div className={styles.effortTop}>
-            <span>Thinking effort</span>
-            <span className={styles.level}>{describeThinking(thinking.level)}</span>
-          </div>
-          <input
-            type="range"
-            className={styles.slider}
-            min={0}
-            max={Math.max(0, thinking.levels.length - 1)}
-            step={1}
-            value={Math.max(0, thinking.levels.indexOf(thinking.level))}
-            aria-label="Thinking effort"
-            aria-valuetext={describeThinking(thinking.level)}
-            onChange={(event) => {
-              const level = thinking.levels[Number(event.target.value)];
-              if (level !== undefined) {
-                onChooseThinking(level);
-              }
-            }}
-          />
-          <div className={styles.ends}>
-            <span>{describeThinking(thinking.levels[0] ?? thinking.level)}</span>
-            <span>{describeThinking(thinking.levels.at(-1) ?? thinking.level)}</span>
-          </div>
-          <p className={styles.note}>
-            How much the model thinks before it answers. More takes longer and uses more tokens.
-          </p>
-        </div>
-      )}
       <TextField
         id="model-search"
         label="Search models"
@@ -75,6 +44,7 @@ export function ModelMenu({
         onChange={setQuery}
         isFocusedFirst
       />
+      {thinking === null ? null : <EffortSlider thinking={thinking} onChoose={onChooseThinking} />}
       <MenuList
         groups={groupByProvider(shown, current, onChoose)}
         layout="row"

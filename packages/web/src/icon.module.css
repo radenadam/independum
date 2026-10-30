@@ -115,6 +115,10 @@
   --shift-y: -2.5px;
 }
 
+.nudgeUpLittle {
+  --shift-y: -1.25px;
+}
+
 .drop {
   --shift-y: 2.5px;
 }

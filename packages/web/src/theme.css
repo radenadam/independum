@@ -11,6 +11,7 @@
   --glow: light-dark(rgba(251, 191, 140, 0.35), rgba(251, 146, 60, 0.1));
   --sidebar: light-dark(#f3f3ef, #161616);
   --surface: light-dark(#ffffff, #1b1b1b);
+  --knob: light-dark(#ffffff, #ededea);
   --raised: light-dark(#ebebe6, #252524);
   --bubble: light-dark(#edede8, #262624);
   --code: light-dark(#f4f4f0, #181818);

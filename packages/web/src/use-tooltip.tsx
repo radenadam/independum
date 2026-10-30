@@ -12,11 +12,12 @@ import styles from "./use-tooltip.module.css";
 interface Tooltip {
   handlers: {
     onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
-    onPointerLeave: () => void;
+    onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
     onPointerDown: () => void;
     onFocus: (event: FocusEvent<HTMLElement>) => void;
     onBlur: () => void;
   };
+  toggle: (element: HTMLElement) => void;
   tooltip: ReactNode;
 }
 
@@ -60,7 +61,12 @@ export function useTooltip(text: string | undefined): Tooltip {
           show(event.currentTarget);
         }
       },
-      onPointerLeave: hide,
+      // A finger leaves the element when it lifts, so only a mouse that moves away hides the tooltip.
+      onPointerLeave: (event) => {
+        if (event.pointerType === "mouse") {
+          hide();
+        }
+      },
       onPointerDown: hide,
       onFocus: (event) => {
         if (event.currentTarget.matches(":focus-visible")) {
@@ -68,6 +74,13 @@ export function useTooltip(text: string | undefined): Tooltip {
         }
       },
       onBlur: hide,
+    },
+    toggle: (element) => {
+      if (place === undefined) {
+        show(element);
+      } else {
+        hide();
+      }
     },
     tooltip:
       place === undefined || text === undefined
