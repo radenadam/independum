@@ -214,15 +214,15 @@ type ReplySegment =
   | { type: "thinking"; key: string; parts: ThinkingPart[] }
   | { type: "toolCall"; key: string; part: ToolCallPart };
 
-/** A stretch of a reply that is one step of the work: thinking or a call to a tool. */
-type StepSegment = Exclude<ReplySegment, { type: "text" }>;
+/** A stretch of a reply that is part of the work: thinking or a call to a tool. */
+type WorkSegment = Exclude<ReplySegment, { type: "text" }>;
 
-/** A run of a reply: a text, or the steps that came one after another between two texts. */
+/** A run of a reply: a text, or the work that came between two texts. */
 type ReplyRun =
   | { type: "text"; segment: Extract<ReplySegment, { type: "text" }> }
   | {
-      type: "steps";
-      steps: StepSegment[];
+      type: "work";
+      segments: WorkSegment[];
     };
 
 /** Properties of a reply. */
@@ -271,7 +271,7 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
     return body.current ?? document.createDocumentFragment();
   }
 
-  function stepOf(segment: StepSegment): ReactElement {
+  function boxOf(segment: WorkSegment): ReactElement {
     if (segment.type === "thinking") {
       // The model still thinks while nothing has come after its thoughts.
       return (
@@ -292,17 +292,19 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
     <>
       <div ref={body} className={styles.parts}>
         {runsOf(segments).map((run) => {
-          if (run.type === "steps") {
-            const isLast = run.steps.at(-1) === segments.at(-1);
-            return run.steps.length === 1 ? (
-              stepOf(run.steps[0] as StepSegment)
+          if (run.type === "work") {
+            const isLast = run.segments.at(-1) === segments.at(-1);
+            // A thought is the model reasoning, not an action, so a group counts only the calls.
+            const count = run.segments.filter((segment) => segment.type === "toolCall").length;
+            return run.segments.length === 1 || count === 0 ? (
+              run.segments.map(boxOf)
             ) : (
               <StepGroup
-                key={`group-${run.steps[0]?.key}`}
-                count={run.steps.length}
+                key={`group-${run.segments[0]?.key}`}
+                count={count}
                 isFollowing={isStreaming && isLast}
               >
-                {run.steps.map(stepOf)}
+                {run.segments.map(boxOf)}
               </StepGroup>
             );
           }
@@ -440,17 +442,17 @@ function fitSpacer(
   return anchor;
 }
 
-// Steps that come one after another between two texts form one run, so they can show as a group.
+// The thoughts and calls between two texts form one run, so they can show as a group.
 function runsOf(segments: ReplySegment[]): ReplyRun[] {
   const runs: ReplyRun[] = [];
   for (const segment of segments) {
     const last = runs.at(-1);
     if (segment.type === "text") {
       runs.push({ type: "text", segment });
-    } else if (last?.type === "steps") {
-      last.steps.push(segment);
+    } else if (last?.type === "work") {
+      last.segments.push(segment);
     } else {
-      runs.push({ type: "steps", steps: [segment] });
+      runs.push({ type: "work", segments: [segment] });
     }
   }
   return runs;
