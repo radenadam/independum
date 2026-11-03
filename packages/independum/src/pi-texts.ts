@@ -250,7 +250,7 @@ export const piTexts: PiText[] = [
     id: "summarySystemPrompt",
     group: "Compaction",
     condition:
-      "When the context of a chat nears the context window of its model, less 16,384 tokens, or overflows it. Pi asks the same model for a summary with this system prompt. That request does not show in the Context place.",
+      "When the context of a chat nears the context window of its model, less 16,384 tokens, or overflows it. Pi asks the same model for a summary with this system prompt. That request does not show in the Session place.",
     text: "You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.\n\nDo NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.",
     slots: {},
   },
@@ -319,7 +319,7 @@ export function fixedPartsOf(text: string): string[] {
 }
 
 /**
- * Returns each text that Pi can send as the Agent place shows it, marked when it is in the last
+ * Returns each text that Pi can send as the Session place shows it, marked when it is in the last
  * request of the open chat.
  */
 export function summarizePiTexts(lastRequest: unknown): PiTextSummary[] {

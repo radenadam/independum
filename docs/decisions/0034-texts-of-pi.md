@@ -1,6 +1,6 @@
 # Texts of Pi
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the texts of Pi in the Session place
 - Date: 2026-10-29
 
 ## Context

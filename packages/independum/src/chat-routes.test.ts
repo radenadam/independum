@@ -316,7 +316,7 @@ test("the agent shows its prompts and its tools", async () => {
 }, 20_000);
 
 test("files that Pi would add to the system prompt stay out of it", async () => {
-  const addendum = "Text from a file that the Agent place does not show.";
+  const addendum = "Text from a file that the Session place does not show.";
   mkdirSync(join(startFolder, ".pi"), { recursive: true });
   writeFileSync(join(startFolder, ".pi", "APPEND_SYSTEM.md"), addendum);
   writeFileSync(join(directory, "APPEND_SYSTEM.md"), addendum);

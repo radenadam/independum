@@ -1,6 +1,6 @@
 # Model texts
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which makes the Session place the overview
 - Date: 2026-10-28
 
 ## Context

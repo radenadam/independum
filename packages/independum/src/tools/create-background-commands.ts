@@ -164,7 +164,7 @@ export interface BackgroundCommands {
   stopAll(): void;
 }
 
-/** The texts that say how a background command ended, in the order that the Agent place shows them. */
+/** The texts that say how a background command ended, in the order that the Session place shows them. */
 export const backgroundTextList: ModelText[] = Object.values(backgroundTexts);
 
 /** One background command, while it runs and after it ends, with the checks that wait on it. */

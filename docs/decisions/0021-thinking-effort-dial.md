@@ -1,6 +1,6 @@
 # Thinking effort dial
 
-- Status: superseded by [decision 0022](0022-thinking-effort-dial-menu.md)
+- Status: superseded by [decision 0022](0022-thinking-effort-dial-menu.md), and amended by [decision 0048](0048-session-place.md), which replaces the Agent place with the Session place
 - Date: 2026-10-26
 
 ## Context

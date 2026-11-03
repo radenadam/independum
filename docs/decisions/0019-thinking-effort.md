@@ -1,6 +1,6 @@
 # Thinking effort
 
-- Status: superseded by [decision 0021](0021-thinking-effort-dial.md)
+- Status: superseded by [decision 0021](0021-thinking-effort-dial.md), and amended by [decision 0048](0048-session-place.md), which shows the effort and the exact request in the Session place
 - Date: 2026-10-26
 
 ## Context

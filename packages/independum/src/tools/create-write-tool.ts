@@ -115,7 +115,7 @@ const writeTexts = {
   }),
 };
 
-/** The texts of the Write tool, in the order that the Agent place shows them. */
+/** The texts of the Write tool, in the order that the Session place shows them. */
 export const writeTextList: ModelText[] = Object.values(writeTexts);
 
 const numberFormat = new Intl.NumberFormat("en-US");

@@ -204,7 +204,7 @@ const shellTexts = {
   }),
 };
 
-/** The texts of the Shell tool, in the order that the Agent place shows them. */
+/** The texts of the Shell tool, in the order that the Session place shows them. */
 export const shellTextList: ModelText[] = Object.values(shellTexts);
 
 /**

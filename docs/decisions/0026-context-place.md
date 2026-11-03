@@ -1,6 +1,6 @@
 # Context place
 
-- Status: accepted
+- Status: superseded by [decision 0048](0048-session-place.md)
 - Date: 2026-10-27
 
 ## Context

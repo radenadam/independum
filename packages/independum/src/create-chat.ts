@@ -90,7 +90,7 @@ const systemPromptText = defineText({
     "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.",
   slots: {},
 });
-// Every model text. The Agent place groups them, and keeps this order within each group.
+// Every model text. The Session place groups them, and keeps this order within each group.
 const allTexts: ModelText[] = [
   systemPromptText,
   ...readTextList,

@@ -32,7 +32,7 @@ const stopCommandTexts = {
   }),
 };
 
-/** The texts of the StopCommand tool, in the order that the Agent place shows them. */
+/** The texts of the StopCommand tool, in the order that the Session place shows them. */
 export const stopCommandTextList: ModelText[] = Object.values(stopCommandTexts);
 
 /** Creates the StopCommand tool, which stops a background command of the Shell tool. */

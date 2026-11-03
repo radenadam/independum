@@ -65,7 +65,7 @@ const fileTexts = {
   }),
 };
 
-/** The texts that say why a tool cannot open a file, in the order that the Agent place shows them. */
+/** The texts that say why a tool cannot open a file, in the order that the Session place shows them. */
 export const fileTextList: ModelText[] = Object.values(fileTexts);
 
 const numberFormat = new Intl.NumberFormat("en-US");

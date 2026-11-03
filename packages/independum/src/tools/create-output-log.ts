@@ -141,7 +141,7 @@ interface OutputWindow {
   limited(rest: string[], describeCut: (cut: Cut) => string): LimitedOutput;
 }
 
-/** The texts of the note that marks where output is cut, in the order that the Agent place shows them. */
+/** The texts of the note that marks where output is cut, in the order that the Session place shows them. */
 export const outputTextList: ModelText[] = Object.values(outputTexts);
 
 /**

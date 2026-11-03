@@ -67,7 +67,7 @@ const fingerprintTexts = {
   }),
 };
 
-/** The texts of the note that a file changed, in the order that the Agent place shows them. */
+/** The texts of the note that a file changed, in the order that the Session place shows them. */
 export const fingerprintTextList: ModelText[] = Object.values(fingerprintTexts);
 
 /**

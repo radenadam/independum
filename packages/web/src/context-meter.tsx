@@ -11,7 +11,7 @@ interface ContextMeterProps {
 
 /**
  * Draws the Context ring, which fills as the context window of the open chat fills, names how full
- * it is on hover, and opens the Context place.
+ * it is on hover, and opens the Session place.
  */
 export function ContextMeter({ context, onOpen }: ContextMeterProps): ReactElement {
   return (

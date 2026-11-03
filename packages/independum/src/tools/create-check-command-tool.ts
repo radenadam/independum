@@ -94,7 +94,7 @@ const checkCommandTexts = {
   }),
 };
 
-/** The texts of the CheckCommand tool, in the order that the Agent place shows them. */
+/** The texts of the CheckCommand tool, in the order that the Session place shows them. */
 export const checkCommandTextList: ModelText[] = Object.values(checkCommandTexts);
 
 /**

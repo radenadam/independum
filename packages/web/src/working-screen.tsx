@@ -78,7 +78,7 @@ export function WorkingScreen({
   const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
   const [placeRequest, setPlaceRequest] = useState<PlaceRequest | undefined>();
   const [shownStep, setShownStep] = useState<ToolCalls["shown"]>();
-  // The context meter and the Context place show the same summary, so it loads once here.
+  // The context meter and the Session place show the same summary, so it loads once here.
   const context = useChatData(fetchContext, chat);
 
   const loadModels = useCallback((): void => {
@@ -183,7 +183,7 @@ export function WorkingScreen({
   }
 
   function openContext(): void {
-    setPlaceRequest({ place: "context", at: Date.now() });
+    setPlaceRequest({ place: "session", at: Date.now() });
     showPanel(true);
   }
 

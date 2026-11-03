@@ -1,0 +1,191 @@
+.place {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.overview {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* A wide panel keeps the overview on the left and shows the detail beside it. */
+.place[data-split="true"] .overview {
+  flex: none;
+  width: 380px;
+  border-right: 1px solid var(--line);
+}
+
+.side {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.hint {
+  margin: 0;
+  padding: 22px 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.trail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.back {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+.back svg {
+  rotate: 180deg;
+}
+
+/* The model and the folder read from the left, in two lines. */
+.who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.model,
+.folder {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.model b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.folder {
+  color: var(--muted);
+  font: 12.5px var(--font-mono);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 6px;
+}
+
+.heading {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 400;
+}
+
+/* A section of rows lets its rows run from edge to edge. */
+.section[data-flush="true"] {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.section[data-flush="true"] > .heading {
+  padding: 0 18px;
+}
+
+.window {
+  height: 6px;
+  border-radius: 3px;
+  background:
+    linear-gradient(
+      to right,
+      var(--signal) calc(var(--ratio) * 100%),
+      transparent calc(var(--ratio) * 100%)
+    ),
+    var(--raised);
+}
+
+.muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty > p {
+  padding: 0 18px;
+}
+
+.more {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kind {
+  flex: none;
+  font-weight: 500;
+}
+
+.id {
+  min-width: 0;
+  overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font: 12px var(--font-mono);
+}
+
+.time {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
