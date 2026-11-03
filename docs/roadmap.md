@@ -37,3 +37,4 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - The settings of tools belong to the user, as decision 0031 describes. Do some settings also belong to a project?
 - The end of a background command adds a note that wakes the agent, as decision 0032 describes. What else may add a message to a chat, and what can it see?
 - What does memory mean in Independum?
+- A check of a background command can return while a line is still being printed, such as when it waits until a text appears. That line comes again, whole, with the next check, so the model reads it twice. Should the next check return only what was printed after it instead?
