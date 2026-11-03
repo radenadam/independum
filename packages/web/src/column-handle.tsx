@@ -84,7 +84,6 @@ export function ColumnHandle({
       aria-valuemax={most}
       aria-valuenow={width}
       tabIndex={0}
-      data-edge={edge}
       onPointerDown={startDrag}
       onPointerMove={moveDrag}
       onPointerUp={endDrag}
