@@ -292,6 +292,43 @@ export interface ContextEntry {
   data: unknown;
 }
 
+/** Who put a part of a request there: the user, the model, a tool, Independum, Pi, or no one known. */
+export type PartSource = "you" | "model" | "tool" | "independum" | "pi" | "other";
+
+/** What a part of a request is, so the place that shows it can open what it came from. */
+export type PartLink =
+  | { kind: "systemPrompt" | "addedByPi" }
+  | { kind: "piText"; id: string }
+  | { kind: "tool"; name: string }
+  | { kind: "entry"; id: string }
+  | { kind: "other" };
+
+/** A group of the parts of a request, in the order a model reads them. */
+export type RequestGroup = "instructions" | "tools" | "messages";
+
+/**
+ * One part of the last request: its group, the key of the request that holds it, who put it there,
+ * what it is, and its size in tokens, estimated from its length.
+ */
+export interface RequestPart {
+  group: RequestGroup;
+  section: string;
+  source: PartSource;
+  label: string;
+  link: PartLink;
+  text: string;
+  tokens: number;
+}
+
+/** The tokens of one request or of a whole chat. */
+export interface TokenCounts {
+  input: number;
+  output: number;
+  reasoning: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
 /** What the model of the open chat works with, as the Context place shows it. */
 export interface ContextSummary {
   chatId: string | null;
@@ -299,14 +336,9 @@ export interface ContextSummary {
   model: string | null;
   contextWindow: number | null;
   contextTokens: number | null;
-  tokens: {
-    input: number;
-    output: number;
-    reasoning: number;
-    cacheRead: number;
-    cacheWrite: number;
-  };
+  tokens: TokenCounts;
   cost: number;
+  lastUse: { tokens: TokenCounts; cost: number } | null;
   userMessages: number;
   assistantMessages: number;
   toolCalls: number;
@@ -314,6 +346,7 @@ export interface ContextSummary {
   lastActivity: string | null;
   entries: ContextEntry[];
   lastRequest: unknown;
+  requestParts: RequestPart[];
   cacheWarmings: number;
 }
 

@@ -1,4 +1,5 @@
 import type { PiTextSummary } from "./api-types.ts";
+import { stringsOf } from "./strings-of.ts";
 
 /** A text that Pi sends to the model, with when it sends it and what its slots hold. */
 interface PiText {
@@ -333,6 +334,26 @@ export function summarizePiTexts(lastRequest: unknown): PiTextSummary[] {
   }));
 }
 
+/** Where a text of Pi stands in a longer text: its id, its group, and its span. */
+export interface FoundPiText {
+  id: string;
+  group: string;
+  index: number;
+  length: number;
+}
+
+/** Returns each text of Pi that a longer text holds, with where it stands, in the order found. */
+export function findPiTexts(text: string): FoundPiText[] {
+  return piTexts
+    .flatMap((piText) => {
+      const found = patternOf(piText.text).exec(text);
+      return found === null
+        ? []
+        : [{ id: piText.id, group: piText.group, index: found.index, length: found[0].length }];
+    })
+    .toSorted((first, second) => first.index - second.index);
+}
+
 // A text is in a request when its fixed parts are there in order, with any value in its slots. A
 // value that ends its line can hold line breaks, and a value inside a line cannot, so that parts
 // far apart in a request do not count as one text.
@@ -348,14 +369,4 @@ function patternOf(text: string): RegExp {
 
 function escapeForPattern(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function stringsOf(value: unknown): string[] {
-  if (typeof value === "string") {
-    return [value];
-  }
-  if (typeof value !== "object" || value === null) {
-    return [];
-  }
-  return Object.values(value).flatMap(stringsOf);
 }

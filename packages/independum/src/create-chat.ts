@@ -39,6 +39,7 @@ import {
   summarizeTexts,
 } from "./model-texts.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
+import { summarizeRequest } from "./summarize-request.ts";
 import {
   type BackgroundEnded,
   backgroundTextList,
@@ -625,6 +626,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       }
     }
     const branch = session?.sessionManager.getBranch() ?? [];
+    const replies = branch.flatMap((entry) =>
+      entry.type === "message" && entry.message.role === "assistant" ? [entry.message.usage] : [],
+    );
+    const lastReply = replies.at(-1);
+    const agent = getAgent();
     return {
       chatId: session?.sessionId ?? null,
       provider: model?.provider ?? null,
@@ -639,6 +645,19 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         cacheWrite: stats?.tokens.cacheWrite ?? 0,
       },
       cost: stats?.cost ?? 0,
+      lastUse:
+        lastReply === undefined
+          ? null
+          : {
+              tokens: {
+                input: lastReply.input,
+                output: lastReply.output,
+                reasoning: lastReply.reasoning ?? 0,
+                cacheRead: lastReply.cacheRead,
+                cacheWrite: lastReply.cacheWrite,
+              },
+              cost: lastReply.cost.total,
+            },
       userMessages: stats?.userMessages ?? 0,
       assistantMessages: stats?.assistantMessages ?? 0,
       toolCalls: stats?.toolCalls ?? 0,
@@ -652,6 +671,24 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         data: entry,
       })),
       lastRequest,
+      requestParts: summarizeRequest(lastRequest, {
+        systemPrompt: agent.systemPrompt,
+        addedByPi: agent.addedByPi,
+        tools: agent.tools,
+        entries: branch.flatMap((entry) =>
+          entry.type === "message" || entry.type === "custom_message"
+            ? [
+                {
+                  id: entry.id,
+                  message:
+                    entry.type === "message"
+                      ? entry.message
+                      : { role: "custom", content: entry.content },
+                },
+              ]
+            : [],
+        ),
+      }),
       cacheWarmings,
     };
   }
