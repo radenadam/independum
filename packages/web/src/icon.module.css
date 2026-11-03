@@ -204,12 +204,19 @@
   --shift-y: 2px;
 }
 
-/* The line of Stop command pulls back toward its lower end and strikes again. */
+/* The line of Stop command pulls back toward its upper end and strikes down again. */
 .strike {
   --stretch-x: 0.25;
   --stretch-y: 0.25;
 
-  transform-origin: 5.5px 21.5px;
+  transform-origin: 21.5px 5.5px;
+}
+
+/* The lens of Check command tilts on its center, so its handle swings down and back. */
+.tilt {
+  --turn: 25deg;
+
+  transform-origin: 17px 17px;
 }
 
 .blink {
