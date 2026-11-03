@@ -46,7 +46,7 @@ export async function changeSettings(change: SettingsChange): Promise<AgentSumma
   return (await response.json()) as AgentSummary;
 }
 
-/** Returns what the model of the open chat works with, for the Context place. */
+/** Returns what the model of the open chat works with, for the Session place. */
 export async function fetchContext(): Promise<ContextSummary> {
   const response = await requestApi("/api/chat/context");
   if (!response.ok) {

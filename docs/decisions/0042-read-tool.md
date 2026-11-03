@@ -1,6 +1,6 @@
 # Read tool
 
-- Status: accepted, and amended by [decision 0043](0043-file-fingerprints.md), which adds fingerprints, the note of a changed file, and a description that says the line numbers are not part of the file
+- Status: accepted, and amended by [decision 0043](0043-file-fingerprints.md), which adds fingerprints, the note of a changed file, and a description that says the line numbers are not part of the file, and amended by [decision 0048](0048-session-place.md), which sets the output limit in the Session place
 - Date: 2026-10-29
 
 ## Context

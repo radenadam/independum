@@ -133,7 +133,7 @@ Pi owns providers, logins, models, and the agent loop. See decision 0012.
 
 - Never add code for a single provider or model. When Pi lacks something or has a bug, wait for a Pi release or report it to Pi.
 - Dependabot opens a pull request each week when Pi has a new version. It never merges by itself, because `pnpm check` cannot see changes to sign-in pages, model calls, or Pi's own tools.
-- `pnpm check` does fail when Pi changes a text that the Agent place lists. The copies live in `packages/independum/src/pi-texts.ts`. See decision 0034.
+- `pnpm check` does fail when Pi changes a text that the Session place lists. The copies live in `packages/independum/src/pi-texts.ts`. See decision 0034.
 
 To review a Pi update with the maintainer:
 

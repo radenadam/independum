@@ -1,6 +1,6 @@
 # Tool settings
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which shows the tool cards in the Session place
 - Date: 2026-10-28
 
 ## Context

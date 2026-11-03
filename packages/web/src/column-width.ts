@@ -11,7 +11,7 @@ interface WidthRange {
 /** The widths of the sidebar and the side panel. */
 export const columnWidths: Record<ColumnEdge, WidthRange> = {
   start: { initial: 272, least: 220, most: 400 },
-  end: { initial: 420, least: 340, most: 640 },
+  end: { initial: 420, least: 340, most: 960 },
 };
 
 /** The narrowest the chat gets between the columns, so it stays readable. See decision 0018. */

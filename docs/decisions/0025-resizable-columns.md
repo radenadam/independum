@@ -1,6 +1,6 @@
 # Resizable columns
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lets the side panel grow to 960 pixels
 - Date: 2026-10-27
 
 ## Context
@@ -10,7 +10,7 @@ Decision 0018 gave the sidebar 272 pixels and the side panel 420, and let all th
 ## Decision
 
 - A handle on the inner edge of the sidebar and of the side panel resizes it. It reaches to the right of the edge, because a scrollbar runs down the right side of what scrolls, so the handle never covers one. A drag moves the edge, the arrow keys move it 16 pixels, Home and End take it to its narrowest and widest, and a double click sets it back to its initial width.
-- The sidebar starts at 272 pixels and stays between 220 and 400. The side panel starts at 420 pixels and stays between 340 and 640.
+- The sidebar starts at 272 pixels and stays between 220 and 400. The side panel starts at 420 pixels and stays between 340 and 960, as decision 0048 widened it.
 - A column never grows into the 480 pixels that a readable chat needs.
 - Each width stays on the device, in the browser, because a phone and a computer need different widths.
 - The columns take turns on a window that cannot hold both at their widths and a readable chat, instead of on any window under 1180 pixels. The rest of [decision 0018](0018-columns-on-a-narrow-window.md) still holds.

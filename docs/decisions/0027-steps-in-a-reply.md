@@ -1,6 +1,6 @@
 # Steps in a reply
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the saved times in the Session place
 - Date: 2026-10-27
 
 ## Context

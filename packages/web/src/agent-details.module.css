@@ -1,0 +1,15 @@
+.failure {
+  margin: 0;
+  font-size: 13px;
+  color: var(--signal);
+}
+
+.well {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--well);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}

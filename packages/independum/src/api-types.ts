@@ -164,7 +164,7 @@ export interface ChatState {
 }
 
 /**
- * What the agent of the open chat works with, as the Agent place shows it, with the built-in
+ * What the agent of the open chat works with, as the Session place shows it, with the built-in
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
@@ -236,7 +236,7 @@ export interface EditedText {
   builtIn: string;
 }
 
-/** A tool of the agent, with why it cannot run when it cannot, as the Agent place shows it. */
+/** A tool of the agent, with why it cannot run when it cannot, as the Session place shows it. */
 export interface ToolSummary {
   name: string;
   description: string;
@@ -283,7 +283,7 @@ export type SettingsChange = Partial<Omit<Settings, "texts">> & {
   texts?: Record<string, string | null>;
 };
 
-/** One entry of the open chat as Pi saves it, as the Context place lists it. */
+/** One entry of the open chat as Pi saves it, as the Session place lists it. */
 export interface ContextEntry {
   id: string;
   type: string;
@@ -329,7 +329,7 @@ export interface TokenCounts {
   cacheWrite: number;
 }
 
-/** What the model of the open chat works with, as the Context place shows it. */
+/** What the model of the open chat works with, as the Session place shows it. */
 export interface ContextSummary {
   chatId: string | null;
   provider: string | null;

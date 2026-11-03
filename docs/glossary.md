@@ -8,13 +8,13 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | --- | --- | --- |
 | Access token | The secret that lets a browser use the Independum server. It is new on every launch. | "password", "API key", "session key" |
 | Add-on | A feature that the user adds to Independum. It follows the same contract as a built-in, so it gets the same visibility and controls. | "plugin", "extension", "custom", "module" |
-| Agent | The model, prompts, and tools that answer in a chat, run by Pi. Its place in the side panel shows all of it. | "bot", "assistant", "AI" |
+| Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
 | Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
-| Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation", "session" |
+| Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation" |
 | Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
-| Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. Its place in the side panel shows all of it. | "session details", "stats", "info" |
+| Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. The Session place shows all of it. | "session details", "stats", "info" |
 | Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
@@ -26,13 +26,14 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Model text | A text that Independum sends to the model, such as the system prompt, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Agent place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
-| Place | Something that opens in a side panel tab, such as Agent. A terminal, a browser, and files come later. | "tool", "app", "widget" |
+| Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |
 | Project | A folder that chats work in. The sidebar lists every project with its chats. | "workspace", "repo", "directory" |
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | Step | One thing the agent does on its way to a reply, such as calling a tool. Each step sits in a box of its own, apart from the reply. | "action", "activity", "trace" |
 | Step group | The steps and thoughts between two texts of a reply, drawn as one box that folds them into one line and counts the steps. | "tool group", "activity block" |
 | Thought | What the model thinks before it acts or answers. It sits in a box like a step, but it is reasoning, not an action, so it is not a step. | "reasoning trace", "chain of thought" |
+| Session | Everything a chat runs with: how its agent is set up, its context, and the parts of its last request. Its place in the side panel shows all of it, and each part opens on demand. | "agent place", "context place", "inspector" |
 | Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
 | Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |
 | Sidebar | The column at the left of the working screen, with New chat, the search, the projects, and Settings. | "margin", "nav", "menu" |

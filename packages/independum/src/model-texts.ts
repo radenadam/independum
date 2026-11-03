@@ -36,7 +36,7 @@ export function createModelTexts(getEdited: () => Record<string, EditedText>): M
   };
 }
 
-/** Returns each model text as the Agent place shows it, with the edits of the user. */
+/** Returns each model text as the Session place shows it, with the edits of the user. */
 export function summarizeTexts(
   texts: ModelText[],
   edited: Record<string, EditedText>,

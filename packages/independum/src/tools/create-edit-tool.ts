@@ -338,7 +338,7 @@ const editTexts = {
   }),
 };
 
-/** The texts of the Edit tool, in the order that the Agent place shows them. */
+/** The texts of the Edit tool, in the order that the Session place shows them. */
 export const editTextList: ModelText[] = Object.values(editTexts);
 
 const numberFormat = new Intl.NumberFormat("en-US");

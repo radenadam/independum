@@ -257,7 +257,7 @@ const readTexts = {
   }),
 };
 
-/** The texts of the Read tool, in the order that the Agent place shows them. */
+/** The texts of the Read tool, in the order that the Session place shows them. */
 export const readTextList: ModelText[] = Object.values(readTexts);
 
 const numberFormat = new Intl.NumberFormat("en-US");

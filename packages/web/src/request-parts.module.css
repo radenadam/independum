@@ -1,0 +1,38 @@
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Every part of the bar is the same gray, so only its place and its size tell it apart. */
+.bar {
+  display: flex;
+  gap: 1px;
+  height: 16px;
+  margin: 0 18px;
+  border-radius: 5px;
+  overflow: clip;
+}
+
+.segment {
+  flex: var(--tokens) 1 0;
+  min-width: 3px;
+  background: var(--faint);
+}
+
+.segment[data-lit="true"] {
+  background: var(--signal);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.heading {
+  margin: 0;
+  padding: 12px 18px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
