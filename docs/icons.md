@@ -61,7 +61,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | The box of Shell struck through from its lower left to its upper right, with a gap where the line crosses the box and the cursor, on a running command, which stops that command alone. |
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
-| Check command | The box of Shell with half of its cursor, and a lens over its lower right corner, for the tool that checks a background command. |
+| Check command | The box of Shell with its prompt and no cursor, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
 | Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
 | Steps | Three short boxes stacked, for a group of steps that came one after another. |
 | Info | A circle with an i inside, a short stroke for its dot over a longer one for its stem. |
@@ -109,9 +109,9 @@ Decision 0024 records why icons move and where the line falls.
 | Delete | The lid lifts and tilts. |
 | Context | The orange part of the ring turns a little. |
 | Shell | The prompt tips up around its open side and the cursor tips up around its right end, as if they nod, and both settle back. |
-| Stop command | The line pulls back toward its lower end and strikes again. |
+| Stop command | The line pulls back toward its upper end and strikes down again. |
 | Background | The arrow nudges toward the box behind. |
-| Check command | The lens slides left, as if it reads the output. |
+| Check command | The lens tilts on its center, so its handle swings down and back. |
 | Read | The eye blinks. |
 | Write | The plus twists a little and back, around its own center. |
 | Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |

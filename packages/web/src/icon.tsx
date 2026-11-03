@@ -239,12 +239,11 @@ const drawings: Record<IconName, ReactElement> = {
   ),
   checkCommand: (
     <>
-      <path d="M13.5 20H5l-2-2V6l2-2h14l2 2v8.5" />
+      <path d="M10 20H5l-2-2V6l2-2h14l2 2v5" />
       <path d="M7 9l3 3-3 3" />
-      <path d="M12 15h2.5" />
-      <g className={moves(styles.nudgeLeft)}>
-        <circle cx="18.5" cy="18.5" r="3.25" />
-        <path d="M21 21l2.5 2.5" />
+      <g className={moves(styles.tilt)}>
+        <circle cx="17" cy="17" r="3.25" />
+        <path d="M19.5 19.5l2.5 2.5" />
       </g>
     </>
   ),
