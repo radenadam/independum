@@ -744,7 +744,11 @@ test("CheckCommand returns what a background command printed since the last chec
   );
   expect(results[0]?.text).toMatch(/^one\n\nBackground command \d+ runs\./);
   expect(results[1]?.text).toMatch(/^ready\n\nBackground command \d+ still runs after /);
-  expect(results[2]?.text).toMatch(/^done\n\nBackground command \d+ ended with exit code 0 after /);
+  // The check that waits for ready can return before the line break after it arrives, and a line
+  // that is still being printed comes again, whole, with the next check.
+  expect(results[2]?.text).toMatch(
+    /^(ready\n)?done\n\nBackground command \d+ ended with exit code 0 after /,
+  );
   expect(results[3]?.text).toBe("No background command runs.");
   expect(results[4]).toMatchObject({
     isError: true,
