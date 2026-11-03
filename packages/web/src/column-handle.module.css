@@ -3,18 +3,10 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 5;
+  left: 0;
   width: 8px;
   cursor: col-resize;
   touch-action: none;
-}
-
-.handle[data-edge="start"] {
-  right: 0;
-}
-
-.handle[data-edge="end"] {
-  left: 0;
 }
 
 /* A line on the edge shows the handle while it is pointed at, and turns orange while it moves. */
@@ -23,15 +15,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
-}
-
-.handle[data-edge="start"]::after {
-  right: 0;
-}
-
-.handle[data-edge="end"]::after {
   left: 0;
+  width: 2px;
 }
 
 .handle:hover::after {

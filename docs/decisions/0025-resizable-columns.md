@@ -9,7 +9,7 @@ Decision 0018 gave the sidebar 272 pixels and the side panel 420, and let all th
 
 ## Decision
 
-- A handle on the inner edge of the sidebar and of the side panel resizes it. A drag moves the edge, the arrow keys move it 16 pixels, Home and End take it to its narrowest and widest, and a double click sets it back to its initial width.
+- A handle on the inner edge of the sidebar and of the side panel resizes it. It reaches to the right of the edge, because a scrollbar runs down the right side of what scrolls, so the handle never covers one. A drag moves the edge, the arrow keys move it 16 pixels, Home and End take it to its narrowest and widest, and a double click sets it back to its initial width.
 - The sidebar starts at 272 pixels and stays between 220 and 400. The side panel starts at 420 pixels and stays between 340 and 640.
 - A column never grows into the 480 pixels that a readable chat needs.
 - Each width stays on the device, in the browser, because a phone and a computer need different widths.

@@ -21,6 +21,14 @@
   border-color: transparent;
 }
 
+/* The edge holds the handle on the line between a column and the chat, and takes no room. */
+.edge {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  width: 0;
+}
+
 .inner {
   width: var(--width);
   height: 100%;

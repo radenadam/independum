@@ -26,7 +26,7 @@ export function SlidingColumn({
   const [width, setWidth] = useState(() => readColumnWidth(edge));
   const [isResizing, setIsResizing] = useState(false);
 
-  return (
+  const column = (
     <Element
       className={`${styles.column} ${styles[edge]}`}
       aria-label={label}
@@ -36,6 +36,12 @@ export function SlidingColumn({
       style={{ "--width": `${width}px` } as CSSProperties}
     >
       <div className={styles.inner}>{children}</div>
+    </Element>
+  );
+  // A scrollbar runs down the right side of what scrolls, so the handle sits on the edge and reaches
+  // to its right, over the chat beside the sidebar and over the side panel itself.
+  const handle = isOpen ? (
+    <div className={styles.edge}>
       <ColumnHandle
         edge={edge}
         width={width}
@@ -47,6 +53,17 @@ export function SlidingColumn({
           }
         }}
       />
-    </Element>
+    </div>
+  ) : null;
+  return edge === "start" ? (
+    <>
+      {column}
+      {handle}
+    </>
+  ) : (
+    <>
+      {handle}
+      {column}
+    </>
   );
 }
