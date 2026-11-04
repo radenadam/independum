@@ -2,8 +2,13 @@
   position: relative;
 }
 
-/* The row keeps room for the action at its end, so its highlight reaches the edge of the list. */
-.row > :first-child {
+/*
+  The row gives the end of its line to the action only while the action shows, so a title uses the
+  whole width until then. The room is padding, so the highlight still reaches the edge of the list.
+*/
+.row:hover > :first-child,
+.row:focus-within > :first-child,
+.row[data-action-shown="true"] > :first-child {
   padding-right: 36px;
 }
 
@@ -28,8 +33,12 @@
   opacity: 1;
 }
 
-/* A touch screen has no hover, so the action stays in view there. */
+/* A touch screen has no hover, so the action stays in view there, with its room. */
 @media (hover: none) {
+  .row > :first-child {
+    padding-right: 36px;
+  }
+
   .action {
     opacity: 1;
   }
