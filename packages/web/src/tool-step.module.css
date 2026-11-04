@@ -1,8 +1,3 @@
-/* The input sits at the top of the step, so its block of code leaves out the space it has in a reply. */
-.input > * {
-  margin: 0;
-}
-
 /* A long read scrolls inside the step instead of stretching the chat. */
 .input pre {
   max-height: 420px;
