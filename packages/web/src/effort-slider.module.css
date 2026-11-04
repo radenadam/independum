@@ -1,12 +1,12 @@
-/* The effort of the current model sits between the search and the models, apart from both. */
+/* The effort of the current model sits at the bottom of the menu, under its models. */
 .effort {
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 10px 14px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 10px 8px;
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
 }
 
 .top {
