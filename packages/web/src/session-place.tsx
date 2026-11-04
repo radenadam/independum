@@ -12,7 +12,6 @@ import { describeThinking } from "./describe-thinking.ts";
 import { describeUsage, usageRatio } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
-import { InfoTip } from "./info-tip.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
@@ -173,10 +172,7 @@ function Overview({
         </p>
       </header>
       <section className={styles.section}>
-        <h3 className={styles.heading}>
-          Context window
-          <InfoTip text="How much of the window of the model this chat fills, counted after the latest reply. Pi compacts the chat when it nears the end." />
-        </h3>
+        <h3 className={styles.heading}>Context window</h3>
         <div
           className={styles.window}
           style={{ "--ratio": usageRatio(context) } as CSSProperties}
@@ -184,10 +180,7 @@ function Overview({
         <p className={styles.muted}>{describeUsage(context)}</p>
       </section>
       <section className={styles.section} data-flush="true">
-        <h3 className={styles.heading}>
-          Last request
-          <InfoTip text="What the model read with the last request: its instructions, its tools, and the messages, each part in the order Independum sent it. The provider counts the whole request, and the share of each part is an estimate from its length." />
-        </h3>
+        <h3 className={styles.heading}>Last request</h3>
         {context === undefined || context.requestParts.length === 0 ? (
           <div className={styles.empty}>
             <PlaceNote>No request since this chat opened. The next one shows here.</PlaceNote>

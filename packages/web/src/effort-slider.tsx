@@ -2,7 +2,6 @@ import type { ChatState } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useEffect, useRef, useState } from "react";
 import { describeThinking } from "./describe-thinking.ts";
 import styles from "./effort-slider.module.css";
-import { InfoTip } from "./info-tip.tsx";
 
 /** Properties of an effort slider. */
 interface EffortSliderProps {
@@ -64,7 +63,6 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
     <div className={styles.effort}>
       <div className={styles.top}>
         <span>Thinking effort</span>
-        <InfoTip text="How much the model thinks before it answers. More effort takes longer and uses more tokens." />
         <span className={styles.level}>{describeThinking(level)}</span>
       </div>
       <div ref={bar} className={styles.bar} style={{ "--ratio": ratio } as CSSProperties}>

@@ -1,6 +1,5 @@
 import type { ContextSummary, TokenCounts } from "independum/api-types";
 import { Fragment, type ReactElement } from "react";
-import { InfoTip } from "./info-tip.tsx";
 import styles from "./usage-table.module.css";
 
 /** Properties of the usage table. */
@@ -9,33 +8,13 @@ interface UsageTableProps {
 }
 
 const numberFormat = new Intl.NumberFormat();
-const rows: { key: keyof TokenCounts; name: string; meaning: string; isPart?: boolean }[] = [
-  {
-    key: "input",
-    name: "Input",
-    meaning: "Tokens that the model read fresh, not from the cache.",
-  },
-  {
-    key: "cacheRead",
-    name: "Cache read",
-    meaning: "Tokens that the model read from the cache of an earlier request, which cost less.",
-  },
-  {
-    key: "cacheWrite",
-    name: "Cache write",
-    meaning: "Tokens that the provider stored in its cache for later requests.",
-  },
-  {
-    key: "output",
-    name: "Output",
-    meaning: "Tokens that the model wrote, its thinking included.",
-  },
-  {
-    key: "reasoning",
-    name: "Reasoning",
-    meaning: "The part of the output that the model spent thinking. Only some providers report it.",
-    isPart: true,
-  },
+// Each row says in its name what it counts, such as input that the cache did not hold.
+const rows: { key: keyof TokenCounts; name: string; isPart?: boolean }[] = [
+  { key: "input", name: "Input, fresh" },
+  { key: "cacheRead", name: "Input, from cache" },
+  { key: "cacheWrite", name: "Written to cache" },
+  { key: "output", name: "Output" },
+  { key: "reasoning", name: "of which thinking", isPart: true },
 ];
 
 /**
@@ -48,19 +27,12 @@ export function UsageTable({ context }: UsageTableProps): ReactElement {
     <div className={styles.usage}>
       <div className={styles.table}>
         <span />
-        <span className={styles.column}>
-          Last reply
-          <InfoTip text="The request that brought the latest reply." />
-        </span>
-        <span className={styles.column}>
-          Whole chat
-          <InfoTip text="Every request of this chat added up." />
-        </span>
+        <span className={styles.column}>Last reply</span>
+        <span className={styles.column}>Whole chat</span>
         {rows.map((row) => (
           <Fragment key={row.key}>
             <span className={styles.name} data-part={row.isPart === true}>
               {row.name}
-              <InfoTip text={row.meaning} />
             </span>
             <span className={styles.number}>
               {last === null ? "None yet" : numberFormat.format(last.tokens[row.key])}
@@ -68,10 +40,7 @@ export function UsageTable({ context }: UsageTableProps): ReactElement {
             <span className={styles.number}>{numberFormat.format(context.tokens[row.key])}</span>
           </Fragment>
         ))}
-        <span className={styles.name}>
-          Cost
-          <InfoTip text="What the provider charges, from the prices that Pi knows." />
-        </span>
+        <span className={styles.name}>Cost</span>
         <span className={styles.number}>{last === null ? "None yet" : costOf(last.cost)}</span>
         <span className={styles.number}>{costOf(context.cost)}</span>
       </div>
