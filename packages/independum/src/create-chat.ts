@@ -3,10 +3,12 @@ import { basename, join, resolve } from "node:path";
 import {
   type AgentSession,
   type AgentSessionEvent,
+  buildSessionContext,
   createAgentSession,
   DefaultResourceLoader,
   type ExtensionAPI,
   type ModelRuntime,
+  type SessionEntry,
   type SessionInfo,
   SessionManager,
   SettingsManager,
@@ -31,6 +33,7 @@ import type {
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { builtInSettings, createSettings } from "./create-settings.ts";
+import { listRequests } from "./list-requests.ts";
 import {
   changeTexts,
   createModelTexts,
@@ -39,7 +42,8 @@ import {
   summarizeTexts,
 } from "./model-texts.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
-import { summarizeRequest } from "./summarize-request.ts";
+import { createSavedRequests } from "./saved-requests.ts";
+import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
 import {
   type BackgroundEnded,
   backgroundTextList,
@@ -150,6 +154,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const texts = createModelTexts(() => settings.get().texts);
   let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
+  const savedRequests = createSavedRequests(join(directory, "requests"));
   const commandStops = new Map<string, () => void>();
   const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
@@ -496,6 +501,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
                 cacheWarmings += 1;
               } else {
                 lastRequest = event.payload;
+                if (session !== undefined) {
+                  savedRequests.save(session.sessionId, event.payload);
+                }
               }
             });
           },
@@ -524,7 +532,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       created.modelFallbackMessage === undefined &&
       (model !== undefined || isSaved);
     isReplying = false;
-    lastRequest = null;
+    lastRequest = savedRequests.read(session.sessionId);
     cacheWarmings = 0;
     emit({ type: "state", state: getState() });
     emitProjects();
@@ -671,25 +679,48 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         data: entry,
       })),
       lastRequest,
-      requestParts: summarizeRequest(lastRequest, {
-        systemPrompt: agent.systemPrompt,
-        addedByPi: agent.addedByPi,
-        tools: agent.tools,
-        entries: branch.flatMap((entry) =>
-          entry.type === "message" || entry.type === "custom_message"
-            ? [
-                {
-                  id: entry.id,
-                  message:
-                    entry.type === "message"
-                      ? entry.message
-                      : { role: "custom", content: entry.content },
-                },
-              ]
-            : [],
-        ),
-      }),
+      requestParts:
+        lastRequest === null
+          ? describeNextRequest(nextKnownTexts(agent, branch))
+          : summarizeRequest(lastRequest, {
+              systemPrompt: agent.systemPrompt,
+              addedByPi: agent.addedByPi,
+              tools: agent.tools,
+              entries: branch.flatMap((entry) =>
+                entry.type === "message" || entry.type === "custom_message"
+                  ? [
+                      {
+                        id: entry.id,
+                        message:
+                          entry.type === "message"
+                            ? entry.message
+                            : { role: "custom", content: entry.content },
+                      },
+                    ]
+                  : [],
+              ),
+            }),
+      isNextRequest: lastRequest === null,
+      requests: listRequests(branch),
       cacheWarmings,
+    };
+  }
+
+  // Before a chat sends a request, its next one holds the tools that are on and the messages that
+  // Pi builds from the chat, such as a summary in place of compacted messages. Each message keeps
+  // the id of its saved entry where Pi sends that entry as it is.
+  function nextKnownTexts(agent: AgentSummary, branch: SessionEntry[]): KnownTexts {
+    const messages = buildSessionContext(branch).messages;
+    return {
+      systemPrompt: agent.systemPrompt,
+      addedByPi: agent.addedByPi,
+      tools: agent.tools.filter((tool) => tool.isEnabled),
+      entries: messages.map((message, index) => ({
+        id:
+          branch.find((entry) => entry.type === "message" && entry.message === message)?.id ??
+          `context-${index}`,
+        message,
+      })),
     };
   }
 
@@ -801,6 +832,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       await leave(saved);
       await savedChats.remove(saved);
       rmSync(join(outputFolder, saved.id), { recursive: true, force: true });
+      savedRequests.remove(saved.id);
       emitProjects();
       return true;
     },

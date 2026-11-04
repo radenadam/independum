@@ -320,6 +320,29 @@ export interface RequestPart {
   tokens: number;
 }
 
+/** Something that came in before a request, such as a message of the user or a tool result. */
+export interface RequestInput {
+  source: PartSource;
+  label: string;
+  entryId: string;
+}
+
+/**
+ * One request that the model answered: when, with which model, what came in since the request
+ * before it, the settings that changed just before it, its reply, and its use.
+ */
+export interface RequestSummary {
+  id: string;
+  timestamp: string;
+  provider: string;
+  model: string;
+  tokens: TokenCounts;
+  cost: number;
+  inputs: RequestInput[];
+  changes: string[];
+  reply: string;
+}
+
 /** The tokens of one request or of a whole chat. */
 export interface TokenCounts {
   input: number;
@@ -347,6 +370,8 @@ export interface ContextSummary {
   entries: ContextEntry[];
   lastRequest: unknown;
   requestParts: RequestPart[];
+  isNextRequest: boolean;
+  requests: RequestSummary[];
   cacheWarmings: number;
 }
 
