@@ -565,7 +565,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           isChosen: kind === (settings.get().shell ?? defaultShellKind()),
         }),
       ),
-      chosenShell: settings.get().shell,
+      chosenShell: settings.get().shell === defaultShellKind() ? null : settings.get().shell,
       outputLimits: settings.get().outputLimits,
       builtInOutputLimits: builtInSettings.outputLimits,
       handBackSeconds: settings.get().handBackSeconds,
@@ -611,7 +611,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (edited === undefined) {
       return undefined;
     }
-    await settings.change({ ...rest, texts: edited });
+    // A choice of the shell that the system has by default is no choice, so it is saved as none and
+    // the Shell tool does not count as edited.
+    const shellChange = rest.shell === defaultShellKind() ? { shell: null } : {};
+    await settings.change({ ...rest, ...shellChange, texts: edited });
     shell = findShell(settings.get().shell ?? undefined);
     for (const tool of ownTools) {
       extension?.registerTool(tool);

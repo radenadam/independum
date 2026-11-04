@@ -876,3 +876,9 @@ test("a closed chat can be renamed, and a pin lasts after a restart", async () =
   const restarted = await findChat(hello?.id ?? null);
   expect(restarted).toMatchObject({ title: "Greetings", isPinned: true });
 });
+
+test("choosing the shell that the system has by default saves no choice", async () => {
+  const defaultShell = process.platform === "win32" ? "powershell" : "bash";
+  const chosen = (await (await put("/settings", { shell: defaultShell })).json()) as AgentSummary;
+  expect(chosen.chosenShell).toBeNull();
+});
