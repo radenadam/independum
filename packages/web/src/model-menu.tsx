@@ -44,7 +44,6 @@ export function ModelMenu({
         onChange={setQuery}
         isFocusedFirst
       />
-      {thinking === null ? null : <EffortSlider thinking={thinking} onChoose={onChooseThinking} />}
       <MenuList
         groups={groupByProvider(shown, current, onChoose)}
         layout="row"
@@ -61,6 +60,7 @@ export function ModelMenu({
           Add or manage logins
         </button>
       </div>
+      {thinking === null ? null : <EffortSlider thinking={thinking} onChoose={onChooseThinking} />}
     </>
   );
 }
