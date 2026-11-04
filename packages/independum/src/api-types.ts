@@ -441,6 +441,8 @@ export type ChatEvent =
   | { type: "replyDelta"; index: number; partType: "text" | "thinking"; delta: string }
   | { type: "replyPart"; index: number; part: MessagePart }
   | { type: "replying"; isReplying: boolean }
+  | { type: "replyingChats"; ids: string[] }
+  | { type: "replyEnded"; chatId: string; reply: ChatMessage | null }
   | { type: "toolStart"; id: string }
   | { type: "toolProgress"; id: string; details: unknown }
   | { type: "toolResult"; id: string; result: ToolResult }

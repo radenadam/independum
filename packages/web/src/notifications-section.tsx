@@ -24,7 +24,7 @@ export function NotificationsSection(): ReactElement {
           ? "This browser cannot show notifications."
           : permission === "denied"
             ? "The browser blocks notifications from Independum. Allow them in the settings of this site, then turn them on."
-            : "Independum tells you through the system when a reply ends while its window is not in front, with the title of the chat and the start of the reply. It asks the browser first."
+            : "Independum tells you through the system when a reply ends where you do not see it, in another chat or while its window is not in front, with the title of the chat and the start of the reply. It asks the browser first."
       }
       onChoose={(choice) => {
         chooseNotifications(choice).then(setCurrent, () => setCurrent("off"));

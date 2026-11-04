@@ -44,7 +44,7 @@ import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 import { useChatData } from "./use-chat-data.ts";
-import { useReplyNotice } from "./use-reply-notice.ts";
+import { type EndedReply, useReplyNotice } from "./use-reply-notice.ts";
 import styles from "./working-screen.module.css";
 
 /** Properties of the working screen. */
@@ -79,6 +79,10 @@ export function WorkingScreen({
   const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
   const [placeRequest, setPlaceRequest] = useState<PlaceRequest | undefined>();
   const [shownStep, setShownStep] = useState<ToolCalls["shown"]>();
+  // Every chat runs on its own, so the sidebar shows each one that replies, and a reply that ends
+  // out of sight can say so.
+  const [replyingIds, setReplyingIds] = useState<string[]>([]);
+  const [endedReply, setEndedReply] = useState<EndedReply | undefined>();
   // The context meter and the Session place show the same summary, so it loads once here.
   const context = useChatData(fetchContext, chat);
 
@@ -92,6 +96,10 @@ export function WorkingScreen({
       (event) => {
         if (event.type === "projects") {
           setProjects(event.projects);
+        } else if (event.type === "replyingChats") {
+          setReplyingIds(event.ids);
+        } else if (event.type === "replyEnded") {
+          setEndedReply({ chatId: event.chatId, reply: event.reply });
         }
         applyEvent(event, setChat);
         if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
@@ -271,7 +279,7 @@ export function WorkingScreen({
     .flatMap((project) => project.chats)
     .find((candidate) => candidate.id === chat?.id);
   const title = saved?.title ?? "New chat";
-  useReplyNotice(chat, title);
+  useReplyNotice(endedReply, projects, chat?.id ?? null, open);
   // The title of a new chat types itself in once its first message lists it in the sidebar.
   const lastListing = useRef({ id: chat?.id, isListed: true });
   const isNewlyListed =
@@ -286,7 +294,7 @@ export function WorkingScreen({
       <Sidebar
         projects={projects}
         chatId={chat?.id ?? null}
-        replyingIds={new Set(chat?.isReplying && chat.id !== null ? [chat.id] : [])}
+        replyingIds={new Set(replyingIds)}
         folder={chat?.folder ?? ""}
         isOpen={isSidebarOpen}
         isNewChatFlashing={isNewChatFlashing}
