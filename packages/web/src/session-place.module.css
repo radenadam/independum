@@ -74,7 +74,7 @@
 }
 
 .model,
-.folder {
+.line {
   margin: 0;
   display: flex;
   align-items: center;
@@ -87,7 +87,7 @@
   font-weight: 600;
 }
 
-.folder {
+.line {
   color: var(--muted);
   font: 12.5px var(--font-mono);
 }
@@ -109,16 +109,6 @@
   font-weight: 400;
 }
 
-/* A section of rows lets its rows run from edge to edge. */
-.section[data-flush="true"] {
-  padding-left: 0;
-  padding-right: 0;
-}
-
-.section[data-flush="true"] > .heading {
-  padding: 0 18px;
-}
-
 .window {
   height: 6px;
   border-radius: 3px;
@@ -137,55 +127,49 @@
   font-size: 13px;
 }
 
-.empty {
+.label {
+  flex: none;
+  font-family: var(--font-sans);
+}
+
+/* The request that the model reads sits in a frame of its own, apart from the rest of the session. */
+.request {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 14px 12px 6px;
+  padding-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: clip;
 }
 
-.empty > p {
+.request > .heading {
   padding: 0 18px;
+}
+
+.request > p {
+  padding: 0 18px 12px;
 }
 
 .more {
   display: flex;
   flex-direction: column;
+  margin-top: 12px;
   border-top: 1px solid var(--line);
 }
 
-.entries {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+/* The rows of a detail run from edge to edge of its frame. */
+.flush {
+  margin: 0 -18px;
+  border-top: 1px solid var(--line);
+}
+
+.change {
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.entry {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.kind {
-  flex: none;
-  font-weight: 500;
-}
-
-.id {
-  min-width: 0;
-  overflow: clip;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font: 12px var(--font-mono);
-}
-
-.time {
-  flex: none;
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 12px;
+  font-size: 12.5px;
 }

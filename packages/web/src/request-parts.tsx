@@ -29,7 +29,8 @@ interface RequestPartsProps {
   onOpen: (key: string, link: ShownLink, part: { label: string; text: string }) => void;
 }
 
-const sourceNames: Record<PartSource, string> = {
+/** The name of who put a part of a request there, as a row shows it. */
+export const sourceNames: Record<PartSource, string> = {
   you: "You",
   model: "Model",
   tool: "Tool",

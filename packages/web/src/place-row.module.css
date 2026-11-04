@@ -21,12 +21,6 @@
   background: var(--signal-soft);
 }
 
-.source {
-  flex: none;
-  width: 84px;
-  font-size: 12.5px;
-}
-
 .text {
   flex: 1;
   min-width: 0;
