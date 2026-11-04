@@ -57,7 +57,7 @@ const longestPreview = 200;
 // as the tools that an OpenAI model gets again once one of them changes.
 const changeGroup = "In the chat, after a change";
 const groups: RequestGroup[] = ["instructions", "tools", "messages"];
-// The thinking levels of Pi, which some requests carry as a message of their own.
+// The thinking levels of Pi, which some requests carry as a message of their own among the messages.
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /**
@@ -181,13 +181,17 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
   let next = 0;
   return Object.entries(request).map(([section, value]) => {
     const parts: Part[] = [];
-    for (const item of Array.isArray(value) ? value : [value]) {
+    const isList = Array.isArray(value);
+    for (const item of isList ? value : [value]) {
       const strings = stringsOf(item);
       const content = strings.join("\n");
       const exact = typeof item === "string" ? item : JSON.stringify(item, null, 2);
       const tools = toolsIn(content, known);
       const matched = bestOf(messages.slice(next), content, strings);
       const update = findPiTexts(content).find((found) => found.group === changeGroup);
+      // A level in a setting of the request, such as the effort of an OpenAI model, is no part of
+      // what the model reads, so only an item of a list, such as the messages, can be one.
+      const level = isList ? levelOf(strings) : undefined;
       if (update !== undefined && tools.length > 0) {
         parts.push(
           partOf({
@@ -207,8 +211,20 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
         for (const piece of piecesOf(item, matched, content, strings, exact)) {
           addPiece(parts, section, piece);
         }
+      } else if (level !== undefined) {
+        parts.push(
+          partOf({
+            section,
+            source: "pi",
+            label: "Thinking effort",
+            link: { kind: "effort" },
+            content,
+            exact,
+            preview: level,
+          }),
+        );
       } else {
-        parts.push(...textPartsOf(section, content, strings, exact, known));
+        parts.push(...textPartsOf(section, content, exact, known));
       }
     }
     return parts;
@@ -339,28 +355,7 @@ function addPiece(parts: Part[], section: string, piece: Piece): void {
 // A text that is no message can hold several known texts, such as the system prompt with what Pi
 // adds after it, so it splits where each one starts. A whole item that holds none of them shows as
 // other text.
-function textPartsOf(
-  section: string,
-  content: string,
-  strings: string[],
-  exact: string,
-  known: KnownTexts,
-): Part[] {
-  const level =
-    strings.length <= 3 ? strings.find((each) => thinkingLevels.includes(each)) : undefined;
-  if (level !== undefined) {
-    return [
-      partOf({
-        section,
-        source: "pi",
-        label: "Thinking effort",
-        link: { kind: "effort" },
-        content,
-        exact,
-        preview: level,
-      }),
-    ];
-  }
+function textPartsOf(section: string, content: string, exact: string, known: KnownTexts): Part[] {
   const spans: { index: number; length: number; part: Part }[] = [];
   for (const [value, source, label, link] of [
     [known.systemPrompt, "independum", "System prompt", { kind: "systemPrompt" }],
@@ -405,6 +400,11 @@ function textPartsOf(
   }
   parts.push(...leftOverOf(section, content.slice(end)));
   return parts;
+}
+
+// An item that holds a thinking level and little else, such as a role, is the effort that Pi sends.
+function levelOf(strings: string[]): string | undefined {
+  return strings.length <= 3 ? strings.find((each) => thinkingLevels.includes(each)) : undefined;
 }
 
 function leftOverOf(section: string, text: string): Part[] {
