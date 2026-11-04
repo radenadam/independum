@@ -88,8 +88,11 @@ export function RequestParts({
                 type="button"
                 className={styles.segment}
                 style={{ "--tokens": hiddenTokens } as CSSProperties}
+                data-lit={lit === "earlier"}
                 aria-label={`Show the ${earlierLabel}`}
                 onClick={() => setIsAllShown(true)}
+                onPointerEnter={() => setLit("earlier")}
+                onPointerLeave={() => setLit(undefined)}
               />
             ) : null;
           }
@@ -119,7 +122,9 @@ export function RequestParts({
                   label={`Show the ${earlierLabel}`}
                   number={null}
                   amount={amountOf(hiddenTokens)}
+                  isLit={lit === "earlier"}
                   onOpen={() => setIsAllShown(true)}
+                  onPoint={(isPointed) => setLit(isPointed ? "earlier" : undefined)}
                 />
               ) : null;
             }
