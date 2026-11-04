@@ -1,6 +1,6 @@
 # Icon motion
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0049](0049-turning-raven.md), which turns the raven beside thinking instead of letting it breathe
 - Date: 2026-10-27
 
 ## Context

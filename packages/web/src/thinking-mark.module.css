@@ -1,4 +1,5 @@
 .mark {
+  position: relative;
   display: flex;
   flex: none;
   font-size: 15px;
@@ -9,22 +10,74 @@
   color: var(--signal);
 }
 
+/* The turns of the head stack on the profile, and one shows at a time. */
+.tilt,
+.front {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .mark {
     transition: color 200ms ease;
   }
 
-  .mark[data-thinking="true"] {
-    animation: breathe 2.4s ease-in-out infinite;
+  /* While the model thinks, the head tilts toward the user and back, in cuts like a bird's. */
+  .mark[data-thinking="true"] .profile {
+    animation: tiltAway 2.4s step-end infinite;
   }
 
-  @keyframes breathe {
-    0%,
-    100% {
-      opacity: 0.4;
+  .mark[data-thinking="true"] .tilt {
+    animation: tiltToward 2.4s step-end infinite;
+  }
+
+  /* Pointing at the row turns the head forward through the tilt, and it holds there. */
+  :is(button:hover, button:focus-visible) > .mark .profile {
+    animation: none;
+    opacity: 0;
+  }
+
+  :is(button:hover, button:focus-visible) > .mark .tilt {
+    animation: glance 180ms step-end both;
+  }
+
+  :is(button:hover, button:focus-visible) > .mark .front {
+    opacity: 1;
+    transition: opacity 0s 90ms;
+  }
+
+  @keyframes tiltAway {
+    0% {
+      opacity: 1;
+    }
+    35% {
+      opacity: 0;
+    }
+    75% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes tiltToward {
+    0% {
+      opacity: 0;
+    }
+    35% {
+      opacity: 1;
+    }
+    75% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes glance {
+    0% {
+      opacity: 1;
     }
     50% {
-      opacity: 1;
+      opacity: 0;
     }
   }
 }
