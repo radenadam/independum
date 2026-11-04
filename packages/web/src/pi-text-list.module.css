@@ -1,19 +1,21 @@
+/*
+  The groups keep the same room above the first one as between them, and each sits under a label
+  like a group of Context.
+*/
 .list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+  margin-top: 6px;
 }
 
 .group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  composes: setting from "./tool-card.module.css";
 }
 
 .heading {
+  composes: settingLabel from "./tool-card.module.css";
   margin: 0;
-  font-size: 13px;
-  font-weight: 500;
 }
 
 /* A condition can run over several lines, so the row keeps room above and below it. */
