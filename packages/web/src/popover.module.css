@@ -38,15 +38,16 @@
   translate: calc(var(--shift, 0px) - 50%) 0;
 }
 
+/* A pop-up beside its button grows up to the room that it measures toward the edge of the window. */
 .above {
   bottom: calc(100% + 8px);
-  max-height: min(420px, 55dvh);
+  max-height: min(420px, var(--room, 55dvh));
   transform-origin: bottom center;
 }
 
 .below {
   top: calc(100% + 6px);
-  max-height: min(380px, 40dvh);
+  max-height: min(420px, var(--room, 40dvh));
   transform-origin: top center;
 }
 
