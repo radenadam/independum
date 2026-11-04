@@ -63,8 +63,14 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
+        # The API can report a job without its result for a moment after the job ends, so the gate
+        # asks again until every job has one, for up to three minutes.
         run: |
-          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs" \
-            --jq '.jobs[] | select(.name != "All checks") | .name + ": " + (.conclusion // "unfinished")' > results.txt
+          for try in $(seq 1 18); do
+            gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs" \
+              --jq '.jobs[] | select(.name != "All checks") | .name + ": " + (.conclusion // "unfinished")' > results.txt
+            grep -q ": unfinished$" results.txt || break
+            sleep 10
+          done
           cat results.txt
           ! grep -v -E ": (success|skipped)$" results.txt
