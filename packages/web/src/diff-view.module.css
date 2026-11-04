@@ -1,7 +1,6 @@
-/* The view has the frame of a block of code, without the space around it in a reply. */
+/* The view has the frame of a block of code, and is flush, without the space around it in a reply. */
 .view {
   composes: block from "./code-block.module.css";
-  margin: 0;
 }
 
 .path {

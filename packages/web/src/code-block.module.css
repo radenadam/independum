@@ -6,6 +6,11 @@
   background: var(--code);
 }
 
+/* A flush block outranks the space of a block, whichever style the page loads last. */
+.block[data-flush="true"] {
+  margin: 0;
+}
+
 .header {
   min-height: 34px;
   display: flex;

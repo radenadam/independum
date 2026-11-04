@@ -169,7 +169,8 @@ To review a Pi update with the maintainer:
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
-- `pnpm check` enforces the token and motion rules through `scripts/check-styles.ts`.
+- A class that composes a class of another file never sets a property that the other sets, because the page can load the other file after it, and then the other wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
+- `pnpm check` enforces the token, motion, and composes rules through `scripts/check-styles.ts`.
 
 ## Comments
 

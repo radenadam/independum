@@ -61,7 +61,7 @@ export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactEleme
     >
       {call.input === "" ? null : (
         <div className={styles.input}>
-          <CodeBlock language={call.language} code={call.input} />
+          <CodeBlock language={call.language} code={call.input} isFlush />
         </div>
       )}
       {call.hunks.length === 0 ? null : <DiffView path={call.language} hunks={call.hunks} />}

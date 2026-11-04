@@ -25,7 +25,7 @@ interface DiffRow {
  */
 export function DiffView({ path, hunks }: DiffViewProps): ReactElement {
   return (
-    <div className={styles.view}>
+    <div className={styles.view} data-flush="true">
       <div className={styles.path}>{path}</div>
       <div className={styles.rows}>
         {rowsOf(hunks).map((row) => (
