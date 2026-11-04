@@ -50,7 +50,7 @@ export function summarizeTexts(
       label: text.label,
       text: edit?.text ?? text.builtIn,
       builtIn: text.builtIn,
-      isEdited: edit !== undefined,
+      isEdited: edit !== undefined && edit.text !== text.builtIn,
       editedFrom: edit !== undefined && edit.builtIn !== text.builtIn ? edit.builtIn : null,
       slots: Object.entries(text.slots).map(([name, slot]) => ({ name, ...slot })),
     };
