@@ -393,7 +393,7 @@ function History({ context, models, onOpen }: HistoryProps): ReactElement {
       {requests.length === 0 ? (
         <PlaceNote>No request yet. Each reply of the model adds one.</PlaceNote>
       ) : (
-        <div className={styles.tiles}>
+        <div className={styles.timeline}>
           {requests
             .map((request, index) => ({ request, number: index + 1 }))
             .toReversed()
