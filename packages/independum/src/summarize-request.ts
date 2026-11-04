@@ -32,6 +32,17 @@ interface KnownMessage {
   preview: string;
   texts: string[];
   ids: string[];
+  calls?: { label: string; preview: string };
+}
+
+/** A piece of a saved message as an item of a request holds it, such as the calls of a reply. */
+interface Piece {
+  id: string;
+  source: PartSource;
+  label: string;
+  preview: string;
+  content: string;
+  exact: string;
 }
 
 // A text of no known part left between known parts, such as the line breaks that join them, shows
@@ -46,6 +57,8 @@ const longestPreview = 200;
 // as the tools that an OpenAI model gets again once one of them changes.
 const changeGroup = "In the chat, after a change";
 const groups: RequestGroup[] = ["instructions", "tools", "messages"];
+// The thinking levels of Pi, which some requests carry as a message of their own.
+const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 /**
  * Returns the parts of a request, each with who put it there and its group: the instructions, the
@@ -191,9 +204,11 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
         parts.push(...toolPartsOf(section, item, content, tools));
       } else if (matched.length > 0) {
         next = messages.indexOf(matched[0] as KnownMessage);
-        addMessage(parts, section, matched, content, exact);
+        for (const piece of piecesOf(item, matched, content, strings, exact)) {
+          addPiece(parts, section, piece);
+        }
       } else {
-        parts.push(...textPartsOf(section, content, exact, known));
+        parts.push(...textPartsOf(section, content, strings, exact, known));
       }
     }
     return parts;
@@ -248,34 +263,75 @@ function holderOf(value: unknown, text: string): unknown {
   return stringsOf(value).some((each) => each.includes(text)) ? value : undefined;
 }
 
-// A message can span items, such as a reply and its tool calls, so an item of the same message
-// joins the part before it.
-function addMessage(
-  parts: Part[],
-  section: string,
+// A reply that talks and calls tools in one item splits into its text and its calls, each with
+// the part of the item that holds it, so the calls read apart, as the chat shows them. Results of
+// the same reply that share an item stay one part.
+function piecesOf(
+  item: unknown,
   matched: KnownMessage[],
   content: string,
+  strings: string[],
   exact: string,
-): void {
+): Piece[] {
   const [first] = matched;
-  const last = parts.at(-1);
   if (first === undefined) {
-    return;
+    return [];
   }
-  if (last?.link.kind === "entry" && last.link.id === first.id && matched.length === 1) {
-    last.text = `${last.text}\n${exact}`;
-    last.tokens += tokensOf(content);
+  if (matched.length > 1) {
+    return [
+      {
+        id: first.id,
+        source: first.source,
+        label: `${matched.length} tool results`,
+        preview: matched.map((each) => each.label).join(", "),
+        content,
+        exact,
+      },
+    ];
+  }
+  const texts = first.texts.filter((text) =>
+    text.length >= shortestKey ? content.includes(text) : strings.includes(text),
+  );
+  const ids = first.ids.filter((id) => content.includes(id));
+  const base = { id: first.id, source: first.source, content, exact };
+  if (first.calls === undefined || ids.length === 0) {
+    return [{ ...base, label: first.label, preview: first.preview }];
+  }
+  const calls = { ...base, ...first.calls };
+  if (texts.length === 0) {
+    return [calls];
+  }
+  const piece = (keys: string[]): { content: string; exact: string } => {
+    const holders = keys.map((key) => holderOf(item, key) ?? key);
+    return {
+      content: holders.flatMap((holder) => stringsOf(holder)).join("\n"),
+      exact: JSON.stringify(holders.length === 1 ? holders[0] : holders, null, 2),
+    };
+  };
+  return [
+    { ...base, label: "Reply", preview: first.preview, ...piece(texts) },
+    { ...calls, ...piece(ids) },
+  ];
+}
+
+// A message can span items, such as a reply and each of its tool calls, so an item that holds the
+// same piece of the same message joins the part before it.
+function addPiece(parts: Part[], section: string, piece: Piece): void {
+  const last = parts.at(-1);
+  if (last?.link.kind === "entry" && last.link.id === piece.id && last.label === piece.label) {
+    last.text = `${last.text}\n${piece.exact}`;
+    last.tokens += tokensOf(piece.content);
     return;
   }
   parts.push(
     partOf({
       section,
-      source: first.source,
-      label: matched.length === 1 ? first.label : `${matched.length} tool results`,
-      link: { kind: "entry", id: first.id },
-      content,
-      exact,
-      preview: matched.length === 1 ? first.preview : matched.map((each) => each.label).join(", "),
+      source: piece.source,
+      label: piece.label,
+      link: { kind: "entry", id: piece.id },
+      content: piece.content,
+      exact: piece.exact,
+      preview: piece.preview,
     }),
   );
 }
@@ -283,7 +339,28 @@ function addMessage(
 // A text that is no message can hold several known texts, such as the system prompt with what Pi
 // adds after it, so it splits where each one starts. A whole item that holds none of them shows as
 // other text.
-function textPartsOf(section: string, content: string, exact: string, known: KnownTexts): Part[] {
+function textPartsOf(
+  section: string,
+  content: string,
+  strings: string[],
+  exact: string,
+  known: KnownTexts,
+): Part[] {
+  const level =
+    strings.length <= 3 ? strings.find((each) => thinkingLevels.includes(each)) : undefined;
+  if (level !== undefined) {
+    return [
+      partOf({
+        section,
+        source: "pi",
+        label: "Thinking effort",
+        link: { kind: "effort" },
+        content,
+        exact,
+        preview: level,
+      }),
+    ];
+  }
   const spans: { index: number; length: number; part: Part }[] = [];
   for (const [value, source, label, link] of [
     [known.systemPrompt, "independum", "System prompt", { kind: "systemPrompt" }],
@@ -411,18 +488,22 @@ function messageOf({ id, message }: { id: string; message: unknown }): KnownMess
       return [{ id, source: "you", label: "Message", preview, ...keys }];
     case "custom":
       return [{ id, source: "independum", label: "Note", preview, ...keys }];
-    case "assistant":
+    case "assistant": {
+      const callPiece = {
+        label: `Calls ${callNames}`,
+        preview: firstLineOf(calls.flatMap((call) => stringsOf(call.arguments)).join(" ")),
+      };
+      const isTalking = texts.join("").trim() !== "";
       return [
-        texts.join("").trim() === ""
-          ? {
-              id,
-              source: "model",
-              label: `Calls ${callNames}`,
-              preview: firstLineOf(calls.flatMap((call) => stringsOf(call.arguments)).join(" ")),
-              ...keys,
-            }
-          : { id, source: "model", label: "Reply", preview, ...keys },
+        {
+          id,
+          source: "model",
+          ...(isTalking ? { label: "Reply", preview } : callPiece),
+          ...keys,
+          ...(calls.length > 0 ? { calls: callPiece } : {}),
+        },
       ];
+    }
     case "toolResult":
       return [{ id, source: "tool", label: `Result of ${toolName}`, preview, ...keys }];
     default:

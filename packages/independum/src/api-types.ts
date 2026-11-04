@@ -297,7 +297,7 @@ export type PartSource = "you" | "model" | "tool" | "independum" | "pi" | "other
 
 /** What a part of a request is, so the place that shows it can open what it came from. */
 export type PartLink =
-  | { kind: "systemPrompt" | "addedByPi" }
+  | { kind: "systemPrompt" | "addedByPi" | "effort" }
   | { kind: "piText"; id: string }
   | { kind: "tool"; name: string }
   | { kind: "entry"; id: string }

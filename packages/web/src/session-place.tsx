@@ -289,6 +289,15 @@ function Detail({ view, context, settings, onOpen }: DetailProps): ReactElement 
         </PlaceSection>
       );
     }
+    case "effort":
+      return (
+        <PlaceSection heading={view.title} badge="read-only">
+          <PlaceNote>
+            Pi sends the thinking effort among the messages, for the replies that it applies to.
+          </PlaceNote>
+          <CodeWell code={view.text} copyLabel="Copy the text" />
+        </PlaceSection>
+      );
     case "other":
       return (
         <PlaceSection heading={view.title}>
@@ -414,15 +423,12 @@ function Request({ title, request, context }: RequestProps): ReactElement {
   );
 }
 
-// The context is the request that went out last, or, before one went out, the next one as Independum
-// builds it from the chat, so it says which.
+// The context is the request that went out last, which the next message sends again with itself at
+// the end, or, before one went out, the next one as Independum builds it from the chat.
 function basisOf(context: ContextSummary | undefined): string {
-  if (context === undefined || context.isNextRequest) {
-    return "Not sent yet, built from this chat";
-  }
-  return context.requests.length === 0
-    ? "As sent"
-    : `As sent in request ${context.requests.length}`;
+  return context === undefined || context.isNextRequest
+    ? "Not sent yet. It goes with your next message."
+    : "Sent last time, and again with your next message.";
 }
 
 function summaryOf({ label, preview }: { label: string; preview: string }): string {
