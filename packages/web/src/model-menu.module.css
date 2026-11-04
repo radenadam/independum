@@ -1,12 +1,12 @@
 /*
-  The list shows five models and the name of their provider before it scrolls, wherever the menu
+  The list shows three models and the name of their provider before it scrolls, wherever the menu
   opens, so it keeps the same size above the message box and below it.
 */
 .models {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: calc(5 * 38px + 34px);
+  max-height: calc(3 * 38px + 34px);
 }
 
 .empty {
