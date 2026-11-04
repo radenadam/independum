@@ -330,6 +330,12 @@ export interface RequestInput {
   entryId: string;
 }
 
+/** A setting that changed before a request, or the record of its system prompt and tools that Pi saved. */
+export type RequestChange =
+  | { kind: "model"; provider: string; model: string }
+  | { kind: "effort"; effort: string }
+  | { kind: "setup" };
+
 /**
  * One request that the model answered: when, with which model, what came in since the request
  * before it, the settings that changed just before it, its reply, and its use.
@@ -342,7 +348,7 @@ export interface RequestSummary {
   tokens: TokenCounts;
   cost: number;
   inputs: RequestInput[];
-  changes: string[];
+  changes: RequestChange[];
   reply: { label: string; preview: string };
 }
 

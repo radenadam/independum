@@ -1,5 +1,5 @@
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
-import type { RequestInput, RequestSummary } from "./api-types.ts";
+import type { RequestChange, RequestInput, RequestSummary } from "./api-types.ts";
 import { describeMessage } from "./summarize-request.ts";
 
 /**
@@ -11,14 +11,14 @@ import { describeMessage } from "./summarize-request.ts";
 export function listRequests(branch: SessionEntry[]): RequestSummary[] {
   const requests: RequestSummary[] = [];
   let inputs: RequestInput[] = [];
-  let model: string | undefined;
+  let model: { provider: string; model: string } | undefined;
   let effort: string | undefined;
-  let usedModel: string | undefined;
+  let usedModel: { provider: string; model: string } | undefined;
   let usedEffort: string | undefined;
   let isSetupRecorded = false;
   for (const entry of branch) {
     if (entry.type === "model_change") {
-      model = entry.modelId;
+      model = { provider: entry.provider, model: entry.modelId };
     } else if (entry.type === "thinking_level_change") {
       effort = entry.thinkingLevel;
     } else if (entry.type === "custom_message") {
@@ -30,12 +30,15 @@ export function listRequests(branch: SessionEntry[]): RequestSummary[] {
       isSetupRecorded = true;
     } else if (entry.type === "message" && entry.message.role === "assistant") {
       const { usage } = entry.message;
-      const changes = [
-        ...(model !== undefined && model !== usedModel ? [`Model set to ${model}`] : []),
+      const isModelChanged =
+        model !== undefined &&
+        (model.provider !== usedModel?.provider || model.model !== usedModel.model);
+      const changes: RequestChange[] = [
+        ...(isModelChanged && model !== undefined ? [{ kind: "model" as const, ...model }] : []),
         ...(effort !== undefined && effort !== usedEffort
-          ? [`Thinking effort set to ${effort}`]
+          ? [{ kind: "effort" as const, effort }]
           : []),
-        ...(isSetupRecorded ? ["Pi recorded the system prompt and the tools"] : []),
+        ...(isSetupRecorded ? [{ kind: "setup" as const }] : []),
       ];
       requests.push({
         id: entry.id,
