@@ -4,7 +4,12 @@
   overflow-y: auto;
 }
 
+/* The name of a group stays at the top while its choices scroll under it, so each one shows whose it is. */
 .heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
   display: flex;
   align-items: center;
   gap: 7px;
