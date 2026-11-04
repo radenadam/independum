@@ -158,6 +158,7 @@ To review a Pi update with the maintainer:
 - A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
 - An inline `style` only passes values known at run time to the CSS module, as custom properties such as `--logo-url`.
 - On the working screen, actions are icons in an `IconButton`, whose tooltip shows the action and its shortcut. Shortcuts live in `packages/web/src/shortcut.ts` and use Ctrl, or Cmd on a Mac, so they work while the user types.
+- In a menu, the field, the highlight of each choice, and any bar span one width, and their text starts 10 pixels inside them, so every edge and every line of text lines up. The scrollbar of a list sits beside its choices instead of narrowing them, through `MenuList`.
 - On the welcome screen, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too.
 - Action labels use sentence case. The top bar of the welcome screen uses lowercase.
 - A place is built from the pieces of the tool cards: `PlaceFrame` around it, a `PlaceSection` with a small heading for each fact, a card for one whole that holds parts, such as a tool or the context, and tiles for what opens or unfolds, which are `PlaceRow` and `Disclosure`. A list never runs from edge to edge with lines between its rows.

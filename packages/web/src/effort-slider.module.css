@@ -1,10 +1,13 @@
-/* The effort of the current model sits at the bottom of the menu, under its models. */
+/*
+  The effort of the current model sits at the bottom of the menu, under its models. Its bar spans the
+  width of the field and of the models, and its name starts on the line of their text.
+*/
 .effort {
   flex: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px 10px 8px;
+  padding: 12px 0 8px;
   margin-top: 6px;
   border-top: 1px solid var(--line);
 }
@@ -13,6 +16,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 0 10px;
   color: var(--ink);
   font-size: 13px;
   font-weight: 500;

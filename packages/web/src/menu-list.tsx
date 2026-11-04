@@ -1,4 +1,12 @@
-import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import styles from "./menu-list.module.css";
@@ -35,6 +43,7 @@ interface MenuListProps {
  */
 export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
   const list = useRef<HTMLDivElement>(null);
+  const [gutter, setGutter] = useState(0);
 
   // The current choice comes into view when the menu opens, even far down a long list. Opened from
   // the keyboard, it also takes the focus, unless a field of the menu took it first.
@@ -47,8 +56,27 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
     }
   }, []);
 
+  // A scrollbar that takes room sits beside the choices instead of narrowing them, so they keep the
+  // width of the field above them. Its width differs from system to system, and a list too short to
+  // scroll has none, so the list measures it.
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (element === null) {
+      return;
+    }
+    function measure(): void {
+      if (element !== null) {
+        setGutter(element.offsetWidth - element.clientWidth);
+      }
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div ref={list} className={styles.list}>
+    <div ref={list} className={styles.list} style={{ "--gutter": `${gutter}px` } as CSSProperties}>
       {groups.map((group) => (
         <div key={group.key}>
           {group.heading === undefined ? null : (
