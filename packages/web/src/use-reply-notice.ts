@@ -1,26 +1,43 @@
-import type { ChatMessage, ChatState } from "independum/api-types";
+import type { ChatMessage, ProjectSummary } from "independum/api-types";
 import { useEffect, useRef } from "react";
 import { notify } from "./notification-choice.ts";
+
+/** A reply that ended in a chat, as the server tells the UI about it. */
+export interface EndedReply {
+  chatId: string;
+  reply: ChatMessage | null;
+}
 
 // A notification holds the start of a reply, up to this many characters, ending on a whole word.
 const longestStart = 140;
 
 /**
- * Tells the user through the system when a reply of the open chat ends while Independum is not in
- * front, with the title of the chat and the start of the reply, or why it failed.
+ * Tells the user through the system when a reply ends where they do not see it: in a chat that is
+ * not open, or in the open chat while Independum is not in front. It holds the title of the chat
+ * and the start of the reply, or why it failed, and a click on it opens the chat.
  */
-export function useReplyNotice(chat: ChatState | undefined, title: string): void {
-  const wasReplying = useRef(false);
+export function useReplyNotice(
+  ended: EndedReply | undefined,
+  projects: ProjectSummary[],
+  openId: string | null,
+  onOpen: (id: string) => void,
+): void {
+  const told = useRef<EndedReply | undefined>(undefined);
   useEffect(() => {
-    const isReplying = chat?.isReplying ?? false;
-    if (wasReplying.current && !isReplying && chat !== undefined) {
-      notify(
-        title,
-        describeReplyEnd(chat.messages.findLast((message) => message.role === "assistant")),
-        chat.id ?? "chat",
-      );
+    if (ended === undefined || ended === told.current) {
+      return;
     }
-    wasReplying.current = isReplying;
+    told.current = ended;
+    const title =
+      projects.flatMap((project) => project.chats).find((chat) => chat.id === ended.chatId)
+        ?.title ?? "Independum";
+    notify(
+      title,
+      describeReplyEnd(ended.reply ?? undefined),
+      ended.chatId,
+      ended.chatId === openId,
+      () => onOpen(ended.chatId),
+    );
   });
 }
 

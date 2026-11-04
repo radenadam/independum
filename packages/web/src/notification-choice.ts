@@ -29,21 +29,29 @@ export async function chooseNotifications(choice: NotificationChoice): Promise<N
 }
 
 /**
- * Shows a notification through the system while Independum is not in front, when the user turned
- * them on, and brings Independum to the front when the user clicks it. A newer one with the same
- * tag takes the place of an older one.
+ * Shows a notification through the system, when the user turned them on, about something that the
+ * user does not see: it is not in view, or Independum is not in front. A click brings Independum to
+ * the front and opens what it is about. A newer one with the same tag takes the place of an older
+ * one.
  */
-export function notify(title: string, body: string, tag: string): void {
+export function notify(
+  title: string,
+  body: string,
+  tag: string,
+  isInView: boolean,
+  onOpen: () => void,
+): void {
   if (readNotificationChoice() !== "on") {
     return;
   }
-  if (document.visibilityState === "visible" && document.hasFocus()) {
+  if (isInView && document.visibilityState === "visible" && document.hasFocus()) {
     return;
   }
   try {
     const notice = new Notification(title, { body, tag });
     notice.addEventListener("click", () => {
       window.focus();
+      onOpen();
       notice.close();
     });
   } catch {

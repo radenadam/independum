@@ -28,6 +28,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       [
         { type: "state", state: chat.getState() },
         { type: "projects", projects },
+        { type: "replyingChats", ids: chat.getReplyingIds() },
       ],
       chat.subscribe,
       () => false,

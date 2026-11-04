@@ -6,7 +6,7 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The maintainer agreed to these, and they come in this order, one small change at a time.
 
-- An evaluation of the build so far with the maintainer, now that Shell, Read, Write, and Edit are done, before any other work starts. See the Evaluation section of `AGENTS.md`.
+- An evaluation of the build so far with the maintainer, now that Shell, Read, Write, and Edit are done, before any other work starts. See the Evaluation section of `AGENTS.md`. It also compares Independum, workflow by workflow, with how a power user works with agent CLIs in tabs of a terminal, such as several agents at once, queue and steer, and questions from the model, and lists every gap, because the evaluation kept finding gaps one at a time.
 - Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
 
 ## Next
