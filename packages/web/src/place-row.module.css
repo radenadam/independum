@@ -1,27 +1,28 @@
 /*
-  A row runs from edge to edge of its place, with a line under it. Its text keeps the inset of the
-  place, so a row inside a frame lines up with the text outside it.
+  A row is a tile like the toggle of a disclosure, so what opens and what unfolds look the same. Its
+  number sits before its text, where a tool card shows its icon.
 */
 .row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  composes: toggle from "./disclosure.module.css";
   width: 100%;
-  min-height: 42px;
-  padding: 8px var(--inset, 18px);
-  border-bottom: 1px solid var(--line);
+  padding: 7px 12px;
   color: var(--muted);
-  font-size: 14px;
   text-align: left;
 }
 
-.row:hover,
 .row[data-lit="true"] {
   background: var(--raised);
 }
 
 .row[aria-current="true"] {
   background: var(--signal-soft);
+}
+
+.number {
+  flex: none;
+  width: 16px;
+  font: 12px var(--font-mono);
+  text-align: right;
 }
 
 .text {
@@ -38,25 +39,12 @@
   gap: 8px;
   min-width: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .source {
   flex: none;
   font-weight: 500;
-}
-
-.tag {
-  flex: none;
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--raised);
-  font-size: 11.5px;
-}
-
-.tag[data-marked="true"] {
-  background: var(--signal-soft);
-  color: var(--signal);
 }
 
 .amount {

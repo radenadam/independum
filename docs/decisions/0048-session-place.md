@@ -11,11 +11,12 @@ The Agent place showed every text at full length, so it grew to thousands of pix
 
 - One place, Session, replaces the Agent place and the Context place.
 - Its overview holds, from the top:
-  - The model with its thinking effort, and the folder, read from the left.
-  - How full the context window is.
-  - The last request, in groups in the order a model reads them: its instructions, its tools, and its messages. Inside a key of the request, the parts keep the order Independum sent them in, and separate keys follow the order a model reads them, because the order of keys means nothing to a provider. Each part names who put it there in words: You, Model, Tool, Independum, Pi, or Other. A bar above the list shows what fills the request, every part in the same gray, and pointing at a part lights it up in the bar and in the list. The provider counts the whole request, and each part shows its share of that count, estimated from its length.
+  - The model with its thinking effort, the folder, and the chat id, read from the left.
   - The use of tokens and cost of the last reply beside that of the whole chat, each row named for what it counts, such as input from the cache. Info tips wait until Independum turns to people who are new to agents, together with docs and other help.
-  - Rows that open the texts of Pi, the saved entries, and the raw request.
+  - How full the context window is.
+  - The context, which is the last request, in groups in the order a model reads them: its instructions, its tools, and its messages. Inside a key of the request, the parts keep the order Independum sent them in, and separate keys follow the order a model reads them, because the order of keys means nothing to a provider. Each part names who put it there in words: You, Model, Tool, Independum, Pi, or Other. A bar above the list shows what fills the request, every part in the same gray, and pointing at a part lights it up in the bar and in the list. The provider counts the whole request, and each part shows its share of that count, estimated from its length.
+  - The request history, which opens each request with what came in, what came out, and its use, and the newest one exactly as it was sent.
+- The overview is built from the pieces of the tool cards. The context is its only card, so the border wraps exactly what the model reads, and the facts about the session sit around it in plain sections. Each part is a tile, like the Parameters of a tool, and a message carries its number before its text, where a tool card shows its icon. The maintainer chose this from four styles on a clickable page, because the tool cards felt proportionate in their spacing, type, and separation.
 - A part opens its detail, such as the system prompt with its edit actions, or every tool in a card. A narrow panel shows the detail in place of the overview, with a way back. A panel 720 pixels or wider shows it beside the overview, where both columns fit.
 - A part that the user changed says so with the word edited, never with an icon, because a pencil reads as the action that edits.
 - What runs now, such as a background command or an agent, does not show here. It belongs where the user looks at the chat, such as the sidebar or the message box. Commands keep their own place.

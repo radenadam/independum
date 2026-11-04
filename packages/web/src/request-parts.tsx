@@ -1,5 +1,6 @@
 import type { PartLink, PartSource, RequestGroup, RequestPart } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useState } from "react";
+import type { BadgeProps } from "./badge.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import styles from "./request-parts.module.css";
 
@@ -17,8 +18,7 @@ interface ShownPart {
   tokens: number;
   link: ShownLink;
   number?: number;
-  tag?: string | undefined;
-  isTagMarked?: boolean;
+  badge?: BadgeProps | undefined;
 }
 
 /** Properties of the parts of a request. */
@@ -108,54 +108,49 @@ export function RequestParts({
           );
         })}
       </div>
-      <div className={styles.list}>
-        {shown.map((part, index) => {
-          const heading =
-            shown[index - 1]?.group === part.group ? null : (
-              <p key={`${part.key}-heading`} className={styles.heading}>
-                {groupNames[part.group]}
-              </p>
-            );
-          if (hidden.includes(part)) {
-            return part === hidden[0]
-              ? [
-                  heading,
-                  <PlaceRow
-                    key="earlier"
-                    label={`Show the ${earlierLabel}`}
-                    amount={amountOf(hiddenTokens)}
-                    onOpen={() => setIsAllShown(true)}
-                  />,
-                ]
-              : null;
-          }
-          const fold =
-            isAllShown && part === earlier[0] ? (
+      {runsOf(shown).map((run) => (
+        <div key={run[0]?.key} className={styles.group}>
+          <p className={styles.heading}>{groupNames[run[0]?.group ?? "messages"]}</p>
+          {run.map((part) => {
+            if (hidden.includes(part)) {
+              return part === hidden[0] ? (
+                <PlaceRow
+                  key="earlier"
+                  label={`Show the ${earlierLabel}`}
+                  number={null}
+                  amount={amountOf(hiddenTokens)}
+                  onOpen={() => setIsAllShown(true)}
+                />
+              ) : null;
+            }
+            const fold =
+              isAllShown && part === earlier[0] ? (
+                <PlaceRow
+                  key="fold"
+                  label={`Hide the ${earlierLabel}`}
+                  number={null}
+                  onOpen={() => setIsAllShown(false)}
+                />
+              ) : null;
+            return [
+              fold,
               <PlaceRow
-                key="fold"
-                label={`Hide the ${earlierLabel}`}
-                onOpen={() => setIsAllShown(false)}
-              />
-            ) : null;
-          return [
-            heading,
-            fold,
-            <PlaceRow
-              key={part.key}
-              source={sourceNames[part.source]}
-              label={part.number === undefined ? part.label : `${part.number}. ${part.label}`}
-              glance={part.preview}
-              tag={part.tag}
-              isTagMarked={part.isTagMarked ?? false}
-              amount={amountOf(part.tokens)}
-              isCurrent={current === part.key}
-              isLit={lit === part.key}
-              onOpen={() => open(part)}
-              onPoint={(isPointed) => setLit(isPointed ? part.key : undefined)}
-            />,
-          ];
-        })}
-      </div>
+                key={part.key}
+                label={part.label}
+                number={part.number}
+                source={sourceNames[part.source]}
+                glance={part.preview}
+                badge={part.badge}
+                amount={amountOf(part.tokens)}
+                isCurrent={current === part.key}
+                isLit={lit === part.key}
+                onOpen={() => open(part)}
+                onPoint={(isPointed) => setLit(isPointed ? part.key : undefined)}
+              />,
+            ];
+          })}
+        </div>
+      ))}
     </div>
   );
 
@@ -196,17 +191,30 @@ function shownPartsOf(
       tokens: part.tokens,
       link: isTool ? { kind: "tools" } : part.link,
       ...(part.group === "messages" ? { number: messageNumber } : {}),
-      tag: isTool
+      badge: isTool
         ? changedTools > 0
-          ? `${changedTools} edited`
+          ? { label: `${changedTools} edited`, tone: "quiet" }
           : undefined
         : isPrompt
           ? isSystemPromptEdited
-            ? "edited"
-            : "built-in"
+            ? { label: "edited", tone: "quiet" }
+            : { label: "built-in", tone: "signal" }
           : undefined,
-      isTagMarked: (isTool && changedTools > 0) || (isPrompt && isSystemPromptEdited),
     });
   }
   return shown;
+}
+
+// Parts of the same group that follow each other show under one label.
+function runsOf(shown: ShownPart[]): ShownPart[][] {
+  const runs: ShownPart[][] = [];
+  for (const part of shown) {
+    const run = runs.at(-1);
+    if (run?.[0]?.group === part.group) {
+      run.push(part);
+    } else {
+      runs.push([part]);
+    }
+  }
+  return runs;
 }

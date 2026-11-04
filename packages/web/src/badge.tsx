@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import styles from "./badge.module.css";
 
 /** Properties of a badge. */
-interface BadgeProps {
+export interface BadgeProps {
   label: string;
   tone: "signal" | "quiet";
 }

@@ -160,6 +160,7 @@ To review a Pi update with the maintainer:
 - On the working screen, actions are icons in an `IconButton`, whose tooltip shows the action and its shortcut. Shortcuts live in `packages/web/src/shortcut.ts` and use Ctrl, or Cmd on a Mac, so they work while the user types.
 - On the welcome screen, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too.
 - Action labels use sentence case. The top bar of the welcome screen uses lowercase.
+- A place is built from the pieces of the tool cards: `PlaceFrame` around it, a `PlaceSection` with a small heading for each fact, a card for one whole that holds parts, such as a tool or the context, and tiles for what opens or unfolds, which are `PlaceRow` and `Disclosure`. A list never runs from edge to edge with lines between its rows.
 - Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its tables of shapes and motion.
 - Tooltips come from `IconButton` or `useTooltip`, never from a `title` attribute, because the browser then draws its own box beside ours. `pnpm check` enforces it through `scripts/check-markup.ts`.
 - Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`.

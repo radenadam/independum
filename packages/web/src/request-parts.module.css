@@ -1,7 +1,7 @@
 .parts {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* Every part of the bar is the same gray, so only its place and its size tell it apart. */
@@ -9,7 +9,6 @@
   display: flex;
   gap: 1px;
   height: 16px;
-  margin: 0 var(--inset, 18px);
   border-radius: 5px;
   overflow: clip;
 }
@@ -24,15 +23,15 @@
   background: var(--signal);
 }
 
-.list {
+/* A group sits under its label like a setting of a tool card, with its parts as tiles. */
+.group {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--line);
+  gap: 6px;
 }
 
 .heading {
   margin: 0;
-  padding: 12px var(--inset, 18px) 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }

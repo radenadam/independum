@@ -64,13 +64,11 @@
   rotate: 180deg;
 }
 
-/* The model and the folder read from the left, in two lines. */
+/* The model, the folder, and the chat id read from the left, one to a line. */
 .who {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 16px 18px 14px;
-  border-bottom: 1px solid var(--line);
 }
 
 .model,
@@ -84,29 +82,12 @@
 
 .model b {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .line {
   color: var(--muted);
   font: 12.5px var(--font-mono);
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px 6px;
-}
-
-.heading {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 12.5px;
-  font-weight: 400;
 }
 
 .window {
@@ -132,53 +113,28 @@
   font-family: var(--font-sans);
 }
 
-/* The request that the model reads sits in a frame of its own, apart from the rest of the session. */
+/*
+  The context is the only card of the overview, like a tool card, so its border wraps exactly what
+  the model reads, and the facts about the session around it sit in plain sections.
+*/
 .request {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  --inset: 9px;
-
-  margin: 14px 8px 6px;
-  padding-top: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface);
-  overflow: clip;
+  composes: card from "./tool-card.module.css";
 }
 
-.request > .heading {
-  padding: 0 var(--inset);
-}
-
-.basis {
-  margin: -4px 0 0;
-  padding: 0 var(--inset);
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.request > p {
-  padding: 0 var(--inset) 12px;
-}
-
-.more {
-  display: flex;
-  flex-direction: column;
-  margin-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-/* The rows of a detail run from edge to edge of its frame. */
-.flush {
-  margin: 0 -18px;
-  border-top: 1px solid var(--line);
-}
-
-.change {
+.name {
+  composes: name from "./tool-card.module.css";
   margin: 0;
-  padding: 6px 18px;
-  border-bottom: 1px solid var(--line);
+}
+
+.tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* A change of settings sits right above the request it led to. */
+.change {
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13px;
 }
