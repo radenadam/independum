@@ -77,12 +77,13 @@ test("a request reads as its instructions, tools, and messages, each in the orde
     "tools independum Read",
     "messages you Message",
     "messages model Reply",
+    "messages model Calls Read",
     "messages tool Result of Read",
     "messages independum Note",
   ]);
 });
 
-test("a reply split into items, such as its text and its tool calls, reads as one part", () => {
+test("a reply sent as its text and its tool calls apart reads as a reply and its calls", () => {
   const request = {
     instructions: `${prompt}\n${added}`,
     input: [
@@ -111,6 +112,7 @@ test("a reply split into items, such as its text and its tool calls, reads as on
     "tools independum Read",
     "messages you Message",
     "messages model Reply",
+    "messages model Calls Read",
     "messages tool Result of Read",
   ]);
 });
@@ -232,7 +234,7 @@ test("a short message matches, shows as it was sent, and nothing sent goes missi
     entries: [{ id: "e1", message: { role: "user", content: "hello" } }],
   };
   const sent = { role: "user", content: [{ type: "input_text", text: "hello" }] };
-  const unknown = { role: "system", content: [], effort: "medium" };
+  const unknown = { role: "system", content: [], note: "a remark" };
   const parts = summarizeRequest({ instructions: prompt, input: [sent, unknown] }, short);
   expect(parts.map((part) => `${part.group} ${part.source} ${part.label} ${part.preview}`)).toEqual(
     [
@@ -242,4 +244,12 @@ test("a short message matches, shows as it was sent, and nothing sent goes missi
     ],
   );
   expect(parts[1]?.text).toBe(JSON.stringify(sent, null, 2));
+});
+
+test("a message that holds only a thinking level reads as the effort that Pi sends", () => {
+  const effort = { role: "system", content: [], settings: { effort: "xhigh" } };
+  expect(partsOf({ instructions: prompt, messages: [effort] })).toEqual([
+    "instructions independum System prompt",
+    "instructions pi Thinking effort",
+  ]);
 });
