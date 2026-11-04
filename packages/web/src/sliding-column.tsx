@@ -43,7 +43,7 @@ export function SlidingColumn({
   const handle = isOpen ? (
     <div className={styles.edge}>
       <ColumnHandle
-        edge={edge}
+        column={edge}
         width={width}
         onResizing={setIsResizing}
         onResize={(next, isDone) => {
