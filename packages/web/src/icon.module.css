@@ -212,11 +212,18 @@
   transform-origin: 21.5px 5.5px;
 }
 
-/* The lens of Check command tilts on its center, so its handle swings down and back. */
+/* The lens of Check command swings on the end of its handle, which stays put. */
 .tilt {
-  --turn: 25deg;
+  --turn: 20deg;
 
-  transform-origin: 17px 17px;
+  transform-origin: 22px 22px;
+}
+
+/* The short line of Session grows to the length of the long one. */
+.growLine {
+  --stretch-x: 1.67;
+
+  transform-origin: 7px 13px;
 }
 
 .blink {

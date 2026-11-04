@@ -26,4 +26,4 @@ The Agent place showed every text at full length, so it grew to thousands of pix
 - The glossary gains Session, and Agent and Context point to it.
 - The side panel can grow to 960 pixels instead of 640, so the detail fits beside the overview and a wide place, such as a browser later, has room. The chat keeps the readable width that decision 0018 gives it.
 - [Decision 0026](0026-context-place.md) is superseded, and the decisions that describe the Agent place or the Context place are amended by this one.
-- The tab of the place uses the icon of Agent until the Agent tool, which lets agents work together across chats, takes that name and gets a place of its own.
+- The tab of the place has an icon of its own: the box of Shell with two lines of text.
