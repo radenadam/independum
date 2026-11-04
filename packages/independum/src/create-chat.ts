@@ -779,6 +779,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       model: model?.id ?? null,
       contextWindow: usage?.contextWindow ?? null,
       contextTokens: usage?.tokens ?? null,
+      compactionReserve:
+        session?.settingsManager.getCompactionEnabled() === true
+          ? session.settingsManager.getCompactionReserveTokens(model)
+          : null,
       tokens: {
         input: stats?.tokens.input ?? 0,
         output: stats?.tokens.output ?? 0,

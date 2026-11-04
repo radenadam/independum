@@ -25,7 +25,6 @@ import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
 import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
 import { describeThinking } from "./describe-thinking.ts";
-import { describeUsage, usageRatio } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
 import { ModelDetail } from "./model-detail.tsx";
@@ -266,13 +265,6 @@ function Overview({
           </PlaceNote>
         </PlaceSection>
       )}
-      <PlaceSection heading="Context window">
-        <div
-          className={styles.window}
-          style={{ "--ratio": usageRatio(context) } as CSSProperties}
-        />
-        <PlaceNote>{describeUsage(context)}</PlaceNote>
-      </PlaceSection>
       <section className={styles.request}>
         <h3 className={styles.name}>Context</h3>
         <PlaceNote>{basisOf(context)}</PlaceNote>
@@ -282,6 +274,8 @@ function Overview({
           <RequestParts
             parts={context.requestParts}
             total={total}
+            windowSize={context.contextWindow}
+            reserve={context.compactionReserve}
             changedTools={changedTools}
             isSystemPromptEdited={settings.isEditedGroup("System prompt")}
             current={current}

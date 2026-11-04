@@ -395,6 +395,8 @@ export interface ContextSummary {
   model: string | null;
   contextWindow: number | null;
   contextTokens: number | null;
+  // Pi compacts the chat before a request would fill this much of the window, or never when it is null.
+  compactionReserve: number | null;
   tokens: TokenCounts;
   cost: number;
   lastUse: { tokens: TokenCounts; cost: number } | null;
