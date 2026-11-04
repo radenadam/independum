@@ -33,18 +33,12 @@
   color: var(--ink);
 }
 
-/* The second line names who it comes from, then the start of what it holds. */
+/* The second line, when a row has one, says more about it, such as when a request went out. */
 .glance {
   display: flex;
-  gap: 8px;
   min-width: 0;
   color: var(--muted);
   font-size: 12.5px;
-}
-
-.source {
-  flex: none;
-  font-weight: 500;
 }
 
 .amount {

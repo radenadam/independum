@@ -53,9 +53,9 @@ test("each reply is one request, with what came in before it and the settings ch
         { kind: "effort", effort: "high" },
       ],
       inputs: [
-        { source: "you", label: "Message", preview: "Read the notes, please.", entryId: "3" },
+        { source: "you", label: "You wrote", preview: "Read the notes, please.", entryId: "3" },
       ],
-      reply: { label: "Calls Read" },
+      reply: { label: "Model called Read" },
       tokens: { input: 10, output: 5, reasoning: 2, cacheRead: 100, cacheWrite: 0 },
       cost: 0.001,
     },
@@ -63,10 +63,15 @@ test("each reply is one request, with what came in before it and the settings ch
       id: "7",
       changes: [],
       inputs: [
-        { source: "tool", label: "Result of Read", entryId: "5" },
-        { source: "independum", label: "Note", preview: "Command 1 ended.", entryId: "6" },
+        { source: "tool", label: "Read returned", entryId: "5" },
+        {
+          source: "independum",
+          label: "Independum noted",
+          preview: "Command 1 ended.",
+          entryId: "6",
+        },
       ],
-      reply: { label: "Reply", preview: "The notes say hello." },
+      reply: { label: "Model replied", preview: "The notes say hello." },
     },
   ]);
 });
