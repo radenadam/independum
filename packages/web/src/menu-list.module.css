@@ -1,7 +1,20 @@
+/*
+  The scrollbar reaches into the padding around the list, so the choices span the width of the field
+  above them. It is as wide as the padding of a pop-up, the narrowest padding that holds a list.
+*/
 .list {
   flex: 1;
   min-height: 0;
+  margin-right: calc(-1 * var(--gutter, 0px));
   overflow-y: auto;
+}
+
+.list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  border-width: 2px;
 }
 
 /* The name of a group stays at the top while its choices scroll under it, so each one shows whose it is. */
