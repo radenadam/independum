@@ -1,6 +1,6 @@
 import type { TokenCounts } from "independum/api-types";
-import { type CSSProperties, Fragment, type ReactElement } from "react";
-import styles from "./usage-table.module.css";
+import type { ReactElement } from "react";
+import { FactTable } from "./fact-table.tsx";
 
 /** The tokens and the cost of one request or of several, or nothing yet. */
 type Use = { tokens: TokenCounts; cost: number } | null;
@@ -11,8 +11,8 @@ interface UsageTableProps {
 }
 
 const numberFormat = new Intl.NumberFormat();
-// Each row says in its name what it counts, such as input that the cache did not hold.
-const rows: { key: keyof TokenCounts; name: string; isPart?: boolean }[] = [
+/** The rows of tokens, each named for what it counts, such as input that the cache did not hold. */
+export const tokenRows: { key: keyof TokenCounts; name: string; isPart?: boolean }[] = [
   { key: "input", name: "Input, fresh" },
   { key: "cacheRead", name: "Input, from cache" },
   { key: "cacheWrite", name: "Written to cache" },
@@ -26,32 +26,24 @@ const rows: { key: keyof TokenCounts; name: string; isPart?: boolean }[] = [
  */
 export function UsageTable({ columns }: UsageTableProps): ReactElement {
   return (
-    <div className={styles.table} style={{ "--columns": columns.length } as CSSProperties}>
-      <span />
-      {columns.map((column) => (
-        <span key={column.name} className={styles.column}>
-          {column.name}
-        </span>
-      ))}
-      {rows.map((row) => (
-        <Fragment key={row.key}>
-          <span className={styles.name} data-part={row.isPart === true}>
-            {row.name}
-          </span>
-          {columns.map((column) => (
-            <span key={column.name} className={styles.number}>
-              {column.use === null ? "None yet" : numberFormat.format(column.use.tokens[row.key])}
-            </span>
-          ))}
-        </Fragment>
-      ))}
-      <span className={styles.name}>Cost</span>
-      {columns.map((column) => (
-        <span key={column.name} className={styles.number}>
-          {column.use === null ? "None yet" : costOf(column.use.cost)}
-        </span>
-      ))}
-    </div>
+    <FactTable
+      columns={columns.map((column) => column.name)}
+      rows={[
+        ...tokenRows.map((row) => ({
+          name: row.name,
+          isPart: row.isPart,
+          values: columns.map((column) =>
+            column.use === null ? "None yet" : numberFormat.format(column.use.tokens[row.key]),
+          ),
+        })),
+        {
+          name: "Cost",
+          values: columns.map((column) =>
+            column.use === null ? "None yet" : costOf(column.use.cost),
+          ),
+        },
+      ]}
+    />
   );
 }
 

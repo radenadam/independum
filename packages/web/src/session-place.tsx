@@ -20,6 +20,7 @@ import {
   SystemPromptDetail,
   ToolsDetail,
 } from "./agent-details.tsx";
+import { ChatDetail } from "./chat-detail.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
 import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
@@ -28,6 +29,7 @@ import { describeUsage, usageRatio } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { ModelDetail } from "./model-detail.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
@@ -46,11 +48,19 @@ interface SessionPlaceProps {
   context: ContextSummary | undefined;
 }
 
-/** What opens from a session: a part of its request, its history, or one request of it. */
+/**
+ * What opens from a session: a part of its request, its history, one request of it, its model, or
+ * its chat.
+ */
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "history" } | { kind: "request"; id: string };
+  link:
+    | ShownLink
+    | { kind: "history" }
+    | { kind: "request"; id: string }
+    | { kind: "model" }
+    | { kind: "chat" };
   text: string;
 }
 
@@ -292,6 +302,20 @@ function Overview({
           }
         />
       </PlaceSection>
+      <PlaceSection heading="Model">
+        <PlaceRow
+          label="Limits, prices, and where requests go"
+          isCurrent={current === "model"}
+          onOpen={() => onOpen({ key: "model", title: "Model", link: { kind: "model" }, text: "" })}
+        />
+      </PlaceSection>
+      <PlaceSection heading="Chat">
+        <PlaceRow
+          label="When it started, and where it is saved"
+          isCurrent={current === "chat"}
+          onOpen={() => onOpen({ key: "chat", title: "Chat", link: { kind: "chat" }, text: "" })}
+        />
+      </PlaceSection>
     </PlaceFrame>
   );
 }
@@ -365,6 +389,16 @@ function Detail({ view, context, models, settings, onOpen }: DetailProps): React
       );
     case "history":
       return <History context={context} models={models} onOpen={onOpen} />;
+    case "model":
+      return (
+        <ModelDetail
+          model={models?.find(
+            (each) => each.providerId === context?.provider && each.id === context?.model,
+          )}
+        />
+      );
+    case "chat":
+      return <ChatDetail context={context} />;
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (
