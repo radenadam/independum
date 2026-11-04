@@ -246,9 +246,10 @@ test("a short message matches, shows as it was sent, and nothing sent goes missi
   expect(parts[1]?.text).toBe(JSON.stringify(sent, null, 2));
 });
 
-test("a message that holds only a thinking level reads as the effort that Pi sends", () => {
+test("a thinking level among the messages reads as the effort that Pi sends, but a setting stays out", () => {
   const effort = { role: "system", content: [], settings: { effort: "xhigh" } };
-  expect(partsOf({ instructions: prompt, messages: [effort] })).toEqual([
+  const setting = { effort: "medium", summary: "auto" };
+  expect(partsOf({ instructions: prompt, reasoning: setting, messages: [effort] })).toEqual([
     "instructions independum System prompt",
     "instructions pi Thinking effort",
   ]);
