@@ -76,7 +76,7 @@ Decision 0024 records why icons move and where the line falls.
 - An icon moves only when something is about to happen to what it stands for, and the motion acts out that action.
 - A part of an icon moves once, there and back, when its button is pointed at or reached with the keyboard, and a tap on a touch screen plays it too. The search lens moves when its field takes the focus.
 - A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open.
-- Provider logos and the raven never move on hover. A logo is the mark of another company, and the raven only breathes while the model thinks.
+- Provider logos never move on hover, because a logo is the mark of another company. The raven moves only beside thinking: it tilts its head toward the user and back while the model thinks, and it turns to face forward while its row is pointed at. See decision 0049.
 - A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion.
 - `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes.
 

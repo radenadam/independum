@@ -1,6 +1,6 @@
 # Steps in a reply
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the saved times in the Session place
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the saved times in the Session place, and by [decision 0049](0049-turning-raven.md), which tilts the mark beside thinking
 - Date: 2026-10-27
 
 ## Context
