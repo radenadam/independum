@@ -1,10 +1,13 @@
-import type { ContextSummary, TokenCounts } from "independum/api-types";
-import { Fragment, type ReactElement } from "react";
+import type { TokenCounts } from "independum/api-types";
+import { type CSSProperties, Fragment, type ReactElement } from "react";
 import styles from "./usage-table.module.css";
+
+/** The tokens and the cost of one request or of several, or nothing yet. */
+type Use = { tokens: TokenCounts; cost: number } | null;
 
 /** Properties of the usage table. */
 interface UsageTableProps {
-  context: ContextSummary;
+  columns: { name: string; use: Use }[];
 }
 
 const numberFormat = new Intl.NumberFormat();
@@ -18,42 +21,42 @@ const rows: { key: keyof TokenCounts; name: string; isPart?: boolean }[] = [
 ];
 
 /**
- * Draws the tokens and the cost of the last reply beside those of the whole chat, each with what it
- * counts, and how many messages the chat holds.
+ * Draws the tokens and the cost of each column side by side, such as the last reply beside the
+ * whole chat, each row named for what it counts.
  */
-export function UsageTable({ context }: UsageTableProps): ReactElement {
-  const last = context.lastUse;
+export function UsageTable({ columns }: UsageTableProps): ReactElement {
   return (
-    <div className={styles.usage}>
-      <div className={styles.table}>
-        <span />
-        <span className={styles.column}>Last reply</span>
-        <span className={styles.column}>Whole chat</span>
-        {rows.map((row) => (
-          <Fragment key={row.key}>
-            <span className={styles.name} data-part={row.isPart === true}>
-              {row.name}
+    <div className={styles.table} style={{ "--columns": columns.length } as CSSProperties}>
+      <span />
+      {columns.map((column) => (
+        <span key={column.name} className={styles.column}>
+          {column.name}
+        </span>
+      ))}
+      {rows.map((row) => (
+        <Fragment key={row.key}>
+          <span className={styles.name} data-part={row.isPart === true}>
+            {row.name}
+          </span>
+          {columns.map((column) => (
+            <span key={column.name} className={styles.number}>
+              {column.use === null ? "None yet" : numberFormat.format(column.use.tokens[row.key])}
             </span>
-            <span className={styles.number}>
-              {last === null ? "None yet" : numberFormat.format(last.tokens[row.key])}
-            </span>
-            <span className={styles.number}>{numberFormat.format(context.tokens[row.key])}</span>
-          </Fragment>
-        ))}
-        <span className={styles.name}>Cost</span>
-        <span className={styles.number}>{last === null ? "None yet" : costOf(last.cost)}</span>
-        <span className={styles.number}>{costOf(context.cost)}</span>
-      </div>
-      <p className={styles.counts}>
-        {countOf(context.userMessages, "message", "messages")} from you,{" "}
-        {countOf(context.assistantMessages, "reply", "replies")},{" "}
-        {countOf(context.toolCalls, "tool call", "tool calls")}
-      </p>
+          ))}
+        </Fragment>
+      ))}
+      <span className={styles.name}>Cost</span>
+      {columns.map((column) => (
+        <span key={column.name} className={styles.number}>
+          {column.use === null ? "None yet" : costOf(column.use.cost)}
+        </span>
+      ))}
     </div>
   );
 }
 
-function countOf(count: number, one: string, many: string): string {
+/** Returns a count with the word for one or for many, such as 1 reply or 3 replies. */
+export function countOf(count: number, one: string, many: string): string {
   return `${numberFormat.format(count)} ${count === 1 ? one : many}`;
 }
 

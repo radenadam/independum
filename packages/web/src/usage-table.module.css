@@ -1,12 +1,6 @@
-.usage {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
 .table {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr repeat(var(--columns), auto);
   gap: 7px 18px;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
@@ -35,10 +29,4 @@
 
 .number {
   text-align: right;
-}
-
-.counts {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
 }

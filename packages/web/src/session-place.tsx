@@ -1,4 +1,4 @@
-import type { ChatState, ContextSummary, ModelSummary } from "independum/api-types";
+import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
 import {
   AddedByPiDetail,
@@ -17,10 +17,10 @@ import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
-import { RequestParts, type ShownLink } from "./request-parts.tsx";
+import { RequestParts, type ShownLink, sourceNames } from "./request-parts.tsx";
 import styles from "./session-place.module.css";
 import { TextDialog } from "./text-dialog.tsx";
-import { UsageTable } from "./usage-table.tsx";
+import { countOf, UsageTable } from "./usage-table.tsx";
 import { type AgentSettings, useAgentSettings } from "./use-agent-settings.ts";
 
 /** Properties of the Session place. */
@@ -30,26 +30,27 @@ interface SessionPlaceProps {
   context: ContextSummary | undefined;
 }
 
-/** What opens from the overview of a session: a part of it, with its title. */
+/** What opens from a session: a part of its request, its history, or one request of it. */
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "raw" | "piTexts" | "entries" };
+  link: ShownLink | { kind: "history" } | { kind: "request"; id: string };
   text: string;
 }
 
 // A panel this wide shows the detail beside the overview instead of in its place.
 const splitWidth = 720;
-const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const numberFormat = new Intl.NumberFormat();
 
 /**
- * Draws everything the open chat runs with: its model and folder, how full its context window is,
- * the parts of its last request in the order the model reads them, and its use of tokens. Each part
- * opens to its detail, which edits the texts that the model reads where Independum writes them.
+ * Draws everything the open chat runs with: its model, folder, and id, its use of tokens, how full
+ * its context window is, the request that the model reads, and the history of its requests. Each
+ * part opens to its detail, which edits the texts that the model reads where Independum writes them.
  */
 export function SessionPlace({ chat, models, context }: SessionPlaceProps): ReactElement {
   const settings = useAgentSettings(chat);
-  const [view, setView] = useState<View | undefined>();
+  const [path, setPath] = useState<View[]>([]);
   const frame = useRef<HTMLDivElement>(null);
   const [isSplit, setIsSplit] = useState(false);
 
@@ -63,30 +64,41 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
     return () => observer.disconnect();
   }, []);
 
+  const view = path.at(-1);
+  const parent = path.at(-2);
   const overview = (
     <Overview
       chat={chat}
       models={models}
       context={context}
       settings={settings}
-      current={view?.key}
-      onOpen={setView}
+      current={path[0]?.key}
+      onOpen={(next) => setPath([next])}
     />
   );
+  // The trail names only where back goes, because the detail names itself.
   const detail =
     view === undefined ? undefined : (
       <div className={styles.detail}>
-        <nav className={styles.trail} aria-label="Where this detail sits">
-          {isSplit ? null : (
-            <button type="button" className={styles.back} onClick={() => setView(undefined)}>
+        {isSplit && parent === undefined ? null : (
+          <nav className={styles.trail} aria-label="Back">
+            <button
+              type="button"
+              className={styles.back}
+              onClick={() => setPath(path.slice(0, -1))}
+            >
               <Icon name="expand" size={14} />
-              Session
+              {parent?.title ?? "Session"}
             </button>
-          )}
-          <OneLineTitle text={view.title} />
-        </nav>
+          </nav>
+        )}
         <PlaceFrame>
-          <Detail view={view} context={context} settings={settings} />
+          <Detail
+            view={view}
+            context={context}
+            settings={settings}
+            onOpen={(next) => setPath([...path, next])}
+          />
         </PlaceFrame>
       </div>
     );
@@ -141,16 +153,11 @@ function Overview({
   );
   const last = context?.lastUse;
   const total =
-    last === null || last === undefined
-      ? undefined
-      : last.tokens.input + last.tokens.cacheRead + last.tokens.cacheWrite;
+    context?.isNextRequest === false && last !== null && last !== undefined
+      ? last.tokens.input + last.tokens.cacheRead + last.tokens.cacheWrite
+      : undefined;
   const changedTools =
     settings.agent?.tools.filter((tool) => isToolChanged(settings, tool.name)).length ?? 0;
-  const more: { key: string; title: string; link: View["link"] }[] = [
-    { key: "piTexts", title: "Texts of Pi", link: { kind: "piTexts" } },
-    { key: "entries", title: "Saved entries", link: { kind: "entries" } },
-    { key: "raw", title: "Raw request", link: { kind: "raw" } },
-  ];
 
   return (
     <>
@@ -166,11 +173,31 @@ function Overview({
             )}
           </p>
         )}
-        <p className={styles.folder}>
+        <p className={styles.line}>
           <Icon name="folder" size={14} />
           <OneLineTitle text={chat.folder} />
         </p>
+        <p className={styles.line}>
+          <span className={styles.label}>Chat</span>
+          <OneLineTitle text={context?.chatId ?? "Not saved yet"} />
+        </p>
       </header>
+      {context === undefined ? null : (
+        <section className={styles.section}>
+          <h3 className={styles.heading}>Use</h3>
+          <UsageTable
+            columns={[
+              { name: "Last reply", use: context.lastUse },
+              { name: "Whole chat", use: { tokens: context.tokens, cost: context.cost } },
+            ]}
+          />
+          <p className={styles.muted}>
+            {countOf(context.userMessages, "message", "messages")} from you,{" "}
+            {countOf(context.assistantMessages, "reply", "replies")},{" "}
+            {countOf(context.toolCalls, "tool call", "tool calls")}
+          </p>
+        </section>
+      )}
       <section className={styles.section}>
         <h3 className={styles.heading}>Context window</h3>
         <div
@@ -179,29 +206,12 @@ function Overview({
         />
         <p className={styles.muted}>{describeUsage(context)}</p>
       </section>
-      <section className={styles.section} data-flush="true">
-        <h3 className={styles.heading}>Last request</h3>
-        {context === undefined || context.requestParts.length === 0 ? (
-          <div className={styles.empty}>
-            <PlaceNote>No request since this chat opened. The next one shows here.</PlaceNote>
-            <PlaceRow
-              label="System prompt"
-              onOpen={() =>
-                onOpen({
-                  key: "prompt",
-                  title: "System prompt",
-                  link: { kind: "systemPrompt" },
-                  text: "",
-                })
-              }
-            />
-            <PlaceRow
-              label="Tools"
-              onOpen={() =>
-                onOpen({ key: "tools", title: "Tools", link: { kind: "tools" }, text: "" })
-              }
-            />
-          </div>
+      <section className={styles.request}>
+        <h3 className={styles.heading}>
+          {context?.isNextRequest === false ? "Last request" : "Next request"}
+        </h3>
+        {context === undefined ? (
+          <PlaceNote>Loading the request.</PlaceNote>
         ) : (
           <RequestParts
             parts={context.requestParts}
@@ -213,24 +223,21 @@ function Overview({
           />
         )}
       </section>
-      {context === undefined ? null : (
-        <section className={styles.section}>
-          <h3 className={styles.heading}>Use</h3>
-          <UsageTable context={context} />
-        </section>
-      )}
-      <section className={styles.section} data-flush="true">
-        <div className={styles.more}>
-          {more.map((each) => (
-            <PlaceRow
-              key={each.key}
-              label={each.title}
-              isCurrent={current === each.key}
-              onOpen={() => onOpen({ ...each, text: "" })}
-            />
-          ))}
-        </div>
-      </section>
+      <div className={styles.more}>
+        <PlaceRow
+          label="Request history"
+          glance={countOf(context?.requests.length ?? 0, "request", "requests")}
+          isCurrent={current === "history"}
+          onOpen={() =>
+            onOpen({
+              key: "history",
+              title: "Request history",
+              link: { kind: "history" },
+              text: "",
+            })
+          }
+        />
+      </div>
     </>
   );
 }
@@ -240,33 +247,40 @@ interface DetailProps {
   view: View;
   context: ContextSummary | undefined;
   settings: AgentSettings;
+  onOpen: (view: View) => void;
 }
 
-function Detail({ view, context, settings }: DetailProps): ReactElement {
+function Detail({ view, context, settings, onOpen }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
       return <SystemPromptDetail settings={settings} />;
     case "addedByPi":
-      return <AddedByPiDetail settings={settings} />;
+      return (
+        <>
+          <AddedByPiDetail settings={settings} />
+          <PiTextsDetail settings={settings} />
+        </>
+      );
     case "tool":
     case "tools":
       return <ToolsDetail settings={settings} />;
-    case "piTexts":
-      return <PiTextsDetail settings={settings} />;
     case "piText": {
       const text = settings.agent?.piTexts.find((each) => each.id === link.id);
       return (
-        <PlaceSection heading={text?.group ?? view.title} badge="read-only">
-          {text === undefined ? null : <PlaceNote>{text.condition}</PlaceNote>}
-          <CodeWell code={view.text} copyLabel="Copy the text" />
-        </PlaceSection>
+        <>
+          <PlaceSection heading={text?.group ?? view.title} badge="read-only">
+            {text === undefined ? null : <PlaceNote>{text.condition}</PlaceNote>}
+            <CodeWell code={view.text} copyLabel="Copy the text" />
+          </PlaceSection>
+          <PiTextsDetail settings={settings} />
+        </>
       );
     }
     case "entry": {
       const entry = context?.entries.find((each) => each.id === link.id);
       return (
-        <PlaceSection heading="As it was sent">
+        <PlaceSection heading={view.title}>
           <CodeWell code={view.text} copyLabel="Copy the text" />
           {entry === undefined ? null : (
             <Disclosure label="As Pi saved it">
@@ -278,62 +292,125 @@ function Detail({ view, context, settings }: DetailProps): ReactElement {
     }
     case "other":
       return (
-        <PlaceSection heading="As it was sent">
+        <PlaceSection heading={view.title}>
           <PlaceNote>
             Independum does not know this text. The provider or Pi may have added it.
           </PlaceNote>
           <CodeWell code={view.text} copyLabel="Copy the text" />
         </PlaceSection>
       );
-    case "raw":
-      return <RawRequest context={context} />;
-    case "entries":
-      return <SavedEntries context={context} />;
+    case "history":
+      return <History context={context} onOpen={onOpen} />;
+    case "request": {
+      const request = context?.requests.find((each) => each.id === link.id);
+      return request === undefined || context === undefined ? (
+        <PlaceNote>This request is no longer in the chat.</PlaceNote>
+      ) : (
+        <Request title={view.title} request={request} context={context} />
+      );
+    }
     default:
       return <PlaceNote>Nothing to show.</PlaceNote>;
   }
 }
 
-function RawRequest({ context }: { context: ContextSummary | undefined }): ReactElement {
-  if (context?.lastRequest === null || context?.lastRequest === undefined) {
-    return <PlaceNote>No request yet since this chat opened.</PlaceNote>;
-  }
+/** Properties of the history of requests. */
+interface HistoryProps {
+  context: ContextSummary | undefined;
+  onOpen: (view: View) => void;
+}
+
+// The newest request comes first, and a change of settings sits right above the request it led to.
+function History({ context, onOpen }: HistoryProps): ReactElement {
+  const requests = context?.requests ?? [];
   return (
-    <>
-      <CodeWell code={JSON.stringify(context.lastRequest, null, 2)} copyLabel="Copy request" />
-      {context.cacheWarmings === 0 ? null : (
-        <PlaceNote>
-          Pi sent it again {context.cacheWarmings} {context.cacheWarmings === 1 ? "time" : "times"}{" "}
-          with a limit of one output token, to keep the prompt cache of the provider warm.
-        </PlaceNote>
+    <PlaceSection heading="Request history">
+      {requests.length === 0 ? (
+        <PlaceNote>No request yet. Each reply of the model adds one.</PlaceNote>
+      ) : (
+        <div className={styles.flush}>
+          {requests
+            .map((request, index) => ({ request, number: index + 1 }))
+            .toReversed()
+            .map(({ request, number }) => (
+              <div key={request.id}>
+                {request.changes.map((change) => (
+                  <p key={change} className={styles.change}>
+                    {change}
+                  </p>
+                ))}
+                <PlaceRow
+                  label={`${number}. ${request.inputs.at(-1)?.label ?? "Request"}`}
+                  glance={`${timeFormat.format(new Date(request.timestamp))}, ${request.model}, ${numberFormat.format(request.tokens.input + request.tokens.cacheRead + request.tokens.cacheWrite)} in, ${numberFormat.format(request.tokens.output)} out`}
+                  onOpen={() =>
+                    onOpen({
+                      key: `request-${request.id}`,
+                      title: `Request ${number}`,
+                      link: { kind: "request", id: request.id },
+                      text: "",
+                    })
+                  }
+                />
+              </div>
+            ))}
+        </div>
       )}
-    </>
+    </PlaceSection>
   );
 }
 
-function SavedEntries({ context }: { context: ContextSummary | undefined }): ReactElement {
-  if (context === undefined || context.entries.length === 0) {
-    return <PlaceNote>Pi saves the chat with its first message.</PlaceNote>;
-  }
+/** Properties of one request of the history. */
+interface RequestProps {
+  title: string;
+  request: RequestSummary;
+  context: ContextSummary;
+}
+
+// The newest request is the one the chat sent last, so it shows the request exactly as it went.
+function Request({ title, request, context }: RequestProps): ReactElement {
+  const entryOf = (id: string): string =>
+    JSON.stringify(context.entries.find((entry) => entry.id === id)?.data ?? null, null, 2);
+  const isNewest = context.requests.at(-1)?.id === request.id;
   return (
-    <ul className={styles.entries}>
-      {context.entries.map((entry) => (
-        <li key={entry.id}>
-          <Disclosure
-            label={
-              <span className={styles.entry}>
-                <span className={styles.kind}>{entry.role ?? entry.type}</span>
-                <code className={styles.id}>{entry.id}</code>
-                <time className={styles.time} dateTime={entry.timestamp}>
-                  {dateFormat.format(new Date(entry.timestamp))}
-                </time>
-              </span>
-            }
-          >
-            <CodeWell code={JSON.stringify(entry.data, null, 2)} copyLabel="Copy entry" />
+    <>
+      <PlaceSection heading={title}>
+        <PlaceNote>
+          {timeFormat.format(new Date(request.timestamp))}, {request.model}
+        </PlaceNote>
+      </PlaceSection>
+      <PlaceSection heading="What came in">
+        {request.changes.map((change) => (
+          <PlaceNote key={change}>{change}.</PlaceNote>
+        ))}
+        {request.inputs.map((input) => (
+          <Disclosure key={input.entryId} label={`${sourceNames[input.source]}: ${input.label}`}>
+            <CodeWell code={entryOf(input.entryId)} copyLabel="Copy entry" />
           </Disclosure>
-        </li>
-      ))}
-    </ul>
+        ))}
+      </PlaceSection>
+      <PlaceSection heading="What came out">
+        <Disclosure label={`Model: ${request.reply}`}>
+          <CodeWell code={entryOf(request.id)} copyLabel="Copy entry" />
+        </Disclosure>
+      </PlaceSection>
+      <PlaceSection heading="Use">
+        <UsageTable columns={[{ name: request.model, use: request }]} />
+      </PlaceSection>
+      {isNewest && context.lastRequest !== null ? (
+        <PlaceSection heading="Exact request">
+          <CodeWell
+            code={JSON.stringify(context.lastRequest, null, 2)}
+            copyLabel="Copy request"
+            isWhole
+          />
+          {context.cacheWarmings === 0 ? null : (
+            <PlaceNote>
+              Pi sent it again {countOf(context.cacheWarmings, "time", "times")} with a limit of one
+              output token, to keep the prompt cache of the provider warm.
+            </PlaceNote>
+          )}
+        </PlaceSection>
+      ) : null}
+    </>
   );
 }

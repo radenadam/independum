@@ -18,8 +18,9 @@ interface PlaceRowProps {
 }
 
 /**
- * Draws one line of a place that opens what it names, with who it comes from before it, and its
- * tag, its amount, and a chevron after it, so a glance tells what is there and that more is inside.
+ * Draws one row of a place that opens what it names, with who it comes from and its glance under
+ * its name, and its tag, its amount, and a chevron after it, so a glance tells what is there and
+ * that more is inside.
  */
 export function PlaceRow({
   label,
@@ -43,10 +44,11 @@ export function PlaceRow({
       onPointerEnter={() => onPoint?.(true)}
       onPointerLeave={() => onPoint?.(false)}
     >
-      {source === undefined ? null : <span className={styles.source}>{source}</span>}
       <span className={styles.text}>
         <OneLineTitle text={label} />
-        {glance === undefined ? null : <span className={styles.glance}>{glance}</span>}
+        {source === undefined && glance === undefined ? null : (
+          <span className={styles.glance}>{[source, glance].filter(Boolean).join(", ")}</span>
+        )}
       </span>
       {tag === undefined ? null : (
         <span className={styles.tag} data-marked={isTagMarked}>
