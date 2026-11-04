@@ -1,18 +1,38 @@
-.footer {
-  flex: none;
-  padding-top: 6px;
-  border-top: 1px solid var(--line);
+/*
+  The list shows five models and the name of their provider before it scrolls, wherever the menu
+  opens, so it keeps the same size above the message box and below it.
+*/
+.models {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(5 * 38px + 34px);
 }
 
-.logins {
-  width: 100%;
-  height: 36px;
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0 4px;
+}
+
+.note {
+  margin: 0;
   padding: 0 10px;
-  border-radius: 9px;
   color: var(--muted);
   font-size: 13px;
 }
 
-.logins:hover {
+.login {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--signal);
+  font-size: 13px;
+  text-align: left;
+}
+
+.login:hover {
   background: var(--raised);
 }
