@@ -52,6 +52,11 @@
   overflow-y: auto;
 }
 
+/* A place fills the panel, so a place with parts that scroll on their own, such as Session, can. */
+.view {
+  height: 100%;
+}
+
 .newTab {
   display: flex;
   flex-direction: column;

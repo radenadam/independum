@@ -21,10 +21,13 @@ import {
   ToolsDetail,
 } from "./agent-details.tsx";
 import { CodeWell } from "./code-well.tsx";
+import { ColumnHandle } from "./column-handle.tsx";
+import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
 import { describeThinking } from "./describe-thinking.ts";
 import { describeUsage, usageRatio } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
+import { IconButton } from "./icon-button.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
@@ -65,20 +68,37 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
   const settings = useAgentSettings(chat);
   const [path, setPath] = useState<View[]>([]);
   const frame = useRef<HTMLDivElement>(null);
-  const [isSplit, setIsSplit] = useState(false);
+  const [width, setWidth] = useState(0);
+  const [overviewWidth, setOverviewWidth] = useState(() => readColumnWidth("overview"));
+  const overviewElement = useRef<HTMLDivElement>(null);
+  const overviewTop = useRef(0);
 
   useLayoutEffect(() => {
     const element = frame.current;
     if (element === null) {
       return;
     }
-    const observer = new ResizeObserver(() => setIsSplit(element.clientWidth >= splitWidth));
+    const observer = new ResizeObserver(() => setWidth(element.clientWidth));
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
 
   const view = path.at(-1);
   const parent = path.at(-2);
+  // A wide panel shows an open detail beside the overview, and the overview fills the panel again
+  // once the detail closes.
+  const isSplit = width >= splitWidth && view !== undefined;
+  const isOverviewShown = isSplit || view === undefined;
+  const shownOverviewWidth = Math.min(overviewWidth, width - detailWidth);
+
+  // A detail takes the place of the overview in a narrow panel, so the overview comes back scrolled
+  // to where it was.
+  useLayoutEffect(() => {
+    if (isOverviewShown && overviewElement.current !== null) {
+      overviewElement.current.scrollTop = overviewTop.current;
+    }
+  }, [isOverviewShown]);
+
   const overview = (
     <Overview
       chat={chat}
@@ -89,12 +109,13 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
       onOpen={(next) => setPath([next])}
     />
   );
-  // The trail names only where back goes, because the detail names itself.
+  // The trail names only where back goes, because the detail names itself. Beside the overview, a
+  // detail closes instead of going back to it. Each detail opens at its top.
   const detail =
-    view === undefined ? undefined : (
-      <div className={styles.detail}>
-        {isSplit && parent === undefined ? null : (
-          <nav className={styles.trail} aria-label="Back">
+    view === undefined ? null : (
+      <div key={view.key} className={styles.detail} data-detail>
+        <nav className={styles.trail} aria-label="Detail">
+          {isSplit && parent === undefined ? null : (
             <button
               type="button"
               className={styles.back}
@@ -103,8 +124,13 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
               <Icon name="expand" size={14} />
               {parent?.title ?? "Session"}
             </button>
-          </nav>
-        )}
+          )}
+          {isSplit ? (
+            <span className={styles.close}>
+              <IconButton icon="close" label="Close" size="small" onClick={() => setPath([])} />
+            </span>
+          ) : null}
+        </nav>
         <PlaceFrame>
           <Detail
             view={view}
@@ -118,17 +144,38 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
     );
 
   return (
-    <div ref={frame} className={styles.place} data-split={isSplit}>
+    <div
+      ref={frame}
+      className={styles.place}
+      data-split={isSplit}
+      style={{ "--overview-width": `${shownOverviewWidth}px` } as CSSProperties}
+    >
+      {isOverviewShown ? (
+        <div
+          ref={overviewElement}
+          className={styles.overview}
+          onScroll={(event) => {
+            overviewTop.current = event.currentTarget.scrollTop;
+          }}
+        >
+          {overview}
+        </div>
+      ) : null}
       {isSplit ? (
-        <>
-          <div className={styles.overview}>{overview}</div>
-          <div className={styles.side}>
-            {detail ?? <p className={styles.hint}>Open a part of the session to see it here.</p>}
-          </div>
-        </>
-      ) : (
-        (detail ?? <div className={styles.overview}>{overview}</div>)
-      )}
+        <div className={styles.edge}>
+          <ColumnHandle
+            column="overview"
+            width={shownOverviewWidth}
+            onResize={(next, isDone) => {
+              setOverviewWidth(next);
+              if (isDone) {
+                saveColumnWidth("overview", next);
+              }
+            }}
+          />
+        </div>
+      ) : null}
+      {detail}
       {settings.agent === undefined || settings.editing === undefined ? null : (
         <TextDialog
           title={settings.editing}

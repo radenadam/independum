@@ -10,24 +10,18 @@
   overflow-y: auto;
 }
 
-/* A wide panel keeps the overview on the left and shows the detail beside it. */
+/*
+  A wide panel keeps the overview on the left at the width the user gives it, with the detail
+  beside it, and each scrolls on its own.
+*/
 .place[data-split="true"] .overview {
   flex: none;
-  width: 380px;
+  width: var(--overview-width);
   border-right: 1px solid var(--line);
 }
 
-.side {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-}
-
-.hint {
-  margin: 0;
-  padding: 22px 18px;
-  color: var(--muted);
-  font-size: 13px;
+.edge {
+  composes: edge from "./sliding-column.module.css";
 }
 
 .detail {
@@ -36,13 +30,18 @@
   overflow-y: auto;
 }
 
+/* The trail stays at the top while the detail scrolls, so the way back or out is always there. */
 .trail {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 42px;
-  padding: 0 18px;
+  padding: 0 12px 0 18px;
   border-bottom: 1px solid var(--line);
+  background: var(--sidebar);
   color: var(--ink);
   font-weight: 500;
 }
@@ -62,6 +61,10 @@
 
 .back svg {
   rotate: 180deg;
+}
+
+.close {
+  margin-left: auto;
 }
 
 /* The model, the folder, and the chat id read from the left, one to a line. */
