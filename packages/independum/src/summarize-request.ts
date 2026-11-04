@@ -33,6 +33,7 @@ interface KnownMessage {
   texts: string[];
   ids: string[];
   calls?: { label: string; preview: string };
+  tool?: string;
 }
 
 /** A piece of a saved message as an item of a request holds it, such as the calls of a reply. */
@@ -57,6 +58,8 @@ const longestPreview = 200;
 // as the tools that an OpenAI model gets again once one of them changes.
 const changeGroup = "In the chat, after a change";
 const groups: RequestGroup[] = ["instructions", "tools", "messages"];
+// Names in a label read as a sentence, such as Shell and Read.
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 // The thinking levels of Pi, which some requests carry as a message of their own among the messages.
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
@@ -197,7 +200,7 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
           partOf({
             section,
             source: "pi",
-            label: "Tools sent again",
+            label: "Pi sent the tools again",
             link: { kind: "piText", id: update.id },
             content,
             exact,
@@ -298,8 +301,8 @@ function piecesOf(
       {
         id: first.id,
         source: first.source,
-        label: `${matched.length} tool results`,
-        preview: matched.map((each) => each.label).join(", "),
+        label: `${listFormat.format(matched.map((each) => each.tool ?? "a tool"))} returned`,
+        preview: matched.map((each) => each.preview).join(", "),
         content,
         exact,
       },
@@ -325,7 +328,7 @@ function piecesOf(
     };
   };
   return [
-    { ...base, label: "Reply", preview: first.preview, ...piece(texts) },
+    { ...base, label: "Model replied", preview: first.preview, ...piece(texts) },
     { ...calls, ...piece(ids) },
   ];
 }
@@ -382,7 +385,7 @@ function textPartsOf(section: string, content: string, exact: string, known: Kno
         part: partOf({
           section,
           source: "pi",
-          label: "Text of Pi",
+          label: "Added by Pi",
           link: { kind: "piText", id: found.id },
           content: value,
         }),
@@ -480,17 +483,17 @@ function messageOf({ id, message }: { id: string; message: unknown }): KnownMess
       .filter((each) => each.length >= shortestKey),
   };
   const preview = firstLineOf(texts.join("\n"));
-  const callNames = calls.map((call) => call.name ?? "").join(", ");
+  const callNames = listFormat.format(calls.map((call) => call.name ?? ""));
   const toolName =
     "toolName" in message && typeof message.toolName === "string" ? message.toolName : "a tool";
   switch (message.role) {
     case "user":
-      return [{ id, source: "you", label: "Message", preview, ...keys }];
+      return [{ id, source: "you", label: "You wrote", preview, ...keys }];
     case "custom":
-      return [{ id, source: "independum", label: "Note", preview, ...keys }];
+      return [{ id, source: "independum", label: "Independum noted", preview, ...keys }];
     case "assistant": {
       const callPiece = {
-        label: `Calls ${callNames}`,
+        label: `Model called ${callNames}`,
         preview: firstLineOf(calls.flatMap((call) => stringsOf(call.arguments)).join(" ")),
       };
       const isTalking = texts.join("").trim() !== "";
@@ -498,14 +501,16 @@ function messageOf({ id, message }: { id: string; message: unknown }): KnownMess
         {
           id,
           source: "model",
-          ...(isTalking ? { label: "Reply", preview } : callPiece),
+          ...(isTalking ? { label: "Model replied", preview } : callPiece),
           ...keys,
           ...(calls.length > 0 ? { calls: callPiece } : {}),
         },
       ];
     }
     case "toolResult":
-      return [{ id, source: "tool", label: `Result of ${toolName}`, preview, ...keys }];
+      return [
+        { id, source: "tool", label: `${toolName} returned`, preview, tool: toolName, ...keys },
+      ];
     default:
       return [];
   }

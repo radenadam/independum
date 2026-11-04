@@ -1,6 +1,7 @@
-import type { PartLink, PartSource, RequestGroup, RequestPart } from "independum/api-types";
+import type { PartLink, RequestGroup, RequestPart } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useState } from "react";
 import type { BadgeProps } from "./badge.tsx";
+import { describeThinking } from "./describe-thinking.ts";
 import { PlaceRow } from "./place-row.tsx";
 import styles from "./request-parts.module.css";
 
@@ -11,9 +12,7 @@ export type ShownLink = PartLink | { kind: "tools" };
 interface ShownPart {
   key: string;
   group: RequestGroup;
-  source: PartSource;
   label: string;
-  preview: string;
   text: string;
   tokens: number;
   link: ShownLink;
@@ -31,14 +30,6 @@ interface RequestPartsProps {
   onOpen: (key: string, link: ShownLink, part: { label: string; text: string }) => void;
 }
 
-const sourceNames: Record<PartSource, string> = {
-  you: "You",
-  model: "Model",
-  tool: "Tool",
-  independum: "Independum",
-  pi: "Pi",
-  other: "Other",
-};
 const groupNames: Record<RequestGroup, string> = {
   instructions: "Instructions",
   tools: "Tools",
@@ -103,7 +94,7 @@ export function RequestParts({
               className={styles.segment}
               style={{ "--tokens": part.tokens } as CSSProperties}
               data-lit={lit === part.key || current === part.key}
-              aria-label={`${sourceNames[part.source]}, ${part.label}`}
+              aria-label={part.label}
               onClick={() => open(part)}
               onPointerEnter={() => setLit(part.key)}
               onPointerLeave={() => setLit(undefined)}
@@ -143,8 +134,6 @@ export function RequestParts({
                 key={part.key}
                 label={part.label}
                 number={part.number}
-                source={sourceNames[part.source]}
-                glance={part.preview}
                 badge={part.badge}
                 amount={amountOf(part.tokens)}
                 isCurrent={current === part.key}
@@ -172,16 +161,15 @@ function shownPartsOf(
   isSystemPromptEdited: boolean,
 ): ShownPart[] {
   const shown: ShownPart[] = [];
-  let toolNames: string[] = [];
+  let toolCount = 0;
   let messageNumber = 0;
   for (const [index, part] of parts.entries()) {
     const last = shown.at(-1);
     const isTool = part.link.kind === "tool";
-    toolNames = isTool ? [...toolNames, part.label] : [];
+    toolCount = isTool ? toolCount + 1 : 0;
     if (isTool && last?.link.kind === "tools") {
       last.tokens += part.tokens;
-      last.label = `${toolNames.length} tools`;
-      last.preview = toolNames.join(", ");
+      last.label = `${toolCount} tools`;
       continue;
     }
     const isPrompt = part.link.kind === "systemPrompt";
@@ -189,9 +177,7 @@ function shownPartsOf(
     shown.push({
       key: `${index}`,
       group: part.group,
-      source: part.source,
-      label: isTool ? "1 tool" : part.label,
-      preview: isTool ? part.label : part.preview,
+      label: isTool ? "1 tool" : labelOf(part),
       text: part.text,
       tokens: part.tokens,
       link: isTool ? { kind: "tools" } : part.link,
@@ -208,6 +194,14 @@ function shownPartsOf(
     });
   }
   return shown;
+}
+
+// A part says who did what. The effort that Pi sends reads as the level the rest of the UI names,
+// such as extra high.
+function labelOf(part: RequestPart): string {
+  return part.link.kind === "effort"
+    ? `Pi set the effort to ${describeThinking(part.preview).toLowerCase()}`
+    : part.label;
 }
 
 // Parts of the same group that follow each other show under one label.

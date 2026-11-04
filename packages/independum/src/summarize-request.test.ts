@@ -71,15 +71,15 @@ test("a request reads as its instructions, tools, and messages, each in the orde
     tools: [{ name: "Read", description: readDescription, input_schema: { type: "object" } }],
   };
   expect(partsOf(request)).toEqual([
-    "instructions pi Text of Pi",
+    "instructions pi Added by Pi",
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Message",
-    "messages model Reply",
-    "messages model Calls Read",
-    "messages tool Result of Read",
-    "messages independum Note",
+    "messages you You wrote",
+    "messages model Model replied",
+    "messages model Model called Read",
+    "messages tool Read returned",
+    "messages independum Independum noted",
   ]);
 });
 
@@ -110,10 +110,10 @@ test("a reply sent as its text and its tool calls apart reads as a reply and its
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Message",
-    "messages model Reply",
-    "messages model Calls Read",
-    "messages tool Result of Read",
+    "messages you You wrote",
+    "messages model Model replied",
+    "messages model Model called Read",
+    "messages tool Read returned",
   ]);
 });
 test("a request that holds everything in one list keeps its order, with a part for each tool", () => {
@@ -168,9 +168,9 @@ test("a request that holds everything in one list keeps its order, with a part f
     "tools independum Write",
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
-    "messages you Message",
-    "messages model Calls Read",
-    "messages tool Result of Read",
+    "messages you You wrote",
+    "messages model Model called Read",
+    "messages tool Read returned",
   ]);
 });
 // biome-ignore-end lint/style/useNamingConvention: Providers name the keys of a request in snake case.
@@ -197,10 +197,10 @@ test("the next request, before a chat sends one, holds the prompt, the tools, an
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Message",
-    "messages model Reply",
-    "messages tool Result of Read",
-    "messages independum Note",
+    "messages you You wrote",
+    "messages model Model replied",
+    "messages tool Read returned",
+    "messages independum Independum noted",
   ]);
 });
 
@@ -223,8 +223,8 @@ test("a tools update of Pi among the messages reads as one part of Pi, not as to
   };
   expect(partsOf(request)).toEqual([
     "instructions independum System prompt",
-    "messages you Message",
-    "messages pi Tools sent again",
+    "messages you You wrote",
+    "messages pi Pi sent the tools again",
   ]);
 });
 
@@ -239,7 +239,7 @@ test("a short message matches, shows as it was sent, and nothing sent goes missi
   expect(parts.map((part) => `${part.group} ${part.source} ${part.label} ${part.preview}`)).toEqual(
     [
       `instructions independum System prompt ${prompt}`,
-      "messages you Message hello",
+      "messages you You wrote hello",
       "messages other Other text system",
     ],
   );
