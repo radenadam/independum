@@ -85,7 +85,7 @@ Decision 0024 records why icons move and where the line falls.
 | Sidebar | The line slides toward the left edge. |
 | Side panel | The line slides toward the right edge. |
 | New chat | The pencil tilts as if it writes. |
-| Search | The lens tilts. |
+| Search | The lens swings on the end of its handle, which stays put, like the lens of Check command. |
 | Settings | The knobs slide toward each other, and their lines stretch and shrink to meet them. |
 | Folder | The folder opens while its project or its menu is open. |
 | Expand | The chevron nudges the way it points. |
