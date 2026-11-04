@@ -17,7 +17,6 @@ interface Tooltip {
     onFocus: (event: FocusEvent<HTMLElement>) => void;
     onBlur: () => void;
   };
-  toggle: (element: HTMLElement) => void;
   tooltip: ReactNode;
 }
 
@@ -74,13 +73,6 @@ export function useTooltip(text: string | undefined): Tooltip {
         }
       },
       onBlur: hide,
-    },
-    toggle: (element) => {
-      if (place === undefined) {
-        show(element);
-      } else {
-        hide();
-      }
     },
     tooltip:
       place === undefined || text === undefined

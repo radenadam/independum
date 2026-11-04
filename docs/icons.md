@@ -64,7 +64,6 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Check command | The box of Shell with its prompt and no cursor, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
 | Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
 | Steps | Three short boxes stacked, for a group of steps that came one after another. |
-| Info | A circle with an i inside, a short stroke for its dot over a longer one for its stem. |
 | Write | The page of Read with a plus over its lower right corner, for the tool that writes a file, which is most often a new one. |
 
 A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
@@ -115,7 +114,6 @@ Decision 0024 records why icons move and where the line falls.
 | Read | The eye blinks. |
 | Write | The plus twists a little and back, around its own center. |
 | Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |
-| Info | The dot of the i hops up and back. |
 
 ## Building icons
 
