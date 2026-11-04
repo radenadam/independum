@@ -12,6 +12,9 @@ import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
 import { StatusLabel, type StepStatus } from "./status-label.tsx";
 import styles from "./step-box.module.css";
 
+// The body opens over this long, as the styles of the box set it, with a little to spare.
+const openingMs = 260;
+
 /** Properties of a step box. */
 interface StepBoxProps {
   leading: ReactNode;
@@ -20,6 +23,7 @@ interface StepBoxProps {
   action?: ReactNode;
   isFollowing: boolean;
   shownAt?: number | undefined;
+  openedAt?: number | undefined;
   hasBody: boolean;
   children: ReactNode;
 }
@@ -37,6 +41,7 @@ export function StepBox({
   action,
   isFollowing,
   shownAt,
+  openedAt,
   hasBody,
   children,
 }: StepBoxProps): ReactElement {
@@ -53,20 +58,33 @@ export function StepBox({
     </>
   );
 
+  // A step inside a folded group opens with the group, so it comes into view once both have opened.
   useEffect(() => {
     if (shownAt === undefined) {
       return;
     }
     setChoice(true);
     const isMoving = !prefersReducedMotion();
-    box.current?.scrollIntoView({ block: "center", behavior: isMoving ? "smooth" : "auto" });
-    if (isMoving) {
-      box.current?.animate(
-        [{ boxShadow: "0 0 0 4px var(--signal-soft)" }, { boxShadow: "0 0 0 4px transparent" }],
-        { duration: 1600, easing: "ease-in" },
-      );
-    }
+    const timer = window.setTimeout(
+      () => {
+        box.current?.scrollIntoView({ block: "center", behavior: isMoving ? "smooth" : "auto" });
+        if (isMoving) {
+          box.current?.animate(
+            [{ boxShadow: "0 0 0 4px var(--signal-soft)" }, { boxShadow: "0 0 0 4px transparent" }],
+            { duration: 1600, easing: "ease-in" },
+          );
+        }
+      },
+      isMoving ? openingMs : 0,
+    );
+    return () => window.clearTimeout(timer);
   }, [shownAt]);
+
+  useEffect(() => {
+    if (openedAt !== undefined) {
+      setChoice(true);
+    }
+  }, [openedAt]);
 
   // The top of the latest lines fades only once they push the first ones out of view.
   useLayoutEffect(() => {
