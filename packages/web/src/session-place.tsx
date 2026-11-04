@@ -178,7 +178,7 @@ function Overview({
           <OneLineTitle text={chat.folder} />
         </p>
         <p className={styles.line}>
-          <span className={styles.label}>Chat</span>
+          <span className={styles.label}>Chat ID</span>
           <OneLineTitle text={context?.chatId ?? "Not saved yet"} />
         </p>
       </header>
@@ -383,13 +383,16 @@ function Request({ title, request, context }: RequestProps): ReactElement {
           <PlaceNote key={change}>{change}.</PlaceNote>
         ))}
         {request.inputs.map((input) => (
-          <Disclosure key={input.entryId} label={`${sourceNames[input.source]}: ${input.label}`}>
+          <Disclosure
+            key={input.entryId}
+            label={<OneLineTitle text={`${sourceNames[input.source]}: ${input.label}`} />}
+          >
             <CodeWell code={entryOf(input.entryId)} copyLabel="Copy entry" />
           </Disclosure>
         ))}
       </PlaceSection>
       <PlaceSection heading="What came out">
-        <Disclosure label={`Model: ${request.reply}`}>
+        <Disclosure label={<OneLineTitle text={`Model: ${request.reply}`} />}>
           <CodeWell code={entryOf(request.id)} copyLabel="Copy entry" />
         </Disclosure>
       </PlaceSection>

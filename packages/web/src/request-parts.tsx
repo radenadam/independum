@@ -64,7 +64,8 @@ export function RequestParts({
   const [isAllShown, setIsAllShown] = useState(false);
   const shown = shownPartsOf(parts, changedTools, isSystemPromptEdited);
   const messages = shown.filter((part) => part.group === "messages");
-  const hidden = isAllShown ? [] : messages.slice(0, Math.max(0, messages.length - latestShown));
+  const earlier = messages.slice(0, Math.max(0, messages.length - latestShown));
+  const hidden = isAllShown ? [] : earlier;
   // The provider counts the whole request exactly, so each part shows its share of that count,
   // estimated from its length.
   const estimated = shown.reduce((sum, part) => sum + part.tokens, 0);
@@ -75,19 +76,29 @@ export function RequestParts({
   return (
     <div className={styles.parts}>
       <div className={styles.bar}>
-        {shown.map((part) => (
-          <button
-            key={part.key}
-            type="button"
+        {hidden.length === 0 ? null : (
+          <span
             className={styles.segment}
-            style={{ "--tokens": part.tokens } as CSSProperties}
-            data-lit={lit === part.key || current === part.key}
-            aria-label={`${sourceNames[part.source]}, ${part.label}`}
-            onClick={() => open(part)}
-            onPointerEnter={() => setLit(part.key)}
-            onPointerLeave={() => setLit(undefined)}
+            style={
+              { "--tokens": hidden.reduce((sum, each) => sum + each.tokens, 0) } as CSSProperties
+            }
           />
-        ))}
+        )}
+        {shown
+          .filter((part) => !hidden.includes(part))
+          .map((part) => (
+            <button
+              key={part.key}
+              type="button"
+              className={styles.segment}
+              style={{ "--tokens": part.tokens } as CSSProperties}
+              data-lit={lit === part.key || current === part.key}
+              aria-label={`${sourceNames[part.source]}, ${part.label}`}
+              onClick={() => open(part)}
+              onPointerEnter={() => setLit(part.key)}
+              onPointerLeave={() => setLit(undefined)}
+            />
+          ))}
       </div>
       <div className={styles.list}>
         {shown.map((part, index) => {
@@ -110,8 +121,17 @@ export function RequestParts({
                 ]
               : null;
           }
+          const fold =
+            isAllShown && part === earlier[0] ? (
+              <PlaceRow
+                key="fold"
+                label={`Hide the ${earlier.length} earlier ${earlier.length === 1 ? "part" : "parts"}`}
+                onOpen={() => setIsAllShown(false)}
+              />
+            ) : null;
           return [
             heading,
+            fold,
             <PlaceRow
               key={part.key}
               source={sourceNames[part.source]}

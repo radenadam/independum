@@ -26,7 +26,11 @@ interface KnownMessage {
 const shortestOther = 40;
 // A key shorter than this could match by chance, such as a word that many messages hold.
 const shortestKey = 8;
-const longestLabel = 80;
+// A label holds the first line of its text, up to this many characters, ending on a whole word.
+const longestLabel = 200;
+// Pi tells the model about a change of its prompt or tools in the chat with texts of this group, such
+// as the tools that an OpenAI model gets again once one of them changes.
+const changeGroup = "In the chat, after a change";
 const groups: RequestGroup[] = ["instructions", "tools", "messages"];
 
 /**
@@ -144,7 +148,11 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
       const text = stringsOf(item).join("\n");
       const tools = toolsIn(text, known);
       const matched = bestOf(messages.slice(next), text);
-      if (tools.length > 0) {
+      const update = findPiTexts(text).find((found) => found.group === changeGroup);
+      if (update !== undefined && tools.length > 0) {
+        const label = `Tools sent again: ${tools.map((tool) => tool.name).join(", ")}`;
+        parts.push(partOf(section, "pi", label, { kind: "piText", id: update.id }, text));
+      } else if (tools.length > 0) {
         parts.push(...toolPartsOf(section, text, tools));
       } else if (matched.length > 0) {
         next = messages.indexOf(matched[0] as KnownMessage);
@@ -332,5 +340,10 @@ function blocksOf(content: unknown): { type: string; text?: string; id?: string;
 }
 
 function firstLineOf(text: string): string {
-  return (text.trim().split("\n")[0] ?? "").slice(0, longestLabel);
+  const line = text.trim().split("\n")[0] ?? "";
+  if (line.length <= longestLabel) {
+    return line;
+  }
+  const cut = line.slice(0, longestLabel);
+  return cut.slice(0, Math.max(cut.lastIndexOf(" "), 1));
 }

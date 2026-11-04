@@ -137,7 +137,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin: 14px 12px 6px;
+  --inset: 9px;
+
+  margin: 14px 8px 6px;
   padding-top: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -146,11 +148,11 @@
 }
 
 .request > .heading {
-  padding: 0 18px;
+  padding: 0 var(--inset);
 }
 
 .request > p {
-  padding: 0 18px 12px;
+  padding: 0 var(--inset) 12px;
 }
 
 .more {
