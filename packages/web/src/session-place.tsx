@@ -1,5 +1,12 @@
 import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
-import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  type ReactElement,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   AddedByPiDetail,
   isToolChanged,
@@ -160,7 +167,7 @@ function Overview({
     settings.agent?.tools.filter((tool) => isToolChanged(settings, tool.name)).length ?? 0;
 
   return (
-    <>
+    <PlaceFrame>
       <header className={styles.who}>
         {chat.model === null ? (
           <p className={styles.model}>No model chosen yet</p>
@@ -183,32 +190,30 @@ function Overview({
         </p>
       </header>
       {context === undefined ? null : (
-        <section className={styles.section}>
-          <h3 className={styles.heading}>Use</h3>
+        <PlaceSection heading="Use">
           <UsageTable
             columns={[
               { name: "Last reply", use: context.lastUse },
               { name: "Whole chat", use: { tokens: context.tokens, cost: context.cost } },
             ]}
           />
-          <p className={styles.muted}>
+          <PlaceNote>
             {countOf(context.userMessages, "message", "messages")} from you,{" "}
             {countOf(context.assistantMessages, "reply", "replies")},{" "}
             {countOf(context.toolCalls, "tool call", "tool calls")}
-          </p>
-        </section>
+          </PlaceNote>
+        </PlaceSection>
       )}
-      <section className={styles.section}>
-        <h3 className={styles.heading}>Context window</h3>
+      <PlaceSection heading="Context window">
         <div
           className={styles.window}
           style={{ "--ratio": usageRatio(context) } as CSSProperties}
         />
-        <p className={styles.muted}>{describeUsage(context)}</p>
-      </section>
+        <PlaceNote>{describeUsage(context)}</PlaceNote>
+      </PlaceSection>
       <section className={styles.request}>
-        <h3 className={styles.heading}>Context</h3>
-        <p className={styles.basis}>{basisOf(context)}</p>
+        <h3 className={styles.name}>Context</h3>
+        <PlaceNote>{basisOf(context)}</PlaceNote>
         {context === undefined ? (
           <PlaceNote>Loading the request.</PlaceNote>
         ) : (
@@ -222,10 +227,9 @@ function Overview({
           />
         )}
       </section>
-      <div className={styles.more}>
+      <PlaceSection heading="Request history">
         <PlaceRow
-          label="Request history"
-          glance={countOf(context?.requests.length ?? 0, "request", "requests")}
+          label={countOf(context?.requests.length ?? 0, "request", "requests")}
           isCurrent={current === "history"}
           onOpen={() =>
             onOpen({
@@ -236,8 +240,8 @@ function Overview({
             })
           }
         />
-      </div>
-    </>
+      </PlaceSection>
+    </PlaceFrame>
   );
 }
 
@@ -336,19 +340,20 @@ function History({ context, onOpen }: HistoryProps): ReactElement {
       {requests.length === 0 ? (
         <PlaceNote>No request yet. Each reply of the model adds one.</PlaceNote>
       ) : (
-        <div className={styles.flush}>
+        <div className={styles.tiles}>
           {requests
             .map((request, index) => ({ request, number: index + 1 }))
             .toReversed()
             .map(({ request, number }) => (
-              <div key={request.id}>
+              <Fragment key={request.id}>
                 {request.changes.map((change) => (
                   <p key={change} className={styles.change}>
                     {change}
                   </p>
                 ))}
                 <PlaceRow
-                  label={`${number}. ${request.inputs.at(-1)?.label ?? "Request"}`}
+                  label={request.inputs.at(-1)?.label ?? "Request"}
+                  number={number}
                   glance={`${timeFormat.format(new Date(request.timestamp))}, ${request.model}, ${numberFormat.format(request.tokens.input + request.tokens.cacheRead + request.tokens.cacheWrite)} in, ${numberFormat.format(request.tokens.output)} out`}
                   onOpen={() =>
                     onOpen({
@@ -359,7 +364,7 @@ function History({ context, onOpen }: HistoryProps): ReactElement {
                     })
                   }
                 />
-              </div>
+              </Fragment>
             ))}
         </div>
       )}
