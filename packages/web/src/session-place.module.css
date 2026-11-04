@@ -37,18 +37,6 @@
   gap: 6px;
 }
 
-.window {
-  height: 6px;
-  border-radius: 3px;
-  background:
-    linear-gradient(
-      to right,
-      var(--signal) calc(var(--ratio) * 100%),
-      transparent calc(var(--ratio) * 100%)
-    ),
-    var(--raised);
-}
-
 /*
   The context is the only card of the overview, like a tool card, so its border wraps exactly what
   the model reads, and the facts about the session around it sit in plain sections.

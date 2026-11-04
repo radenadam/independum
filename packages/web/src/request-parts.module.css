@@ -4,28 +4,6 @@
   gap: 12px;
 }
 
-/* Every part of the bar is the same gray, so only its place and its size tell it apart. */
-.bar {
-  display: flex;
-  gap: 1px;
-  height: 16px;
-  border-radius: 5px;
-  overflow: clip;
-}
-
-.segment {
-  flex: var(--tokens) 1 0;
-  min-width: 3px;
-  background: var(--faint);
-}
-
-/* A part is too thin for a focus ring, so it lights up instead while it has the focus. */
-.segment[data-lit="true"],
-.segment:focus-visible {
-  outline: none;
-  background: var(--signal);
-}
-
 /* A group sits under its label like a setting of a tool card, with its parts as tiles. */
 .group {
   composes: setting from "./tool-card.module.css";

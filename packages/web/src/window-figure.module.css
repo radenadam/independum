@@ -1,0 +1,141 @@
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawing {
+  cursor: pointer;
+}
+
+.zoom {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The thin bar is the whole window, with the room that Pi keeps free striped at its end. */
+.track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--raised);
+  overflow: clip;
+}
+
+.used {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--share) * 100%);
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--muted);
+}
+
+.kept {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: calc(var(--kept) * 100%);
+  min-width: 3px;
+  background: repeating-linear-gradient(135deg, var(--faint) 0 2px, transparent 2px 4px);
+}
+
+.funnel {
+  display: block;
+  width: 100%;
+  height: 14px;
+  fill: var(--raised);
+}
+
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 16px;
+}
+
+.segment {
+  flex: var(--tokens) 1 0;
+  min-width: 3px;
+  border-radius: 3px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(50, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.grid[data-size="coarse"] {
+  grid-template-columns: repeat(25, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.square {
+  aspect-ratio: 1;
+  border-radius: 1px;
+}
+
+.grid[data-size="coarse"] .square {
+  border-radius: 3px;
+}
+
+/* Each kind of part keeps one color in the drawing and in the legend under it. */
+[data-kind="instructions"] {
+  background: var(--ink);
+}
+
+[data-kind="tools"] {
+  background: var(--muted);
+}
+
+[data-kind="summary"] {
+  background: var(--signal);
+}
+
+[data-kind="messages"] {
+  background: var(--faint);
+}
+
+[data-kind="free"] {
+  background: var(--raised);
+}
+
+[data-kind="kept"] {
+  box-shadow: inset 0 0 0 1px var(--faint);
+}
+
+/* While a part is pointed at, the rest of the drawing steps back, so its squares stand out. */
+.figure[data-has-lit="true"] [data-lit="false"] {
+  opacity: 0.3;
+}
+
+.caption {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 18px;
+  font-size: 13px;
+}
+
+.key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.amount {
+  margin-left: auto;
+  color: var(--muted);
+}

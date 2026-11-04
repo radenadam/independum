@@ -16,9 +16,14 @@ export function describeUsage(context: ContextSummary | undefined): string {
   if (tokens === null) {
     return `Not counted yet, out of ${numberFormat.format(window)} tokens`;
   }
-  const percent = (tokens / window) * 100;
+  return describeShare(tokens, window);
+}
+
+/** Returns how much of a context window some tokens take, such as 0.3%, 374 of 272,000 tokens. */
+export function describeShare(tokens: number, windowSize: number): string {
+  const percent = (tokens / windowSize) * 100;
   const shown = percent < 10 ? percent.toFixed(1) : String(Math.round(percent));
-  return `${shown}%, ${numberFormat.format(tokens)} of ${numberFormat.format(window)} tokens`;
+  return `${shown}%, ${numberFormat.format(tokens)} of ${numberFormat.format(windowSize)} tokens`;
 }
 
 /** Returns how full the context window of the open chat is, from 0 to 1, or 0 before Pi counts it. */

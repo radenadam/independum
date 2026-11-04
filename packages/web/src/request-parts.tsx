@@ -1,9 +1,10 @@
 import type { PartLink, RequestGroup, RequestPart } from "independum/api-types";
-import { type CSSProperties, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 import type { BadgeProps } from "./badge.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { PlaceRow } from "./place-row.tsx";
 import styles from "./request-parts.module.css";
+import { type FigureKind, WindowFigure } from "./window-figure.tsx";
 
 /** What a row of a request opens: a part, or every tool. */
 export type ShownLink = PartLink | { kind: "tools" };
@@ -24,6 +25,8 @@ interface ShownPart {
 interface RequestPartsProps {
   parts: RequestPart[];
   total: number | undefined;
+  windowSize: number | null;
+  reserve: number | null;
   changedTools: number;
   isSystemPromptEdited: boolean;
   current: string | undefined;
@@ -40,14 +43,16 @@ const latestShown = 5;
 const numberFormat = new Intl.NumberFormat();
 
 /**
- * Draws the parts of a request as a bar of what fills it and a list under it, both in the order
- * the request holds them. Pointing at a part lights it up in both. The tools of a run show as one
- * row, the messages carry their place in the chat, and the earlier messages wait behind one row
- * that opens and folds them.
+ * Draws the parts of a request as a figure of the context window and what fills it, and a list under
+ * it, both in the order the request holds them. Pointing at a part lights it up in both. The tools of
+ * a run show as one row, the messages carry their place in the chat, and the earlier messages wait
+ * behind one row that opens and folds them.
  */
 export function RequestParts({
   parts,
   total,
+  windowSize,
+  reserve,
   changedTools,
   isSystemPromptEdited,
   current,
@@ -67,41 +72,34 @@ export function RequestParts({
   const amountOf = (tokens: number): string =>
     `~${numberFormat.format(Math.max(1, Math.round(tokens * scale)))}`;
   const earlierLabel = `${earlier.length} earlier ${earlier.length === 1 ? "message" : "messages"}`;
+  const litKeys = new Set(
+    [...(lit === "earlier" ? hidden.map((part) => part.key) : [lit]), current].filter(
+      (key) => key !== undefined,
+    ),
+  );
 
   return (
     <div className={styles.parts}>
-      <div className={styles.bar}>
-        {shown.map((part) => {
-          if (hidden.includes(part)) {
-            return part === hidden[0] ? (
-              <button
-                key="earlier"
-                type="button"
-                className={styles.segment}
-                style={{ "--tokens": hiddenTokens } as CSSProperties}
-                data-lit={lit === "earlier"}
-                aria-label={`Show the ${earlierLabel}`}
-                onClick={() => setIsAllShown(true)}
-                onPointerEnter={() => setLit("earlier")}
-                onPointerLeave={() => setLit(undefined)}
-              />
-            ) : null;
+      <WindowFigure
+        parts={shown.map((part) => ({
+          key: part.key,
+          kind: kindOf(part),
+          tokens: Math.max(1, Math.round(part.tokens * scale)),
+        }))}
+        used={Math.round(total ?? estimated)}
+        windowSize={windowSize}
+        reserve={reserve}
+        litKeys={litKeys}
+        onLight={(key) => setLit(hidden.some((part) => part.key === key) ? "earlier" : key)}
+        onOpen={(key) => {
+          const part = shown.find((each) => each.key === key);
+          if (hidden.some((each) => each.key === key)) {
+            setIsAllShown(true);
+          } else if (part !== undefined) {
+            open(part);
           }
-          return (
-            <button
-              key={part.key}
-              type="button"
-              className={styles.segment}
-              style={{ "--tokens": part.tokens } as CSSProperties}
-              data-lit={lit === part.key || current === part.key}
-              aria-label={part.label}
-              onClick={() => open(part)}
-              onPointerEnter={() => setLit(part.key)}
-              onPointerLeave={() => setLit(undefined)}
-            />
-          );
-        })}
-      </div>
+        }}
+      />
       {runsOf(shown).map((run) => (
         <div key={run[0]?.key} className={styles.group}>
           <p className={styles.heading}>{groupNames[run[0]?.group ?? "messages"]}</p>
@@ -202,6 +200,15 @@ function labelOf(part: RequestPart): string {
   return part.link.kind === "effort"
     ? `Pi set the effort to ${describeThinking(part.preview).toLowerCase()}`
     : part.label;
+}
+
+// The summary that Pi sends in place of compacted messages is a message of its own kind, so the
+// figure shows how much of the window it takes.
+function kindOf(part: ShownPart): FigureKind {
+  if (part.group !== "messages") {
+    return part.group;
+  }
+  return part.link.kind === "piText" && part.link.id === "compacted" ? "summary" : "messages";
 }
 
 // Parts of the same group that follow each other show under one label.
