@@ -25,11 +25,10 @@
 
 /*
   The knob travels inside the bar, kept off its ends by the inset, so the fill and the stops place
-  themselves along the line that the center of the knob travels. The bar has the knob and the inset
-  of a toggle switch, so it is as tall as one.
+  themselves along the line that the center of the knob travels.
 */
 .bar {
-  --knob-size: 14px;
+  --knob-size: 22px;
   --inset: 4px;
   --travel: calc(100% - var(--knob-size) - 2 * var(--inset));
 
