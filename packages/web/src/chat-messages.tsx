@@ -296,6 +296,10 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
             const isLast = run.segments.at(-1) === segments.at(-1);
             // A thought is the model reasoning, not an action, so a group counts only the calls.
             const count = run.segments.filter((segment) => segment.type === "toolCall").length;
+            // A group opens when a step in it is asked to show itself, such as from Commands.
+            const isShownInside = run.segments.some(
+              (segment) => segment.type === "toolCall" && segment.part.id === tools.shown?.id,
+            );
             return run.segments.length === 1 || count === 0 ? (
               run.segments.map(boxOf)
             ) : (
@@ -303,6 +307,7 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
                 key={`group-${run.segments[0]?.key}`}
                 count={count}
                 isFollowing={isStreaming && isLast}
+                openedAt={isShownInside ? tools.shown?.at : undefined}
               >
                 {run.segments.map(boxOf)}
               </StepGroup>
