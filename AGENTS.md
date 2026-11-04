@@ -165,6 +165,7 @@ To review a Pi update with the maintainer:
 - Tooltips come from `IconButton` or `useTooltip`, never from a `title` attribute, because the browser then draws its own box beside ours. `pnpm check` enforces it through `scripts/check-markup.ts`.
 - Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
+- The focus ring reaches 5 pixels outside a control. A container that clips keeps that much room inside its edges, or a control too small for the ring shows its focus another way, such as the color it takes when pointed at.
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.

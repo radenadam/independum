@@ -19,7 +19,10 @@
   background: var(--faint);
 }
 
-.segment[data-lit="true"] {
+/* A part is too thin for a focus ring, so it lights up instead while it has the focus. */
+.segment[data-lit="true"],
+.segment:focus-visible {
+  outline: none;
   background: var(--signal);
 }
 
