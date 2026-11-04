@@ -48,6 +48,71 @@ export function summarizeRequest(request: unknown, known: KnownTexts): RequestPa
   return sections.toSorted((first, second) => rank(first) - rank(second)).flat();
 }
 
+/**
+ * Returns the parts that the next request will hold, before a chat sends one: the system prompt and
+ * what Pi adds to it, the tools that are on, and the messages that Pi will send, in the order a
+ * model reads them. Its sizes are estimates, because no provider has counted it yet.
+ */
+export function describeNextRequest(known: KnownTexts): RequestPart[] {
+  const instructions: RequestPart[] = [
+    {
+      ...partOf(
+        "next",
+        "independum",
+        "System prompt",
+        { kind: "systemPrompt" },
+        known.systemPrompt,
+      ),
+      group: "instructions",
+    },
+    ...(known.addedByPi === ""
+      ? []
+      : [
+          {
+            ...partOf(
+              "next",
+              "pi",
+              "Added to the system prompt",
+              { kind: "addedByPi" },
+              known.addedByPi,
+            ),
+            group: "instructions" as const,
+          },
+        ]),
+  ];
+  const tools = known.tools.map(
+    (tool): RequestPart => ({
+      ...partOf(
+        "next",
+        "independum",
+        tool.name,
+        { kind: "tool", name: tool.name },
+        tool.description,
+      ),
+      group: "tools",
+    }),
+  );
+  const messages = known.entries.flatMap(messageOf).map(
+    (message): RequestPart => ({
+      ...partOf(
+        "next",
+        message.source,
+        message.label,
+        { kind: "entry", id: message.id },
+        [...message.texts, ...message.ids].join("\n"),
+      ),
+      group: "messages",
+    }),
+  );
+  return [...instructions, ...tools, ...messages];
+}
+
+/** Returns who wrote a saved message and the line that names it, such as its first line of text. */
+export function describeMessage(message: unknown): { source: PartSource; label: string } {
+  const [known] = messageOf({ id: "", message });
+  return { source: known?.source ?? "other", label: known?.label ?? "A message" };
+}
+
 // A tool, a message, or the system prompt says its own group. A text of Pi or an unknown text takes
 // the group of the known part before it in its key, or after it, such as a text of Pi before the
 // system prompt.

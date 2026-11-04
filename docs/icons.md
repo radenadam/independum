@@ -63,6 +63,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
 | Check command | The box of Shell with its prompt and no cursor, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
 | Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
+| Session | The box of Shell with two lines of text, a long one over a short one, for the Session place. |
 | Steps | Three short boxes stacked, for a group of steps that came one after another. |
 | Write | The page of Read with a plus over its lower right corner, for the tool that writes a file, which is most often a new one. |
 
@@ -110,9 +111,10 @@ Decision 0024 records why icons move and where the line falls.
 | Shell | The prompt tips up around its open side and the cursor tips up around its right end, as if they nod, and both settle back. |
 | Stop command | The line pulls back toward its upper end and strikes down again. |
 | Background | The arrow nudges toward the box behind. |
-| Check command | The lens tilts on its center, so its handle swings down and back. |
+| Check command | The lens swings on the end of its handle, which stays put. |
 | Read | The eye blinks. |
 | Write | The plus twists a little and back, around its own center. |
+| Session | The short line grows to the length of the long one and back. |
 | Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |
 
 ## Building icons

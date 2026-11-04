@@ -35,7 +35,8 @@ export type IconName =
   | "read"
   | "write"
   | "steps"
-  | "editFile";
+  | "editFile"
+  | "session";
 
 // Returns the class names of a part that moves when its button is pointed at, as `docs/icons.md`
 // describes under Motion. The second class sets how that part moves.
@@ -211,6 +212,13 @@ const drawings: Record<IconName, ReactElement> = {
     <>
       <path d={page} />
       <path className={moves(styles.twistBadge)} d="M17 13v8M13 17h8" />
+    </>
+  ),
+  session: (
+    <>
+      <path d="M5 4h14l2 2v12l-2 2H5l-2-2V6z" />
+      <path d="M7 9h10" />
+      <path className={moves(styles.growLine)} d="M7 13h6" />
     </>
   ),
   editFile: (
