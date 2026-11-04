@@ -1,6 +1,6 @@
 # Notifications
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0051](0051-chats-run-on-their-own.md), which notifies about chats that are not open too
 - Date: 2026-11-04
 
 ## Context

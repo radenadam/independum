@@ -225,26 +225,61 @@ test("opening a saved chat shows its messages", async () => {
   expect((await openSaved("No such chat")).status).toBe(404);
 });
 
-test("leaving a chat stops its reply and keeps what the reply said", async () => {
+// Starts a new chat with the slow model and waits until its reply to a message begins to stream.
+async function startSlowReply(
+  text: string,
+  reply: string,
+): Promise<ReturnType<typeof followEventStream<ChatEvent>>> {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux-slow", "slow-model")).status).toBe(204);
-  const story = "Once upon a time there was a reply that was far too long to finish.";
-  slow.setResponses([fauxAssistantMessage(story)]);
+  slow.setResponses([fauxAssistantMessage(reply)]);
   const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
-  expect((await post("/chat/messages", { text: "Tell a story" })).status).toBe(202);
+  expect((await post("/chat/messages", { text })).status).toBe(202);
+  while ((await events.next()).type !== "replyDelta") {
+    // Every event before the first piece of the reply is part of starting it.
+  }
+  return events;
+}
+
+test("a chat that the user leaves goes on with its reply, which ends whole", async () => {
+  const story = "A short story that goes on.";
+  const events = await startSlowReply("Tell a story", story);
+  const storyId = (await readStart()).state.id;
+  expect((await post("/chat/new", {})).status).toBe(204);
   let event = await events.next();
-  while (event.type !== "replyDelta") {
+  let replying: string[] = [];
+  while (event.type !== "replyEnded") {
+    replying = event.type === "replyingChats" ? event.ids : replying;
     event = await events.next();
   }
   await events.close();
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect(event.chatId).toBe(storyId);
+  expect(textOf(event.reply ?? undefined)).toBe(story);
+  expect(replying).toEqual([]);
   expect((await openSaved("Tell a story")).status).toBe(204);
   const reply = (await readStart()).state.messages.at(-1);
-  expect(reply?.role).toBe("assistant");
-  expect(reply?.error).toBe("The reply was stopped.");
-  expect(textOf(reply)).not.toBe("");
-  expect(story.startsWith(textOf(reply))).toBe(true);
-  expect(textOf(reply).length).toBeLessThan(story.length);
+  expect(reply?.error).toBeNull();
+  expect(textOf(reply)).toBe(story);
+});
+
+test("a chat that opens while it replies shows its reply so far, and the rest streams in", async () => {
+  const tale = "A tale that goes on for a little while.";
+  const events = await startSlowReply("Tell a tale", tale);
+  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await openSaved("Tell a tale")).status).toBe(204);
+  let event = await events.next();
+  while (event.type !== "state" || !event.state.isReplying) {
+    event = await events.next();
+  }
+  const soFar = await events.next();
+  while (event.type !== "replyEnded") {
+    event = await events.next();
+  }
+  await events.close();
+  expect(soFar.type === "replyPart" && soFar.part.type === "text" ? soFar.part.text : "").not.toBe(
+    "",
+  );
+  expect(textOf(event.reply ?? undefined)).toBe(tale);
 });
 
 test("a chat joins its project as soon as it is sent, before the reply", async () => {

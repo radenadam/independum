@@ -1,6 +1,6 @@
 # App shell
 
-- Status: superseded by [decision 0016](0016-working-screen.md)
+- Status: superseded by [decision 0016](0016-working-screen.md), and its rule that opening another chat stops a running reply is reversed by [decision 0051](0051-chats-run-on-their-own.md)
 - Date: 2026-10-26
 
 ## Context
