@@ -75,7 +75,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 - Before adding a function, component, file, folder, or dependency, search for an existing one and extend it.
 - Each fact lives in one place. Other places link to it instead of repeating it.
-- `pnpm check` fails on duplicated code.
+- `pnpm check` fails on duplicated code. Import statements do not count, because two files that use the same pieces import them alike.
 
 ## Names
 

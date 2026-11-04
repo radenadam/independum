@@ -30,43 +30,6 @@
   overflow-y: auto;
 }
 
-/* The trail stays at the top while the detail scrolls, so the way back or out is always there. */
-.trail {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 12px 0 18px;
-  border-bottom: 1px solid var(--line);
-  background: var(--sidebar);
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.back {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-  font-weight: 400;
-}
-
-.back:hover {
-  color: var(--ink);
-}
-
-.back svg {
-  rotate: 180deg;
-}
-
-.close {
-  margin-left: auto;
-}
-
 /* The model, the folder, and the chat id read from the left, one to a line. */
 .who {
   display: flex;

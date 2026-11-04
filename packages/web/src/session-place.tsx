@@ -28,12 +28,12 @@ import { describeThinking } from "./describe-thinking.ts";
 import { describeUsage, usageRatio } from "./describe-usage.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
-import { IconButton } from "./icon-button.tsx";
 import { ModelDetail } from "./model-detail.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
+import { PlaceTrail } from "./place-trail.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { RequestParts, type ShownLink } from "./request-parts.tsx";
 import styles from "./session-place.module.css";
@@ -124,23 +124,14 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
   const detail =
     view === undefined ? null : (
       <div key={view.key} className={styles.detail} data-detail>
-        <nav className={styles.trail} aria-label="Detail">
-          {isSplit && parent === undefined ? null : (
-            <button
-              type="button"
-              className={styles.back}
-              onClick={() => setPath(path.slice(0, -1))}
-            >
-              <Icon name="expand" size={14} />
-              {parent?.title ?? "Session"}
-            </button>
-          )}
-          {isSplit ? (
-            <span className={styles.close}>
-              <IconButton icon="close" label="Close" size="small" onClick={() => setPath([])} />
-            </span>
-          ) : null}
-        </nav>
+        <PlaceTrail
+          back={
+            isSplit && parent === undefined
+              ? undefined
+              : { label: parent?.title ?? "Session", onBack: () => setPath(path.slice(0, -1)) }
+          }
+          onClose={isSplit ? () => setPath([]) : undefined}
+        />
         <PlaceFrame>
           <Detail
             view={view}

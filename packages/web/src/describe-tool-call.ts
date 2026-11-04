@@ -27,7 +27,8 @@ export interface ToolRun {
  * going, what the user can do with a running command, and how long a running command has printed
  * nothing, once that is long enough to tell the user.
  */
-interface DescribedCall {
+/** How a call to a tool reads: its label, what went in and came back, and how it is going. */
+export interface DescribedCall {
   label: string;
   language: string;
   input: string;
