@@ -190,7 +190,7 @@ export function ChatMessages({
       <div className={styles.latest} data-shown={isEndBelow}>
         <span className={styles.latestButton}>
           <IconButton
-            icon="latest"
+            icon={isReplying ? "replying" : "latest"}
             label="Jump to the latest message"
             tipSide="above"
             isRound
