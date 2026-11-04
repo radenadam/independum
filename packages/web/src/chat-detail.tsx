@@ -7,26 +7,29 @@ import { PlaceSection } from "./place-section.tsx";
 
 /** Properties of the detail of a chat. */
 interface ChatDetailProps {
+  folder: string;
   context: ContextSummary | undefined;
 }
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /**
- * Draws when a chat started and was last active, and the files that hold it: the chat that Pi
- * saves, the whole output of its tools, and the last request that it sent.
+ * Draws the folder of a chat, its id, when it started and was last active, and the files that hold
+ * it: the chat that Pi saves, the whole output of its tools, and the last request that it sent.
  */
-export function ChatDetail({ context }: ChatDetailProps): ReactElement {
+export function ChatDetail({ folder, context }: ChatDetailProps): ReactElement {
   if (context === undefined || context.chatId === null) {
     return <PlaceNote>This chat is not saved yet. Pi saves it with its first message.</PlaceNote>;
   }
   const { files } = context;
   return (
     <>
-      <PlaceSection heading="Times" badge="read-only">
+      <PlaceSection heading="Chat" badge="read-only">
         <FactTable
           columns={[""]}
           rows={[
+            { name: "Folder", values: [folder] },
+            { name: "Chat ID", values: [context.chatId] },
             { name: "Started", values: [timeOf(context.created)] },
             { name: "Last active", values: [timeOf(context.lastActivity)] },
           ]}

@@ -135,6 +135,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
         <PlaceFrame>
           <Detail
             view={view}
+            folder={chat.folder}
             context={context}
             models={models}
             settings={settings}
@@ -221,25 +222,34 @@ function Overview({
   return (
     <PlaceFrame>
       <header className={styles.who}>
-        {chat.model === null ? (
-          <p className={styles.model}>No model chosen yet</p>
-        ) : (
-          <p className={styles.model}>
-            <ProviderLogo providerId={chat.model.providerId} size={15} />
-            <b>{modelNameOf(models, chat.model.providerId, chat.model.id)}</b>
-            {chat.thinking === null ? null : (
-              <span className={styles.muted}>{describeThinking(chat.thinking.level)} effort</span>
-            )}
-          </p>
-        )}
-        <p className={styles.line}>
-          <Icon name="folder" size={14} />
-          <OneLineTitle text={chat.folder} />
-        </p>
-        <p className={styles.line}>
-          <span className={styles.label}>Chat ID</span>
-          <OneLineTitle text={context?.chatId ?? "Not saved yet"} />
-        </p>
+        <PlaceRow
+          icon={
+            chat.model === null ? undefined : (
+              <ProviderLogo providerId={chat.model.providerId} size={16} />
+            )
+          }
+          label={
+            chat.model === null
+              ? "No model chosen yet"
+              : modelNameOf(models, chat.model.providerId, chat.model.id)
+          }
+          glance={
+            chat.thinking === null ? undefined : `${describeThinking(chat.thinking.level)} effort`
+          }
+          isCurrent={current === "model"}
+          onOpen={() => onOpen({ key: "model", title: "Model", link: { kind: "model" }, text: "" })}
+        />
+        <PlaceRow
+          icon={<Icon name="folder" size={16} />}
+          label={folderNameOf(chat.folder)}
+          glance={
+            context?.chatId === undefined || context.chatId === null
+              ? "Not saved yet"
+              : `Chat ID ${context.chatId}`
+          }
+          isCurrent={current === "chat"}
+          onOpen={() => onOpen({ key: "chat", title: "Chat", link: { kind: "chat" }, text: "" })}
+        />
       </header>
       {context === undefined ? null : (
         <PlaceSection heading="Use">
@@ -293,20 +303,6 @@ function Overview({
           }
         />
       </PlaceSection>
-      <PlaceSection heading="Model">
-        <PlaceRow
-          label="Limits, prices, and where requests go"
-          isCurrent={current === "model"}
-          onOpen={() => onOpen({ key: "model", title: "Model", link: { kind: "model" }, text: "" })}
-        />
-      </PlaceSection>
-      <PlaceSection heading="Chat">
-        <PlaceRow
-          label="When it started, and where it is saved"
-          isCurrent={current === "chat"}
-          onOpen={() => onOpen({ key: "chat", title: "Chat", link: { kind: "chat" }, text: "" })}
-        />
-      </PlaceSection>
     </PlaceFrame>
   );
 }
@@ -314,13 +310,14 @@ function Overview({
 /** Properties of a detail of a session. */
 interface DetailProps {
   view: View;
+  folder: string;
   context: ContextSummary | undefined;
   models: ModelSummary[] | undefined;
   settings: AgentSettings;
   onOpen: (view: View) => void;
 }
 
-function Detail({ view, context, models, settings, onOpen }: DetailProps): ReactElement {
+function Detail({ view, folder, context, models, settings, onOpen }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
@@ -389,7 +386,7 @@ function Detail({ view, context, models, settings, onOpen }: DetailProps): React
         />
       );
     case "chat":
-      return <ChatDetail context={context} />;
+      return <ChatDetail folder={folder} context={context} />;
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (
@@ -514,6 +511,17 @@ function basisOf(context: ContextSummary | undefined): string {
   return context === undefined || context.isNextRequest
     ? "Not sent yet. It goes with your next message."
     : "Sent last time, and again with your next message.";
+}
+
+// A chat goes by the name of its folder, as its project does in the sidebar, and the whole path
+// waits in its detail, because a long path would hide the name at its end.
+function folderNameOf(folder: string): string {
+  return (
+    folder
+      .split(/[\\/]/)
+      .filter((part) => part !== "")
+      .at(-1) ?? folder
+  );
 }
 
 // A model shows by its name, as the header and the model picker show it, and by its id only when

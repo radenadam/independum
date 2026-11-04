@@ -30,30 +30,11 @@
   overflow-y: auto;
 }
 
-/* The model, the folder, and the chat id read from the left, one to a line. */
+/* The model and the chat head the overview, each opening to what more there is to know. */
 .who {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.model,
-.line {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.model b {
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.line {
-  color: var(--muted);
-  font: 12.5px var(--font-mono);
+  gap: 6px;
 }
 
 .window {
@@ -66,17 +47,6 @@
       transparent calc(var(--ratio) * 100%)
     ),
     var(--raised);
-}
-
-.muted {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.label {
-  flex: none;
-  font-family: var(--font-sans);
 }
 
 /*
