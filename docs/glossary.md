@@ -21,6 +21,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
+| Notification | A message that Independum shows through the system while its window is not in front, such as when a reply is done. The user turns them on in the settings. | "toast", "alert", "push" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
 | Model text | A text that Independum sends to the model, such as the system prompt, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Agent place and reset it to its built-in text. | "prompt string", "template", "copy" |
