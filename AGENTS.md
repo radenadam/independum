@@ -43,7 +43,7 @@ Every decision about what the model gets follows these, from the system prompt t
 5. Leave nothing behind, as described in [No leftovers](#no-leftovers).
 6. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
 7. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
-8. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch.
+8. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
 
 GitHub rejects direct pushes to `main`, so every change goes through a pull request.
 

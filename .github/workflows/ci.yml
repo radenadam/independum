@@ -50,11 +50,21 @@ jobs:
           subjectPattern: ^[a-z](?!.*[;\u2013\u2014]).*[^.]$
           subjectPatternError: The summary is lowercase, has no final period, and uses no semicolons or dashes.
 
+  # A job of the matrix that GitHub cancels before a runner takes it, such as when it has no macOS
+  # runner free, does not show in the results of needs, so the gate reads every job of the run and
+  # passes only when each one succeeded or was skipped.
   all-checks:
     name: All checks
     if: always()
     needs: [check, pull-request-title]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
     steps:
-      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        run: exit 1
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs" \
+            --jq '.jobs[] | select(.name != "All checks") | .name + ": " + (.conclusion // "unfinished")' > results.txt
+          cat results.txt
+          ! grep -v -E ": (success|skipped)$" results.txt
