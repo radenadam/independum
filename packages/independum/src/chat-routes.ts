@@ -1,6 +1,6 @@
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
-import type { ChatEvent, ModelSummary } from "./api-types.ts";
+import type { ChatEvent, ModelPrices, ModelSummary } from "./api-types.ts";
 import type { Chat } from "./create-chat.ts";
 import { readSettingsChange } from "./create-settings.ts";
 import { streamEvents } from "./stream-events.ts";
@@ -15,13 +15,8 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   routes.get("/models", async (context) => {
     const available = await models.getAvailable();
     return context.json({
-      models: available.map(
-        (model): ModelSummary => ({
-          providerId: model.provider,
-          providerName: models.getProvider(model.provider)?.name ?? model.provider,
-          id: model.id,
-          name: model.name,
-        }),
+      models: available.map((model) =>
+        summaryOf(model, models.getProvider(model.provider)?.name ?? model.provider),
       ),
     });
   });
@@ -167,4 +162,52 @@ function answer(context: Context, isDone: boolean): Response {
   return isDone
     ? context.body(null, 204)
     : context.json({ error: "No saved chat has that id." }, 404);
+}
+
+function summaryOf(
+  model: Awaited<ReturnType<ModelRuntime["getAvailable"]>>[number],
+  providerName: string,
+): ModelSummary {
+  const images = model.inputLimits?.images;
+  const resize = images?.resize;
+  const pricesOf = ({ input, output, cacheRead, cacheWrite }: ModelPrices): ModelPrices => ({
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+  });
+  return {
+    providerId: model.provider,
+    providerName,
+    id: model.id,
+    name: model.name,
+    api: model.api,
+    baseUrl: model.baseUrl,
+    contextWindow: model.contextWindow,
+    maxOutput: model.maxTokens,
+    images: model.input.includes("image")
+      ? {
+          perRequest: images?.maxPerRequest ?? null,
+          perMessage: images?.maxPerMessage ?? null,
+          resizedTo:
+            resize === undefined
+              ? null
+              : {
+                  width: resize.maxWidth ?? null,
+                  height: resize.maxHeight ?? null,
+                  bytes: resize.maxBytes ?? null,
+                },
+        }
+      : null,
+    requestBytes: model.inputLimits?.maxRequestBytes ?? null,
+    prices: pricesOf(model.cost),
+    priceTiers: (model.cost.tiers ?? []).map((tier) => ({
+      inputAbove: tier.inputTokensAbove,
+      prices: pricesOf(tier),
+    })),
+    cacheSeconds: {
+      short: model.promptCache?.short ?? null,
+      long: model.promptCache?.long ?? null,
+    },
+  };
 }

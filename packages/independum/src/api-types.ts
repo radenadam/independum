@@ -34,12 +34,39 @@ export interface ProviderSummary {
   login: { method: LoginMethod; source: string | null } | null;
 }
 
-/** A model the user can chat with, from a provider with a login. */
+/**
+ * A model the user can chat with, from a provider with a login, with what Pi knows of it: where its
+ * requests go, its limits, its prices, and how long its provider keeps the prompt cache.
+ */
 export interface ModelSummary {
   providerId: string;
   providerName: string;
   id: string;
   name: string;
+  api: string;
+  baseUrl: string;
+  contextWindow: number;
+  maxOutput: number;
+  images: ModelImages | null;
+  requestBytes: number | null;
+  prices: ModelPrices;
+  priceTiers: { inputAbove: number; prices: ModelPrices }[];
+  cacheSeconds: { short: number | null; long: number | null };
+}
+
+/** The prices of a model for a million tokens, in USD. */
+export interface ModelPrices {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
+/** What a model takes of images: how many at once, and the size that Pi resizes larger ones to. */
+export interface ModelImages {
+  perRequest: number | null;
+  perMessage: number | null;
+  resizedTo: { width: number | null; height: number | null; bytes: number | null } | null;
 }
 
 /** Thinking that the model did before it went on, with how long it took when Independum saw it. */
@@ -382,6 +409,7 @@ export interface ContextSummary {
   isNextRequest: boolean;
   requests: RequestSummary[];
   cacheWarmings: number;
+  files: { chat: string | null; toolOutput: string | null; savedRequest: string | null };
 }
 
 /** A saved chat, as a project lists it. */

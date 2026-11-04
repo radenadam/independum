@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 /** The last request of each chat, kept in a file of its own beside the chats of Pi. */
 export interface SavedRequests {
+  pathOf: (chatId: string) => string;
   read: (chatId: string) => unknown;
   save: (chatId: string, request: unknown) => void;
   remove: (chatId: string) => void;
@@ -16,6 +17,7 @@ export interface SavedRequests {
 export function createSavedRequests(folder: string): SavedRequests {
   const fileOf = (chatId: string): string => join(folder, `${chatId}.json`);
   return {
+    pathOf: fileOf,
     read(chatId) {
       try {
         return JSON.parse(readFileSync(fileOf(chatId), "utf8"));
