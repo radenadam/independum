@@ -55,10 +55,11 @@
   transform-origin: 8px 16px;
 }
 
+/* The search lens swings on the end of its handle, like the lens of Check command. */
 .lens {
-  --turn: -14deg;
+  --turn: 20deg;
 
-  transform-origin: 11px 11px;
+  transform-origin: 21px 21px;
 }
 
 /* The knobs slide toward each other, and the lines beside them stretch and shrink to meet them. */
