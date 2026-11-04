@@ -21,6 +21,8 @@ The maintainer agreed to these, and they come in this order, one small change at
 
 ## Later
 
+- Graphics settings, either off and on, or low, medium, and high, each with a custom choice. The wave of the title of a replying chat is the richest motion, and a box with a bar that moves up and down in it is its lighter form for a low setting.
+
 - Desktop app. See decision 0001.
 - Learning: once the design and the features are done, make Independum a harness that a person learns and grows with, more than a minimal one to customize. It welcomes people who are new to agents, also without a background in coding, so they learn how an agent works while they shape it. A website and docs explain the ins and outs of Independum, for people and for agents.
 

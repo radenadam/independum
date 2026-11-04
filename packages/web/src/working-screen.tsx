@@ -286,6 +286,7 @@ export function WorkingScreen({
       <Sidebar
         projects={projects}
         chatId={chat?.id ?? null}
+        replyingIds={new Set(chat?.isReplying && chat.id !== null ? [chat.id] : [])}
         folder={chat?.folder ?? ""}
         isOpen={isSidebarOpen}
         isNewChatFlashing={isNewChatFlashing}

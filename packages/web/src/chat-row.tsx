@@ -21,6 +21,7 @@ export interface ChatActions {
 interface ChatRowProps {
   chat: ChatSummary;
   isCurrent: boolean;
+  isReplying: boolean;
   isNested: boolean;
   isNew: boolean;
   actions: ChatActions;
@@ -30,7 +31,14 @@ interface ChatRowProps {
  * Draws a chat in the sidebar, with a menu to rename, pin, archive, or delete it, which opens from
  * its dots or a right click.
  */
-export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowProps): ReactElement {
+export function ChatRow({
+  chat,
+  isCurrent,
+  isReplying,
+  isNested,
+  isNew,
+  actions,
+}: ChatRowProps): ReactElement {
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | undefined>();
   const [isRenaming, setIsRenaming] = useState(false);
   const dots = useRef<HTMLSpanElement>(null);
@@ -88,7 +96,7 @@ export function ChatRow({ chat, isCurrent, isNested, isNew, actions }: ChatRowPr
             setMenuAt({ x: event.clientX, y: event.clientY });
           }}
         >
-          <OneLineTitle text={chat.title} isTyped={isNew} />
+          <OneLineTitle text={chat.title} isTyped={isNew} isWaving={isReplying} />
         </button>
       </RowWithAction>
       {menuAt === undefined ? null : (

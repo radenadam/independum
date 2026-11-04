@@ -7,6 +7,7 @@ import styles from "./chat-rows.module.css";
 interface ChatRowsProps {
   chats: ChatSummary[];
   currentId: string | null;
+  replyingIds: ReadonlySet<string>;
   isNested: boolean;
   newIds: ReadonlySet<string>;
   actions: ChatActions;
@@ -16,6 +17,7 @@ interface ChatRowsProps {
 export function ChatRows({
   chats,
   currentId,
+  replyingIds,
   isNested,
   newIds,
   actions,
@@ -27,6 +29,7 @@ export function ChatRows({
           <ChatRow
             chat={chat}
             isCurrent={chat.id === currentId}
+            isReplying={replyingIds.has(chat.id)}
             isNested={isNested}
             isNew={newIds.has(chat.id)}
             actions={actions}

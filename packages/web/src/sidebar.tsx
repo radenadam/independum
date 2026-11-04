@@ -15,6 +15,7 @@ import { TextField } from "./text-field.tsx";
 interface SidebarProps {
   projects: ProjectSummary[];
   chatId: string | null;
+  replyingIds: ReadonlySet<string>;
   folder: string;
   isOpen: boolean;
   isNewChatFlashing: boolean;
@@ -31,6 +32,7 @@ interface SidebarProps {
 export function Sidebar({
   projects,
   chatId,
+  replyingIds,
   folder,
   isOpen,
   isNewChatFlashing,
@@ -80,6 +82,7 @@ export function Sidebar({
           projects={projects}
           query={query}
           chatId={chatId}
+          replyingIds={replyingIds}
           folder={folder}
           actions={chatActions}
           onNewChat={onNewChat}
