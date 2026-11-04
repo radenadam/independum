@@ -1,4 +1,10 @@
-import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
+import type {
+  ChatState,
+  ContextSummary,
+  ModelSummary,
+  RequestChange,
+  RequestSummary,
+} from "independum/api-types";
 import {
   type CSSProperties,
   Fragment,
@@ -103,6 +109,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
           <Detail
             view={view}
             context={context}
+            models={models}
             settings={settings}
             onOpen={(next) => setPath([...path, next])}
           />
@@ -155,9 +162,6 @@ function Overview({
   current,
   onOpen,
 }: OverviewProps): ReactElement {
-  const model = models?.find(
-    (each) => each.providerId === chat.model?.providerId && each.id === chat.model?.id,
-  );
   const last = context?.lastUse;
   const total =
     context?.isNextRequest === false && last !== null && last !== undefined
@@ -174,7 +178,7 @@ function Overview({
         ) : (
           <p className={styles.model}>
             <ProviderLogo providerId={chat.model.providerId} size={15} />
-            <b>{model?.name ?? chat.model.id}</b>
+            <b>{modelNameOf(models, chat.model.providerId, chat.model.id)}</b>
             {chat.thinking === null ? null : (
               <span className={styles.muted}>{describeThinking(chat.thinking.level)} effort</span>
             )}
@@ -249,11 +253,12 @@ function Overview({
 interface DetailProps {
   view: View;
   context: ContextSummary | undefined;
+  models: ModelSummary[] | undefined;
   settings: AgentSettings;
   onOpen: (view: View) => void;
 }
 
-function Detail({ view, context, settings, onOpen }: DetailProps): ReactElement {
+function Detail({ view, context, models, settings, onOpen }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
@@ -312,13 +317,13 @@ function Detail({ view, context, settings, onOpen }: DetailProps): ReactElement 
         </PlaceSection>
       );
     case "history":
-      return <History context={context} onOpen={onOpen} />;
+      return <History context={context} models={models} onOpen={onOpen} />;
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (
         <PlaceNote>This request is no longer in the chat.</PlaceNote>
       ) : (
-        <Request title={view.title} request={request} context={context} />
+        <Request title={view.title} request={request} context={context} models={models} />
       );
     }
     default:
@@ -329,11 +334,12 @@ function Detail({ view, context, settings, onOpen }: DetailProps): ReactElement 
 /** Properties of the history of requests. */
 interface HistoryProps {
   context: ContextSummary | undefined;
+  models: ModelSummary[] | undefined;
   onOpen: (view: View) => void;
 }
 
 // The newest request comes first, and a change of settings sits right above the request it led to.
-function History({ context, onOpen }: HistoryProps): ReactElement {
+function History({ context, models, onOpen }: HistoryProps): ReactElement {
   const requests = context?.requests ?? [];
   return (
     <PlaceSection heading="Request history">
@@ -347,14 +353,14 @@ function History({ context, onOpen }: HistoryProps): ReactElement {
             .map(({ request, number }) => (
               <Fragment key={request.id}>
                 {request.changes.map((change) => (
-                  <p key={change} className={styles.change}>
-                    {change}
+                  <p key={change.kind} className={styles.change}>
+                    {describeChange(change, models)}
                   </p>
                 ))}
                 <PlaceRow
                   label={request.inputs.at(-1)?.label ?? "Request"}
                   number={number}
-                  glance={`${timeFormat.format(new Date(request.timestamp))}, ${request.model}, ${numberFormat.format(request.tokens.input + request.tokens.cacheRead + request.tokens.cacheWrite)} in, ${numberFormat.format(request.tokens.output)} out`}
+                  glance={`${timeFormat.format(new Date(request.timestamp))}, ${modelNameOf(models, request.provider, request.model)}, ${numberFormat.format(request.tokens.input + request.tokens.cacheRead + request.tokens.cacheWrite)} in, ${numberFormat.format(request.tokens.output)} out`}
                   onOpen={() =>
                     onOpen({
                       key: `request-${request.id}`,
@@ -377,10 +383,11 @@ interface RequestProps {
   title: string;
   request: RequestSummary;
   context: ContextSummary;
+  models: ModelSummary[] | undefined;
 }
 
 // The newest request is the one the chat sent last, so it shows the request exactly as it went.
-function Request({ title, request, context }: RequestProps): ReactElement {
+function Request({ title, request, context, models }: RequestProps): ReactElement {
   const entryOf = (id: string): string =>
     JSON.stringify(context.entries.find((entry) => entry.id === id)?.data ?? null, null, 2);
   const isNewest = context.requests.at(-1)?.id === request.id;
@@ -388,12 +395,13 @@ function Request({ title, request, context }: RequestProps): ReactElement {
     <>
       <PlaceSection heading={title}>
         <PlaceNote>
-          {timeFormat.format(new Date(request.timestamp))}, {request.model}
+          {timeFormat.format(new Date(request.timestamp))},{" "}
+          {modelNameOf(models, request.provider, request.model)}
         </PlaceNote>
       </PlaceSection>
       <PlaceSection heading="What came in">
         {request.changes.map((change) => (
-          <PlaceNote key={change}>{change}.</PlaceNote>
+          <PlaceNote key={change.kind}>{describeChange(change, models)}.</PlaceNote>
         ))}
         {request.inputs.map((input) => (
           <Disclosure key={input.entryId} label={<OneLineTitle text={summaryOf(input)} />}>
@@ -407,7 +415,7 @@ function Request({ title, request, context }: RequestProps): ReactElement {
         </Disclosure>
       </PlaceSection>
       <PlaceSection heading="Use">
-        <UsageTable columns={[{ name: request.model, use: request }]} />
+        <UsageTable columns={[{ name: "This reply", use: request }]} />
       </PlaceSection>
       {isNewest && context.lastRequest !== null ? (
         <PlaceSection heading="Exact request">
@@ -434,6 +442,23 @@ function basisOf(context: ContextSummary | undefined): string {
   return context === undefined || context.isNextRequest
     ? "Not sent yet. It goes with your next message."
     : "Sent last time, and again with your next message.";
+}
+
+// A model shows by its name, as the header and the model picker show it, and by its id only when
+// the list of models no longer has it.
+function modelNameOf(models: ModelSummary[] | undefined, providerId: string, id: string): string {
+  return models?.find((each) => each.providerId === providerId && each.id === id)?.name ?? id;
+}
+
+function describeChange(change: RequestChange, models: ModelSummary[] | undefined): string {
+  switch (change.kind) {
+    case "model":
+      return `Model set to ${modelNameOf(models, change.provider, change.model)}`;
+    case "effort":
+      return `Thinking effort set to ${describeThinking(change.effort).toLowerCase()}`;
+    default:
+      return "Pi recorded the system prompt and the tools";
+  }
 }
 
 function summaryOf({ label, preview }: { label: string; preview: string }): string {

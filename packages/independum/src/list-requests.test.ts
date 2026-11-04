@@ -48,7 +48,10 @@ test("each reply is one request, with what came in before it and the settings ch
     {
       id: "4",
       model: "gpt-6-luna",
-      changes: ["Model set to gpt-6-luna", "Thinking effort set to high"],
+      changes: [
+        { kind: "model", provider: "openai", model: "gpt-6-luna" },
+        { kind: "effort", effort: "high" },
+      ],
       inputs: [
         { source: "you", label: "Message", preview: "Read the notes, please.", entryId: "3" },
       ],
@@ -86,9 +89,9 @@ test("settings changed back and forth before a request count once, at their last
   ];
   expect(listRequests(branch).map((request) => request.changes)).toEqual([
     [
-      "Model set to claude-haiku-5-5",
-      "Thinking effort set to low",
-      "Pi recorded the system prompt and the tools",
+      { kind: "model", provider: "anthropic", model: "claude-haiku-5-5" },
+      { kind: "effort", effort: "low" },
+      { kind: "setup" },
     ],
     [],
   ]);
