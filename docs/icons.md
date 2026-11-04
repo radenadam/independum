@@ -50,6 +50,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | New tab | Four small boxes. |
 | Agent | A box with an antenna, two eyes, and two ears. |
 | More | Three dots in a row. |
+| Replying | The three dots of More, which take the place of the arrow of Latest while a reply goes on. |
 | Edit | A pencil at 45 degrees, to rename a chat or to edit a text. |
 | Edit file | The page of Read with a pencil over its lower right corner, for the tool that edits a file. |
 | Reset | An arrow that points left and curves back under itself, to go back to the built-in text or setting. |
@@ -75,7 +76,7 @@ Decision 0024 records why icons move and where the line falls.
 
 - An icon moves only when something is about to happen to what it stands for, and the motion acts out that action.
 - A part of an icon moves once, there and back, when its button is pointed at or reached with the keyboard, and a tap on a touch screen plays it too. The search lens moves when its field takes the focus.
-- A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open.
+- A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open, or the dots of Replying, which play their motion over and over at half speed while a reply goes on.
 - Provider logos never move on hover, because a logo is the mark of another company. The raven moves only beside thinking: it tilts its head toward the user and back while the model thinks, and it turns to face forward while its row is pointed at. See decision 0049.
 - A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion.
 - `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes.
@@ -100,6 +101,7 @@ Decision 0024 records why icons move and where the line falls.
 | New tab | The four boxes spread apart. |
 | Agent | The eyes blink. |
 | More | The dots hop one after another. |
+| Replying | The dots hop one after another, over and over, at half speed, for as long as the reply goes on. |
 | Edit | The pencil tilts as if it writes. |
 | Edit file | The pencil nudges up and to the right, as if it writes. |
 | Reset | The head of the arrow nudges back to the left. |

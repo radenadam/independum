@@ -278,6 +278,11 @@
     animation: move var(--motion) cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0s);
   }
 
+  /* A state that goes on, such as a reply, plays the motion of its icon over and over, at half speed. */
+  .goingOn {
+    animation: move calc(var(--motion) * 2) cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0s) infinite;
+  }
+
   @keyframes move {
     50% {
       translate: var(--shift-x, 0) var(--shift-y, 0);

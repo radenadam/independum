@@ -19,3 +19,25 @@
 .frame[data-align="end"][data-too-long="false"] {
   text-align: right;
 }
+
+.letter {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* While its chat replies, the letters of a title rise in turn from the first to the last. */
+  .letter {
+    animation: wave 1.4s ease-in-out calc(var(--position) * 45ms) infinite;
+  }
+
+  @keyframes wave {
+    0%,
+    30%,
+    100% {
+      translate: 0 0;
+    }
+    15% {
+      translate: 0 -2px;
+    }
+  }
+}

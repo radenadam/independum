@@ -21,6 +21,7 @@ export type IconName =
   | "agent"
   | "close"
   | "more"
+  | "replying"
   | "edit"
   | "reset"
   | "pin"
@@ -128,6 +129,14 @@ const drawings: Record<IconName, ReactElement> = {
       <circle className={moves(styles.firstDot)} cx="5" cy="12" r="1" />
       <circle className={moves(styles.secondDot)} cx="12" cy="12" r="1" />
       <circle className={moves(styles.thirdDot)} cx="19" cy="12" r="1" />
+    </>
+  ),
+  // The dots of More hop in turn for as long as a reply goes on.
+  replying: (
+    <>
+      <circle className={`${styles.firstDot} ${styles.goingOn}`} cx="5" cy="12" r="1" />
+      <circle className={`${styles.secondDot} ${styles.goingOn}`} cx="12" cy="12" r="1" />
+      <circle className={`${styles.thirdDot} ${styles.goingOn}`} cx="19" cy="12" r="1" />
     </>
   ),
   edit: (

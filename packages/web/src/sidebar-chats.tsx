@@ -13,6 +13,7 @@ interface SidebarChatsProps {
   projects: ProjectSummary[];
   query: string;
   chatId: string | null;
+  replyingIds: ReadonlySet<string>;
   folder: string;
   actions: ChatActions;
   onNewChat: (folder: string) => void;
@@ -29,6 +30,7 @@ export function SidebarChats({
   projects,
   query,
   chatId,
+  replyingIds,
   folder,
   actions,
   onNewChat,
@@ -81,6 +83,7 @@ export function SidebarChats({
                 <ChatRows
                   chats={list}
                   currentId={chatId}
+                  replyingIds={replyingIds}
                   isNested={false}
                   newIds={newIds}
                   actions={actions}
@@ -133,6 +136,7 @@ export function SidebarChats({
                   <ChatRows
                     chats={project.chats}
                     currentId={chatId}
+                    replyingIds={replyingIds}
                     isNested
                     newIds={newIds}
                     actions={actions}
