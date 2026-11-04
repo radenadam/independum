@@ -44,7 +44,7 @@ const titles: Record<TabPlace, string> = {
   session: "Session",
   commands: "Commands",
 };
-const icons = { new: "newTab", session: "agent", commands: "shell" } as const;
+const icons = { new: "newTab", session: "session", commands: "shell" } as const;
 // The places that a new tab offers, in the order it lists them.
 const places = ["session", "commands"] as const;
 
