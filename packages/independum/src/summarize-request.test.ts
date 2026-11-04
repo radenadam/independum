@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { piTexts } from "./pi-texts.ts";
-import { type KnownTexts, summarizeRequest } from "./summarize-request.ts";
+import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
 
 const prompt = "You are the agent in Independum, and you work in the project folder below.";
 const added = "<cwd>\nC:/work/project\n</cwd>";
@@ -185,4 +185,19 @@ test("a text that no part knows shows as other beside known parts, and a setting
 test("each part estimates its tokens from its length", () => {
   const [part] = summarizeRequest({ instructions: prompt }, known);
   expect(part?.tokens).toBe(Math.round(prompt.length / 4));
+});
+
+test("the next request, before a chat sends one, holds the prompt, the tools, and the messages", () => {
+  const parts = describeNextRequest(known).map(
+    (part) => `${part.group} ${part.source} ${part.label}`,
+  );
+  expect(parts).toEqual([
+    "instructions independum System prompt",
+    "instructions pi Added to the system prompt",
+    "tools independum Read",
+    "messages you Read the notes file for me, please.",
+    "messages model Reading the notes file now.",
+    "messages tool Result of Read",
+    "messages independum Background command 1 ended with exit code 0.",
+  ]);
 });
