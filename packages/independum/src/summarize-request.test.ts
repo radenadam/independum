@@ -71,14 +71,14 @@ test("a request reads as its instructions, tools, and messages, each in the orde
     tools: [{ name: "Read", description: readDescription, input_schema: { type: "object" } }],
   };
   expect(partsOf(request)).toEqual([
-    `instructions pi ${piText.split("\n")[0]}`,
+    "instructions pi Text of Pi",
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Read the notes file for me, please.",
-    "messages model Reading the notes file now.",
+    "messages you Message",
+    "messages model Reply",
     "messages tool Result of Read",
-    "messages independum Background command 1 ended with exit code 0.",
+    "messages independum Note",
   ]);
 });
 
@@ -109,8 +109,8 @@ test("a reply split into items, such as its text and its tool calls, reads as on
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Read the notes file for me, please.",
-    "messages model Reading the notes file now.",
+    "messages you Message",
+    "messages model Reply",
     "messages tool Result of Read",
   ]);
 });
@@ -166,7 +166,7 @@ test("a request that holds everything in one list keeps its order, with a part f
     "tools independum Write",
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
-    "messages you Read the notes file for me, please.",
+    "messages you Message",
     "messages model Calls Read",
     "messages tool Result of Read",
   ]);
@@ -178,7 +178,7 @@ test("a text that no part knows shows as other beside known parts, and a setting
   const request = { model: "a-model", preamble: other, instructions: `${prompt}\n\n${other}` };
   expect(partsOf(request)).toEqual([
     "instructions independum System prompt",
-    "instructions other Other text in instructions",
+    "instructions other Other text",
   ]);
 });
 
@@ -195,10 +195,10 @@ test("the next request, before a chat sends one, holds the prompt, the tools, an
     "instructions independum System prompt",
     "instructions pi Added to the system prompt",
     "tools independum Read",
-    "messages you Read the notes file for me, please.",
-    "messages model Reading the notes file now.",
+    "messages you Message",
+    "messages model Reply",
     "messages tool Result of Read",
-    "messages independum Background command 1 ended with exit code 0.",
+    "messages independum Note",
   ]);
 });
 
@@ -221,7 +221,25 @@ test("a tools update of Pi among the messages reads as one part of Pi, not as to
   };
   expect(partsOf(request)).toEqual([
     "instructions independum System prompt",
-    "messages you Read the notes file for me, please.",
-    "messages pi Tools sent again: Read",
+    "messages you Message",
+    "messages pi Tools sent again",
   ]);
+});
+
+test("a short message matches, shows as it was sent, and nothing sent goes missing", () => {
+  const short: KnownTexts = {
+    ...known,
+    entries: [{ id: "e1", message: { role: "user", content: "hello" } }],
+  };
+  const sent = { role: "user", content: [{ type: "input_text", text: "hello" }] };
+  const unknown = { role: "system", content: [], effort: "medium" };
+  const parts = summarizeRequest({ instructions: prompt, input: [sent, unknown] }, short);
+  expect(parts.map((part) => `${part.group} ${part.source} ${part.label} ${part.preview}`)).toEqual(
+    [
+      `instructions independum System prompt ${prompt}`,
+      "messages you Message hello",
+      "messages other Other text system",
+    ],
+  );
+  expect(parts[1]?.text).toBe(JSON.stringify(sent, null, 2));
 });

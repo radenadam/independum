@@ -3,7 +3,7 @@ import { type CSSProperties, type ReactElement, useState } from "react";
 import { PlaceRow } from "./place-row.tsx";
 import styles from "./request-parts.module.css";
 
-/** What a row of a request opens: a part, every tool, or nothing more when it shows earlier rows. */
+/** What a row of a request opens: a part, or every tool. */
 export type ShownLink = PartLink | { kind: "tools" };
 
 /** A row of a request as it shows: one part, or every tool of a run together. */
@@ -12,9 +12,11 @@ interface ShownPart {
   group: RequestGroup;
   source: PartSource;
   label: string;
+  preview: string;
   text: string;
   tokens: number;
   link: ShownLink;
+  number?: number;
   tag?: string | undefined;
   isTagMarked?: boolean;
 }
@@ -29,8 +31,7 @@ interface RequestPartsProps {
   onOpen: (key: string, link: ShownLink, part: { label: string; text: string }) => void;
 }
 
-/** The name of who put a part of a request there, as a row shows it. */
-export const sourceNames: Record<PartSource, string> = {
+const sourceNames: Record<PartSource, string> = {
   you: "You",
   model: "Model",
   tool: "Tool",
@@ -48,9 +49,10 @@ const latestShown = 5;
 const numberFormat = new Intl.NumberFormat();
 
 /**
- * Draws the parts of the last request as a bar of what fills it and a list under it, both in the
- * order the request holds them. Pointing at a part lights it up in both. The tools of a run show as
- * one row, and the earlier messages wait behind one row.
+ * Draws the parts of a request as a bar of what fills it and a list under it, both in the order
+ * the request holds them. Pointing at a part lights it up in both. The tools of a run show as one
+ * row, the messages carry their place in the chat, and the earlier messages wait behind one row
+ * that opens and folds them.
  */
 export function RequestParts({
   parts,
@@ -66,27 +68,32 @@ export function RequestParts({
   const messages = shown.filter((part) => part.group === "messages");
   const earlier = messages.slice(0, Math.max(0, messages.length - latestShown));
   const hidden = isAllShown ? [] : earlier;
+  const hiddenTokens = hidden.reduce((sum, part) => sum + part.tokens, 0);
   // The provider counts the whole request exactly, so each part shows its share of that count,
   // estimated from its length.
   const estimated = shown.reduce((sum, part) => sum + part.tokens, 0);
   const scale = total === undefined || estimated === 0 ? 1 : total / estimated;
-  const tokensOf = (part: ShownPart): string =>
-    `~${numberFormat.format(Math.max(1, Math.round(part.tokens * scale)))}`;
+  const amountOf = (tokens: number): string =>
+    `~${numberFormat.format(Math.max(1, Math.round(tokens * scale)))}`;
+  const earlierLabel = `${earlier.length} earlier ${earlier.length === 1 ? "message" : "messages"}`;
 
   return (
     <div className={styles.parts}>
       <div className={styles.bar}>
-        {hidden.length === 0 ? null : (
-          <span
-            className={styles.segment}
-            style={
-              { "--tokens": hidden.reduce((sum, each) => sum + each.tokens, 0) } as CSSProperties
-            }
-          />
-        )}
-        {shown
-          .filter((part) => !hidden.includes(part))
-          .map((part) => (
+        {shown.map((part) => {
+          if (hidden.includes(part)) {
+            return part === hidden[0] ? (
+              <button
+                key="earlier"
+                type="button"
+                className={styles.segment}
+                style={{ "--tokens": hiddenTokens } as CSSProperties}
+                aria-label={`Show the ${earlierLabel}`}
+                onClick={() => setIsAllShown(true)}
+              />
+            ) : null;
+          }
+          return (
             <button
               key={part.key}
               type="button"
@@ -98,24 +105,25 @@ export function RequestParts({
               onPointerEnter={() => setLit(part.key)}
               onPointerLeave={() => setLit(undefined)}
             />
-          ))}
+          );
+        })}
       </div>
       <div className={styles.list}>
         {shown.map((part, index) => {
-          const isFirstOfGroup = shown[index - 1]?.group !== part.group;
-          const heading = isFirstOfGroup ? (
-            <p key={`${part.key}-heading`} className={styles.heading}>
-              {groupNames[part.group]}
-            </p>
-          ) : null;
+          const heading =
+            shown[index - 1]?.group === part.group ? null : (
+              <p key={`${part.key}-heading`} className={styles.heading}>
+                {groupNames[part.group]}
+              </p>
+            );
           if (hidden.includes(part)) {
             return part === hidden[0]
               ? [
                   heading,
                   <PlaceRow
                     key="earlier"
-                    label={`${hidden.length} earlier ${hidden.length === 1 ? "part" : "parts"}`}
-                    amount={`~${numberFormat.format(Math.round(hidden.reduce((sum, each) => sum + each.tokens, 0) * scale))}`}
+                    label={`Show the ${earlierLabel}`}
+                    amount={amountOf(hiddenTokens)}
                     onOpen={() => setIsAllShown(true)}
                   />,
                 ]
@@ -125,7 +133,7 @@ export function RequestParts({
             isAllShown && part === earlier[0] ? (
               <PlaceRow
                 key="fold"
-                label={`Hide the ${earlier.length} earlier ${earlier.length === 1 ? "part" : "parts"}`}
+                label={`Hide the ${earlierLabel}`}
                 onOpen={() => setIsAllShown(false)}
               />
             ) : null;
@@ -135,10 +143,11 @@ export function RequestParts({
             <PlaceRow
               key={part.key}
               source={sourceNames[part.source]}
-              label={part.label}
+              label={part.number === undefined ? part.label : `${part.number}. ${part.label}`}
+              glance={part.preview}
               tag={part.tag}
               isTagMarked={part.isTagMarked ?? false}
-              amount={tokensOf(part)}
+              amount={amountOf(part.tokens)}
               isCurrent={current === part.key}
               isLit={lit === part.key}
               onOpen={() => open(part)}
@@ -155,32 +164,38 @@ export function RequestParts({
   }
 }
 
-// Tools that follow each other show as one row, because a request holds every tool that is on.
+// Tools that follow each other show as one row, because a request holds every tool that is on, and
+// each message carries its place among the messages, so the order reads at a glance.
 function shownPartsOf(
   parts: RequestPart[],
   changedTools: number,
   isSystemPromptEdited: boolean,
 ): ShownPart[] {
   const shown: ShownPart[] = [];
-  let toolCount = 0;
+  let toolNames: string[] = [];
+  let messageNumber = 0;
   for (const [index, part] of parts.entries()) {
     const last = shown.at(-1);
     const isTool = part.link.kind === "tool";
-    toolCount = isTool ? toolCount + 1 : 0;
+    toolNames = isTool ? [...toolNames, part.label] : [];
     if (isTool && last?.link.kind === "tools") {
       last.tokens += part.tokens;
-      last.label = `${toolCount} tools`;
+      last.label = `${toolNames.length} tools`;
+      last.preview = toolNames.join(", ");
       continue;
     }
     const isPrompt = part.link.kind === "systemPrompt";
+    messageNumber += part.group === "messages" ? 1 : 0;
     shown.push({
       key: `${index}`,
       group: part.group,
       source: part.source,
       label: isTool ? "1 tool" : part.label,
+      preview: isTool ? part.label : part.preview,
       text: part.text,
       tokens: part.tokens,
       link: isTool ? { kind: "tools" } : part.link,
+      ...(part.group === "messages" ? { number: messageNumber } : {}),
       tag: isTool
         ? changedTools > 0
           ? `${changedTools} edited`

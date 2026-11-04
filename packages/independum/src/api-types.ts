@@ -308,13 +308,15 @@ export type RequestGroup = "instructions" | "tools" | "messages";
 
 /**
  * One part of the last request: its group, the key of the request that holds it, who put it there,
- * what it is, and its size in tokens, estimated from its length.
+ * what kind of part it is, the start of its text, its text as it was sent, and its size in tokens,
+ * estimated from its length.
  */
 export interface RequestPart {
   group: RequestGroup;
   section: string;
   source: PartSource;
   label: string;
+  preview: string;
   link: PartLink;
   text: string;
   tokens: number;
@@ -324,6 +326,7 @@ export interface RequestPart {
 export interface RequestInput {
   source: PartSource;
   label: string;
+  preview: string;
   entryId: string;
 }
 
@@ -340,7 +343,7 @@ export interface RequestSummary {
   cost: number;
   inputs: RequestInput[];
   changes: string[];
-  reply: string;
+  reply: { label: string; preview: string };
 }
 
 /** The tokens of one request or of a whole chat. */

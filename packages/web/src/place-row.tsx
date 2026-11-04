@@ -47,7 +47,10 @@ export function PlaceRow({
       <span className={styles.text}>
         <OneLineTitle text={label} />
         {source === undefined && glance === undefined ? null : (
-          <span className={styles.glance}>{[source, glance].filter(Boolean).join(", ")}</span>
+          <span className={styles.glance}>
+            {source === undefined ? null : <span className={styles.source}>{source}</span>}
+            {glance === undefined || glance === "" ? null : <OneLineTitle text={glance} />}
+          </span>
         )}
       </span>
       {tag === undefined ? null : (

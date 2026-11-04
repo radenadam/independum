@@ -17,7 +17,7 @@ import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
-import { RequestParts, type ShownLink, sourceNames } from "./request-parts.tsx";
+import { RequestParts, type ShownLink } from "./request-parts.tsx";
 import styles from "./session-place.module.css";
 import { TextDialog } from "./text-dialog.tsx";
 import { countOf, UsageTable } from "./usage-table.tsx";
@@ -207,9 +207,8 @@ function Overview({
         <p className={styles.muted}>{describeUsage(context)}</p>
       </section>
       <section className={styles.request}>
-        <h3 className={styles.heading}>
-          {context?.isNextRequest === false ? "Last request" : "Next request"}
-        </h3>
+        <h3 className={styles.heading}>Context</h3>
+        <p className={styles.basis}>{basisOf(context)}</p>
         {context === undefined ? (
           <PlaceNote>Loading the request.</PlaceNote>
         ) : (
@@ -383,16 +382,13 @@ function Request({ title, request, context }: RequestProps): ReactElement {
           <PlaceNote key={change}>{change}.</PlaceNote>
         ))}
         {request.inputs.map((input) => (
-          <Disclosure
-            key={input.entryId}
-            label={<OneLineTitle text={`${sourceNames[input.source]}: ${input.label}`} />}
-          >
+          <Disclosure key={input.entryId} label={<OneLineTitle text={summaryOf(input)} />}>
             <CodeWell code={entryOf(input.entryId)} copyLabel="Copy entry" />
           </Disclosure>
         ))}
       </PlaceSection>
       <PlaceSection heading="What came out">
-        <Disclosure label={<OneLineTitle text={`Model: ${request.reply}`} />}>
+        <Disclosure label={<OneLineTitle text={summaryOf(request.reply)} />}>
           <CodeWell code={entryOf(request.id)} copyLabel="Copy entry" />
         </Disclosure>
       </PlaceSection>
@@ -416,4 +412,19 @@ function Request({ title, request, context }: RequestProps): ReactElement {
       ) : null}
     </>
   );
+}
+
+// The context is the request that went out last, or, before one went out, the next one as Independum
+// builds it from the chat, so it says which.
+function basisOf(context: ContextSummary | undefined): string {
+  if (context === undefined || context.isNextRequest) {
+    return "Not sent yet, built from this chat";
+  }
+  return context.requests.length === 0
+    ? "As sent"
+    : `As sent in request ${context.requests.length}`;
+}
+
+function summaryOf({ label, preview }: { label: string; preview: string }): string {
+  return preview === "" ? label : `${label}: ${preview}`;
 }

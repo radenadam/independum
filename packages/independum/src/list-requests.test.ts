@@ -49,8 +49,10 @@ test("each reply is one request, with what came in before it and the settings ch
       id: "4",
       model: "gpt-6-luna",
       changes: ["Model set to gpt-6-luna", "Thinking effort set to high"],
-      inputs: [{ source: "you", label: "Read the notes, please.", entryId: "3" }],
-      reply: "Calls Read",
+      inputs: [
+        { source: "you", label: "Message", preview: "Read the notes, please.", entryId: "3" },
+      ],
+      reply: { label: "Calls Read" },
       tokens: { input: 10, output: 5, reasoning: 2, cacheRead: 100, cacheWrite: 0 },
       cost: 0.001,
     },
@@ -59,9 +61,9 @@ test("each reply is one request, with what came in before it and the settings ch
       changes: [],
       inputs: [
         { source: "tool", label: "Result of Read", entryId: "5" },
-        { source: "independum", label: "Command 1 ended.", entryId: "6" },
+        { source: "independum", label: "Note", preview: "Command 1 ended.", entryId: "6" },
       ],
-      reply: "The notes say hello.",
+      reply: { label: "Reply", preview: "The notes say hello." },
     },
   ]);
 });
