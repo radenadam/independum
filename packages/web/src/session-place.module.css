@@ -129,15 +129,46 @@
   margin: 0;
 }
 
-.tiles {
+/*
+  The history is one sequence, so a line runs down the column of the numbers, behind the requests,
+  and joins each one to the next. A change of settings sits on the line as a dot, right above the
+  request it led to, with its text where the names of the requests start.
+*/
+.timeline {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-/* A change of settings sits right above the request it led to. */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 24px;
+  width: 1px;
+  background: var(--faint);
+}
+
+.timeline > * {
+  position: relative;
+}
+
 .change {
-  margin: 6px 0 0;
+  margin: 0;
+  padding: 3px 0 3px 38px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.change::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 3.5px);
+  left: 21px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
 }
