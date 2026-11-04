@@ -44,6 +44,7 @@ import { type PlaceRequest, SidePanel } from "./side-panel.tsx";
 import { Sidebar } from "./sidebar.tsx";
 import type { ToolCalls } from "./tool-step.tsx";
 import { useChatData } from "./use-chat-data.ts";
+import { useReplyNotice } from "./use-reply-notice.ts";
 import styles from "./working-screen.module.css";
 
 /** Properties of the working screen. */
@@ -270,6 +271,7 @@ export function WorkingScreen({
     .flatMap((project) => project.chats)
     .find((candidate) => candidate.id === chat?.id);
   const title = saved?.title ?? "New chat";
+  useReplyNotice(chat, title);
   // The title of a new chat types itself in once its first message lists it in the sidebar.
   const lastListing = useRef({ id: chat?.id, isListed: true });
   const isNewlyListed =
