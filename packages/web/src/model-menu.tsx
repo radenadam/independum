@@ -17,8 +17,8 @@ interface ModelMenuProps {
 }
 
 /**
- * Draws a search field, the thinking effort of the current model, and the models of every provider
- * with a login, grouped by provider.
+ * Draws a search field, the models of every provider with a login, grouped by provider, and the
+ * thinking effort of the current model. With no login yet, it offers to add one in place of models.
  */
 export function ModelMenu({
   models,
@@ -44,22 +44,22 @@ export function ModelMenu({
         onChange={setQuery}
         isFocusedFirst
       />
-      <MenuList
-        groups={groupByProvider(shown, current, onChoose)}
-        layout="row"
-        emptyNote={
-          models === undefined
-            ? "Loading the models."
-            : models.length === 0
-              ? "No models yet. Add a login first."
-              : "No models match."
-        }
-      />
-      <div className={styles.footer}>
-        <button type="button" className={styles.logins} onClick={onManageLogins}>
-          Add or manage logins
-        </button>
-      </div>
+      {models?.length === 0 ? (
+        <div className={styles.empty}>
+          <p className={styles.note}>No models yet.</p>
+          <button type="button" className={styles.login} onClick={onManageLogins}>
+            Add a login
+          </button>
+        </div>
+      ) : (
+        <div className={styles.models}>
+          <MenuList
+            groups={groupByProvider(shown, current, onChoose)}
+            layout="row"
+            emptyNote={models === undefined ? "Loading the models." : "No models match."}
+          />
+        </div>
+      )}
       {thinking === null ? null : <EffortSlider thinking={thinking} onChoose={onChooseThinking} />}
     </>
   );
