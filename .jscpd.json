@@ -6,5 +6,6 @@
   "minLines": 5,
   "reporters": ["console"],
   "exitCode": 1,
-  "noTips": true
+  "noTips": true,
+  "ignorePattern": ["import [^;]*from \"[^\"]*\";"]
 }

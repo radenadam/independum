@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import type { DescribedCall } from "./describe-tool-call.ts";
 import { IconButton } from "./icon-button.tsx";
 
 /** Properties of the actions of a running command. */
@@ -6,6 +7,15 @@ interface CommandActionsProps {
   id: string;
   canMove: boolean;
   tools: { onMove: (id: string) => void; onStop: (id: string) => void };
+}
+
+/** Returns the buttons of a call that the user can stop, or nothing for a call that cannot stop. */
+export function commandActionsOf(
+  id: string,
+  call: DescribedCall,
+  tools: CommandActionsProps["tools"],
+): ReactElement | undefined {
+  return call.canStop ? <CommandActions id={id} canMove={call.canMove} tools={tools} /> : undefined;
 }
 
 /**

@@ -1,42 +1,16 @@
+/* The place fills the panel and scrolls on its own, so a command that opens starts at its top. */
+.place {
+  height: 100%;
+  overflow-y: auto;
+}
+
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
-.row {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
+.status {
+  margin: 0;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border-radius: 9px;
-  color: var(--muted);
-}
-
-.row:hover {
-  background: var(--raised);
-}
-
-.text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.label {
-  min-width: 0;
-  display: flex;
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.command {
-  min-width: 0;
-  display: flex;
-  font: 12px var(--font-mono);
 }

@@ -1,6 +1,6 @@
 /*
   A row is a tile like the toggle of a disclosure, so what opens and what unfolds look the same. Its
-  number sits before its text, where a tool card shows its icon.
+  number or its icon sits before its text, where a tool card shows its icon.
 */
 .row {
   composes: toggle from "./disclosure.module.css";
@@ -26,6 +26,11 @@
   text-align: right;
 }
 
+.icon {
+  flex: none;
+  display: flex;
+}
+
 .text {
   flex: 1;
   min-width: 0;
@@ -40,6 +45,10 @@
   min-width: 0;
   color: var(--muted);
   font-size: 12.5px;
+}
+
+.glance[data-code="true"] {
+  font: 12px var(--font-mono);
 }
 
 .amount {

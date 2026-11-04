@@ -1,20 +1,13 @@
 import type { ChatMessage, CommandEnd, ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
-import { CodeBlock } from "./code-block.tsx";
-import { CommandActions } from "./command-actions.tsx";
-import { describeDuration } from "./describe-duration.ts";
-import {
-  describeToolCall,
-  isCallRunning,
-  statusOfEnd,
-  type ToolRun,
-} from "./describe-tool-call.ts";
-import { DiffView } from "./diff-view.tsx";
+import { commandActionsOf } from "./command-actions.tsx";
+import { statusOfEnd, type ToolRun } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
 import { StepBox } from "./step-box.tsx";
+import styles from "./tool-call-body.module.css";
+import { ToolCallBody } from "./tool-call-body.tsx";
 import { toolIconOf } from "./tool-icon.ts";
-import styles from "./tool-step.module.css";
-import { useElapsed } from "./use-elapsed.ts";
+import { useDescribedCall } from "./use-described-call.ts";
 
 /** What the chat knows about the calls to tools, and what the user can do with them. */
 export interface ToolCalls {
@@ -37,49 +30,22 @@ interface ToolStepProps {
  * inside it what went in and what came back. A running command has a button that stops it alone.
  */
 export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactElement {
-  const run = tools.runs[part.id];
-  const end = tools.ends[part.id];
   const isUnderWay = part.result === null && isReplying;
-  const elapsed = useElapsed(run?.startedAt, isCallRunning(part, run, end, isReplying));
-  const call = describeToolCall(part, run, end, isReplying, elapsed);
+  const call = useDescribedCall(part, tools, isReplying);
 
   return (
     <StepBox
       leading={<Icon name={toolIconOf(part.name)} size={16} />}
       label={call.label}
       status={call.status}
-      action={
-        call.canStop ? (
-          <CommandActions id={part.id} canMove={call.canMove} tools={tools} />
-        ) : undefined
-      }
+      action={commandActionsOf(part.id, call, tools)}
       isFollowing={isUnderWay}
       hasBody={
         call.input !== "" || call.output !== "" || call.images.length > 0 || call.hunks.length > 0
       }
       shownAt={tools.shown?.id === part.id ? tools.shown.at : undefined}
     >
-      {call.input === "" ? null : (
-        <div className={styles.input}>
-          <CodeBlock language={call.language} code={call.input} isFlush />
-        </div>
-      )}
-      {call.hunks.length === 0 ? null : <DiffView path={call.language} hunks={call.hunks} />}
-      {call.output === "" ? null : <pre className={styles.output}>{call.output}</pre>}
-      {call.images.map((image) => (
-        <img
-          key={image.data.slice(-32)}
-          className={styles.image}
-          src={`data:${image.mimeType};base64,${image.data}`}
-          alt="What the model saw"
-        />
-      ))}
-      {call.quietMs === undefined ? null : (
-        <p className={styles.quiet}>
-          It has printed nothing for {describeDuration(call.quietMs)}, so it may be waiting for
-          input that never comes. Stop it, or let it run.
-        </p>
-      )}
+      <ToolCallBody call={call} />
     </StepBox>
   );
 }
