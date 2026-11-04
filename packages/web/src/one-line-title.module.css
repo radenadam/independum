@@ -1,4 +1,6 @@
+/* A title is a block, so it measures its own width even inside a line of text. */
 .frame {
+  display: block;
   flex: 1 1 auto;
   min-width: 0;
   overflow: clip;

@@ -151,6 +151,13 @@
   padding: 0 var(--inset);
 }
 
+.basis {
+  margin: -4px 0 0;
+  padding: 0 var(--inset);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
 .request > p {
   padding: 0 var(--inset) 12px;
 }

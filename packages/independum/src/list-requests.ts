@@ -52,7 +52,7 @@ export function listRequests(branch: SessionEntry[]): RequestSummary[] {
         cost: usage.cost.total,
         inputs,
         changes,
-        reply: describeMessage(entry.message).label,
+        reply: (({ label, preview }) => ({ label, preview }))(describeMessage(entry.message)),
       });
       inputs = [];
       usedModel = model;
