@@ -9,7 +9,7 @@
   display: flex;
   gap: 1px;
   height: 16px;
-  margin: 0 18px;
+  margin: 0 var(--inset, 18px);
   border-radius: 5px;
   overflow: clip;
 }
@@ -32,7 +32,7 @@
 
 .heading {
   margin: 0;
-  padding: 12px 18px 4px;
+  padding: 12px var(--inset, 18px) 4px;
   color: var(--muted);
   font-size: 12px;
 }

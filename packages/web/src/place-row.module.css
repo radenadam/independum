@@ -1,11 +1,14 @@
-/* A row runs from edge to edge of its place, with a line under it. */
+/*
+  A row runs from edge to edge of its place, with a line under it. Its text keeps the inset of the
+  place, so a row inside a frame lines up with the text outside it.
+*/
 .row {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   min-height: 42px;
-  padding: 8px 18px;
+  padding: 8px var(--inset, 18px);
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 14px;

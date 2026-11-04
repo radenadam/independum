@@ -201,3 +201,27 @@ test("the next request, before a chat sends one, holds the prompt, the tools, an
     "messages independum Background command 1 ended with exit code 0.",
   ]);
 });
+
+test("a tools update of Pi among the messages reads as one part of Pi, not as tools", () => {
+  const update = piTexts.find((text) => text.id === "toolsUpdated")?.text ?? "";
+  const request = {
+    input: [
+      { role: "developer", content: prompt },
+      {
+        role: "user",
+        content: [{ type: "input_text", text: "Read the notes file for me, please." }],
+      },
+      {
+        type: "message",
+        role: "developer",
+        content: update,
+        tools: [{ name: "Read", description: readDescription }],
+      },
+    ],
+  };
+  expect(partsOf(request)).toEqual([
+    "instructions independum System prompt",
+    "messages you Read the notes file for me, please.",
+    "messages pi Tools sent again: Read",
+  ]);
+});
