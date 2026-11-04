@@ -162,7 +162,10 @@ export function WorkingScreen({
     }
   }
 
+  // A step that the user picks shows once, so a chat that opens forgets it, and the chat does not
+  // jump back to it when it opens again.
   function startNew(folder?: string): void {
+    setShownStep(undefined);
     setIsNewChatFlashing(true);
     setNotice(undefined);
     closeSidebarOnPhone();
@@ -170,6 +173,7 @@ export function WorkingScreen({
   }
 
   function open(id: string): void {
+    setShownStep(undefined);
     setNotice(undefined);
     closeSidebarOnPhone();
     openChat(id).catch(() => setNotice("That chat could not be opened. Try again."));
