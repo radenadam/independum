@@ -9,7 +9,7 @@
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
     },
     {
-      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const shown = dialog?.innerText ?? ''; return { settingsOpen: dialog?.open === true && dialog.checkVisibility(), loginsVisible: dialog?.querySelector('nav button[aria-current=true]')?.innerText.trim() === 'Logins' && [...dialog.querySelectorAll('h2')].some(heading => heading.innerText.trim() === 'Logins'), standInLoginVisible: /faux/i.test(shown) }; })()",
+      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const shown = dialog?.innerText ?? ''; return { noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), settingsOpen: dialog?.open === true && dialog.checkVisibility(), loginsVisible: dialog?.querySelector('nav button[aria-current=true]')?.innerText.trim() === 'Logins' && [...dialog.querySelectorAll('h2')].some(heading => heading.innerText.trim() === 'Logins'), standInLoginVisible: /faux/i.test(shown) }; })()",
       "shot": "settings-logins"
     },
     {

@@ -60,3 +60,5 @@ A section is never a box of its own. A card is never used for one thing alone, b
 
 - Every screen works with touch on a screen 360 pixels wide.
 - Nothing that the user needs may depend on hover, because a phone has none. A tooltip only repeats what the screen already shows or names an action whose icon is common.
+- Archived chat titles wrap on touch screens so titles with the same beginning remain distinct.
+- Settings sections wrap onto more rows when they need room. Every section stays reachable without horizontal scrolling.

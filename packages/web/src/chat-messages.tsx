@@ -89,18 +89,54 @@ export function ChatMessages({
   });
 
   // A reply keeps typing after its last render here, so the spacer follows the size of the list.
+  // A chat at its end stays there when its width changes and the messages wrap again.
   useEffect(() => {
     const scrollerElement = scroller.current;
     const listElement = list.current;
     const spacerElement = spacer.current;
-    if (scrollerElement === null || listElement === null || spacerElement === null) {
+    const endElement = end.current;
+    if (
+      scrollerElement === null ||
+      listElement === null ||
+      spacerElement === null ||
+      endElement === null
+    ) {
       return;
     }
-    const observer = new ResizeObserver(() =>
-      fitSpacer(scrollerElement, spacerElement, isAnchored.current),
-    );
+    let width = scrollerElement.offsetWidth;
+    let isAtEnd = hasEndInView();
+    function hasEndInView(): boolean {
+      return (
+        endElement !== null &&
+        scrollerElement !== null &&
+        endElement.offsetTop <= scrollerElement.scrollTop + scrollerElement.clientHeight + 8
+      );
+    }
+    function rememberEnd(): void {
+      if (scrollerElement !== null && width === scrollerElement.offsetWidth) {
+        isAtEnd = hasEndInView();
+      }
+    }
+    const observer = new ResizeObserver(() => {
+      fitSpacer(scrollerElement, spacerElement, isAnchored.current);
+      if (width !== scrollerElement.offsetWidth && isAtEnd) {
+        scrollerElement.scrollTop = Math.max(
+          0,
+          endElement.offsetTop - scrollerElement.clientHeight,
+        );
+      }
+      width = scrollerElement.offsetWidth;
+      isAtEnd = hasEndInView();
+    });
     observer.observe(listElement);
-    return () => observer.disconnect();
+    // The border box ignores a scrollbar that the spacer brings or removes, which would otherwise
+    // change the width again within the same frame.
+    observer.observe(scrollerElement, { box: "border-box" });
+    scrollerElement.addEventListener("scroll", rememberEnd, { passive: true });
+    return () => {
+      observer.disconnect();
+      scrollerElement.removeEventListener("scroll", rememberEnd);
+    };
   }, []);
 
   // The way back to the latest message shows while the end of the messages sits below the view,
@@ -147,7 +183,7 @@ export function ChatMessages({
             const { message } = turn;
             return (
               <li
-                key={`user-${message.timestamp}`}
+                key={`user-${turn.index}`}
                 className={
                   turn.index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
                 }
@@ -165,7 +201,7 @@ export function ChatMessages({
           }
           if (turn.type === "note") {
             return (
-              <li key={`note-${turn.message.timestamp}`}>
+              <li key={`note-${turn.index}`}>
                 <NoteStep message={turn.message} />
               </li>
             );

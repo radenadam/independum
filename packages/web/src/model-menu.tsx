@@ -76,7 +76,7 @@ function groupByProvider(
     const group: MenuGroup = groups.get(model.providerId) ?? {
       key: model.providerId,
       heading: model.providerName,
-      logo: <ProviderLogo providerId={model.providerId} size={14} keepsSpace />,
+      logo: <ProviderLogo providerId={model.providerId} size={14} />,
       choices: [],
     };
     group.choices.push({

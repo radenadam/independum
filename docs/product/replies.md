@@ -10,7 +10,7 @@ A tool step distinguishes a call being written, execution, completion, failure, 
 
 Step boxes open and follow the latest lines while their work runs, with a fade above clipped lines. They fold when work ends. A user's open or closed choice overrides that automatic state. Show in chat from Commands opens the step and any containing group, scrolls it into view, and briefly highlights it. A box without a body does not open.
 
-The chat shows a thinking indicator while a reply waits without new parts or a pending tool call. Completed reply errors appear after text finishes typing. An aborted reply says it was stopped. The jump button appears when the latest message is below the view. New prompts anchor near the top while the reply fills the room below them.
+The chat shows a thinking indicator while a reply waits without new parts or a pending tool call. Completed reply errors appear after text finishes typing. An aborted reply says it was stopped. The jump button appears when the latest message is below the view. A chat at its end stays there when its width changes and text wraps again. Reading earlier messages keeps the scroll position instead. New prompts anchor near the top while the reply fills the room below them.
 
 ## Thoughts and groups
 

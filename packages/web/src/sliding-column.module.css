@@ -16,9 +16,10 @@
   border-left: 1px solid var(--line);
 }
 
+/* A closed column takes no room, so its line goes too. */
 .column[data-open="false"] {
   width: 0;
-  border-color: transparent;
+  border-width: 0;
 }
 
 /* The edge holds the handle on the line between a column and the chat, and takes no room. */
@@ -34,6 +35,13 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 761px) {
+  .column,
+  .inner {
+    max-width: calc(100vw - var(--chat-width));
+  }
 }
 
 /* On a phone, the sidebar is a drawer over the chat, and the side panel covers the whole screen. */

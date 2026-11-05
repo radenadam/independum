@@ -36,10 +36,6 @@
   color: var(--muted);
 }
 
-.field:focus {
-  outline: none;
-}
-
 .tools {
   display: flex;
   align-items: center;

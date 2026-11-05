@@ -1,0 +1,87 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1280, 900],
+      "go": true
+    },
+    {
+      "run": "({ archiveActionsAvailable: document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]').length >= 2 })"
+    },
+    {
+      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Rename\")"
+    },
+    {
+      "text": "A long archived chat title with the same beginning that needs to remain fully readable on a phone and has a distinct first ending"
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Archive\")"
+    },
+    {
+      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Rename\")"
+    },
+    {
+      "text": "A long archived chat title with the same beginning that needs to remain fully readable on a phone and has a distinct second ending"
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Archive\")"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith(\"Settings\"))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll(\"dialog nav button\")].find(button => button.textContent.trim() === \"Archived chats\")"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll(\"dialog li span\")].find(span => span.childElementCount === 0 && span.textContent.startsWith(\"A long archived chat title\"))"
+    },
+    {
+      "run": "(() => { const dialog = document.querySelector(\"dialog[aria-label=Settings]\"); const tip = dialog.querySelector(\"[role=tooltip]\"); const box = tip?.getBoundingClientRect(); return { tooltipInSettings: !!tip && tip.textContent.includes(\"distinct\"), tooltipAboveSettings: !!box && getComputedStyle(tip).opacity === \"1\" && document.elementFromPoint(box.left + 1, box.top + 1)?.closest(\"dialog\") === dialog }; })()",
+      "shot": "archived-tooltip"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "run": "(() => { const titles = [...document.querySelectorAll(\"dialog li span\")].filter(span => span.childElementCount === 0 && span.textContent.startsWith(\"A long archived chat title\")); const details = [...document.querySelectorAll(\"dialog li button\")]; return { bothArchivedTitlesPresent: titles.length === 2 && titles.some(title => title.textContent.endsWith(\"first ending\")) && titles.some(title => title.textContent.endsWith(\"second ending\")), fullTitlesReadableByTouch: matchMedia(\"(hover: none)\").matches && titles.every(title => getComputedStyle(title).whiteSpace === \"normal\" && title.scrollWidth <= title.clientWidth && title.scrollHeight <= title.clientHeight), phoneArchivedFits: document.documentElement.scrollWidth <= 360, actionsRemainAvailable: details.filter(button => button.textContent === \"Unarchive\").length === 2 }; })()",
+      "shot": "archived-phone-light"
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "run": "(() => { const titles = [...document.querySelectorAll(\"dialog li span\")].filter(span => span.childElementCount === 0 && span.textContent.startsWith(\"A long archived chat title\")); const details = [...document.querySelectorAll(\"dialog li button\")]; return { bothArchivedTitlesPresent: titles.length === 2 && titles.some(title => title.textContent.endsWith(\"first ending\")) && titles.some(title => title.textContent.endsWith(\"second ending\")), fullTitlesReadableByTouch: matchMedia(\"(hover: none)\").matches && titles.every(title => getComputedStyle(title).whiteSpace === \"normal\" && title.scrollWidth <= title.clientWidth && title.scrollHeight <= title.clientHeight), phoneArchivedFits: document.documentElement.scrollWidth <= 360, actionsRemainAvailable: details.filter(button => button.textContent === \"Unarchive\").length === 2 }; })()",
+      "shot": "archived-phone-dark"
+    }
+  ]
+}

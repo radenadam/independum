@@ -12,7 +12,7 @@ An empty chat shows the message box near the middle of the screen. Once it has m
 
 ## Model menu
 
-The button shows the provider logo, model name, and current thinking effort when supported. The menu opens below an empty chat's box and above a populated one. Opening it reloads the available models from Pi. Only providers with a login contribute models.
+The button shows the provider logo, model name, and current thinking effort when supported. The menu opens below an empty chat's box and above a populated one, and keeps that position while it is open even when the effort label changes width. Opening it reloads the available models from Pi. Only providers with a login contribute models.
 
 Search matches model name, model id, and provider name without case. Models group under sticky provider headings. The list has room for three model rows before scrolling. Loading, no matching models, and no available models have separate states. Only the last state offers Add a login, which opens settings. Choosing a model keeps the menu open.
 

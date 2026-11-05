@@ -6,7 +6,7 @@ Decisions: [0016](../decisions/0016-working-screen.md), [0018](../decisions/0018
 
 New tab offers Session and Commands. Tabs can repeat a place. An external request, such as the context meter, activates an existing tab for that place, uses the active new tab, or creates a tab. Closing the last tab hides the panel and resets it to a new tab. Hiding the panel keeps its tabs. Tabs are component state and do not survive a reload.
 
-The side panel starts at 420 pixels and resizes between 340 and 960 pixels. The sidebar starts at 272 pixels and ranges from 220 to 400. Browser local storage remembers widths. Above phone width, when both columns would leave less than 480 pixels for the chat, opening one closes the other. On widths through 760 pixels, the sidebar is a drawer and the side panel covers the screen, with a dismissing scrim over the chat.
+The side panel starts at 420 pixels and resizes between 340 and 960 pixels. The sidebar starts at 272 pixels and ranges from 220 to 400. Browser local storage remembers widths. Above phone width, when both columns would leave less than 480 pixels for the chat, opening one closes the other. A narrower window caps a column's displayed width to leave 480 pixels for the chat, and widening the window restores its chosen width. On widths through 760 pixels, the sidebar is a drawer and the side panel covers the screen, with a dismissing scrim over the chat.
 
 ## Session overview and details
 

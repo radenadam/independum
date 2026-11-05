@@ -17,6 +17,25 @@
       "wait": 100
     },
     {
+      "key": {
+        "key": "Tab",
+        "code": "Tab",
+        "windowsVirtualKeyCode": 9
+      }
+    },
+    {
+      "key": {
+        "key": "Tab",
+        "code": "Tab",
+        "windowsVirtualKeyCode": 9,
+        "modifiers": 8
+      }
+    },
+    {
+      "run": "(() => { const field = document.querySelector(\"textarea[aria-label=Message]\"); const style = getComputedStyle(field); return { messageHasKeyboardFocus: document.activeElement === field && field.matches(\":focus-visible\"), messageHasVisibleFocusRing: style.outlineStyle !== \"none\" && parseFloat(style.outlineWidth) >= 2 }; })()",
+      "shot": "message-keyboard-focus"
+    },
+    {
       "text": "Check the preview steps.",
       "wait": 100
     },
