@@ -13,6 +13,13 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import {
+  addedFactPrompt,
+  addedFactTexts,
+  addMessageTimes,
+  messageTimeText,
+  summarizeAddedFacts,
+} from "./added-facts.ts";
 import type {
   AgentSummary,
   ArchivedChatSummary,
@@ -101,20 +108,19 @@ const thinkingTimesType = "independum-thinking-times";
 // The note that wakes the agent when one of its background commands ends.
 const commandEndType = "independum-command-end";
 
-// The prompt says only where the agent is and where it works, and leaves how to work to the model
-// and the descriptions of its tools.
+// The harness identity and folder belong to added facts, so their switches control every copy.
 const systemPromptText = defineText({
   id: "systemPrompt",
   group: "System prompt",
   section: "prompt",
   label: "Every request",
-  builtIn:
-    "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.",
+  builtIn: "You are an agent working on the computer of the user.",
   slots: {},
 });
 // Every model text. The Session place groups them, and keeps this order within each group.
 const allTexts: ModelText[] = [
   systemPromptText,
+  ...addedFactTexts,
   ...readTextList,
   ...fingerprintTextList,
   ...fileTextList,
@@ -608,9 +614,22 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
             for (const tool of ownTools) {
               pi.registerTool(tool);
             }
-            pi.on("before_agent_start", (event) => {
+            pi.on("before_agent_start", (event, context) => {
               event.systemPromptOptions.customPrompt = texts.get(systemPromptText);
+              const facts = addedFactPrompt({
+                settings: settings.get(),
+                folder: sessionFolder,
+                model: context.model,
+              });
+              return {
+                systemPrompt: [texts.get(systemPromptText), facts]
+                  .filter((text) => text !== "")
+                  .join("\n\n"),
+              };
             });
+            pi.on("context", (event) => ({
+              messages: addMessageTimes(event.messages, settings.get()),
+            }));
             pi.on("cache_warming_decision", (event) => {
               isWarming = event.action === "warm";
             });
@@ -669,16 +688,19 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     showRun(run);
   }
 
-  // Pi builds the system prompt from Independum's prompt and then adds its own sections, such as
-  // the folder, so everything after Independum's prompt is what Pi adds. Until the next turn, Pi
-  // may still start from the prompt that the chat opened with.
+  // The exact prompt override keeps Pi's folder section out of requests, so its folder fact has
+  // the same switch and edit controls as the other facts.
   function getAgent(): AgentSummary {
     const prompt = texts.get(systemPromptText);
-    const fullPrompt = current?.session.systemPrompt ?? prompt;
-    const start = [prompt, systemPromptText.builtIn].find((each) => fullPrompt.startsWith(each));
     return {
       systemPrompt: prompt,
-      addedByPi: start === undefined ? fullPrompt : fullPrompt.slice(start.length).trim(),
+      addedByPi: "",
+      addedFacts: summarizeAddedFacts({
+        settings: settings.get(),
+        folder: current?.folder ?? startFolder,
+        model: current?.session.model,
+      }),
+      knowledgeCutoffs: settings.get().knowledgeCutoffs,
       tools: ownToolInfos(current).map(
         (tool): ToolSummary => ({
           name: tool.name,
@@ -734,6 +756,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // refused whole. Pi reads the tools again when Independum registers them anew, so a new shell or
   // an edited text reaches the model with the next turn of every chat that runs.
   async function changeSettings(change: SettingsChange): Promise<AgentSummary | undefined> {
+    if (change.disabledFacts?.some((id) => !addedFactTexts.some((text) => text.id === id))) {
+      return undefined;
+    }
     const { texts: textChange, ...rest } = change;
     const edited =
       textChange === undefined
@@ -827,6 +852,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           : summarizeRequest(lastRequest, {
               systemPrompt: agent.systemPrompt,
               addedByPi: agent.addedByPi,
+              addedFacts: knownFacts(agent, branch),
               tools: agent.tools,
               entries: branch.flatMap((entry) =>
                 entry.type === "message" || entry.type === "custom_message"
@@ -861,6 +887,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     return {
       systemPrompt: agent.systemPrompt,
       addedByPi: agent.addedByPi,
+      addedFacts: knownFacts(agent, branch).filter((fact) =>
+        agent.addedFacts.some((each) => each.id === fact.id && each.isEnabled),
+      ),
       tools: agent.tools.filter((tool) => tool.isEnabled),
       entries: messages.map((message, index) => ({
         id:
@@ -869,6 +898,36 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         message,
       })),
     };
+  }
+
+  function knownFacts(
+    agent: AgentSummary,
+    branch: SessionEntry[],
+  ): NonNullable<KnownTexts["addedFacts"]> {
+    return [
+      ...agent.addedFacts
+        .filter((fact) => fact.id !== "facts.messageTime" && fact.text !== null)
+        .map((fact) => ({
+          id: fact.id,
+          label: fact.label,
+          text: fact.text ?? "",
+          group: "instructions" as const,
+        })),
+      ...branch.flatMap((entry) =>
+        entry.type === "message" &&
+        (entry.message.role === "user" || entry.message.role === "toolResult")
+          ? [
+              {
+                id: "facts.messageTime",
+                label: "Message time",
+                text: messageTimeText(entry.message.timestamp, settings.get()),
+                group: "messages" as const,
+                entryId: entry.id,
+              },
+            ]
+          : [],
+      ),
+    ];
   }
 
   const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);

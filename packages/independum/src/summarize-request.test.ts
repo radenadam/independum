@@ -38,6 +38,134 @@ const known: KnownTexts = {
   ],
 };
 
+const writtenAt = "Written at 2026-11-05 21:14 +07:00\n\n";
+const withFacts: KnownTexts = {
+  ...known,
+  addedFacts: [
+    {
+      id: "facts.harness",
+      label: "Harness",
+      text: "Harness: Independum 0.0.0.",
+      group: "instructions",
+    },
+    {
+      id: "facts.messageTime",
+      label: "Message time",
+      text: writtenAt,
+      group: "messages",
+      entryId: "e1",
+    },
+    {
+      id: "facts.messageTime",
+      label: "Message time",
+      text: writtenAt,
+      group: "messages",
+      entryId: "e3",
+    },
+  ],
+};
+
+test("added facts keep their place in the system prompt and before messages and results", () => {
+  const parts = summarizeRequest(
+    {
+      instructions: `${prompt}\n\nHarness: Independum 0.0.0.`,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: writtenAt },
+            { type: "text", text: "Read the notes file for me, please." },
+          ],
+        },
+        { role: "tool", toolCallId: "call_0001abcd", content: `${writtenAt}1\tThe notes.` },
+      ],
+    },
+    withFacts,
+  );
+  expect(parts.map((part) => `${part.group} ${part.label}`)).toEqual([
+    "instructions System prompt",
+    "instructions Harness",
+    "messages Message time",
+    "messages You wrote",
+    "messages Message time",
+    "messages Read returned",
+  ]);
+  expect(parts[2]?.link).toEqual({ kind: "addedFact", id: "facts.messageTime", entryId: "e1" });
+  expect(parts[4]?.link).toEqual({ kind: "addedFact", id: "facts.messageTime", entryId: "e3" });
+  expect(parts.filter((part) => part.link.kind === "addedFact").map((part) => part.text)).toEqual([
+    "Harness: Independum 0.0.0.",
+    writtenAt,
+    writtenAt,
+  ]);
+});
+
+test("the next request shows only the added facts it will send beside their messages", () => {
+  const parts = describeNextRequest(withFacts);
+  expect(parts.filter((part) => part.link.kind === "addedFact").map((part) => part.group)).toEqual([
+    "instructions",
+    "messages",
+    "messages",
+  ]);
+  expect(
+    describeNextRequest({ ...withFacts, addedFacts: [] }).some(
+      (part) => part.link.kind === "addedFact",
+    ),
+  ).toBe(false);
+});
+
+test("tool results in one provider message each keep their time even in the same minute", () => {
+  const entries = [
+    {
+      id: "first-result",
+      message: {
+        role: "toolResult",
+        toolName: "Read",
+        toolCallId: "call_first_result",
+        content: [{ type: "text", text: "First output." }],
+      },
+    },
+    {
+      id: "second-result",
+      message: {
+        role: "toolResult",
+        toolName: "Read",
+        toolCallId: "call_second_result",
+        content: [{ type: "text", text: "Second output." }],
+      },
+    },
+  ];
+  const facts: KnownTexts = {
+    ...known,
+    entries,
+    addedFacts: entries.map((entry) => ({
+      id: "facts.messageTime",
+      label: "Message time",
+      text: writtenAt,
+      group: "messages",
+      entryId: entry.id,
+    })),
+  };
+  const parts = summarizeRequest(
+    {
+      messages: [
+        {
+          role: "user",
+          content: entries.map((entry, index) => ({
+            type: "tool_result",
+            toolCallId: entry.message.toolCallId,
+            content: `${writtenAt}${index === 0 ? "First" : "Second"} output.`,
+          })),
+        },
+      ],
+    },
+    facts,
+  );
+  expect(parts.map((part) => part.link.kind)).toEqual(["addedFact", "entry", "addedFact", "entry"]);
+  expect(parts.filter((part) => part.link.kind === "addedFact").map((part) => part.link)).toEqual(
+    entries.map((entry) => ({ kind: "addedFact", id: "facts.messageTime", entryId: entry.id })),
+  );
+});
+
 function partsOf(request: unknown): string[] {
   return summarizeRequest(request, known).map(
     (part) => `${part.group} ${part.source} ${part.label}`,

@@ -1,13 +1,16 @@
 import type { ModelPrices, ModelSummary } from "independum/api-types";
 import type { ReactElement } from "react";
 import { type FactRow, FactTable } from "./fact-table.tsx";
+import { KnowledgeCutoffField } from "./knowledge-cutoff-field.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { countOf, tokenRows } from "./usage-table.tsx";
+import type { AgentSettings } from "./use-agent-settings.ts";
 
 /** Properties of the detail of a model. */
 interface ModelDetailProps {
   model: ModelSummary | undefined;
+  settings: AgentSettings;
 }
 
 const numberFormat = new Intl.NumberFormat();
@@ -29,7 +32,7 @@ const priceRows = tokenRows.filter(
  * Draws what Pi knows of the model of a chat: where its requests go, its limits, its prices, and
  * how long its provider keeps the prompt cache.
  */
-export function ModelDetail({ model }: ModelDetailProps): ReactElement {
+export function ModelDetail({ model, settings }: ModelDetailProps): ReactElement {
   if (model === undefined) {
     return <PlaceNote>No model chosen yet.</PlaceNote>;
   }
@@ -61,6 +64,11 @@ export function ModelDetail({ model }: ModelDetailProps): ReactElement {
       <PlaceSection heading="Limits">
         <FactTable columns={[""]} rows={limitRowsOf(model)} />
       </PlaceSection>
+      <KnowledgeCutoffField
+        key={`${model.providerId}:${model.id}`}
+        model={model}
+        settings={settings}
+      />
       <PlaceSection heading="Prices">
         <PlaceNote>
           In US dollars for a million tokens.

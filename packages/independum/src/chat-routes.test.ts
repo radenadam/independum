@@ -334,8 +334,14 @@ test("the agent shows its prompts and its tools", async () => {
   expect((await post("/chat/new", {})).status).toBe(204);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
-  expect(agent.systemPrompt).toContain("Independum");
-  expect(agent.addedByPi).toContain("<cwd>");
+  expect(agent.systemPrompt).toBe("You are an agent working on the computer of the user.");
+  expect(agent.addedByPi).toBe("");
+  expect(agent.addedFacts.find((fact) => fact.id === "facts.harness")?.text).toContain(
+    "Independum",
+  );
+  expect(agent.addedFacts.find((fact) => fact.id === "facts.chatFolder")?.text).toBe(
+    `Chat folder: ${(await readStart()).state.folder}`,
+  );
   expect(agent.tools.map((tool) => tool.name)).toEqual([
     "Read",
     "Write",
@@ -357,7 +363,91 @@ test("files that Pi would add to the system prompt stay out of it", async () => 
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
   expect(agent.addedByPi).not.toContain(addendum);
-  expect(agent.addedByPi).toContain("<cwd>");
+  expect(agent.addedByPi).toBe("");
+});
+
+test("message times reach requests and never enter the saved chat or its displayed messages", async () => {
+  await post("/chat/new", { folder: startFolder });
+  await chooseModel("faux", "faux-model");
+  const requests: TranscriptContext[] = [];
+  faux.setResponses([
+    (context) => {
+      requests.push(structuredClone(context));
+      return callTool("Read", { path: "no-such-added-fact-file" });
+    },
+    async (context, options, _state, model) => {
+      requests.push(structuredClone(context));
+      await options?.onPayload?.(
+        {
+          system: context.messages[0]?.content,
+          messages: context.messages.filter((message) => message.role !== "system"),
+        },
+        model,
+      );
+      return fauxAssistantMessage("Done reading.");
+    },
+  ]);
+  await sendAndReadReply("Read the missing file");
+  expect(JSON.stringify(requests[0])).toMatch(
+    /Written at \d{4}-\d{2}-\d{2} \d{2}:\d{2} [+-]\d{2}:\d{2}/,
+  );
+  const tool = requests[1]?.messages.find((message) => message.role === "toolResult");
+  expect(JSON.stringify(tool)).toContain("Written at");
+  expect(JSON.stringify((await readStart()).state.messages)).not.toContain("Written at");
+  const context = (await (await routes.request("/chat/context")).json()) as ContextSummary;
+  expect(JSON.stringify(context.entries)).not.toContain("Written at");
+  expect(readFileSync(context.files.chat ?? "", "utf8")).not.toContain("Written at");
+  expect(
+    context.requestParts.filter(
+      (part) => part.link.kind === "addedFact" && part.link.id === "facts.messageTime",
+    ),
+  ).toHaveLength(2);
+  expect(
+    context.requestParts.find(
+      (part) => part.link.kind === "addedFact" && part.link.id === "facts.harness",
+    )?.group,
+  ).toBe("instructions");
+});
+
+test("fact switches and edits reach the next request and cutoffs follow only their model", async () => {
+  await post("/chat/new", { folder: startFolder });
+  await chooseModel("faux", "faux-model");
+  await put("/settings", {
+    disabledFacts: ["facts.chatFolder", "facts.messageTime"],
+    texts: { "facts.harness": "An edited harness fact." },
+    knowledgeCutoffs: { faux: { "faux-model": "2026-04" } },
+  });
+  expect((await put("/settings", { disabledFacts: ["facts.unknown"] })).status).toBe(400);
+  const requests: string[] = [];
+  faux.setResponses(
+    [0, 1, 2, 3].map(() => (context) => {
+      requests.push(JSON.stringify(context));
+      return fauxAssistantMessage("Received the facts.");
+    }),
+  );
+  await sendAndReadReply("See the facts");
+  expect(requests[0]).toContain("An edited harness fact.");
+  expect(requests[0]).toContain("Model knowledge cutoff: 2026-04.");
+  expect(requests[0]).not.toContain("Chat folder:");
+  expect(requests[0]).not.toContain("<cwd>");
+  expect(requests[0]).not.toContain("Written at");
+  await chooseModel("faux", "faux-thinker");
+  await sendAndReadReply("See the other model");
+  expect(requests[1]).not.toContain("Model knowledge cutoff:");
+  await chooseModel("faux", "faux-model");
+  await put("/settings", { disabledFacts: ["facts.knowledgeCutoff"] });
+  await sendAndReadReply("See the disabled cutoff");
+  expect(requests[2]).not.toContain("Model knowledge cutoff:");
+  expect(requests[2]).toContain("Chat folder:");
+  await put("/settings", {
+    disabledFacts: [],
+    knowledgeCutoffs: {},
+    texts: { "facts.harness": null },
+  });
+  await sendAndReadReply("See the reset facts");
+  expect(requests[3]).toContain("Harness: Independum");
+  expect(requests[3]).not.toContain("An edited harness fact.");
+  expect(requests[3]).not.toContain("Model knowledge cutoff:");
 });
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
