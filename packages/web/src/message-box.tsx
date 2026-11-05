@@ -33,7 +33,7 @@ interface MessageBoxProps {
   onStop: () => void;
   onOpenModels: () => void;
   onChooseModel: (model: ModelSummary) => void;
-  onChooseThinking: (level: string) => void;
+  onChooseThinking: (level: string) => Promise<void>;
   onChooseFolder: (folder: string) => void;
   onManageLogins: () => void;
   onOpenContext: () => void;
@@ -66,19 +66,17 @@ export function MessageBox({
   runningCount,
   onOpenCommands,
 }: MessageBoxProps): ReactElement {
-  const [draft, setDraft] = useState(() => readDraft(chatId));
-  const [draftChatId, setDraftChatId] = useState(chatId);
+  const [draft, setDraft] = useState(() => ({ chatId, text: readDraft(chatId) }));
   // Each chat keeps its own draft, so opening another chat swaps the text in the field.
-  if (draftChatId !== chatId) {
-    setDraftChatId(chatId);
-    setDraft(readDraft(chatId));
+  if (draft.chatId !== chatId) {
+    setDraft({ chatId, text: readDraft(chatId) });
   }
   const [menu, setMenu] = useState<Menu | undefined>();
   const modelTip = useTooltip(
     menu === "model" ? undefined : "Choose a model and its thinking effort",
   );
   const field = useRef<HTMLTextAreaElement>(null);
-  const isReady = draft.trim() !== "" && model !== null && !isReplying;
+  const isReady = draft.text.trim() !== "" && model !== null && !isReplying;
   const modelName =
     model === null
       ? "Choose a model"
@@ -102,12 +100,12 @@ export function MessageBox({
   }
 
   function changeDraft(text: string): void {
-    setDraft(text);
+    setDraft({ chatId, text });
     saveDraft(chatId, text);
   }
 
   function submit(): void {
-    const text = draft.trim();
+    const text = draft.text.trim();
     if (model === null) {
       toggleMenu("model");
       return;
@@ -116,7 +114,10 @@ export function MessageBox({
       return;
     }
     changeDraft("");
-    onSend(text).catch(() => changeDraft(text));
+    onSend(text).catch(() => {
+      saveDraft(chatId, text);
+      setDraft((current) => (current.chatId === chatId ? { chatId, text } : current));
+    });
   }
 
   function onFieldKey(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -144,7 +145,7 @@ export function MessageBox({
             aria-label="Message"
             rows={2}
             placeholder="Write a message"
-            value={draft}
+            value={draft.text}
             onChange={(event) => changeDraft(event.target.value)}
             onKeyDown={onFieldKey}
           />

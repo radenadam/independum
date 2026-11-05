@@ -78,11 +78,10 @@ export function isToolChanged(settings: AgentSettings, name: string): boolean {
 
 /** Draws every tool in a card, and the output limit that applies to all of them. */
 export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
-  const { agent, failure, markOf, isEditedGroup, setEditing, change, builtInTextsOf } = settings;
+  const { agent, markOf, isEditedGroup, setEditing, change, builtInTextsOf } = settings;
   if (agent === undefined) {
     return <PlaceNote>Loading the tools.</PlaceNote>;
   }
-  const disabledTools = agent.tools.filter((tool) => !tool.isEnabled).map((tool) => tool.name);
   const limits = agent.outputLimits;
   const builtInLimits = agent.builtInOutputLimits;
   const isLimitEdited =
@@ -92,7 +91,6 @@ export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
   return (
     <>
       <PlaceSection heading="Tools" badge="built-in">
-        {failure === undefined ? null : <p className={styles.failure}>{failure}</p>}
         {agent.tools.map((tool) => (
           <ToolCard
             key={tool.name}
@@ -101,14 +99,13 @@ export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
             handBackSeconds={agent.handBackSeconds}
             environment={agent.environment}
             environmentSuggestions={agent.environmentSuggestions}
-            disabledTools={disabledTools}
             mark={isToolChanged(settings, tool.name) ? markOf(tool.name, true) : undefined}
             onChange={change}
             onEdit={() => setEditing(tool.name)}
             onReset={() =>
               change({
                 texts: builtInTextsOf(tool.name),
-                disabledTools: disabledTools.filter((name) => name !== tool.name),
+                tool: { name: tool.name, isEnabled: true },
                 ...(tool.name === "Shell"
                   ? {
                       shell: null,

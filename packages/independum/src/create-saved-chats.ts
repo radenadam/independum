@@ -1,6 +1,10 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
+import {
+  type SessionInfo,
+  SessionManager,
+  withFileMutationQueue,
+} from "@earendil-works/pi-coding-agent";
 
 /** The saved chats of a session folder, with the archived ones apart and the pinned ones marked. */
 export interface SavedChats {
@@ -34,7 +38,9 @@ export async function createSavedChats(
       pinned.delete(id);
     }
     if (wasPinned !== isPinned) {
-      await writeFile(pinnedFile, `${JSON.stringify([...pinned], null, 2)}\n`);
+      await withFileMutationQueue(pinnedFile, () =>
+        writeFile(pinnedFile, `${JSON.stringify([...pinned], null, 2)}\n`),
+      );
     }
   }
 

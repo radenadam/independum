@@ -16,6 +16,7 @@ interface SidePanelProps {
   isOpen: boolean;
   chat: ChatState;
   context: ContextSummary | undefined;
+  contextFailure: string | undefined;
   commands: ToolCallPart[];
   tools: ToolCalls;
   models: ModelSummary[] | undefined;
@@ -53,6 +54,7 @@ export function SidePanel({
   isOpen,
   chat,
   context,
+  contextFailure,
   commands,
   tools,
   models,
@@ -149,7 +151,12 @@ export function SidePanel({
       <div className={styles.content} role="tabpanel">
         <div key={`${active?.id}-${active?.place}`} className={styles.view}>
           {active?.place === "session" ? (
-            <SessionPlace chat={chat} models={models} context={context} />
+            <SessionPlace
+              chat={chat}
+              models={models}
+              context={context}
+              contextFailure={contextFailure}
+            />
           ) : active?.place === "commands" ? (
             <CommandsPlace
               commands={commands}

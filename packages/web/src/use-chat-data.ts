@@ -8,28 +8,47 @@ import { useEffect, useState } from "react";
 export function useChatData<Data>(
   load: () => Promise<Data>,
   chat: ChatState | undefined,
-): Data | undefined {
-  const [data, setData] = useState<Data | undefined>();
+): { data: Data | undefined; failure: string | undefined } {
+  const [loaded, setLoaded] = useState<{
+    chatId: string | null;
+    data: Data | undefined;
+    failure: string | undefined;
+  }>();
+  const chatId = chat?.id;
   const modelId = chat?.model?.id;
+  const providerId = chat?.model?.providerId;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: A request goes out with every message, so the data loads again when a reply starts or ends, and when another chat or model takes over.
+  // A request goes out with every reply, so its data loads again when a reply starts or ends.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The reply state triggers a reload.
   useEffect(() => {
-    if (chat === undefined) {
+    if (chatId === undefined) {
       return;
     }
     let isCurrent = true;
+    setLoaded({ chatId, data: undefined, failure: undefined });
     load().then(
       (loaded) => {
         if (isCurrent) {
-          setData(loaded);
+          setLoaded({ chatId, data: loaded, failure: undefined });
         }
       },
-      () => undefined,
+      (error: unknown) => {
+        if (isCurrent) {
+          setLoaded({
+            chatId,
+            data: undefined,
+            failure: error instanceof Error ? error.message : "The chat data could not be loaded.",
+          });
+        }
+      },
     );
     return () => {
       isCurrent = false;
     };
-  }, [chat?.id, chat?.isReplying, modelId]);
+  }, [chatId, chat?.isReplying, modelId, providerId, load]);
 
-  return data;
+  return {
+    data: loaded?.chatId === chatId ? loaded?.data : undefined,
+    failure: loaded?.chatId === chatId ? loaded?.failure : undefined,
+  };
 }

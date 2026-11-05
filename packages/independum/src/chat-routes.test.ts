@@ -667,7 +667,7 @@ test("a tool that is turned off never runs, and the output limits change", async
       fauxAssistantMessage("Done."),
     ]),
   );
-  const off = await put("/settings", { disabledTools: ["Shell"] });
+  const off = await put("/settings", { tool: { name: "Shell", isEnabled: false } });
   expect(shellOf((await off.json()) as AgentSummary)?.isEnabled).toBe(false);
   const blocked = (await sendAndReadReply("Run it")).updates.find(
     (update) => update.type === "toolResult",
@@ -676,7 +676,7 @@ test("a tool that is turned off never runs, and the output limits change", async
   expect(blocked?.type === "toolResult" ? blocked.result.text : "").not.toContain("it ran");
 
   const on = await put("/settings", {
-    disabledTools: [],
+    tool: { name: "Shell", isEnabled: true },
     outputLimits: { maxLines: 500, maxBytes: 8192 },
   });
   expect(((await on.json()) as AgentSummary).outputLimits).toEqual({
