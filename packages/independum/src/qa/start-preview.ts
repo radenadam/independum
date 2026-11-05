@@ -72,7 +72,9 @@ export async function startPreview(options: {
       port: options.port,
     });
     stop = server.close;
-    return { url: server.url, home, close };
+    const url = new URL(server.url);
+    url.searchParams.set("chat", await chat.first());
+    return { url: url.href, home, close };
   } catch (error) {
     await close();
     throw error;

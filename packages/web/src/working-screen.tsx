@@ -14,14 +14,16 @@ import { type ReactElement, useCallback, useEffect, useEffectEvent, useRef, useS
 import {
   archiveChat,
   type ChatConnection,
+  chatReconnectDelay,
   chooseModel,
   chooseThinking,
   fetchChatMarkdown,
   fetchContext,
+  fetchFirstChat,
   fetchModels,
   followChat,
+  followChats,
   moveCommandToBackground,
-  openChat,
   pinChat,
   renameChat,
   sendMessage,
@@ -29,6 +31,7 @@ import {
   stopCommand,
   stopReply,
 } from "./chat-api.ts";
+import { chatIdFromUrl, urlForChat } from "./chat-location.ts";
 import { ChatMessages } from "./chat-messages.tsx";
 import type { ChatActions } from "./chat-row.tsx";
 import { chatWidth, readColumnWidth } from "./column-width.ts";
@@ -63,6 +66,7 @@ export function WorkingScreen({
   startsWithLogins,
   onExpiredLink,
 }: WorkingScreenProps): ReactElement {
+  const [chatId, setChatId] = useState(() => chatIdFromUrl(new URL(window.location.href)));
   const [chat, setChat] = useState<ChatState | undefined>();
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [reply, setReply] = useState<MessagePart[]>([]);
@@ -92,7 +96,7 @@ export function WorkingScreen({
 
   useEffect(() => {
     loadModels();
-    return followChat(
+    return followChats(
       (event) => {
         if (event.type === "projects") {
           setProjects(event.projects);
@@ -100,6 +104,63 @@ export function WorkingScreen({
           setReplyingIds(event.ids);
         } else if (event.type === "replyEnded") {
           setEndedReply({ chatId: event.chatId, reply: event.reply });
+        }
+      },
+      (next) => {
+        if (next === "expiredLink") {
+          onExpiredLink();
+        }
+      },
+    );
+  }, [loadModels, onExpiredLink]);
+
+  useEffect(() => {
+    if (chatId !== undefined) {
+      return;
+    }
+    let isCurrent = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    function load(): void {
+      fetchFirstChat().then(
+        (id) => {
+          if (isCurrent) {
+            history.replaceState(null, "", urlForChat(new URL(window.location.href), id));
+            setChatId(id);
+          }
+        },
+        () => {
+          if (isCurrent) {
+            setConnection("reconnecting");
+            timer = setTimeout(load, chatReconnectDelay);
+          }
+        },
+      );
+    }
+    load();
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [chatId]);
+
+  useEffect(() => {
+    if (chatId === undefined) {
+      return;
+    }
+    setChat(undefined);
+    setReply([]);
+    setToolRuns({});
+    return followChat(
+      chatId,
+      (event) => {
+        if (event.type === "removed") {
+          history.replaceState(
+            null,
+            "",
+            urlForChat(new URL(window.location.href), event.replacementId),
+          );
+          setChatId(event.replacementId);
+          return;
         }
         applyEvent(event, setChat);
         if (event.type === "state") {
@@ -124,8 +185,9 @@ export function WorkingScreen({
         }
       },
       (next) => (next === "expiredLink" ? onExpiredLink() : setConnection(next)),
+      () => setChatId(undefined),
     );
-  }, [loadModels, onExpiredLink]);
+  }, [chatId, onExpiredLink]);
 
   useEffect(() => {
     if (!isNewChatFlashing) {
@@ -180,19 +242,33 @@ export function WorkingScreen({
     setIsNewChatFlashing(true);
     setNotice(undefined);
     closeSidebarOnPhone();
-    startNewChat(folder).catch(() => setNotice("The new chat could not start. Try again."));
+    if (chatId !== undefined) {
+      startNewChat(chatId, folder).then(open, () =>
+        setNotice("The new chat could not start. Try again."),
+      );
+    }
   }
 
   function open(id: string): void {
     setShownStep(undefined);
     setNotice(undefined);
     closeSidebarOnPhone();
-    openChat(id).catch(() => setNotice("That chat could not be opened. Try again."));
+    if (id === chatId) {
+      return;
+    }
+    setChat(undefined);
+    setReply([]);
+    setToolRuns({});
+    history.replaceState(null, "", urlForChat(new URL(window.location.href), id));
+    setChatId(id);
   }
 
   function choose(model: ModelSummary): void {
+    if (chat === undefined) {
+      return;
+    }
     setNotice(undefined);
-    chooseModel(model.providerId, model.id).catch(() =>
+    chooseModel(chat.id, model.providerId, model.id).catch(() =>
       setNotice("That model is not available. Choose another one."),
     );
   }
@@ -221,13 +297,17 @@ export function WorkingScreen({
     ends,
     shown: shownStep,
     onMove: (id) => {
-      change(
-        moveCommandToBackground(id),
-        "The command could not move to the background. Try again.",
-      );
+      if (chat !== undefined) {
+        change(
+          moveCommandToBackground(chat.id, id),
+          "The command could not move to the background. Try again.",
+        );
+      }
     },
     onStop: (id) => {
-      change(stopCommand(id), "The command could not be stopped. Try again.");
+      if (chat !== undefined) {
+        change(stopCommand(chat.id, id), "The command could not be stopped. Try again.");
+      }
     },
   };
   const commands = chat === undefined ? [] : commandsOf(chat.messages, reply);
@@ -263,10 +343,17 @@ export function WorkingScreen({
     onDelete: setChatToDelete,
   };
 
+  function requireChatId(): string {
+    if (chat === undefined) {
+      throw new Error("The chat is not open.");
+    }
+    return chat.id;
+  }
+
   async function send(text: string): Promise<void> {
     setNotice(undefined);
     try {
-      await sendMessage(text);
+      await sendMessage(requireChatId(), text);
     } catch (error) {
       setNotice("The message was not sent. Try again.");
       throw error;
@@ -276,7 +363,7 @@ export function WorkingScreen({
   async function chooseEffort(level: string): Promise<void> {
     setNotice(undefined);
     try {
-      await chooseThinking(level);
+      await chooseThinking(requireChatId(), level);
     } catch (error) {
       setNotice("That thinking level is not available. Choose another one.");
       throw error;
@@ -390,7 +477,9 @@ export function WorkingScreen({
               isEmpty={isEmpty}
               isReplying={chat.isReplying}
               onSend={send}
-              onStop={() => change(stopReply(), "The reply could not be stopped. Try again.")}
+              onStop={() =>
+                change(stopReply(chat.id), "The reply could not be stopped. Try again.")
+              }
               onOpenModels={loadModels}
               onChooseModel={choose}
               onChooseThinking={chooseEffort}

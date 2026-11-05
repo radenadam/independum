@@ -33,7 +33,7 @@ export function useAgentSettings(chat: ChatState): AgentSettings {
 
   function save(next: SettingsChange): Promise<void> {
     setFailure(undefined);
-    return changeSettings(next).then((updated) =>
+    return changeSettings(chat.id, next).then((updated) =>
       setChanged({ chatId: chat.id, from: loaded, agent: updated }),
     );
   }

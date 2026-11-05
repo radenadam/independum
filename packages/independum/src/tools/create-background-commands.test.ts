@@ -2,7 +2,11 @@ import { join } from "node:path";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vitest";
 import { createModelTexts } from "../model-texts.ts";
-import { type BackgroundEnded, createBackgroundCommands } from "./create-background-commands.ts";
+import {
+  type BackgroundCommands,
+  type BackgroundEnded,
+  createBackgroundCommands,
+} from "./create-background-commands.ts";
 import { createOutputLog } from "./create-output-log.ts";
 import { createStopCommandTool } from "./create-stop-command-tool.ts";
 import { createTestFolder } from "./create-test-folder.ts";
@@ -59,4 +63,58 @@ test("a chat cannot stop another chat's command or suppress its completion note"
   await expect.poll(() => ended.length).toBe(1);
   expect(wasStopped).toBe(false);
   expect(ended[0]).toMatchObject({ chatId: "other-chat", isSeenByModel: false });
+});
+
+function adopt(commands: BackgroundCommands, chatId: string): AbortController {
+  const controller = new AbortController();
+  const outputPath = join(folder, `${chatId}.log`);
+  const log = createOutputLog(outputPath, {
+    limits: { maxLines: 10, maxBytes: 1000 },
+    texts: createModelTexts(() => ({})),
+  });
+  const run = new Promise<RunEnd>((resolve) => {
+    controller.signal.addEventListener("abort", () =>
+      resolve({
+        ending: "stopped",
+        exitCode: null,
+        signal: null,
+        isOutputOpen: false,
+        durationMs: 1,
+      }),
+    );
+  });
+  commands.adopt({
+    start: {
+      chatId,
+      toolCallId: "same-call",
+      shell: { kind: "bash", name: "Test shell", path: "unused" },
+      command: "test",
+      outputPath,
+    },
+    startedAt: Date.now(),
+    log,
+    run,
+    controller,
+  });
+  return controller;
+}
+
+test("stopping a chat or a command uses the chat id even when call ids match", async () => {
+  const ends: BackgroundEnded[] = [];
+  const commands = createBackgroundCommands({
+    onProgress: () => undefined,
+    onEnd: (ended) => ends.push(ended),
+  });
+  const first = adopt(commands, "first");
+  adopt(commands, "second");
+  expect(commands.stopByUser("missing", "same-call")).toBe(false);
+  expect(commands.stopByUser("second", "same-call")).toBe(true);
+  await commands.stopAll("second");
+  expect(ends.map((ended) => ended.chatId)).toEqual(["second"]);
+  expect(first.signal.aborted).toBe(false);
+  expect(commands.listRunning("first")).toHaveLength(1);
+  expect(commands.listRunning("second")).toEqual([]);
+  await commands.stopAll("first");
+  expect(ends.map((ended) => ended.chatId)).toEqual(["second", "first"]);
+  expect(commands.listRunning("first")).toEqual([]);
 });

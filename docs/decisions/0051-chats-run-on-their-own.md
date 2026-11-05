@@ -1,6 +1,6 @@
 # Chats run on their own
 
-- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes independent execution from the open chat shared by browsers
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes independent execution from the open chat shared by browsers, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own open chat
 - Date: 2026-11-04
 
 ## Context
@@ -14,7 +14,7 @@ Independum held one Pi session, for the open chat, and stopped a running reply w
 - A background command that ends wakes the agent of its chat, whether the chat is open or not.
 - The open chat shows its reply as it streams. A chat that opens in the middle of a reply shows the reply so far first, then the rest as it comes.
 - Stop stops the reply of the open chat only. Archiving or deleting a chat waits for its reply and its background commands to stop first. Their completion adds no note and starts no turn while the chat closes. Quitting Independum waits for the commands of every chat to stop.
-- A chat that is not open and has no reply and no background command left lets its Pi session go, and opens again from its file.
+- A chat with no follower, request, reply, or background command left lets its Pi session go, as [decision 0058](0058-address-chats-by-id.md) describes.
 - A notification tells the user when a reply ends where they do not see it: in a chat that is not open, or in the open chat while the window of Independum is not in front. A click on it opens the chat.
 
 ## Consequences

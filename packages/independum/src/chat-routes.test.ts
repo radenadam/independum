@@ -10,6 +10,7 @@ import {
   fauxToolCall,
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Hono } from "hono";
 import { afterAll, expect, test } from "vitest";
 import type {
@@ -19,6 +20,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  ChatsEvent,
   ContextSummary,
   ModelSummary,
   ProjectSummary,
@@ -60,16 +62,38 @@ async function createRoutes(cwd: string): Promise<Hono> {
 }
 
 let routes = await createRoutes(startFolder);
+let chatId = await firstChat();
+
+async function firstChat(): Promise<string> {
+  return ((await (await routes.request("/chats/first")).json()) as { id: string }).id;
+}
+
+function chatPath(part: string): string {
+  return `/chats/${encodeURIComponent(chatId)}${part}`;
+}
+
+async function startNew(folder?: unknown): Promise<Response> {
+  const response = await post(chatPath("/new"), folder === undefined ? {} : { folder });
+  if (response.ok) {
+    chatId = ((await response.clone().json()) as { id: string }).id;
+  }
+  return response;
+}
 
 async function readStart(): Promise<{ state: ChatState; projects: ProjectSummary[] }> {
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
-  const first = await events.next();
-  const second = await events.next();
-  await events.close();
-  if (first.type !== "state" || second.type !== "projects") {
-    throw new Error("The chat did not start with its state and its projects.");
+  let response = await routes.request(chatPath(""));
+  if (response.status === 404) {
+    chatId = await firstChat();
+    response = await routes.request(chatPath(""));
   }
-  return { state: first.state, projects: second.projects };
+  const state = (await response.json()) as ChatState;
+  const events = followEventStream<ChatsEvent>(await routes.request("/chats/events"));
+  const first = await events.next();
+  await events.close();
+  if (first.type !== "projects") {
+    throw new Error("The chat list did not start with its projects.");
+  }
+  return { state, projects: first.projects };
 }
 
 async function readTitles(folder: string): Promise<string[]> {
@@ -87,7 +111,7 @@ function post(path: string, body: unknown): Promise<Response> {
 
 function chooseModel(providerId: string, modelId: string): Promise<Response> {
   return Promise.resolve(
-    routes.request("/chat/model", {
+    routes.request(chatPath("/model"), {
       method: "PUT",
       headers: json,
       body: JSON.stringify({ providerId, modelId }),
@@ -102,9 +126,9 @@ const updateTypes = ["replyDelta", "replyPart", "toolStart", "toolProgress", "to
 async function sendAndReadReply(
   text: string,
 ): Promise<{ updates: ChatEvent[]; reply: ChatMessage }> {
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await events.next();
-  expect((await post("/chat/messages", { text })).status).toBe(202);
+  expect((await post(chatPath("/messages"), { text })).status).toBe(202);
   const updates: ChatEvent[] = [];
   let reply: ChatMessage | undefined;
   for (let event = await events.next(); ; event = await events.next()) {
@@ -146,7 +170,12 @@ function textOf(message: ChatMessage | undefined): string {
 async function openSaved(title: string): Promise<Response> {
   const { projects } = await readStart();
   const saved = projects.flatMap((project) => project.chats).find((chat) => chat.title === title);
-  return post("/chat/open", { id: saved?.id ?? "no-such-chat" });
+  const id = saved?.id ?? "no-such-chat";
+  const response = await routes.request(`/chats/${encodeURIComponent(id)}`);
+  if (response.ok) {
+    chatId = id;
+  }
+  return response;
 }
 
 test("models lists the models of every provider with a login", async () => {
@@ -166,7 +195,7 @@ test("an empty chat starts in the start folder and waits for a chosen model", as
     isReplying: false,
   });
   expect(projects).toEqual([{ folder: startFolder, name: basename(startFolder), chats: [] }]);
-  expect((await post("/chat/messages", { text: "Hello" })).status).toBe(409);
+  expect((await post(chatPath("/messages"), { text: "Hello" })).status).toBe(409);
   expect((await chooseModel("faux", "no-such-model")).status).toBe(400);
 });
 
@@ -193,13 +222,14 @@ test("a failed reply carries the provider's error", async () => {
 
 test("the last chat reopens with its model after a restart", async () => {
   routes = await createRoutes(startFolder);
+  chatId = await firstChat();
   const { state } = await readStart();
   expect(state.model).toEqual({ providerId: "faux", id: "faux-model" });
   expect(state.messages.map(textOf)).toEqual(["Hello", "Hello from the fake model.", "Again", ""]);
 });
 
 test("a new chat starts empty with the same model and stays out of its project", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   const { state } = await readStart();
   expect(state).toMatchObject({
     folder: startFolder,
@@ -219,7 +249,7 @@ test("a chat joins the top of its project with its first message", async () => {
 });
 
 test("opening a saved chat shows its messages", async () => {
-  expect((await openSaved("Hello")).status).toBe(204);
+  expect((await openSaved("Hello")).status).toBe(200);
   const { state } = await readStart();
   expect(textOf(state.messages[0])).toBe("Hello");
   expect((await openSaved("No such chat")).status).toBe(404);
@@ -230,11 +260,11 @@ async function startSlowReply(
   text: string,
   reply: string,
 ): Promise<ReturnType<typeof followEventStream<ChatEvent>>> {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux-slow", "slow-model")).status).toBe(204);
   slow.setResponses([fauxAssistantMessage(reply)]);
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
-  expect((await post("/chat/messages", { text })).status).toBe(202);
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+  expect((await post(chatPath("/messages"), { text })).status).toBe(202);
   while ((await events.next()).type !== "replyDelta") {
     // Every event before the first piece of the reply is part of starting it.
   }
@@ -245,18 +275,20 @@ test("a chat that the user leaves goes on with its reply, which ends whole", asy
   const story = "A short story that goes on.";
   const events = await startSlowReply("Tell a story", story);
   const storyId = (await readStart()).state.id;
-  expect((await post("/chat/new", {})).status).toBe(204);
-  let event = await events.next();
+  await events.close();
+  const shared = followEventStream<ChatsEvent>(await routes.request("/chats/events"));
+  expect((await startNew()).status).toBe(201);
+  let event = await shared.next();
   let replying: string[] = [];
   while (event.type !== "replyEnded") {
     replying = event.type === "replyingChats" ? event.ids : replying;
-    event = await events.next();
+    event = await shared.next();
   }
-  await events.close();
+  await shared.close();
   expect(event.chatId).toBe(storyId);
   expect(textOf(event.reply ?? undefined)).toBe(story);
   expect(replying).toEqual([]);
-  expect((await openSaved("Tell a story")).status).toBe(204);
+  expect((await openSaved("Tell a story")).status).toBe(200);
   const reply = (await readStart()).state.messages.at(-1);
   expect(reply?.error).toBeNull();
   expect(textOf(reply)).toBe(story);
@@ -265,29 +297,35 @@ test("a chat that the user leaves goes on with its reply, which ends whole", asy
 test("a chat that opens while it replies shows its reply so far, and the rest streams in", async () => {
   const tale = "A tale that goes on for a little while.";
   const events = await startSlowReply("Tell a tale", tale);
-  expect((await post("/chat/new", {})).status).toBe(204);
-  expect((await openSaved("Tell a tale")).status).toBe(204);
-  let event = await events.next();
-  while (event.type !== "state" || !event.state.isReplying) {
-    event = await events.next();
-  }
-  const soFar = event.state.reply;
-  while (event.type !== "replyEnded") {
-    event = await events.next();
-  }
+  const taleId = chatId;
   await events.close();
+  expect((await startNew()).status).toBe(201);
+  chatId = taleId;
+  const reopened = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+  const state = await reopened.next();
+  expect(state.type === "state" && state.state.isReplying).toBe(true);
+  const soFar = state.type === "state" ? state.state.reply : [];
+  let reply: ChatMessage | undefined;
+  for (let event = await reopened.next(); ; event = await reopened.next()) {
+    if (event.type === "message" && event.message.role === "assistant") {
+      reply = event.message;
+    } else if (event.type === "replying" && !event.isReplying) {
+      break;
+    }
+  }
+  await reopened.close();
   expect(soFar.some((part) => part.type === "text" && part.text !== "")).toBe(true);
-  expect(textOf(event.reply ?? undefined)).toBe(tale);
+  expect(textOf(reply)).toBe(tale);
 });
 
 test("a chat joins its project as soon as it is sent, before the reply", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   slow.setResponses([fauxAssistantMessage("A reply that takes its time to arrive.")]);
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
-  expect((await post("/chat/messages", { text: "List me at once" })).status).toBe(202);
+  const events = followEventStream<ChatsEvent>(await routes.request("/chats/events"));
+  expect((await post(chatPath("/messages"), { text: "List me at once" })).status).toBe(202);
   let titles: string[] = [];
   let event = await events.next();
-  while (event.type !== "message" || event.message.role !== "assistant") {
+  while (event.type !== "replyEnded") {
     if (event.type === "projects") {
       titles = event.projects.flatMap((project) => project.chats.map((chat) => chat.title));
       if (titles.includes("List me at once")) {
@@ -298,42 +336,44 @@ test("a chat joins its project as soon as it is sent, before the reply", async (
   }
   await events.close();
   expect(titles).toContain("List me at once");
-  expect((await post("/chat/stop", {})).status).toBe(204);
+  expect((await post(chatPath("/stop"), {})).status).toBe(204);
 });
 
 test("chats from another folder form their own project and open in that folder", async () => {
   routes = await createRoutes(otherFolder);
+  chatId = await firstChat();
   expect((await readStart()).state).toMatchObject({ folder: otherFolder, model: null });
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([fauxAssistantMessage("A reply in another folder.")]);
   await sendAndReadReply("A chat in another folder");
 
   routes = await createRoutes(startFolder);
+  chatId = await firstChat();
   const { state, projects } = await readStart();
   expect(state.folder).toBe(startFolder);
   expect(projects.map((project) => project.name)).toEqual([
     basename(startFolder),
     basename(otherFolder),
   ]);
-  expect((await openSaved("A chat in another folder")).status).toBe(204);
+  expect((await openSaved("A chat in another folder")).status).toBe(200);
   expect((await readStart()).state.folder).toBe(otherFolder);
 });
 
 test("a new chat starts in a chosen project, and only in a project", async () => {
-  expect((await post("/chat/new", { folder: startFolder })).status).toBe(204);
+  expect((await startNew(startFolder)).status).toBe(201);
   expect((await readStart()).state.folder).toBe(startFolder);
-  expect((await post("/chat/new", { folder: otherFolder })).status).toBe(204);
+  expect((await startNew(otherFolder)).status).toBe(201);
   expect((await readStart()).state.folder).toBe(otherFolder);
-  expect((await post("/chat/new", { folder: tmpdir() })).status).toBe(400);
-  expect((await post("/chat/new", { folder: 5 })).status).toBe(400);
+  expect((await startNew(tmpdir())).status).toBe(400);
+  expect((await startNew(5)).status).toBe(400);
 });
 
 // The first summary of the agent asks each installed shell for its version, which takes seconds
 // on a cold machine, such as a runner of CI.
 test("the agent shows its prompts and its tools", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
-  const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.systemPrompt).toBe("You are an agent working on the computer of the user.");
   expect(agent.addedByPi).toBe("");
   expect(agent.addedFacts.find((fact) => fact.id === "facts.harness")?.text).toContain(
@@ -359,15 +399,15 @@ test("files that Pi would add to the system prompt stay out of it", async () => 
   mkdirSync(join(startFolder, ".pi"), { recursive: true });
   writeFileSync(join(startFolder, ".pi", "APPEND_SYSTEM.md"), addendum);
   writeFileSync(join(directory, "APPEND_SYSTEM.md"), addendum);
-  expect((await post("/chat/new", { folder: startFolder })).status).toBe(204);
+  expect((await startNew(startFolder)).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
-  const agent = (await (await routes.request("/chat/agent")).json()) as AgentSummary;
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.addedByPi).not.toContain(addendum);
   expect(agent.addedByPi).toBe("");
 });
 
 test("message times reach requests and never enter the saved chat or its displayed messages", async () => {
-  await post("/chat/new", { folder: startFolder });
+  await startNew(startFolder);
   await chooseModel("faux", "faux-model");
   const requests: TranscriptContext[] = [];
   faux.setResponses([
@@ -394,7 +434,7 @@ test("message times reach requests and never enter the saved chat or its display
   const tool = requests[1]?.messages.find((message) => message.role === "toolResult");
   expect(JSON.stringify(tool)).toContain("Written at");
   expect(JSON.stringify((await readStart()).state.messages)).not.toContain("Written at");
-  const context = (await (await routes.request("/chat/context")).json()) as ContextSummary;
+  const context = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
   expect(JSON.stringify(context.entries)).not.toContain("Written at");
   expect(readFileSync(context.files.chat ?? "", "utf8")).not.toContain("Written at");
   expect(
@@ -410,7 +450,7 @@ test("message times reach requests and never enter the saved chat or its display
 });
 
 test("fact switches and edits reach the next request and cutoffs follow only their model", async () => {
-  await post("/chat/new", { folder: startFolder });
+  await startNew(startFolder);
   await chooseModel("faux", "faux-model");
   await put("/settings", {
     disabledFacts: ["facts.chatFolder", "facts.messageTime"],
@@ -451,9 +491,9 @@ test("fact switches and edits reach the next request and cutoffs follow only the
 });
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
-  const before = (await (await routes.request("/chat/context")).json()) as ContextSummary;
+  const before = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
   expect(before.model).toBe("faux-model");
   expect(before.userMessages).toBe(0);
   expect(before.lastRequest).toBeNull();
@@ -464,7 +504,7 @@ test("the context shows the model, the counts, the saved entries, and the last r
     },
   ]);
   await sendAndReadReply("Show the request");
-  const after = (await (await routes.request("/chat/context")).json()) as ContextSummary;
+  const after = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
   expect(after.lastRequest).toEqual({ sent: "the exact request" });
   expect(after.userMessages).toBe(1);
   expect(after.assistantMessages).toBe(1);
@@ -483,7 +523,7 @@ test("a model that thinks offers its thinking levels, and the chat keeps the cho
   expect(offered?.levels).toContain("high");
   const choose = (level: unknown): Promise<Response> =>
     Promise.resolve(
-      routes.request("/chat/thinking", {
+      routes.request(chatPath("/thinking"), {
         method: "PUT",
         headers: json,
         body: JSON.stringify({ level }),
@@ -496,7 +536,7 @@ test("a model that thinks offers its thinking levels, and the chat keeps the cho
 });
 
 test("a model streams its thinking, and the chat keeps how long it thought", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-thinker")).status).toBe(204);
   faux.setResponses([
     fauxAssistantMessage([fauxThinking("Weigh the options first."), fauxText("Done thinking.")]),
@@ -522,13 +562,13 @@ test("a model streams its thinking, and the chat keeps how long it thought", asy
   ];
   expect(reply.parts).toEqual(parts);
 
-  expect((await post("/chat/new", {})).status).toBe(204);
-  expect((await openSaved("Think first")).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
+  expect((await openSaved("Think first")).status).toBe(200);
   expect((await readStart()).state.messages.at(-1)?.parts).toEqual(parts);
 });
 
 test("the agent runs a command in the shell, sees how it ended, and goes on", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const input = { command: 'echo "hello from the shell"', description: "Say hello" };
   faux.setResponses([callTool("Shell", input), fauxAssistantMessage("The shell said hello.")]);
@@ -553,21 +593,21 @@ test("the agent runs a command in the shell, sees how it ended, and goes on", as
 });
 
 test("a command can be stopped on its own, and the agent goes on", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
   faux.setResponses([
     callTool("Shell", { command: pause }),
     fauxAssistantMessage("Going on without it."),
   ]);
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await events.next();
-  expect((await post("/chat/messages", { text: "Wait a while" })).status).toBe(202);
+  expect((await post(chatPath("/messages"), { text: "Wait a while" })).status).toBe(202);
   let event = await events.next();
   while (event.type !== "toolStart") {
     event = await events.next();
   }
-  expect((await post(`/chat/commands/${event.id}/stop`, {})).status).toBe(204);
+  expect((await post(chatPath(`/commands/${event.id}/stop`), {})).status).toBe(204);
   while (event.type !== "toolResult") {
     event = await events.next();
   }
@@ -577,11 +617,11 @@ test("a command can be stopped on its own, and the agent goes on", async () => {
   }
   await events.close();
   expect(textOf(event.message)).toBe("Going on without it.");
-  expect((await post("/chat/commands/no-such-command/stop", {})).status).toBe(404);
+  expect((await post(chatPath("/commands/no-such-command/stop"), {})).status).toBe(404);
 });
 
 test("a long command goes on in the background when the user moves it or after a while", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const windows = process.platform === "win32";
   faux.setResponses([
@@ -592,7 +632,7 @@ test("a long command goes on in the background when the user moves it or after a
     fauxAssistantMessage("It runs on too."),
     fauxAssistantMessage("Noted the end."),
   ]);
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   async function nextWhere(isWanted: (event: ChatEvent) => boolean): Promise<ChatEvent> {
     let event = await events.next();
     while (!isWanted(event)) {
@@ -608,21 +648,21 @@ test("a long command goes on in the background when the user moves it or after a
   }
   await events.next();
 
-  expect((await post("/chat/messages", { text: "Wait a while" })).status).toBe(202);
+  expect((await post(chatPath("/messages"), { text: "Wait a while" })).status).toBe(202);
   const started = await nextWhere((event) => event.type === "toolStart");
   const id = started.type === "toolStart" ? started.id : "";
-  expect((await post(`/chat/commands/${id}/background`, {})).status).toBe(204);
+  expect((await post(chatPath(`/commands/${id}/background`), {})).status).toBe(204);
   const moved = await nextWhere((event) => event.type === "toolResult");
   expect(moved.type === "toolResult" ? moved.result.text : "").toMatch(
     /^The user moved it to the background as background command \d+ after \d+\.\d s\./,
   );
   await nextWhere(replyOf("It runs on."));
   expect((await readStart()).state.backgroundCommands.map((each) => each.toolCallId)).toContain(id);
-  expect((await post(`/chat/commands/${id}/stop`, {})).status).toBe(204);
+  expect((await post(chatPath(`/commands/${id}/stop`), {})).status).toBe(204);
   await nextWhere(replyOf("Noted the stop."));
 
   await put("/settings", { handBackSeconds: 5 });
-  expect((await post("/chat/messages", { text: "Wait again" })).status).toBe(202);
+  expect((await post(chatPath("/messages"), { text: "Wait again" })).status).toBe(202);
   const handedBack = await nextWhere((event) => event.type === "toolResult");
   expect(handedBack.type === "toolResult" ? handedBack.result.text : "").toMatch(
     /^Still running after 5\.\d s, so it goes on as background command \d+\./,
@@ -631,12 +671,12 @@ test("a long command goes on in the background when the user moves it or after a
   await nextWhere(replyOf("Noted the end."));
   await events.close();
   await put("/settings", { handBackSeconds: 120 });
-  expect((await post("/chat/commands/no-such-command/background", {})).status).toBe(404);
+  expect((await post(chatPath("/commands/no-such-command/background"), {})).status).toBe(404);
   expect((await put("/settings", { handBackSeconds: 2 })).status).toBe(400);
 }, 30_000);
 
 test("a command runs in the folder that workdir names, and a missing one fails", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   mkdirSync(join(startFolder, "inner"), { recursive: true });
   const where = process.platform === "win32" ? "(Get-Location).Path" : "pwd";
@@ -658,7 +698,7 @@ test("a command runs in the folder that workdir names, and a missing one fails",
 });
 
 test("a tool that is turned off never runs, and the output limits change", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const call = fauxToolCall("Shell", { command: 'echo "it ran"' });
   faux.setResponses(
@@ -668,7 +708,10 @@ test("a tool that is turned off never runs, and the output limits change", async
     ]),
   );
   const off = await put("/settings", { tool: { name: "Shell", isEnabled: false } });
-  expect(shellOf((await off.json()) as AgentSummary)?.isEnabled).toBe(false);
+  expect(off.status).toBe(204);
+  expect(
+    shellOf((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary)?.isEnabled,
+  ).toBe(false);
   const blocked = (await sendAndReadReply("Run it")).updates.find(
     (update) => update.type === "toolResult",
   );
@@ -679,7 +722,10 @@ test("a tool that is turned off never runs, and the output limits change", async
     tool: { name: "Shell", isEnabled: true },
     outputLimits: { maxLines: 500, maxBytes: 8192 },
   });
-  expect(((await on.json()) as AgentSummary).outputLimits).toEqual({
+  expect(on.status).toBe(204);
+  expect(
+    ((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary).outputLimits,
+  ).toEqual({
     maxLines: 500,
     maxBytes: 8192,
   });
@@ -691,11 +737,12 @@ test("a tool that is turned off never runs, and the output limits change", async
 });
 
 test("variables that the user adds reach commands, and the model reads only their names", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   // biome-ignore-start lint/style/useNamingConvention: Shells name environment variables in capitals.
   const added = await put("/settings", { environment: { INDEPENDUM_SECRET: "kept-out" } });
-  const agent = (await added.json()) as AgentSummary;
+  expect(added.status).toBe(204);
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.environment).toEqual({ INDEPENDUM_SECRET: "kept-out" });
   // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
   expect(agent.environmentSuggestions.length).toBeGreaterThan(0);
@@ -708,13 +755,14 @@ test("variables that the user adds reach commands, and the model reads only thei
     (update) => update.type === "toolResult",
   );
   expect(result?.type === "toolResult" ? result.result.text : "").toContain("kept-out");
-  const cleared = (await (await put("/settings", { environment: {} })).json()) as AgentSummary;
+  expect((await put("/settings", { environment: {} })).status).toBe(204);
+  const cleared = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(shellOf(cleared)?.description).not.toContain("INDEPENDUM_SECRET");
   expect((await put("/settings", { environment: { "NOT A NAME": "x" } })).status).toBe(400);
 });
 
 test("edited texts reach the model with the next turn, and null brings back the built-in text", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const edited = await put("/settings", {
     texts: {
@@ -724,7 +772,8 @@ test("edited texts reach the model with the next turn, and null brings back the 
       "shell.exited": "Done with code {code}.",
     },
   });
-  const agent = (await edited.json()) as AgentSummary;
+  expect(edited.status).toBe(204);
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.systemPrompt).toBe("You are a test agent.");
   expect(shellOf(agent)?.description).toMatch(
     /^Runs .+ for tests\. A command that still runs after 120 s goes on as a background command\.$/,
@@ -754,8 +803,11 @@ test("edited texts reach the model with the next turn, and null brings back the 
   );
 
   const reset = await put("/settings", { texts: { "shell.exited": null } });
+  expect(reset.status).toBe(204);
   expect(
-    ((await reset.json()) as AgentSummary).texts.find((text) => text.id === "shell.exited"),
+    ((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary).texts.find(
+      (text) => text.id === "shell.exited",
+    ),
   ).toMatchObject({ text: "Exit code {code} after {time}.", isEdited: false });
   expect((await put("/settings", { texts: { "no.such.text": "Text." } })).status).toBe(400);
   await put("/settings", {
@@ -764,7 +816,7 @@ test("edited texts reach the model with the next turn, and null brings back the 
 });
 
 test("a background command runs on, and its end wakes the agent with a note", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const command =
     process.platform === "win32"
@@ -775,9 +827,9 @@ test("a background command runs on, and its end wakes the agent with a note", as
     fauxAssistantMessage("It runs."),
     fauxAssistantMessage("It ended."),
   ]);
-  const events = followEventStream<ChatEvent>(await routes.request("/chat/events"));
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await events.next();
-  expect((await post("/chat/messages", { text: "Start it" })).status).toBe(202);
+  expect((await post(chatPath("/messages"), { text: "Start it" })).status).toBe(202);
   const seen: ChatEvent[] = [];
   let event = await events.next();
   while (event.type !== "message" || textOf(event.message) !== "It ended.") {
@@ -804,7 +856,7 @@ test("a background command runs on, and its end wakes the agent with a note", as
 });
 
 test("a background command that ends before its call returns gives its whole result", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const quick = "echo quick; exit 3";
   faux.setResponses([
@@ -822,7 +874,7 @@ test("a background command that ends before its call returns gives its whole res
 });
 
 test("StopCommand stops a background command, and no note follows", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
   faux.setResponses([
@@ -842,7 +894,7 @@ test("StopCommand stops a background command, and no note follows", async () => 
 });
 
 test("CheckCommand returns what a background command printed since the last check, and waits for it", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const command =
     process.platform === "win32"
@@ -881,7 +933,7 @@ test("CheckCommand returns what a background command printed since the last chec
 }, 20_000);
 
 test("an output file gets a name that every system accepts, whatever the id of its call", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const command =
     process.platform === "win32"
@@ -905,7 +957,7 @@ test("an output file gets a name that every system accepts, whatever the id of i
 test("a chat opened again still knows which version of a file it saw", async () => {
   const notes = join(startFolder, "fingerprint-notes.txt");
   writeFileSync(notes, "one\ntwo\nthree\n");
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([callTool("Read", { path: notes }), fauxAssistantMessage("Read it.")]);
   const first = await sendAndReadReply("Read the notes once");
@@ -913,8 +965,8 @@ test("a chat opened again still knows which version of a file it saw", async () 
     result: { details: { kind: "text", lineCount: 3 } },
   });
   writeFileSync(notes, "one\nTWO\nthree\n");
-  expect((await post("/chat/new", {})).status).toBe(204);
-  expect((await openSaved("Read the notes once")).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
+  expect((await openSaved("Read the notes once")).status).toBe(200);
   faux.setResponses([callTool("Read", { path: notes }), fauxAssistantMessage("Read it again.")]);
   const second = await sendAndReadReply("Read them again");
   const result = second.updates.find((update) => update.type === "toolResult");
@@ -944,7 +996,7 @@ async function findChat(id: string | null): Promise<ChatSummary | undefined> {
 }
 
 test("a saved chat exports as markdown with a heading for each message", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([fauxAssistantMessage("A reply to **export**.")]);
   await sendAndReadReply("A chat to export");
@@ -959,7 +1011,7 @@ test("a saved chat exports as markdown with a heading for each message", async (
 });
 
 test("a chat can be renamed, pinned, archived, brought back, and deleted", async () => {
-  expect((await post("/chat/new", {})).status).toBe(204);
+  expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   faux.setResponses([fauxAssistantMessage("A reply to keep.")]);
   await sendAndReadReply("A chat to manage");
@@ -996,12 +1048,159 @@ test("a closed chat can be renamed, and a pin lasts after a restart", async () =
   expect((await put(`/chats/${hello?.id}/name`, { name: "Greetings" })).status).toBe(204);
   expect((await put(`/chats/${hello?.id}/pinned`, { isPinned: true })).status).toBe(204);
   routes = await createRoutes(startFolder);
+  chatId = await firstChat();
   const restarted = await findChat(hello?.id ?? null);
   expect(restarted).toMatchObject({ title: "Greetings", isPinned: true });
 });
 
 test("choosing the shell that the system has by default saves no choice", async () => {
   const defaultShell = process.platform === "win32" ? "powershell" : "bash";
-  const chosen = (await (await put("/settings", { shell: defaultShell })).json()) as AgentSummary;
+  expect((await put("/settings", { shell: defaultShell })).status).toBe(204);
+  const chosen = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(chosen.chosenShell).toBeNull();
+});
+
+async function readTurn(
+  events: ReturnType<typeof followEventStream<ChatEvent>>,
+): Promise<string[]> {
+  const messages: string[] = [];
+  for (let event = await events.next(); ; event = await events.next()) {
+    if (event.type === "message") {
+      messages.push(textOf(event.message));
+    } else if (event.type === "replying" && !event.isReplying) {
+      return messages;
+    }
+  }
+}
+
+test("two clients follow only their own chat and a message names its destination", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-model");
+  const firstId = chatId;
+  const first = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+  await first.next();
+  await startNew();
+  const second = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+  await second.next();
+  try {
+    faux.setResponses([fauxAssistantMessage("First answer.")]);
+    expect((await post(`/chats/${firstId}/messages`, { text: "For the first chat" })).status).toBe(
+      202,
+    );
+    expect(await readTurn(first)).toEqual(["For the first chat", "First answer."]);
+    faux.setResponses([fauxAssistantMessage("Second answer.")]);
+    expect((await post(chatPath("/messages"), { text: "For the second chat" })).status).toBe(202);
+    expect(await readTurn(second)).toEqual(["For the second chat", "Second answer."]);
+    expect(
+      (await put(`/chats/${firstId}/model`, { providerId: "faux", modelId: "faux-model" })).status,
+    ).toBe(204);
+    const refreshed = await first.next();
+    expect(refreshed.type).toBe("state");
+    const firstState = (await (await routes.request(`/chats/${firstId}`)).json()) as ChatState;
+    expect(firstState.messages.map(textOf)).toEqual(["For the first chat", "First answer."]);
+    expect((await readStart()).state.messages.map(textOf)).toEqual([
+      "For the second chat",
+      "Second answer.",
+    ]);
+    await first.close();
+    const shared = followEventStream<ChatsEvent>(await routes.request("/chats/events"));
+    try {
+      faux.setResponses([fauxAssistantMessage("An answer without a follower.")]);
+      expect(
+        (await post(`/chats/${firstId}/messages`, { text: "Reply while nobody follows" })).status,
+      ).toBe(202);
+      let ended = await shared.next();
+      while (ended.type !== "replyEnded") {
+        ended = await shared.next();
+      }
+      expect(ended.chatId).toBe(firstId);
+      expect(textOf(ended.reply ?? undefined)).toBe("An answer without a follower.");
+      faux.setResponses([fauxAssistantMessage("Still the second chat.")]);
+      await post(chatPath("/messages"), { text: "Another message for the second chat" });
+      expect(await readTurn(second)).toEqual([
+        "Another message for the second chat",
+        "Still the second chat.",
+      ]);
+    } finally {
+      await shared.close();
+    }
+  } finally {
+    await first.close();
+    await second.close();
+  }
+});
+
+test("concurrent followers share a run until the last one leaves and idle chats reopen from disk", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  faux.setResponses([fauxAssistantMessage("A saved reply.")]);
+  await sendAndReadReply("Save this chat");
+  const responses = await Promise.all([
+    routes.request(chatPath("/events")),
+    routes.request(chatPath("/events")),
+  ]);
+  const first = followEventStream<ChatEvent>(responses[0]);
+  const second = followEventStream<ChatEvent>(responses[1]);
+  expect((await first.next()).type).toBe("state");
+  expect((await second.next()).type).toBe("state");
+  await first.close();
+  expect((await put(chatPath("/thinking"), { level: "high" })).status).toBe(204);
+  const changed = await second.next();
+  expect(changed.type === "state" ? changed.state.thinking?.level : undefined).toBe("high");
+  const context = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  await second.close();
+  SessionManager.open(context.files.chat ?? "").appendMessage({
+    role: "user",
+    content: "An entry saved through Pi.",
+    timestamp: Date.now(),
+  });
+  expect(textOf((await readStart()).state.messages.at(-1))).toBe("An entry saved through Pi.");
+});
+
+test("archiving a followed chat replaces it only for its followers", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-model");
+  faux.setResponses([fauxAssistantMessage("Archive this reply.")]);
+  await sendAndReadReply("Archive this chat");
+  const archivedId = chatId;
+  const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+  await events.next();
+  await startNew();
+  const otherId = chatId;
+  expect((await put(`/chats/${archivedId}/archived`, { isArchived: true })).status).toBe(204);
+  const removed = await events.next();
+  await events.close();
+  expect(removed.type).toBe("removed");
+  if (removed.type !== "removed") {
+    throw new Error("The follower did not receive its replacement chat.");
+  }
+  const replacement = (await (
+    await routes.request(`/chats/${removed.replacementId}`)
+  ).json()) as ChatState;
+  expect(replacement).toMatchObject({
+    messages: [],
+    model: { providerId: "faux", id: "faux-model" },
+  });
+  expect(replacement.id).not.toBe(otherId);
+  expect((await readStart()).state.id).toBe(otherId);
+  expect((await routes.request(`/chats/${archivedId}/events`)).status).toBe(404);
+});
+
+test("unknown chat ids fail without choosing another chat", async () => {
+  for (const part of ["", "/events", "/agent", "/context"]) {
+    expect((await routes.request(`/chats/no-such-chat${part}`)).status).toBe(404);
+  }
+  for (const part of [
+    "messages",
+    "compact",
+    "stop",
+    "new",
+    "commands/call/stop",
+    "commands/call/background",
+  ]) {
+    expect((await post(`/chats/no-such-chat/${part}`, { text: "Hello" })).status).toBe(404);
+  }
+  for (const part of ["model", "thinking"]) {
+    expect((await put(`/chats/no-such-chat/${part}`, {})).status).toBe(404);
+  }
 });

@@ -1,6 +1,6 @@
 # Commands place
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session, and by [decision 0058](0058-address-chats-by-id.md), which names the chat for each command
 - Date: 2026-10-28
 
 ## Context
@@ -18,6 +18,6 @@ A command of the Shell tool has no timeout unless the model sets one, as decisio
 
 ## Consequences
 
-- `POST /api/chat/commands/:id/stop` stops one running command, and answers 404 when no running command has that id.
+- `POST /api/chats/:id/commands/:commandId/stop` stops one running command of the named chat, and answers 404 when no running command of that chat has that id. See [decision 0058](0058-address-chats-by-id.md).
 - The places share `PlaceFrame` and `PlaceNote`, and the steps, the rows, and the count share `StatusLabel`, so their layout and their status read the same.
 - Commands that run in the background will join the same place.

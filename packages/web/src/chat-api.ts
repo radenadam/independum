@@ -2,6 +2,7 @@ import type {
   AgentSummary,
   ArchivedChatSummary,
   ChatEvent,
+  ChatsEvent,
   ContextSummary,
   ModelSummary,
   SettingsChange,
@@ -13,7 +14,7 @@ import { requestApi } from "./request-api.ts";
 export type ChatConnection = "following" | "reconnecting" | "expiredLink";
 
 // A dropped stream, such as after a restart in development, is retried after this delay.
-const reconnectDelay = 1500;
+export const chatReconnectDelay = 1500;
 
 /** Returns the models of every provider with a login. */
 export async function fetchModels(): Promise<ModelSummary[]> {
@@ -26,8 +27,8 @@ export async function fetchModels(): Promise<ModelSummary[]> {
 }
 
 /** Returns what the agent of the open chat works with, including the last request it sent. */
-export async function fetchAgent(): Promise<AgentSummary> {
-  const response = await requestApi("/api/chat/agent");
+export async function fetchAgent(id: string): Promise<AgentSummary> {
+  const response = await requestApi(chatPath(id, "/agent"));
   if (!response.ok) {
     throw new Error("The agent could not be loaded.");
   }
@@ -38,17 +39,17 @@ export async function fetchAgent(): Promise<AgentSummary> {
  * Changes settings of the user, such as the shell, the tools that are off, or the model texts, and
  * returns the agent with them.
  */
-export async function changeSettings(change: SettingsChange): Promise<AgentSummary> {
+export async function changeSettings(id: string, change: SettingsChange): Promise<AgentSummary> {
   const response = await requestApi("/api/settings", { method: "PUT", body: change });
   if (!response.ok) {
     throw new Error("The setting could not be saved.");
   }
-  return (await response.json()) as AgentSummary;
+  return fetchAgent(id);
 }
 
 /** Returns what the model of the open chat works with, for the Session place. */
-export async function fetchContext(): Promise<ContextSummary> {
-  const response = await requestApi("/api/chat/context");
+export async function fetchContext(id: string): Promise<ContextSummary> {
+  const response = await requestApi(chatPath(id, "/context"));
   if (!response.ok) {
     throw new Error("The context could not be loaded.");
   }
@@ -57,22 +58,53 @@ export async function fetchContext(): Promise<ContextSummary> {
 
 /** Follows the chat and calls back with each change, reconnecting until the returned stop runs. */
 export function followChat(
+  id: string,
   onEvent: (event: ChatEvent) => void,
   onConnection: (connection: ChatConnection) => void,
+  onMissing: () => void,
+): () => void {
+  return followEvents(chatPath(id, "/events"), onEvent, onConnection, onMissing);
+}
+
+/** Follows the projects and every reply that starts or ends. */
+export function followChats(
+  onEvent: (event: ChatsEvent) => void,
+  onConnection: (connection: ChatConnection) => void,
+): () => void {
+  return followEvents("/api/chats/events", onEvent, onConnection, () => undefined);
+}
+
+function followEvents<Event>(
+  path: string,
+  onEvent: (event: Event) => void,
+  onConnection: (connection: ChatConnection) => void,
+  onMissing: () => void,
 ): () => void {
   const controller = new AbortController();
 
   async function follow(): Promise<void> {
     while (!controller.signal.aborted) {
       try {
-        const response = await requestApi("/api/chat/events", { signal: controller.signal });
+        const response = await requestApi(path, { signal: controller.signal });
+        if (controller.signal.aborted) {
+          await response.body?.cancel();
+          return;
+        }
         if (response.status === 401) {
           onConnection("expiredLink");
           return;
         }
+        if (response.status === 404) {
+          onMissing();
+          return;
+        }
         if (response.ok) {
           onConnection("following");
-          await readEvents(response, onEvent);
+          await readEvents<Event>(response, (event) => {
+            if (!controller.signal.aborted) {
+              onEvent(event);
+            }
+          });
         }
       } catch {
         // A failed or dropped stream is retried below, unless the UI stopped following.
@@ -81,7 +113,7 @@ export function followChat(
         return;
       }
       onConnection("reconnecting");
-      await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+      await new Promise((resolve) => setTimeout(resolve, chatReconnectDelay));
     }
   }
 
@@ -90,16 +122,16 @@ export function followChat(
 }
 
 /** Sends a message to the chat. */
-export async function sendMessage(text: string): Promise<void> {
-  const response = await requestApi("/api/chat/messages", { body: { text } });
+export async function sendMessage(id: string, text: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/messages"), { body: { text } });
   if (!response.ok) {
     throw new Error("The message was not sent.");
   }
 }
 
 /** Chooses the model that the chat uses from now on. */
-export async function chooseModel(providerId: string, modelId: string): Promise<void> {
-  const response = await requestApi("/api/chat/model", {
+export async function chooseModel(id: string, providerId: string, modelId: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/model"), {
     method: "PUT",
     body: { providerId, modelId },
   });
@@ -109,8 +141,8 @@ export async function chooseModel(providerId: string, modelId: string): Promise<
 }
 
 /** Chooses how much the model of the chat thinks before it answers. */
-export async function chooseThinking(level: string): Promise<void> {
-  const response = await requestApi("/api/chat/thinking", { method: "PUT", body: { level } });
+export async function chooseThinking(id: string, level: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/thinking"), { method: "PUT", body: { level } });
   if (!response.ok) {
     throw new Error("That thinking level is not available.");
   }
@@ -168,27 +200,31 @@ async function changeChat(id: string, part: string, body: unknown): Promise<void
   }
 }
 
-/** Opens a saved chat in place of the current one. */
-export async function openChat(id: string): Promise<void> {
-  const response = await requestApi("/api/chat/open", { body: { id } });
+/** Returns the newest chat of the start folder, or an empty chat there. */
+export async function fetchFirstChat(): Promise<string> {
+  const response = await requestApi("/api/chats/first");
   if (!response.ok) {
-    throw new Error("That chat could not be opened.");
+    throw new Error("The first chat could not be loaded.");
   }
+  return ((await response.json()) as { id: string }).id;
 }
 
 /** Moves a command of the reply to the background, and the reply goes on while it runs. */
-export async function moveCommandToBackground(id: string): Promise<void> {
-  const response = await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/background`, {
-    method: "POST",
-  });
+export async function moveCommandToBackground(chatId: string, id: string): Promise<void> {
+  const response = await requestApi(
+    chatPath(chatId, `/commands/${encodeURIComponent(id)}/background`),
+    {
+      method: "POST",
+    },
+  );
   if (!response.ok && !hasEnded(response)) {
     throw new Error("The command could not move to the background.");
   }
 }
 
 /** Stops one running command, and the reply goes on with what it printed. */
-export async function stopCommand(id: string): Promise<void> {
-  const response = await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/stop`, {
+export async function stopCommand(chatId: string, id: string): Promise<void> {
+  const response = await requestApi(chatPath(chatId, `/commands/${encodeURIComponent(id)}/stop`), {
     method: "POST",
   });
   if (!response.ok && !hasEnded(response)) {
@@ -203,27 +239,32 @@ function hasEnded(response: Response): boolean {
 }
 
 /** Stops the reply in progress. */
-export async function stopReply(): Promise<void> {
-  const response = await requestApi("/api/chat/stop", { method: "POST" });
+export async function stopReply(id: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/stop"), { method: "POST" });
   if (!response.ok) {
     throw new Error("The reply could not be stopped.");
   }
 }
 
 /** Starts compaction of the open chat through Pi. */
-export async function compactChat(): Promise<void> {
-  const response = await requestApi("/api/chat/compact", { method: "POST" });
+export async function compactChat(id: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/compact"), { method: "POST" });
   if (!response.ok) {
     throw new Error("The chat could not start compaction.");
   }
 }
 
 /** Starts an empty chat with the same model, in the folder of the open chat or in another project. */
-export async function startNewChat(folder?: string): Promise<void> {
-  const response = await requestApi("/api/chat/new", {
+export async function startNewChat(id: string, folder?: string): Promise<string> {
+  const response = await requestApi(chatPath(id, "/new"), {
     body: folder === undefined ? {} : { folder },
   });
   if (!response.ok) {
     throw new Error("The new chat could not start.");
   }
+  return ((await response.json()) as { id: string }).id;
+}
+
+function chatPath(id: string, part: string): string {
+  return `/api/chats/${encodeURIComponent(id)}${part}`;
 }

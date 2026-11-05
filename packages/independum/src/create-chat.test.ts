@@ -15,7 +15,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatEvent } from "./api-types.ts";
 import { createChatRoutes } from "./chat-routes.ts";
-import { createChat } from "./create-chat.ts";
+import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
@@ -136,6 +136,22 @@ function sessionAt(index: number): SessionDouble {
   return session;
 }
 
+async function openTestChat(chat: Chat, id?: string): Promise<OpenChat> {
+  const opened = await chat.open(id ?? (await chat.first()));
+  if (opened === undefined) {
+    throw new Error("The test chat did not open.");
+  }
+  return opened;
+}
+
+async function startTestChat(chat: Chat, source: OpenChat): Promise<OpenChat> {
+  const id = await chat.startNew(source.getState().id);
+  if (id === undefined) {
+    throw new Error("The next test chat did not start.");
+  }
+  return openTestChat(chat, id);
+}
+
 beforeEach(() => {
   sessions = [];
   saved = [];
@@ -187,11 +203,12 @@ test("concurrent opens share one saved session and keep its reply tracked", asyn
   const second = chat.open(info.id);
   await loading.promise;
   loaded.resolve();
-  expect(await Promise.all([first, second])).toEqual([true, true]);
+  const followers = await Promise.all([first, second]);
+  expect(followers.map((opened) => opened?.getState().id)).toEqual([info.id, info.id]);
   const active = sessionAt(-1);
   active.emit({ type: "agent_start" });
   expect(chat.getReplyingIds()).toEqual([info.id]);
-  expect(createAgentSession).toHaveBeenCalledTimes(2);
+  expect(createAgentSession).toHaveBeenCalledTimes(1);
   expect(active.session.dispose).not.toHaveBeenCalled();
 });
 
@@ -200,29 +217,30 @@ test("a failed saved open can be retried", async () => {
   const info = savedChat();
   vi.mocked(createAgentSession).mockRejectedValueOnce(new Error("The session cannot load."));
   await expect(chat.open(info.id)).rejects.toThrow("The session cannot load.");
-  expect(await chat.open(info.id)).toBe(true);
-  expect(chat.getState().id).toBe(info.id);
+  expect((await chat.open(info.id))?.getState().id).toBe(info.id);
 });
 
 test("a model choice stays with its chat when another chat opens before it finishes", async () => {
   const chat = await createChat({ models, directory, cwd });
-  const original = sessionAt(0);
+  const opened = await openTestChat(chat);
+  const original = sessionAt(-1);
   original.emit({ type: "agent_start" });
   const chosen = Promise.withResolvers<void>();
   vi.mocked(original.session.setModel).mockReturnValueOnce(chosen.promise);
-  const choosing = chat.chooseModel("faux", "chosen");
-  expect(await chat.startNew()).toBe(true);
+  const choosing = opened.chooseModel("faux", "chosen");
+  const other = await startTestChat(chat, opened);
   chosen.resolve();
   expect(await choosing).toBe(true);
-  expect(chat.getState().model).toBeNull();
-  expect(await chat.open(original.session.sessionId)).toBe(true);
-  expect(chat.getState().model).toEqual({ providerId: "faux", id: "chosen" });
+  expect(other.getState().model).toBeNull();
+  const originalChat = await openTestChat(chat, original.session.sessionId);
+  expect(originalChat.getState().model).toEqual({ providerId: "faux", id: "chosen" });
 });
 
 test("reconnecting and changing effort restore every part of the reply so far", async () => {
   const chat = await createChat({ models, directory, cwd });
-  await chat.chooseModel("faux", "chosen");
-  const active = sessionAt(0);
+  const opened = await openTestChat(chat);
+  await opened.chooseModel("faux", "chosen");
+  const active = sessionAt(-1);
   active.emit({ type: "agent_start" });
   active.setStreaming(
     fauxAssistantMessage([
@@ -232,7 +250,7 @@ test("reconnecting and changing effort restore every part of the reply so far", 
     ]),
   );
   const events = followEventStream<ChatEvent>(
-    await createChatRoutes(chat, models).request("/chat/events"),
+    await createChatRoutes(chat, models).request(`/chats/${opened.getState().id}/events`),
   );
   const first = await events.next();
   await events.close();
@@ -243,28 +261,31 @@ test("reconnecting and changing effort restore every part of the reply so far", 
   ];
   expect(first.type === "state" ? first.state : undefined).toHaveProperty("reply", expected);
   const changes: ChatEvent[] = [];
-  chat.subscribe((event) => changes.push(event));
-  expect(chat.chooseThinking("low")).toBe(true);
+  opened.subscribe((event) => changes.push(event));
+  expect(opened.chooseThinking("low")).toBe(true);
   expect(changes.find((event) => event.type === "state")).toHaveProperty("state.reply", expected);
   active.setStreaming(undefined);
-  expect(chat.getState()).toHaveProperty("reply", []);
+  expect(opened.getState()).toHaveProperty("reply", []);
 });
 
 test("a foreground tool keeps its start and latest progress while its chat is closed", async () => {
   const chat = await createChat({ models, directory, cwd });
-  const active = sessionAt(0);
+  let opened = await openTestChat(chat);
+  const active = sessionAt(-1);
   active.emit({ type: "agent_start" });
   active.emit({ type: "tool_execution_start", toolCallId: "call", toolName: "Shell", args: {} });
-  const started = chat.getState();
+  const started = opened.getState();
   expect(started).toHaveProperty("toolRuns.call", {
     startedAt: expect.any(Number),
     details: null,
   });
-  expect(await chat.startNew()).toBe(true);
-  expect(chat.getState()).toHaveProperty("toolRuns", {});
-  expect(await chat.open(active.session.sessionId)).toBe(true);
-  expect(chat.getState().toolRuns).toEqual(started.toolRuns);
-  expect(await chat.startNew()).toBe(true);
+  const next = await startTestChat(chat, opened);
+  opened.close();
+  expect(next.getState()).toHaveProperty("toolRuns", {});
+  opened = await openTestChat(chat, active.session.sessionId);
+  expect(opened.getState().toolRuns).toEqual(started.toolRuns);
+  await startTestChat(chat, opened);
+  opened.close();
   const progress = { shell: "Test shell", output: "Ready", lastOutputAt: Date.now() };
   active.emit({
     type: "tool_execution_update",
@@ -273,8 +294,8 @@ test("a foreground tool keeps its start and latest progress while its chat is cl
     args: {},
     partialResult: { content: [], details: progress },
   });
-  expect(await chat.open(active.session.sessionId)).toBe(true);
-  expect(chat.getState()).toHaveProperty("toolRuns.call", {
+  opened = await openTestChat(chat, active.session.sessionId);
+  expect(opened.getState()).toHaveProperty("toolRuns.call", {
     ...started.toolRuns.call,
     details: progress,
   });
@@ -285,9 +306,15 @@ test("a foreground tool keeps its start and latest progress while its chat is cl
     result: { content: [], details: {} },
     isError: false,
   });
-  expect(chat.getState()).toHaveProperty("toolRuns", {});
+  expect(opened.getState()).toHaveProperty("toolRuns", {});
   expect(started.toolRuns.call?.details).toBeNull();
 });
+
+function finishCommands(commands: { finish: () => void }[]): void {
+  for (const command of commands) {
+    command.finish();
+  }
+}
 
 async function setup() {
   const commands: { options: RunOptions; finish: () => void }[] = [];
@@ -297,9 +324,10 @@ async function setup() {
     return running.promise;
   });
   const chat = await createChat({ models, directory: join(folder, randomUUID()), cwd });
+  const opened = await openTestChat(chat);
   const tool = vi.mocked(createShellTool).mock.results.at(-1)?.value as ToolDefinition;
-  function start(id: string): ReturnType<ToolDefinition["execute"]> {
-    const chatId = chat.getState().id as string;
+  function start(opened: OpenChat, id: string): ReturnType<ToolDefinition["execute"]> {
+    const chatId = opened.getState().id as string;
     const active = sessions.find((double) => double.session.sessionId === chatId);
     if (active === undefined) {
       throw new Error("The command session does not exist.");
@@ -315,7 +343,7 @@ async function setup() {
     calls.set(chatId, [...(calls.get(chatId) ?? []), running]);
     return running;
   }
-  return { chat, commands, sessions, savedChats, start };
+  return { chat, opened, commands, sessions, savedChats, start };
 }
 
 test.each([
@@ -326,18 +354,21 @@ test.each([
 ])(
   "$action waits for its chat's background commands and leaves another chat running when open is $isOpen",
   async ({ action, isOpen }) => {
-    const { chat, commands, sessions, savedChats, start } = await setup();
-    const id = chat.getState().id as string;
-    const first = start("first");
-    expect(chat.moveToBackground("first")).toBe(true);
+    const { chat, opened, commands, sessions, savedChats, start } = await setup();
+    const id = opened.getState().id as string;
+    const first = start(opened, "first");
+    expect(opened.moveToBackground("first")).toBe(true);
     await first;
-    await chat.startNew();
-    const second = start("second");
-    expect(chat.moveToBackground("second")).toBe(true);
+    const other = await startTestChat(chat, opened);
+    opened.close();
+    const second = start(other, "second");
+    expect(other.moveToBackground("second")).toBe(true);
     await second;
-    const otherId = chat.getState().id as string;
+    const otherId = other.getState().id;
     if (isOpen) {
-      await chat.open(id);
+      const followed = await openTestChat(chat, id);
+      followed.subscribe(() => undefined);
+      followed.close();
     }
     try {
       const leaving = action === "archive" ? chat.archive(id, true) : chat.remove(id);
@@ -347,24 +378,25 @@ test.each([
       expect(savedChats.remove).not.toHaveBeenCalled();
       commands[0]?.finish();
       expect(await leaving).toBe(true);
-      expect(sessions[0]?.session.sendCustomMessage).not.toHaveBeenCalled();
-      await chat.open(otherId);
-      expect(chat.getState().backgroundCommands).toHaveLength(1);
+      expect(
+        sessions.find((double) => double.session.sessionId === id)?.session.sendCustomMessage,
+      ).not.toHaveBeenCalled();
+      const otherChat = await openTestChat(chat, otherId);
+      expect(otherChat.getState().backgroundCommands).toHaveLength(1);
     } finally {
-      for (const command of commands) {
-        command.finish();
-      }
+      finishCommands(commands);
     }
   },
 );
 
 test("shutdown stops foreground and background commands across chats and waits for them", async () => {
-  const { chat, commands, sessions, start } = await setup();
-  const first = start("background");
-  chat.moveToBackground("background");
+  const { chat, opened, commands, sessions, start } = await setup();
+  const first = start(opened, "background");
+  opened.moveToBackground("background");
   await first;
-  await chat.startNew();
-  const foreground = start("foreground");
+  const other = await startTestChat(chat, opened);
+  opened.close();
+  const foreground = start(other, "foreground");
   try {
     let hasStopped = false;
     const stopping = Promise.resolve(chat.stopAll()).then(() => {
@@ -374,26 +406,24 @@ test("shutdown stops foreground and background commands across chats and waits f
       .poll(() => commands.every((command) => command.options.signal?.aborted))
       .toBe(true);
     expect(hasStopped).toBe(false);
-    for (const command of commands) {
-      command.finish();
-    }
+    finishCommands(commands);
     await foreground;
     await stopping;
-    for (const session of sessions) {
+    for (const session of sessions.filter(
+      (double) => vi.mocked(double.session.dispose).mock.calls.length === 0,
+    )) {
       expect(session.session.abort).toHaveBeenCalled();
       expect(session.session.sendCustomMessage).not.toHaveBeenCalled();
     }
   } finally {
-    for (const command of commands) {
-      command.finish();
-    }
+    finishCommands(commands);
   }
 });
 
 test("shutdown waits for a command that moves to the background while it stops", async () => {
-  const { chat, commands, start } = await setup();
-  const running = start("moving");
-  chat.moveToBackground("moving");
+  const { chat, opened, commands, start } = await setup();
+  const running = start(opened, "moving");
+  opened.moveToBackground("moving");
   const stopping = chat.stopAll();
   try {
     await running;
@@ -404,25 +434,24 @@ test("shutdown waits for a command that moves to the background while it stops",
     ]);
     expect(isWaiting).toBe(true);
   } finally {
-    for (const command of commands) {
-      command.finish();
-    }
+    finishCommands(commands);
     await stopping;
   }
 });
 
 test("a background note retains its chat through compaction and delivery", async () => {
-  const { chat, commands, start } = await setup();
-  const active = sessionAt(0);
+  const { chat, opened, commands, start } = await setup();
+  const active = sessionAt(-1);
   const idle = Promise.withResolvers<void>();
   const delivered = Promise.withResolvers<void>();
   vi.mocked(active.session.waitForIdle).mockReturnValueOnce(idle.promise);
   vi.mocked(active.session.sendCustomMessage).mockReturnValueOnce(delivered.promise);
-  const running = start("pending-note");
-  chat.moveToBackground("pending-note");
+  const running = start(opened, "pending-note");
+  opened.moveToBackground("pending-note");
   await running;
   active.emit({ type: "compaction_start", reason: "manual" });
-  await chat.startNew();
+  await startTestChat(chat, opened);
+  opened.close();
   try {
     commands[0]?.finish();
     await expect.poll(() => vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1);
@@ -450,12 +479,12 @@ test("a background note retains its chat through compaction and delivery", async
 test.each(["archive", "delete", "shutdown"])(
   "%s discards a background note waiting for manual compaction",
   async (action) => {
-    const { chat, commands, start } = await setup();
-    const active = sessionAt(0);
+    const { chat, opened, commands, start } = await setup();
+    const active = sessionAt(-1);
     const idle = Promise.withResolvers<void>();
     vi.mocked(active.session.waitForIdle).mockReturnValueOnce(idle.promise);
-    const running = start("stopping-note");
-    chat.moveToBackground("stopping-note");
+    const running = start(opened, "stopping-note");
+    opened.moveToBackground("stopping-note");
     await running;
     active.emit({ type: "compaction_start", reason: "manual" });
     try {
@@ -478,3 +507,23 @@ test.each(["archive", "delete", "shutdown"])(
     }
   },
 );
+
+test("foreground commands with matching call ids keep their chat's controls", async () => {
+  const { chat, opened, commands, start } = await setup();
+  const other = await startTestChat(chat, opened);
+  const first = start(opened, "same-call");
+  const second = start(other, "same-call");
+  try {
+    expect(opened.stopCommand("same-call")).toBe(true);
+    expect(commands[0]?.options.signal?.aborted).toBe(true);
+    expect(commands[1]?.options.signal?.aborted).toBe(false);
+    other.moveToBackground("same-call");
+    await second;
+    expect(opened.getState().backgroundCommands).toEqual([]);
+    expect(other.getState().backgroundCommands).toHaveLength(1);
+  } finally {
+    finishCommands(commands);
+    await Promise.all([first, second]);
+    await chat.stopAll();
+  }
+});

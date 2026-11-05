@@ -27,6 +27,7 @@ import type {
   ChatMessage,
   ChatState,
   ChatSummary,
+  ChatsEvent,
   CommandEnd,
   ContextSummary,
   MessagePart,
@@ -105,6 +106,9 @@ interface ChatRun {
   thinkingTimes: Map<number, number>;
   lastCallUpdate: number;
   toolRuns: ChatState["toolRuns"];
+  listeners: Set<(event: ChatEvent) => void>;
+  users: number;
+  isClosing: boolean;
 }
 
 // Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
@@ -149,28 +153,32 @@ export interface ChatOptions {
   cwd: string;
 }
 
-/**
- * The open chat, which the API shows, follows, and drives, the chats that run beside it, and the
- * projects with their chats.
- */
-export interface Chat {
+/** A chat held by an API request, with a separate subscription for each follower. */
+export interface OpenChat {
   getState(): ChatState;
   getAgent(): AgentSummary;
-  changeSettings(change: SettingsChange): Promise<AgentSummary | undefined>;
   getContext(): ContextSummary;
-  getProjects(): Promise<ProjectSummary[]>;
-  getReplyingIds(): string[];
   subscribe(listener: (event: ChatEvent) => void): () => void;
   send(text: string): boolean;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   chooseThinking(level: string): boolean;
   compact(): boolean;
-  open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
   moveToBackground(id: string): boolean;
+  close(): void;
+}
+
+/** The independent chat runs and the projects with their chats. */
+export interface Chat {
+  first(): Promise<string>;
+  open(id: string): Promise<OpenChat | undefined>;
+  changeSettings(change: SettingsChange): Promise<boolean>;
+  getProjects(): Promise<ProjectSummary[]>;
+  getReplyingIds(): string[];
+  subscribe(listener: (event: ChatsEvent) => void): () => void;
   stopAll(): Promise<void>;
-  startNew(folder?: string): Promise<boolean>;
+  startNew(id: string, folder?: string): Promise<string | undefined>;
   rename(id: string, name: string): Promise<boolean>;
   pin(id: string, isPinned: boolean): Promise<boolean>;
   archive(id: string, isArchived: boolean): Promise<boolean>;
@@ -179,7 +187,7 @@ export interface Chat {
   exportMarkdown(id: string): Promise<string | undefined>;
 }
 
-/** Reopens the latest chat of the folder Independum starts from, or starts an empty one there. */
+/** Keeps independent chat runs and reopens saved chats through Pi. */
 export async function createChat({ models, directory, cwd }: ChatOptions): Promise<Chat> {
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
@@ -193,8 +201,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
     onProgress(chatId, toolCallId, progress) {
-      if (current?.session.sessionId === chatId) {
-        emit({ type: "toolProgress", id: toolCallId, details: progress });
+      const run = runs.get(chatId);
+      if (run !== undefined) {
+        emitFor(run, { type: "toolProgress", id: toolCallId, details: progress });
       }
     },
     onEnd: noteEnd,
@@ -219,52 +228,58 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     createCheckCommandTool(background, texts),
     createStopCommandTool(background, texts),
   ];
-  const listeners = new Set<(event: ChatEvent) => void>();
-  // Every chat runs on its own, like an agent in a tab of a terminal, so a chat that the user leaves
-  // goes on with its reply and its background commands. The open chat is one of the runs.
+  const listeners = new Set<(event: ChatsEvent) => void>();
   const runs = new Map<string, ChatRun>();
   const stoppingChats = new Set<string>();
-  const pendingOpens = new Map<string, Promise<boolean>>();
-  let current: ChatRun | undefined;
+  const pendingOpens = new Map<string, Promise<ChatRun | undefined>>();
+  // Pi keeps setup entries in memory until the first message, so an empty chat keeps its manager
+  // when its agent session is released.
+  const drafts = new Map<
+    string,
+    {
+      manager: SessionManager;
+      folder: string;
+      model: Model | undefined;
+      thinkingLevel: AgentSession["thinkingLevel"];
+    }
+  >();
+  let firstId: string | undefined;
+  let firstOpening: Promise<string> | undefined;
 
-  function emit(event: ChatEvent): void {
+  function emit(event: ChatsEvent): void {
     for (const listener of listeners) {
       listener(event);
     }
   }
 
-  // The UI follows the open chat in detail, and every other chat only by whether it replies.
   function emitFor(run: ChatRun, event: ChatEvent): void {
-    if (run === current) {
-      emit(event);
+    for (const listener of run.listeners) {
+      listener(event);
     }
   }
 
-  function getState(): ChatState {
-    const session = current?.session;
-    const model = current?.isModelChosen === true ? session?.model : undefined;
-    const savedTimes = readThinkingTimes(current);
-    const streaming =
-      current?.isReplying === true ? session?.agent.state.streamingMessage : undefined;
+  function getState(run: ChatRun): ChatState {
+    const session = run.session;
+    const model = run.isModelChosen ? session.model : undefined;
+    const savedTimes = readThinkingTimes(run);
+    const streaming = run.isReplying ? session.agent.state.streamingMessage : undefined;
     return {
-      id: session?.sessionId ?? null,
-      folder: current?.folder ?? startFolder,
+      id: session.sessionId,
+      folder: run.folder,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
       // Pi offers only the levels that the model supports, and none for a model that cannot think.
       thinking:
-        model === undefined || session?.supportsThinking() !== true
+        model === undefined || !session.supportsThinking()
           ? null
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
-      messages: chatMessagesOf(session?.messages ?? [], savedTimes),
-      isReplying: current?.isReplying ?? false,
+      messages: chatMessagesOf(session.messages ?? [], savedTimes),
+      isReplying: run.isReplying ?? false,
       reply:
-        streaming?.role === "assistant" && current !== undefined
-          ? partsOf(streaming.content, timesOf(current, streaming))
-          : [],
-      toolRuns: { ...current?.toolRuns },
-      isCompacting: current?.isCompacting ?? false,
-      compactionError: current?.compactionError ?? null,
-      contextVersion: current?.contextVersion ?? 0,
+        streaming?.role === "assistant" ? partsOf(streaming.content, timesOf(run, streaming)) : [],
+      toolRuns: { ...run.toolRuns },
+      isCompacting: run.isCompacting ?? false,
+      compactionError: run.compactionError ?? null,
+      contextVersion: run.contextVersion ?? 0,
       backgroundCommands: session === undefined ? [] : background.listRunning(session.sessionId),
     };
   }
@@ -273,11 +288,13 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     return [...runs.values()].filter((run) => run.isReplying).map((run) => run.session.sessionId);
   }
 
-  // A chat that is not open lets its session go once it has no reply and no background command
-  // left, because nothing more happens in it until the user opens it again.
+  // A run stays alive while a request or a follower holds it, while it replies, or while a
+  // background command runs.
   function releaseIfIdle(run: ChatRun): void {
     if (
-      run === current ||
+      run.users > 0 ||
+      run.isClosing ||
+      run.listeners.size > 0 ||
       run.isReplying ||
       run.isCompacting ||
       run.pendingNotes > 0 ||
@@ -285,6 +302,20 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       background.listRunning(run.session.sessionId).length > 0
     ) {
       return;
+    }
+    if (
+      !run.session.messages.some(
+        (message) => message.role === "user" || message.role === "assistant",
+      )
+    ) {
+      drafts.set(run.session.sessionId, {
+        manager: run.session.sessionManager,
+        folder: run.folder,
+        model: run.isModelChosen ? run.session.model : undefined,
+        thinkingLevel: run.session.thinkingLevel,
+      });
+    } else {
+      drafts.delete(run.session.sessionId);
     }
     run.stopFollowing();
     run.session.dispose();
@@ -300,6 +331,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       return;
     }
     const run = runs.get(ended.chatId);
+    if (run?.isClosing === true) {
+      return;
+    }
     if (run !== undefined) {
       emitFor(run, { type: "commandEnd", end: ended.end });
     }
@@ -347,14 +381,18 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (run.isCompacting && !run.isReplying) {
       await run.session.waitForIdle();
     }
-    if (runs.get(run.session.sessionId) === run && !stoppingChats.has(run.session.sessionId)) {
+    if (
+      runs.get(run.session.sessionId) === run &&
+      !run.isClosing &&
+      !stoppingChats.has(run.session.sessionId)
+    ) {
       await run.session.sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" });
     }
   }
 
-  function readThinkingTimes(run: ChatRun | undefined): Map<number, (number | null)[]> {
+  function readThinkingTimes(run: ChatRun): Map<number, (number | null)[]> {
     const times = new Map<number, (number | null)[]>();
-    for (const entry of run?.session.sessionManager.getEntries() ?? []) {
+    for (const entry of run.session.sessionManager.getEntries()) {
       if (entry.type === "custom" && entry.customType === thinkingTimesType) {
         const saved = entry.data as ThinkingTimes;
         times.set(saved.timestamp, saved.durationsMs);
@@ -460,32 +498,35 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     };
   }
 
-  // A chat file moves or goes away only after Pi stops writing to it, so a chat that runs stops
-  // first, and leaving the open chat starts an empty one in its folder.
+  // Pi stops writing before a chat file moves or goes away. Each follower receives an empty
+  // replacement in the same folder, with the same model.
   async function leave(saved: SessionInfo): Promise<void> {
-    const run = runs.get(saved.id);
+    if (saved.id === firstId) {
+      firstId = undefined;
+      firstOpening = undefined;
+    }
+    const run = runs.get(saved.id) ?? (await pendingOpens.get(saved.id));
     if (run === undefined) {
       return;
     }
-    const isOpen = run === current;
     const model = run.isModelChosen ? run.session.model : undefined;
+    run.isClosing = true;
     stoppingChats.add(saved.id);
-    runs.delete(saved.id);
-    if (isOpen) {
-      current = undefined;
-    }
     try {
-      await run.session.abort();
-      await background.stopAll(saved.id);
+      await Promise.all([run.session.abort(), background.stopAll(saved.id)]);
     } finally {
       stoppingChats.delete(saved.id);
     }
+    if (run.listeners.size > 0) {
+      const replacement = await openNew(folderOf(saved), model);
+      emitFor(run, { type: "removed", replacementId: replacement.session.sessionId });
+      releaseIfIdle(replacement);
+    }
+    runs.delete(saved.id);
+    drafts.delete(saved.id);
     run.stopFollowing();
     run.session.dispose();
     emit({ type: "replyingChats", ids: getReplyingIds() });
-    if (isOpen) {
-      await openNew(folderOf(saved), model);
-    }
   }
 
   function folderOf(saved: SessionInfo): string {
@@ -590,32 +631,50 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     };
   }
 
-  function openSaved(saved: SessionInfo): Promise<void> {
+  function openSaved(saved: SessionInfo): Promise<ChatRun> {
     return openSession(SessionManager.open(saved.path, sessionDirectory), folderOf(saved), true);
   }
 
-  async function loadSaved(id: string): Promise<boolean> {
-    const saved = await findSaved(id);
-    if (saved === undefined) {
-      return false;
-    }
-    await openSaved(saved);
-    return true;
-  }
-
-  function openNew(newFolder: string, model?: Model): Promise<void> {
+  function openNew(newFolder: string, model?: Model): Promise<ChatRun> {
     return openSession(SessionManager.create(newFolder, sessionDirectory), newFolder, false, model);
   }
 
-  // The chat that the user leaves goes on running, and lets its session go once it is idle.
-  function showRun(run: ChatRun): void {
-    const left = current;
-    current = run;
-    if (left !== undefined && left !== run) {
-      releaseIfIdle(left);
+  async function loadRun(id: string): Promise<ChatRun | undefined> {
+    const draft = drafts.get(id);
+    if (draft !== undefined) {
+      const model =
+        draft.model === undefined
+          ? undefined
+          : models.getModel(draft.model.provider, draft.model.id);
+      const chosen =
+        model !== undefined && models.hasConfiguredAuth(model.provider) ? model : undefined;
+      return openSession(draft.manager, draft.folder, false, chosen, draft.thinkingLevel);
     }
-    emit({ type: "state", state: getState() });
-    emitProjects();
+    const saved = await findSaved(id);
+    return saved === undefined ? undefined : openSaved(saved);
+  }
+
+  async function acquire(id: string): Promise<ChatRun | undefined> {
+    let pending = pendingOpens.get(id);
+    if (pending === undefined) {
+      const running = runs.get(id);
+      pending = running === undefined ? loadRun(id) : Promise.resolve(running);
+      pendingOpens.set(id, pending);
+    }
+    try {
+      const run = await pending;
+      if (run !== undefined) {
+        run.users += 1;
+      }
+      return run;
+    } finally {
+      pendingOpens.delete(id);
+    }
+  }
+
+  function close(run: ChatRun): void {
+    run.users -= 1;
+    releaseIfIdle(run);
   }
 
   async function openSession(
@@ -623,7 +682,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     sessionFolder: string,
     isSaved: boolean,
     model?: Model,
-  ): Promise<void> {
+    thinkingLevel?: AgentSession["thinkingLevel"],
+  ): Promise<ChatRun> {
     // The hidden extension of the chat registers anew whenever Pi loads it, and its handlers find
     // the run of their chat once it exists.
     const hold: { run?: ChatRun; extension?: ExtensionAPI } = {};
@@ -707,6 +767,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       sessionManager: manager,
       settingsManager: piSettings,
       ...(model === undefined ? {} : { model }),
+      ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
     });
     const { session } = created;
     const run: ChatRun = {
@@ -731,6 +792,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       thinkingTimes: new Map(),
       lastCallUpdate: 0,
       toolRuns: {},
+      listeners: new Set(),
+      users: 0,
+      isClosing: false,
     };
     hold.run = run;
     applySessionSettings(session);
@@ -757,14 +821,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     session.setActiveToolsByName(activeToolNames(run));
     run.stopFollowing = session.subscribe(followRun(run));
     runs.set(session.sessionId, run);
-    showRun(run);
+    return run;
   }
 
   // The exact prompt override keeps Pi's folder section out of requests, so its folder fact has
   // the same switch and edit controls as the other facts.
-  function getAgent(): AgentSummary {
+  function getAgent(run: ChatRun): AgentSummary {
     const prompt = texts.get(systemPromptText);
-    const selected = current?.isModelChosen === true ? current.session.model : undefined;
+    const selected = run.isModelChosen === true ? run.session.model : undefined;
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
@@ -778,11 +842,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       addedByPi: "",
       addedFacts: summarizeAddedFacts({
         settings: settings.get(),
-        folder: current?.folder ?? startFolder,
-        model: current?.session.model,
+        folder: run.folder ?? startFolder,
+        model: run.session.model,
       }),
       knowledgeCutoffs: settings.get().knowledgeCutoffs,
-      tools: ownToolInfos(current).map(
+      tools: ownToolInfos(run).map(
         (tool): ToolSummary => ({
           name: tool.name,
           description: tool.description,
@@ -805,16 +869,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       handBackSeconds: settings.get().handBackSeconds,
       builtInHandBackSeconds: builtInSettings.handBackSeconds,
       texts: summarizeTexts(allTexts, settings.get().texts),
-      piTexts: summarizePiTexts(current?.lastRequest ?? null),
+      piTexts: summarizePiTexts(run.lastRequest ?? null),
       environment: settings.get().environment,
       environmentSuggestions,
     };
   }
 
-  function ownToolInfos(run: ChatRun | undefined): ReturnType<AgentSession["getAllTools"]> {
-    return (run?.session.getAllTools() ?? []).filter((tool) =>
-      ownTools.some((own) => own.name === tool.name),
-    );
+  function ownToolInfos(run: ChatRun): ReturnType<AgentSession["getAllTools"]> {
+    return run.session
+      .getAllTools()
+      .filter((tool) => ownTools.some((own) => own.name === tool.name));
   }
 
   // A tool runs only when the user has not turned it off and it can run on this computer.
@@ -836,9 +900,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // A change names model texts by their ids, so one that names a text that does not exist is
   // refused whole. Pi reads the tools again when Independum registers them anew, so a new shell or
   // an edited text reaches the model with the next turn of every chat that runs.
-  async function changeSettings(change: SettingsChange): Promise<AgentSummary | undefined> {
+  async function changeSettings(change: SettingsChange): Promise<boolean> {
     if (change.disabledFacts?.some((id) => !addedFactTexts.some((text) => text.id === id))) {
-      return undefined;
+      return false;
     }
     const {
       texts: textChange,
@@ -855,7 +919,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         ? settings.get().texts
         : changeTexts(allTexts, settings.get().texts, textChange);
     if (edited === undefined || modelOverrides === undefined) {
-      return undefined;
+      return false;
     }
     // A choice of the shell that the system has by default is no choice, so it is saved as none and
     // the Shell tool does not count as edited.
@@ -871,7 +935,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       applySessionSettings(run.session);
       refreshContext(run);
     }
-    return getAgent();
+    return true;
   }
 
   function piCompactionSettings(): ReturnType<SettingsManager["getCompactionSettings"]> {
@@ -908,42 +972,42 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // Pi counts the tokens and the cost of every saved reply, and estimates how full the context
   // window is from the latest one. It leaves reasoning tokens out of its sums, so they are added here
   // over the same entries.
-  function getContext(): ContextSummary {
-    const session = current?.session;
-    const lastRequest = current?.lastRequest ?? null;
-    const stats = session?.getSessionStats();
-    const usage = session?.getContextUsage();
-    const model = current?.isModelChosen === true ? session?.model : undefined;
+  function getContext(run: ChatRun): ContextSummary {
+    const session = run.session;
+    const lastRequest = run.lastRequest ?? null;
+    const stats = session.getSessionStats();
+    const usage = session.getContextUsage();
+    const model = run.isModelChosen === true ? session.model : undefined;
     let reasoning = 0;
-    for (const entry of session?.sessionManager.getEntries() ?? []) {
+    for (const entry of session.sessionManager.getEntries() ?? []) {
       if (entry.type === "message" && entry.message.role === "assistant") {
         reasoning += entry.message.usage.reasoning ?? 0;
       }
     }
-    const branch = session?.sessionManager.getBranch() ?? [];
+    const branch = session.sessionManager.getBranch() ?? [];
     const replies = branch.flatMap((entry) =>
       entry.type === "message" && entry.message.role === "assistant" ? [entry.message.usage] : [],
     );
     const lastReply = replies.at(-1);
-    const agent = getAgent();
+    const agent = getAgent(run);
     return {
-      chatId: session?.sessionId ?? null,
+      chatId: session.sessionId ?? null,
       provider: model?.provider ?? null,
       model: model?.id ?? null,
       contextWindow: usage?.contextWindow ?? null,
       contextTokens: usage?.tokens ?? null,
       compactionReserve:
-        session?.settingsManager.getCompactionEnabled() === true
+        session.settingsManager.getCompactionEnabled() === true
           ? session.settingsManager.getCompactionReserveTokens(model)
           : null,
       tokens: {
-        input: stats?.tokens.input ?? 0,
-        output: stats?.tokens.output ?? 0,
+        input: stats.tokens.input ?? 0,
+        output: stats.tokens.output ?? 0,
         reasoning,
-        cacheRead: stats?.tokens.cacheRead ?? 0,
-        cacheWrite: stats?.tokens.cacheWrite ?? 0,
+        cacheRead: stats.tokens.cacheRead ?? 0,
+        cacheWrite: stats.tokens.cacheWrite ?? 0,
       },
-      cost: stats?.cost ?? 0,
+      cost: stats.cost ?? 0,
       lastUse:
         lastReply === undefined
           ? null
@@ -957,10 +1021,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
               },
               cost: lastReply.cost.total,
             },
-      userMessages: stats?.userMessages ?? 0,
-      assistantMessages: stats?.assistantMessages ?? 0,
-      toolCalls: stats?.toolCalls ?? 0,
-      created: session?.sessionManager.getHeader()?.timestamp ?? null,
+      userMessages: stats.userMessages ?? 0,
+      assistantMessages: stats.assistantMessages ?? 0,
+      toolCalls: stats.toolCalls ?? 0,
+      created: session.sessionManager.getHeader()?.timestamp ?? null,
       lastActivity: branch.at(-1)?.timestamp ?? null,
       entries: branch.map((entry) => ({
         id: entry.id,
@@ -995,11 +1059,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       isNextRequest: lastRequest === null,
       ...listRequests(branch),
       files: {
-        chat: session?.sessionFile ?? null,
-        toolOutput: session === undefined ? null : join(outputFolder, session.sessionId),
-        savedRequest: session === undefined ? null : savedRequests.pathOf(session.sessionId),
+        chat: session.sessionFile ?? null,
+        toolOutput: join(outputFolder, session.sessionId),
+        savedRequest: savedRequests.pathOf(session.sessionId),
       },
-      cacheWarmings: current?.cacheWarmings ?? 0,
+      cacheWarmings: run.cacheWarmings ?? 0,
     };
   }
 
@@ -1054,79 +1118,126 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     ];
   }
 
-  const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
-  await (latest === undefined ? openNew(startFolder) : openSaved(latest));
+  function handleOf(run: ChatRun): OpenChat {
+    let isClosed = false;
+    return {
+      getState: () => getState(run),
+      getAgent: () => getAgent(run),
+      getContext: () => getContext(run),
+      close() {
+        if (!isClosed) {
+          isClosed = true;
+          close(run);
+        }
+      },
+      subscribe(listener) {
+        run.listeners.add(listener);
+        listener({ type: "state", state: getState(run) });
+        return () => {
+          run.listeners.delete(listener);
+          releaseIfIdle(run);
+        };
+      },
+      send(text) {
+        if (run.isClosing || !canStart(run)) {
+          return false;
+        }
+        setReplying(run, true);
+        run.session.prompt(text).catch((error: unknown) => {
+          const reply: ChatMessage = {
+            role: "assistant",
+            parts: [],
+            commandEnd: null,
+            error: messageOf(error),
+            timestamp: Date.now(),
+            durationMs: null,
+          };
+          emitFor(run, { type: "message", message: reply });
+          endReply(run, reply);
+        });
+        return true;
+      },
+      async chooseModel(providerId, modelId) {
+        const model = models.getModel(providerId, modelId);
+        if (
+          run.isClosing ||
+          run.isCompacting ||
+          model === undefined ||
+          !models.hasConfiguredAuth(model.provider)
+        ) {
+          return false;
+        }
+        await run.session.setModel(
+          applyModelOverrides(model, settings.get().modelOverrides[providerId]?.[modelId] ?? {}),
+        );
+        run.isModelChosen = true;
+        emitFor(run, { type: "state", state: getState(run) });
+        return true;
+      },
+      chooseThinking(level) {
+        const session = run.session;
+        const chosen =
+          run.isModelChosen === true && session?.supportsThinking() === true
+            ? session.getAvailableThinkingLevels().find((candidate) => candidate === level)
+            : undefined;
+        if (session === undefined || chosen === undefined) {
+          return false;
+        }
+        session.setThinkingLevel(chosen);
+        emitFor(run, { type: "state", state: getState(run) });
+        return true;
+      },
+      compact() {
+        if (run.isClosing || !canStart(run)) {
+          return false;
+        }
+        run.isCompacting = true;
+        run.compactionError = null;
+        refreshContext(run);
+        run.session.compact().catch(() => undefined);
+        return true;
+      },
+      async stop() {
+        await run.session.abort();
+      },
+      stopCommand(id) {
+        const stop = commandStops.get(JSON.stringify([run.session.sessionId, id]));
+        stop?.();
+        return stop !== undefined || background.stopByUser(run.session.sessionId, id);
+      },
+      moveToBackground(id) {
+        const handBack = commandHandBacks.get(JSON.stringify([run.session.sessionId, id]));
+        handBack?.();
+        return handBack !== undefined;
+      },
+    };
+  }
 
   return {
-    getState,
-    getAgent,
-    changeSettings,
-    getContext,
+    async first() {
+      const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
+      if (latest !== undefined) {
+        return latest.id;
+      }
+      if (firstOpening === undefined) {
+        firstOpening = openNew(startFolder).then((run) => {
+          firstId = run.session.sessionId;
+          releaseIfIdle(run);
+          return firstId;
+        });
+      }
+      return firstOpening;
+    },
     getProjects,
     getReplyingIds,
+    changeSettings,
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    send(text) {
-      const run = current;
-      if (!canStart(run)) {
-        return false;
-      }
-      setReplying(run, true);
-      run.session.prompt(text).catch((error: unknown) => {
-        const reply: ChatMessage = {
-          role: "assistant",
-          parts: [],
-          commandEnd: null,
-          error: messageOf(error),
-          timestamp: Date.now(),
-          durationMs: null,
-        };
-        emitFor(run, { type: "message", message: reply });
-        endReply(run, reply);
-      });
-      return true;
-    },
-    async chooseModel(providerId, modelId) {
-      const run = current;
-      const model = models.getModel(providerId, modelId);
-      if (run === undefined || model === undefined || !models.hasConfiguredAuth(model.provider)) {
-        return false;
-      }
-      if (run.isCompacting) {
-        return false;
-      }
-      await run.session.setModel(
-        applyModelOverrides(model, settings.get().modelOverrides[providerId]?.[modelId] ?? {}),
-      );
-      run.isModelChosen = true;
-      emitFor(run, { type: "state", state: getState() });
-      return true;
-    },
-    chooseThinking(level) {
-      const session = current?.session;
-      const chosen =
-        current?.isModelChosen === true && session?.supportsThinking() === true
-          ? session.getAvailableThinkingLevels().find((candidate) => candidate === level)
-          : undefined;
-      if (session === undefined || chosen === undefined) {
-        return false;
-      }
-      session.setThinkingLevel(chosen);
-      emit({ type: "state", state: getState() });
-      return true;
-    },
-    compact() {
-      const run = current;
-      if (!canStart(run)) {
-        return false;
-      }
-      run.isCompacting = true;
-      run.compactionError = null;
-      refreshContext(run);
-      run.session.compact().catch(() => undefined);
-      return true;
+    async open(id) {
+      const run = await acquire(id);
+      return run === undefined ? undefined : handleOf(run);
     },
     async rename(id, name) {
       const saved = await findSaved(id);
@@ -1196,39 +1307,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         projectName: basename(folderOf(saved)),
       }));
     },
-    async open(id) {
-      if (id === current?.session.sessionId) {
-        return true;
-      }
-      const run = runs.get(id);
-      if (run !== undefined) {
-        showRun(run);
-        return true;
-      }
-      let pending = pendingOpens.get(id);
-      if (pending === undefined) {
-        pending = loadSaved(id);
-        pendingOpens.set(id, pending);
-      }
-      try {
-        return await pending;
-      } finally {
-        pendingOpens.delete(id);
-      }
-    },
-    async stop() {
-      await current?.session.abort();
-    },
-    stopCommand(id) {
-      const stop = commandStops.get(id);
-      stop?.();
-      return stop !== undefined || background.stopByUser(id);
-    },
-    moveToBackground(id) {
-      const handBack = commandHandBacks.get(id);
-      handBack?.();
-      return handBack !== undefined;
-    },
     async stopAll() {
       const running = [...runs.values()];
       for (const run of running) {
@@ -1246,15 +1324,23 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         }
       }
     },
-    async startNew(newFolder) {
-      const target =
-        newFolder === undefined ? (current?.folder ?? startFolder) : toFolder(newFolder);
-      const projects = await getProjects();
-      if (!projects.some((project) => project.folder === target)) {
-        return false;
+    async startNew(id, newFolder) {
+      const source = await acquire(id);
+      if (source === undefined) {
+        return undefined;
       }
-      await openNew(target, current?.isModelChosen === true ? current.session.model : undefined);
-      return true;
+      try {
+        const target = newFolder === undefined ? source.folder : toFolder(newFolder);
+        if (!(await getProjects()).some((project) => project.folder === target)) {
+          return undefined;
+        }
+        const run = await openNew(target, source.isModelChosen ? source.session.model : undefined);
+        const createdId = run.session.sessionId;
+        releaseIfIdle(run);
+        return createdId;
+      } finally {
+        close(source);
+      }
     },
   };
 }

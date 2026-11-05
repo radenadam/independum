@@ -307,12 +307,13 @@ export function createShellTool({
         own.abort();
       }
       signal?.addEventListener("abort", stopWithReply, { once: true });
+      const commandKey = JSON.stringify([chatId, toolCallId]);
       const run = runCommand({
         ...start,
         signal: own.signal,
         onOutput: (text) => log.append(text),
       });
-      stops.set(toolCallId, async () => {
+      stops.set(commandKey, async () => {
         own.abort();
         await run.catch(() => undefined);
       });
@@ -331,7 +332,7 @@ export function createShellTool({
             if (seconds > 0) {
               timer = setTimeout(() => resolveMove({ kind }), seconds * 1000);
             }
-            handBacks.set(toolCallId, () => resolveMove({ kind: "movedByUser" }));
+            handBacks.set(commandKey, () => resolveMove({ kind: "movedByUser" }));
           }),
         ]);
       } catch (error) {
@@ -339,8 +340,8 @@ export function createShellTool({
         throw error;
       } finally {
         clearTimeout(timer);
-        stops.delete(toolCallId);
-        handBacks.delete(toolCallId);
+        stops.delete(commandKey);
+        handBacks.delete(commandKey);
       }
       if (first.kind !== "ended") {
         signal?.removeEventListener("abort", stopWithReply);
