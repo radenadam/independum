@@ -1,0 +1,43 @@
+/*
+  The conversation is one sequence, newest first, so a line runs down the column of the numbers,
+  behind the requests, and joins each one to the next. A change of settings sits on the line as a dot,
+  right below the request it led to, between it and the request before it, so the line reads in time.
+*/
+.timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 24px;
+  width: 1px;
+  background: var(--faint);
+}
+
+.timeline > * {
+  position: relative;
+}
+
+.change {
+  margin: 0;
+  padding: 3px 0 3px 38px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.change::before {
+  content: "";
+  position: absolute;
+  top: calc(50% - 3.5px);
+  left: 21px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}

@@ -357,11 +357,21 @@ export interface RequestInput {
   entryId: string;
 }
 
-/** A setting that changed before a request, or the record of its system prompt and tools that Pi saved. */
+/**
+ * A setting that changed before a request, the record of its system prompt and tools that Pi saved,
+ * or a compaction, with how many tokens the chat held before it and how many requests it summarized.
+ */
 export type RequestChange =
   | { kind: "model"; provider: string; model: string }
   | { kind: "effort"; effort: string }
-  | { kind: "setup" };
+  | { kind: "setup" }
+  | {
+      kind: "compaction";
+      entryId: string;
+      timestamp: string;
+      tokensBefore: number;
+      summarizedRequests: number;
+    };
 
 /**
  * One request that the model answered: when, with which model, what came in since the request
@@ -377,6 +387,7 @@ export interface RequestSummary {
   inputs: RequestInput[];
   changes: RequestChange[];
   reply: { label: string; preview: string };
+  isSummarized: boolean;
 }
 
 /** The tokens of one request or of a whole chat. */
@@ -410,6 +421,7 @@ export interface ContextSummary {
   requestParts: RequestPart[];
   isNextRequest: boolean;
   requests: RequestSummary[];
+  pendingChanges: RequestChange[];
   cacheWarmings: number;
   files: { chat: string | null; toolOutput: string | null; savedRequest: string | null };
 }

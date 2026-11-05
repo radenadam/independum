@@ -1,18 +1,5 @@
-import type {
-  ChatState,
-  ContextSummary,
-  ModelSummary,
-  RequestChange,
-  RequestSummary,
-} from "independum/api-types";
-import {
-  type CSSProperties,
-  Fragment,
-  type ReactElement,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
+import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
 import {
   AddedByPiDetail,
   isToolChanged,
@@ -24,17 +11,20 @@ import { ChatDetail } from "./chat-detail.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
 import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
+import { ContextParts, type ShownLink } from "./context-parts.tsx";
+import { describeChange } from "./conversation.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { Disclosure } from "./disclosure.tsx";
 import { Icon } from "./icon.tsx";
 import { ModelDetail } from "./model-detail.tsx";
+import { modelNameOf } from "./model-name-of.ts";
 import { OneLineTitle } from "./one-line-title.tsx";
+import { PlaceBox } from "./place-box.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { PlaceTrail } from "./place-trail.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
-import { RequestParts, type ShownLink } from "./request-parts.tsx";
 import styles from "./session-place.module.css";
 import { TextDialog } from "./text-dialog.tsx";
 import { countOf, UsageTable } from "./usage-table.tsx";
@@ -48,30 +38,25 @@ interface SessionPlaceProps {
 }
 
 /**
- * What opens from a session: a part of its request, its history, one request of it, its model, or
+ * What opens from a session: a part of its request, one of its requests or compactions, its model, or
  * its chat.
  */
 interface View {
   key: string;
   title: string;
-  link:
-    | ShownLink
-    | { kind: "history" }
-    | { kind: "request"; id: string }
-    | { kind: "model" }
-    | { kind: "chat" };
+  link: ShownLink | { kind: "model" } | { kind: "chat" };
   text: string;
 }
 
 // A panel this wide shows the detail beside the overview instead of in its place.
 const splitWidth = 720;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-const numberFormat = new Intl.NumberFormat();
 
 /**
- * Draws everything the open chat runs with: its model, folder, and id, its use of tokens, how full
- * its context window is, the request that the model reads, and the history of its requests. Each
- * part opens to its detail, which edits the texts that the model reads where Independum writes them.
+ * Draws everything the open chat runs with: its model and its folder, its use of tokens, and its
+ * context, which is the context window and what fills it, the instructions and tools, and every
+ * request of its conversation. Each part opens to its detail, which edits the texts that the model
+ * reads where Independum writes them.
  */
 export function SessionPlace({ chat, models, context }: SessionPlaceProps): ReactElement {
   const settings = useAgentSettings(chat);
@@ -138,7 +123,6 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
             context={context}
             models={models}
             settings={settings}
-            onOpen={(next) => setPath([...path, next])}
           />
         </PlaceFrame>
       </div>
@@ -220,7 +204,7 @@ function Overview({
 
   return (
     <PlaceFrame>
-      <header className={styles.who}>
+      <PlaceBox>
         <PlaceRow
           icon={
             chat.model === null ? undefined : (
@@ -235,6 +219,7 @@ function Overview({
           glance={
             chat.thinking === null ? undefined : `${describeThinking(chat.thinking.level)} effort`
           }
+          isBoxed
           isCurrent={current === "model"}
           onOpen={() => onOpen({ key: "model", title: "Model", link: { kind: "model" }, text: "" })}
         />
@@ -246,10 +231,11 @@ function Overview({
               ? "Not saved yet"
               : `Chat ID ${context.chatId}`
           }
+          isBoxed
           isCurrent={current === "chat"}
           onOpen={() => onOpen({ key: "chat", title: "Chat", link: { kind: "chat" }, text: "" })}
         />
-      </header>
+      </PlaceBox>
       {context === undefined ? null : (
         <PlaceSection heading="Use">
           <UsageTable
@@ -265,37 +251,25 @@ function Overview({
           </PlaceNote>
         </PlaceSection>
       )}
-      <section className={styles.request}>
-        <h3 className={styles.name}>Context</h3>
+      <PlaceSection heading="Context">
         <PlaceNote>{basisOf(context)}</PlaceNote>
         {context === undefined ? (
           <PlaceNote>Loading the request.</PlaceNote>
         ) : (
-          <RequestParts
+          <ContextParts
             parts={context.requestParts}
             total={total}
             windowSize={context.contextWindow}
             reserve={context.compactionReserve}
+            requests={context.requests}
+            pendingChanges={context.pendingChanges}
+            models={models}
             changedTools={changedTools}
             isSystemPromptEdited={settings.isEditedGroup("System prompt")}
             current={current}
             onOpen={(key, link, part) => onOpen({ key, title: part.label, link, text: part.text })}
           />
         )}
-      </section>
-      <PlaceSection heading="Request history">
-        <PlaceRow
-          label={countOf(context?.requests.length ?? 0, "request", "requests")}
-          isCurrent={current === "history"}
-          onOpen={() =>
-            onOpen({
-              key: "history",
-              title: "Request history",
-              link: { kind: "history" },
-              text: "",
-            })
-          }
-        />
       </PlaceSection>
     </PlaceFrame>
   );
@@ -308,10 +282,9 @@ interface DetailProps {
   context: ContextSummary | undefined;
   models: ModelSummary[] | undefined;
   settings: AgentSettings;
-  onOpen: (view: View) => void;
 }
 
-function Detail({ view, folder, context, models, settings, onOpen }: DetailProps): ReactElement {
+function Detail({ view, folder, context, models, settings }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
@@ -369,8 +342,31 @@ function Detail({ view, folder, context, models, settings, onOpen }: DetailProps
           <CodeWell code={view.text} copyLabel="Copy the text" />
         </PlaceSection>
       );
-    case "history":
-      return <History context={context} models={models} onOpen={onOpen} />;
+    case "compaction": {
+      const entry = context?.entries.find((each) => each.id === link.id);
+      const change = [
+        ...(context?.requests.flatMap((request) => request.changes) ?? []),
+        ...(context?.pendingChanges ?? []),
+      ].find((each) => each.kind === "compaction" && each.entryId === link.id);
+      return (
+        <PlaceSection heading="Compaction" badge="read-only">
+          {entry === undefined || change === undefined ? (
+            <PlaceNote>This compaction is no longer in the chat.</PlaceNote>
+          ) : (
+            <>
+              <PlaceNote>
+                {timeFormat.format(new Date(entry.timestamp))}. {describeChange(change, models)}.
+                The model reads this summary in place of the messages that it summarized.
+              </PlaceNote>
+              <CodeWell code={summaryTextOf(entry.data)} copyLabel="Copy the summary" />
+              <Disclosure label="As Pi saved it">
+                <CodeWell code={JSON.stringify(entry.data, null, 2)} copyLabel="Copy entry" />
+              </Disclosure>
+            </>
+          )}
+        </PlaceSection>
+      );
+    }
     case "model":
       return (
         <ModelDetail
@@ -394,54 +390,7 @@ function Detail({ view, folder, context, models, settings, onOpen }: DetailProps
   }
 }
 
-/** Properties of the history of requests. */
-interface HistoryProps {
-  context: ContextSummary | undefined;
-  models: ModelSummary[] | undefined;
-  onOpen: (view: View) => void;
-}
-
-// The newest request comes first, and a change of settings sits right above the request it led to.
-function History({ context, models, onOpen }: HistoryProps): ReactElement {
-  const requests = context?.requests ?? [];
-  return (
-    <PlaceSection heading="Request history">
-      {requests.length === 0 ? (
-        <PlaceNote>No request yet. Each reply of the model adds one.</PlaceNote>
-      ) : (
-        <div className={styles.timeline}>
-          {requests
-            .map((request, index) => ({ request, number: index + 1 }))
-            .toReversed()
-            .map(({ request, number }) => (
-              <Fragment key={request.id}>
-                {request.changes.map((change) => (
-                  <p key={change.kind} className={styles.change}>
-                    {describeChange(change, models)}
-                  </p>
-                ))}
-                <PlaceRow
-                  label={request.inputs.at(-1)?.label ?? "Request"}
-                  number={number}
-                  glance={`${timeFormat.format(new Date(request.timestamp))}, ${modelNameOf(models, request.provider, request.model)}, ${numberFormat.format(request.tokens.input + request.tokens.cacheRead + request.tokens.cacheWrite)} in, ${numberFormat.format(request.tokens.output)} out`}
-                  onOpen={() =>
-                    onOpen({
-                      key: `request-${request.id}`,
-                      title: `Request ${number}`,
-                      link: { kind: "request", id: request.id },
-                      text: "",
-                    })
-                  }
-                />
-              </Fragment>
-            ))}
-        </div>
-      )}
-    </PlaceSection>
-  );
-}
-
-/** Properties of one request of the history. */
+/** Properties of one request of the conversation. */
 interface RequestProps {
   title: string;
   request: RequestSummary;
@@ -518,21 +467,14 @@ function folderNameOf(folder: string): string {
   );
 }
 
-// A model shows by its name, as the header and the model picker show it, and by its id only when
-// the list of models no longer has it.
-function modelNameOf(models: ModelSummary[] | undefined, providerId: string, id: string): string {
-  return models?.find((each) => each.providerId === providerId && each.id === id)?.name ?? id;
-}
-
-function describeChange(change: RequestChange, models: ModelSummary[] | undefined): string {
-  switch (change.kind) {
-    case "model":
-      return `Model set to ${modelNameOf(models, change.provider, change.model)}`;
-    case "effort":
-      return `Thinking effort set to ${describeThinking(change.effort).toLowerCase()}`;
-    default:
-      return "Pi recorded the system prompt and the tools";
-  }
+// A compaction that Pi saved holds the summary that the model wrote.
+function summaryTextOf(data: unknown): string {
+  return typeof data === "object" &&
+    data !== null &&
+    "summary" in data &&
+    typeof data.summary === "string"
+    ? data.summary
+    : "";
 }
 
 function summaryOf({ label, preview }: { label: string; preview: string }): string {

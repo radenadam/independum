@@ -2,25 +2,47 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { RequestChange, RequestInput, RequestSummary } from "./api-types.ts";
 import { describeMessage } from "./summarize-request.ts";
 
+/** The requests of a chat, and what changed after the last of them, before the next one. */
+export interface RequestList {
+  requests: RequestSummary[];
+  pendingChanges: RequestChange[];
+}
+
 /**
  * Returns each request that the model answered, from the saved entries of a chat: what came in
- * since the request before it, the settings that changed since then, its reply, and its use. A
- * change of model or effort is no request, so it shows only beside the request after it, once, with
- * the value it ended at, and only when that value differs from the one the request before it used.
+ * since the request before it, the settings that changed and the compactions since then, its reply,
+ * its use, and whether the model now reads it only as a summary. A change of model or effort is no
+ * request, so it shows only beside the request after it, once, with the value it ended at, and only
+ * when that value differs from the one the request before it used. What changed after the last
+ * request waits for the next one.
  */
-export function listRequests(branch: SessionEntry[]): RequestSummary[] {
+export function listRequests(branch: SessionEntry[]): RequestList {
+  const places = new Map(branch.map((entry, index) => [entry.id, index]));
   const requests: RequestSummary[] = [];
   let inputs: RequestInput[] = [];
+  let compactions: RequestChange[] = [];
   let model: { provider: string; model: string } | undefined;
   let effort: string | undefined;
   let usedModel: { provider: string; model: string } | undefined;
   let usedEffort: string | undefined;
   let isSetupRecorded = false;
+  let firstKept = 0;
   for (const entry of branch) {
     if (entry.type === "model_change") {
       model = { provider: entry.provider, model: entry.modelId };
     } else if (entry.type === "thinking_level_change") {
       effort = entry.thinkingLevel;
+    } else if (entry.type === "compaction") {
+      // Pi keeps the newest messages before a compaction as they are, from its first kept entry on,
+      // and sends a summary in place of every message before that entry.
+      firstKept = places.get(entry.firstKeptEntryId) ?? places.get(entry.id) ?? 0;
+      compactions.push({
+        kind: "compaction",
+        entryId: entry.id,
+        timestamp: entry.timestamp,
+        tokensBefore: entry.tokensBefore,
+        summarizedRequests: requests.filter((request) => isBefore(request.id, firstKept)).length,
+      });
     } else if (entry.type === "custom_message") {
       const described = describeMessage({ role: "custom", content: entry.content });
       inputs.push({ ...described, entryId: entry.id });
@@ -30,16 +52,6 @@ export function listRequests(branch: SessionEntry[]): RequestSummary[] {
       isSetupRecorded = true;
     } else if (entry.type === "message" && entry.message.role === "assistant") {
       const { usage } = entry.message;
-      const isModelChanged =
-        model !== undefined &&
-        (model.provider !== usedModel?.provider || model.model !== usedModel.model);
-      const changes: RequestChange[] = [
-        ...(isModelChanged && model !== undefined ? [{ kind: "model" as const, ...model }] : []),
-        ...(effort !== undefined && effort !== usedEffort
-          ? [{ kind: "effort" as const, effort }]
-          : []),
-        ...(isSetupRecorded ? [{ kind: "setup" as const }] : []),
-      ];
       requests.push({
         id: entry.id,
         timestamp: entry.timestamp,
@@ -54,10 +66,12 @@ export function listRequests(branch: SessionEntry[]): RequestSummary[] {
         },
         cost: usage.cost.total,
         inputs,
-        changes,
+        changes: changesSinceLast(),
         reply: (({ label, preview }) => ({ label, preview }))(describeMessage(entry.message)),
+        isSummarized: false,
       });
       inputs = [];
+      compactions = [];
       usedModel = model;
       usedEffort = effort;
       isSetupRecorded = false;
@@ -65,5 +79,29 @@ export function listRequests(branch: SessionEntry[]): RequestSummary[] {
       inputs.push({ ...describeMessage(entry.message), entryId: entry.id });
     }
   }
-  return requests;
+  return {
+    requests: requests.map((request) => ({
+      ...request,
+      isSummarized: isBefore(request.id, firstKept),
+    })),
+    pendingChanges: changesSinceLast(),
+  };
+
+  function changesSinceLast(): RequestChange[] {
+    const isModelChanged =
+      model !== undefined &&
+      (model.provider !== usedModel?.provider || model.model !== usedModel.model);
+    return [
+      ...(isModelChanged && model !== undefined ? [{ kind: "model" as const, ...model }] : []),
+      ...(effort !== undefined && effort !== usedEffort
+        ? [{ kind: "effort" as const, effort }]
+        : []),
+      ...(isSetupRecorded ? [{ kind: "setup" as const }] : []),
+      ...compactions,
+    ];
+  }
+
+  function isBefore(id: string, place: number): boolean {
+    return (places.get(id) ?? 0) < place;
+  }
 }
