@@ -6,7 +6,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test } from "vitest";
 import { createModelTexts } from "./model-texts.ts";
 import { builtInContext } from "./read-context-settings.ts";
@@ -61,9 +61,11 @@ test("a project reached through a linked folder reads its instructions", () => {
   const options = setup();
   writeFileSync(join(options.projectRoot, "AGENTS.md"), "Linked facts.");
   const link = join(parent, `link-${Date.now()}`);
-  symlinkSync(options.projectRoot, link, "junction");
-  options.projectRoot = link;
-  options.folder = link;
+  symlinkSync(dirname(options.projectRoot), link, "junction");
+  options.projectRoot = join(link, "project");
+  options.folder = options.projectRoot;
+  options.userDirectory = join(link, "state");
+  options.profileDirectory = join(link, "state", "profiles", "research");
   const captured = resolveContext(options);
   expect(captured.resources.map((resource) => [resource.source, resource.state])).toEqual([
     ["Linked facts.", "enabled"],

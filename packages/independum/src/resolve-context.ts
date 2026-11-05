@@ -55,7 +55,11 @@ export function resolveContext(options: ContextScope): ContextRevision {
   // A folder can be reached through a link, such as the temporary folder of macOS under /var, so
   // every path is compared by its real location.
   const roots = [options.projectRoot, options.userDirectory, options.profileDirectory].map(realOf);
-  const projectRoot = roots[0] ?? realOf(options.projectRoot);
+  const [
+    projectRoot = realOf(options.projectRoot),
+    userDirectory = realOf(options.userDirectory),
+    profileDirectory = realOf(options.profileDirectory),
+  ] = roots;
   const folder = realOf(options.folder);
   if (!isInside(projectRoot, folder)) {
     throw new Error("The chat folder is outside its registered project.");
@@ -310,15 +314,15 @@ export function resolveContext(options: ContextScope): ContextRevision {
   }[] = [
     {
       scope: "user",
-      directory: options.userDirectory,
-      skills: join(options.userDirectory, "skills"),
-      commands: join(options.userDirectory, "commands"),
+      directory: userDirectory,
+      skills: join(userDirectory, "skills"),
+      commands: join(userDirectory, "commands"),
     },
     {
       scope: "profile",
-      directory: options.profileDirectory,
-      skills: join(options.profileDirectory, "skills"),
-      commands: join(options.profileDirectory, "commands"),
+      directory: profileDirectory,
+      skills: join(profileDirectory, "skills"),
+      commands: join(profileDirectory, "commands"),
     },
     ...directories.map((folder) => ({
       scope: "project" as const,
