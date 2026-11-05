@@ -20,7 +20,7 @@ The 0.5 checkpoint of [decision 0057](decisions/0057-versions-and-checkpoints.md
 
 - More tools, each planned the same way, such as web search, web fetch, an agent tool, and a browser.
 - More for Read: outlines of large files, PDF, Word, Excel, and notebook files as text, several files in one call, folders, and no second read of a file that has not changed.
-- Packaging, for the 1.0 release as decision 0057 says: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, recommend PowerShell from its installer over the one from the Microsoft Store as decision 0041 explains, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
+- Packaging, for the 1.0 release as decision 0057 says: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, recommend PowerShell from its installer over the one from the Microsoft Store as decision 0041 explains, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010, and make the command check the Node.js version of decision 0059 when it starts.
 
 ## Later
 

@@ -6,7 +6,7 @@ Independum is in early development and not usable yet. See the [roadmap](docs/ro
 
 ## Development
 
-Requires Node.js 22.19 or newer and pnpm.
+Requires Node.js 24.21 or newer and pnpm.
 
 ```sh
 pnpm install
