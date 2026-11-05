@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall } from "@earendil-works/pi-ai";
 import {
@@ -8,17 +9,36 @@ import {
   type ModelRuntime,
   type SessionInfo,
   SessionManager,
+  type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatEvent } from "./api-types.ts";
 import { createChatRoutes } from "./chat-routes.ts";
 import { createChat } from "./create-chat.ts";
+import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
 import { followEventStream } from "./follow-event-stream.ts";
+import { createShellTool } from "./tools/create-shell-tool.ts";
+import { createTestFolder } from "./tools/create-test-folder.ts";
+import { type RunEnd, type RunOptions, runCommand } from "./tools/run-command.ts";
 
 vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
   const original = await importOriginal<typeof import("@earendil-works/pi-coding-agent")>();
   return { ...original, createAgentSession: vi.fn() };
 });
+
+vi.mock("./create-saved-chats.ts", () => ({ createSavedChats: vi.fn() }));
+vi.mock("./tools/create-shell-tool.ts", async (importOriginal) => {
+  const original = await importOriginal<typeof import("./tools/create-shell-tool.ts")>();
+  return { ...original, createShellTool: vi.fn(original.createShellTool) };
+});
+vi.mock("./tools/find-shell.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./tools/find-shell.ts")>()),
+  findShell: () => ({ kind: "bash", name: "Bash", path: "bash" }),
+}));
+vi.mock("./tools/run-command.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./tools/run-command.ts")>()),
+  runCommand: vi.fn(),
+}));
 
 interface SessionDouble {
   session: AgentSession;
@@ -27,7 +47,8 @@ interface SessionDouble {
 }
 
 const cwd = process.cwd();
-const directory = join(cwd, "node_modules", "independum-chat-test");
+const folder = createTestFolder("chat");
+const directory = join(folder, "state");
 const model = { provider: "faux", id: "chosen" };
 const models = {
   getModel: () => model,
@@ -36,6 +57,16 @@ const models = {
 let sessions: SessionDouble[];
 let saved: SessionInfo[];
 let managers: Map<string, SessionManager>;
+let savedChats: SavedChats;
+let calls: Map<string, Promise<unknown>[]>;
+
+const stopped: RunEnd = {
+  ending: "stopped",
+  exitCode: null,
+  signal: null,
+  isOutputOpen: false,
+  durationMs: 10,
+};
 
 function createSession(manager: SessionManager): SessionDouble {
   const listeners = new Set<(event: AgentSessionEvent) => void>();
@@ -55,6 +86,10 @@ function createSession(manager: SessionManager): SessionDouble {
     setModel: vi.fn().mockResolvedValue(undefined),
     setActiveToolsByName: vi.fn(),
     getAllTools: () => [],
+    abort: vi.fn(async () => {
+      await Promise.all(calls.get(manager.getSessionId()) ?? []);
+    }),
+    sendCustomMessage: vi.fn(async () => undefined),
     dispose: vi.fn(),
     subscribe(listener: (event: AgentSessionEvent) => void) {
       listeners.add(listener);
@@ -74,8 +109,7 @@ function createSession(manager: SessionManager): SessionDouble {
   };
 }
 
-function savedChat(): SessionInfo {
-  const manager = SessionManager.inMemory(cwd);
+function savedChat(manager: SessionManager = SessionManager.inMemory(cwd)): SessionInfo {
   const info: SessionInfo = {
     id: manager.getSessionId(),
     path: join(directory, `${manager.getSessionId()}.jsonl`),
@@ -103,9 +137,19 @@ beforeEach(() => {
   sessions = [];
   saved = [];
   managers = new Map();
+  calls = new Map();
+  savedChats = {
+    list: async () => saved,
+    listArchived: async () => [],
+    isPinned: () => false,
+    pin: async () => undefined,
+    archive: vi.fn(async () => undefined),
+    unarchive: async () => undefined,
+    remove: vi.fn(async () => undefined),
+  };
+  vi.mocked(createSavedChats).mockResolvedValue(savedChats);
   vi.spyOn(DefaultResourceLoader.prototype, "reload").mockResolvedValue(undefined);
   vi.spyOn(SessionManager, "create").mockImplementation(() => SessionManager.inMemory(cwd));
-  vi.spyOn(SessionManager, "listAll").mockImplementation(async () => saved);
   vi.spyOn(SessionManager, "open").mockImplementation((path) => {
     const manager = managers.get(path);
     if (manager === undefined) {
@@ -237,4 +281,126 @@ test("a foreground tool keeps its start and latest progress while its chat is cl
   });
   expect(chat.getState()).toHaveProperty("toolRuns", {});
   expect(started.toolRuns.call?.details).toBeNull();
+});
+
+async function setup() {
+  const commands: { options: RunOptions; finish: () => void }[] = [];
+  vi.mocked(runCommand).mockImplementation((options) => {
+    const running = Promise.withResolvers<RunEnd>();
+    commands.push({ options, finish: () => running.resolve(stopped) });
+    return running.promise;
+  });
+  const chat = await createChat({ models, directory: join(folder, randomUUID()), cwd });
+  const tool = vi.mocked(createShellTool).mock.results.at(-1)?.value as ToolDefinition;
+  function start(id: string): ReturnType<ToolDefinition["execute"]> {
+    const chatId = chat.getState().id as string;
+    const active = sessions.find((double) => double.session.sessionId === chatId);
+    if (active === undefined) {
+      throw new Error("The command session does not exist.");
+    }
+    if (!saved.some((info) => info.id === chatId)) {
+      savedChat(active.session.sessionManager);
+    }
+    const context = {
+      cwd,
+      sessionManager: { getSessionId: () => chatId },
+    } as unknown as Parameters<ToolDefinition["execute"]>[4];
+    const running = tool.execute(id, { command: "long command" }, undefined, undefined, context);
+    calls.set(chatId, [...(calls.get(chatId) ?? []), running]);
+    return running;
+  }
+  return { chat, commands, sessions, savedChats, start };
+}
+
+test.each([
+  { action: "archive", isOpen: false },
+  { action: "archive", isOpen: true },
+  { action: "delete", isOpen: false },
+  { action: "delete", isOpen: true },
+])(
+  "$action waits for its chat's background commands and leaves another chat running when open is $isOpen",
+  async ({ action, isOpen }) => {
+    const { chat, commands, sessions, savedChats, start } = await setup();
+    const id = chat.getState().id as string;
+    const first = start("first");
+    expect(chat.moveToBackground("first")).toBe(true);
+    await first;
+    await chat.startNew();
+    const second = start("second");
+    expect(chat.moveToBackground("second")).toBe(true);
+    await second;
+    const otherId = chat.getState().id as string;
+    if (isOpen) {
+      await chat.open(id);
+    }
+    try {
+      const leaving = action === "archive" ? chat.archive(id, true) : chat.remove(id);
+      await expect.poll(() => commands[0]?.options.signal?.aborted).toBe(true);
+      expect(commands[1]?.options.signal?.aborted).toBe(false);
+      expect(savedChats.archive).not.toHaveBeenCalled();
+      expect(savedChats.remove).not.toHaveBeenCalled();
+      commands[0]?.finish();
+      expect(await leaving).toBe(true);
+      expect(sessions[0]?.session.sendCustomMessage).not.toHaveBeenCalled();
+      await chat.open(otherId);
+      expect(chat.getState().backgroundCommands).toHaveLength(1);
+    } finally {
+      for (const command of commands) {
+        command.finish();
+      }
+    }
+  },
+);
+
+test("shutdown stops foreground and background commands across chats and waits for them", async () => {
+  const { chat, commands, sessions, start } = await setup();
+  const first = start("background");
+  chat.moveToBackground("background");
+  await first;
+  await chat.startNew();
+  const foreground = start("foreground");
+  try {
+    let hasStopped = false;
+    const stopping = Promise.resolve(chat.stopAll()).then(() => {
+      hasStopped = true;
+    });
+    await expect
+      .poll(() => commands.every((command) => command.options.signal?.aborted))
+      .toBe(true);
+    expect(hasStopped).toBe(false);
+    for (const command of commands) {
+      command.finish();
+    }
+    await foreground;
+    await stopping;
+    for (const session of sessions) {
+      expect(session.session.abort).toHaveBeenCalled();
+      expect(session.session.sendCustomMessage).not.toHaveBeenCalled();
+    }
+  } finally {
+    for (const command of commands) {
+      command.finish();
+    }
+  }
+});
+
+test("shutdown waits for a command that moves to the background while it stops", async () => {
+  const { chat, commands, start } = await setup();
+  const running = start("moving");
+  chat.moveToBackground("moving");
+  const stopping = chat.stopAll();
+  try {
+    await running;
+    expect(commands[0]?.options.signal?.aborted).toBe(true);
+    const isWaiting = await Promise.race([
+      stopping.then(() => false),
+      new Promise<boolean>((resolve) => setImmediate(() => resolve(true))),
+    ]);
+    expect(isWaiting).toBe(true);
+  } finally {
+    for (const command of commands) {
+      command.finish();
+    }
+    await stopping;
+  }
 });

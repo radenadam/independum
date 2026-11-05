@@ -16,7 +16,7 @@ One `Chat` instance holds a map of retained runs and one shared `current` run. R
 
 Opening another chat retains a run while it replies or owns a running background command. An unopened idle run unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
 
-Background completion delivers a custom message to a retained run with `triggerTurn: true` and steering delivery. If the run is absent, its unarchived saved session receives the note without starting a run. Archiving and deletion abort and dispose a retained run before moving or removing its file. [Chats](chats.md) owns selection and management behavior, including the adopted command limit.
+Background completion delivers a custom message to a retained run with `triggerTurn: true` and steering delivery. If the run is absent, its unarchived saved session receives the note without starting a run. [Chats](chats.md#sidebar-and-management) describes how archiving and deletion stop a retained run before changing its file. Server shutdown waits for foreground and background commands and Pi replies in every retained run to stop, and suppresses completion notes while they stop.
 
 ## Storage
 
@@ -76,9 +76,9 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 
 Streams are server-sent events whose `data` is one JSON event, read with fetch so the token header can be sent. They carry no event id or replay cursor. Disconnecting a browser unsubscribes without stopping a chat. The UI retries dropped chat streams after 1.5 seconds and treats 401 as an expired link.
 
-Chat streams begin with `state`, `projects`, and `replyingChats`. State has id, folder, nullable model and thinking choice, messages, replying flag, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the open run.
+Chat streams begin with `state`, `projects`, and `replyingChats`. State has id, folder, nullable model and thinking choice, messages, replying flag, streaming reply parts, foreground tool start times and latest progress, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the open run.
 
-Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. A new stream receives saved state but no replay of the open streaming message's current parts. Switching to a retained run explicitly emits those parts.
+Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. Reconnecting, switching to a retained run, and changing effort restore the reply so far through state.
 
 Login events are `question` with id, kind, message and optional placeholder or choices, `questionClosed` with id, `link` with URL and optional instructions, `deviceCode` with code and URL, `note` with message, `done`, and `failed` with message. The stream closes at done or failed. Finished login sessions stay addressable for five minutes so a fast flow can be followed after it finishes.
 

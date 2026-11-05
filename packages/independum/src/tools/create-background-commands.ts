@@ -158,10 +158,10 @@ interface Adoption {
 export interface BackgroundCommands {
   adopt(adoption: Adoption): number;
   check(chatId: string, id: number, wait: CheckWait): Promise<CommandCheck | undefined>;
-  stopByModel(id: number): Promise<BackgroundEnded | undefined>;
+  stopByModel(chatId: string, id: number): Promise<BackgroundEnded | undefined>;
   stopByUser(toolCallId: string): boolean;
   listRunning(chatId: string): RunningCommand[];
-  stopAll(): void;
+  stopAll(chatId?: string): Promise<void>;
 }
 
 /** The texts that say how a background command ended, in the order that the Session place shows them. */
@@ -299,10 +299,13 @@ export function createBackgroundCommands({
         ended,
       };
     },
-    async stopByModel(id) {
+    async stopByModel(chatId, id) {
       const command = finished.has(id) ? undefined : commands.get(id);
-      command?.stop("model");
-      return command?.ended;
+      if (command === undefined || command.start.chatId !== chatId) {
+        return undefined;
+      }
+      command.stop("model");
+      return command.ended;
     },
     stopByUser(toolCallId) {
       const command = runningOf().find(([, each]) => each.start.toolCallId === toolCallId)?.[1];
@@ -322,10 +325,12 @@ export function createBackgroundCommands({
         },
       }));
     },
-    stopAll() {
-      for (const [, command] of runningOf()) {
+    async stopAll(chatId) {
+      const running = runningOf(chatId);
+      for (const [, command] of running) {
         command.stop("user");
       }
+      await Promise.all(running.map(([, command]) => command.ended));
     },
   };
 }

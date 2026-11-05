@@ -8,6 +8,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | --- | --- | --- |
 | Access token | The secret that lets a browser use the Independum server. It is new on every launch. | "password", "API key", "session key" |
 | Add-on | A planned feature that the user adds to Independum, with the same visibility and controls as a built-in. Its contract remains an open question in `docs/roadmap.md`. | "plugin", "extension", "custom", "module" |
+| Added fact | A fact that Independum adds to a request, with a model text and its own switch, such as the time of a message or the chat folder. | "injection", "environment prompt" |
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
 | Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
@@ -22,7 +23,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
-| Model text | A text that Independum sends to the model, such as the system prompt, the description of a tool, or what a tool says when its timeout fires. Its detail in the Session place opens an editor that can reset it to its built-in text. The texts that Pi writes stay read-only. | "prompt string", "template", "copy" |
+| Model text | A text that Independum sends to the model, such as the system prompt, an added fact, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Session place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |

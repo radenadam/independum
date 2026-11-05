@@ -20,7 +20,7 @@ The model changed files only through Shell. The research found that exact text r
 - An edit writes the file in place, through the queue of Pi for that file. Every byte outside the replaced text stays as it was. The new text takes the line break that the file uses most, and the file keeps its encoding, UTF-8 or UTF-16, and its byte order mark. A file that is not valid UTF-8, or is binary, is refused.
 - When the file changed since the chat last saw it, the edit still goes through when `old_string` matches, and the result adds the note of decision 0043 with the lines that differ.
 - The result names the lines before and after, such as `Replaced line 2 of fruits.txt with lines 2 to 4.` Its details keep the diff for the UI and the fingerprint of the new version.
-- Pi runs the calls of one reply at the same time, so Read waits in the same queue of the file. A read that comes after an edit in the reply then sees the edit.
+- Pi runs the calls of one reply at the same time, so Read waits in the same queue of the file. A read that comes after an edit in the reply then sees the edit. An edit that waits in the queue when the reply stops leaves the file unchanged.
 - The step of an edit shows the diff with the numbers of each line before and after, in new theme colors for added and removed lines, under the whole path, and below it the text that the model got back. Its status counts the lines added and removed. Edit uses the pencil icon, and every text of Edit is a model text.
 
 ## Consequences
