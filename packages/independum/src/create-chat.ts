@@ -163,7 +163,7 @@ export interface Chat {
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
   moveToBackground(id: string): boolean;
-  stopAll(): void;
+  stopAll(): Promise<void>;
   startNew(folder?: string): Promise<boolean>;
   rename(id: string, name: string): Promise<boolean>;
   pin(id: string, isPinned: boolean): Promise<boolean>;
@@ -183,7 +183,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   let shell = findShell(settings.get().shell ?? undefined);
   const outputFolder = join(directory, "outputs");
   const savedRequests = createSavedRequests(join(directory, "requests"));
-  const commandStops = new Map<string, () => void>();
+  const commandStops = new Map<string, () => Promise<void>>();
   const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
     onProgress(chatId, toolCallId, progress) {
@@ -217,6 +217,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // Every chat runs on its own, like an agent in a tab of a terminal, so a chat that the user leaves
   // goes on with its reply and its background commands. The open chat is one of the runs.
   const runs = new Map<string, ChatRun>();
+  const stoppingChats = new Set<string>();
   const pendingOpens = new Map<string, Promise<boolean>>();
   let current: ChatRun | undefined;
 
@@ -269,6 +270,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (
       run === current ||
       run.isReplying ||
+      stoppingChats.has(run.session.sessionId) ||
       background.listRunning(run.session.sessionId).length > 0
     ) {
       return;
@@ -283,6 +285,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // next turn. A command that the model stopped, or waited on with CheckCommand, needs no note,
   // because the result of that tool says how it ended.
   function noteEnd(ended: BackgroundEnded): void {
+    if (stoppingChats.has(ended.chatId)) {
+      return;
+    }
     const run = runs.get(ended.chatId);
     if (run !== undefined) {
       emitFor(run, { type: "commandEnd", end: ended.end });
@@ -437,11 +442,17 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     }
     const isOpen = run === current;
     const model = run.isModelChosen ? run.session.model : undefined;
+    stoppingChats.add(saved.id);
     runs.delete(saved.id);
     if (isOpen) {
       current = undefined;
     }
-    await run.session.abort();
+    try {
+      await run.session.abort();
+      await background.stopAll(saved.id);
+    } finally {
+      stoppingChats.delete(saved.id);
+    }
     run.stopFollowing();
     run.session.dispose();
     emit({ type: "replyingChats", ids: getReplyingIds() });
@@ -1089,8 +1100,22 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       handBack?.();
       return handBack !== undefined;
     },
-    stopAll() {
-      background.stopAll();
+    async stopAll() {
+      const running = [...runs.values()];
+      for (const run of running) {
+        stoppingChats.add(run.session.sessionId);
+      }
+      try {
+        await Promise.all([
+          background.stopAll(),
+          ...[...commandStops.values()].map((stop) => stop()),
+          ...running.map((run) => run.session.abort()),
+        ]);
+      } finally {
+        for (const run of running) {
+          stoppingChats.delete(run.session.sessionId);
+        }
+      }
     },
     async startNew(newFolder) {
       const target =

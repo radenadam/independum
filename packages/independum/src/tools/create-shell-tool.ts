@@ -23,7 +23,7 @@ interface ShellToolOptions {
   handBacks: Map<string, () => void>;
   texts: ModelTexts;
   outputFolder: string;
-  stops: Map<string, () => void>;
+  stops: Map<string, () => Promise<void>>;
   background: BackgroundCommands;
 }
 
@@ -307,11 +307,14 @@ export function createShellTool({
         own.abort();
       }
       signal?.addEventListener("abort", stopWithReply, { once: true });
-      stops.set(toolCallId, () => own.abort());
       const run = runCommand({
         ...start,
         signal: own.signal,
         onOutput: (text) => log.append(text),
+      });
+      stops.set(toolCallId, async () => {
+        own.abort();
+        await run.catch(() => undefined);
       });
       let first:
         | { kind: "ended"; end: RunEnd }

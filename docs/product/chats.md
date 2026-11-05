@@ -16,7 +16,7 @@ Pinned chats come first, then the five newest unpinned chats, then projects with
 
 Every replying chat has a waving title. Long titles fade and show their full text in a tooltip. The dots and a right click open Rename, Pin or Unpin, Export as Markdown, Archive, and Delete. Rename saves on Enter or blur, cancels on Escape, and refuses an empty name. Delete asks for confirmation.
 
-Archive removes the pin and moves the session file out of the sidebar. Unarchive in [settings](settings.md#settings-dialog) returns it to its project. Deleting removes the session file, pin, retained output folder, and last request file. Archiving or deleting the open chat opens an empty one in its folder with its chosen model. The operation aborts and disposes a retained Pi session first. Adopted background commands can continue, as noted below.
+Archive removes the pin and moves the session file out of the sidebar. Unarchive in [settings](settings.md#settings-dialog) returns it to its project. Deleting removes the session file, pin, retained output folder, and last request file. Archiving or deleting the open chat opens an empty one in its folder with its chosen model. The operation waits for its reply and background commands to stop before disposing its Pi session and changing the saved file. Commands of other chats keep running. Completion adds no note and starts no turn while the chat closes.
 
 ## Drafts and export
 
@@ -38,5 +38,4 @@ The notification uses the chat title and the first line of the last assistant me
 
 ## Known differences from the decisions
 
-- Decision 0051 says archiving or deleting a running chat stops it first. `leave` stops the Pi session but does not stop adopted background commands. See `packages/independum/src/create-chat.ts:440` and `packages/independum/src/tools/create-shell-tool.ts:342`.
 - Decision 0016 says long titles slide on hover. They fade and use a tooltip. See `packages/web/src/one-line-title.tsx:38`.

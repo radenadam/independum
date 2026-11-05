@@ -383,7 +383,7 @@ export function createEditTool(texts: ModelTexts): ToolDefinition {
       });
       // biome-ignore-end lint/style/useNamingConvention: Models know these names from other editing tools.
     },
-    async execute(_toolCallId, input, _signal, _onUpdate, context) {
+    async execute(_toolCallId, input, signal, _onUpdate, context) {
       const { path, line, column } = input;
       const wanted = input.old_string.replaceAll("\r\n", "\n");
       const replacement = input.new_string.replaceAll("\r\n", "\n");
@@ -391,6 +391,7 @@ export function createEditTool(texts: ModelTexts): ToolDefinition {
       checkInput(wanted, replacement, isReplaceAll, line, column, texts);
       const { file } = findFile(path, context.cwd, texts);
       return withFileMutationQueue(file, async () => {
+        signal?.throwIfAborted();
         const bytes = await readFile(file);
         const decoded = decodeText(bytes, path, texts);
         if (!decoded.isUtf8) {
@@ -408,6 +409,7 @@ export function createEditTool(texts: ModelTexts): ToolDefinition {
         const { change } = versionOf(context, file, bytes, lines, path, texts);
         const edited = replaceAt(decoded.text, text, chosen, wanted.length, replacement);
         const editedBytes = encodeText(edited, decoded);
+        signal?.throwIfAborted();
         await writeFile(file, editedBytes);
         const editedLines = splitLines(edited);
         const { fingerprint } = versionOf(context, file, editedBytes, editedLines, path, texts);

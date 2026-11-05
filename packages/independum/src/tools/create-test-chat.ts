@@ -19,7 +19,12 @@ interface ToolOutcome {
  */
 interface TestChat {
   folder: string;
-  run(tool: ToolDefinition, input: Record<string, unknown>, model?: unknown): Promise<ToolOutcome>;
+  run(
+    tool: ToolDefinition,
+    input: Record<string, unknown>,
+    model?: unknown,
+    signal?: AbortSignal,
+  ): Promise<ToolOutcome>;
   read(input: Record<string, unknown>): Promise<ToolOutcome>;
   place(name: string, content: string | Buffer): string;
 }
@@ -41,13 +46,14 @@ export function createTestChat(name: string): TestChat {
     tool: ToolDefinition,
     input: Record<string, unknown>,
     model: unknown = visionModel,
+    signal?: AbortSignal,
   ): Promise<ToolOutcome> {
     const sessionManager = { getBranch: () => branch };
     const context = { cwd: folder, model, sessionManager } as unknown as Parameters<
       ToolDefinition["execute"]
     >[4];
     try {
-      const result = await tool.execute("call", input as never, undefined, undefined, context);
+      const result = await tool.execute("call", input as never, signal, undefined, context);
       branch.push({ type: "message", message: { role: "toolResult", details: result.details } });
       return {
         text: result.content.map((block) => (block.type === "text" ? block.text : "")).join(""),
