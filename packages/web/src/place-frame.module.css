@@ -1,8 +1,11 @@
+/* A part of a place that reaches its edges, such as a bar that stays in view, uses its gutter. */
 .frame {
+  --place-gutter: 18px;
+
   display: flex;
   flex-direction: column;
   gap: 22px;
-  padding: 18px 18px 28px;
+  padding: 18px var(--place-gutter) 28px;
 }
 
 .note {
