@@ -1,0 +1,21 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [360, 800], "scheme": "dark", "go": true },
+    {
+      "run": "({ darkPhoneFits: document.documentElement.scrollWidth <= 360, phoneMessageVisible: !!document.querySelector('textarea') })",
+      "shot": "phone-dark"
+    },
+    { "scheme": "light" },
+    {
+      "run": "({ lightPhoneFits: document.documentElement.scrollWidth <= 360, lightThemeApplied: matchMedia('(prefers-color-scheme: light)').matches && !document.documentElement.dataset.theme })",
+      "shot": "phone-light"
+    },
+    { "clickOn": "document.querySelector('button[aria-label=\"Show sidebar\"]')" },
+    { "clickOn": "document.querySelector('button[aria-label=Settings]')" },
+    {
+      "run": "({ phoneSettingsOpen: !!document.querySelector('dialog[open]'), phoneSettingsFit: document.querySelector('dialog').getBoundingClientRect().width <= 360 })",
+      "shot": "phone-settings"
+    }
+  ]
+}

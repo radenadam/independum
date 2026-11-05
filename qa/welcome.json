@@ -1,0 +1,17 @@
+{
+  "fixture": "empty",
+  "steps": [
+    { "size": [1280, 900], "scheme": "dark", "go": true },
+    {
+      "run": "({ welcomeGreeting: document.querySelector('h1')?.textContent === 'Hello.', welcomeActions: [...document.querySelectorAll('button')].some(button => button.textContent.includes('Just look around')) })",
+      "shot": "welcome"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.includes('Just look around'))"
+    },
+    {
+      "run": "({ lookAroundOpensChat: !!document.querySelector('textarea[aria-label=Message]') })",
+      "shot": "look-around"
+    }
+  ]
+}

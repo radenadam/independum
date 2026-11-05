@@ -1,0 +1,24 @@
+{
+  "fixture": "compacted",
+  "steps": [
+    { "size": [1440, 1100], "scheme": "dark", "go": true },
+    { "clickOn": "document.querySelector('button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Session')"
+    },
+    {
+      "run": "({ compactionRowVisible: [...document.querySelectorAll('button')].some(button => /^Pi compacted the chat/.test(button.textContent.trim())) })",
+      "shot": "compacted-conversation"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => /^Pi compacted the chat/.test(button.textContent.trim()))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => /^Pi compacted the chat/.test(button.textContent.trim()))"
+    },
+    {
+      "run": "({ compactionSummaryVisible: document.querySelector('[role=tabpanel]').textContent.includes('Ship the plan in six steps.') })",
+      "shot": "compaction-summary"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [1440, 1000], "go": true },
+    { "clickOn": "document.querySelector('button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Session')"
+    },
+    {
+      "run": "({ sessionPlaceVisible: !!document.querySelector('[role=tab][aria-selected=true]'), conversationVisible: document.querySelector('[role=tabpanel]').textContent.includes('Conversation'), modelVisible: document.querySelector('[role=tabpanel]').textContent.includes('Faux typing') })",
+      "shot": "session-conversation"
+    }
+  ]
+}

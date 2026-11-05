@@ -1,0 +1,38 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 900],
+      "scheme": "dark",
+      "go": true
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"New chat\"]')"
+    },
+    {
+      "clickOn": "document.querySelector('textarea')",
+      "wait": 100
+    },
+    {
+      "text": "Check the preview steps.",
+      "wait": 100
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      },
+      "wait": 1800
+    },
+    {
+      "run": "({ replyRuns: !!document.querySelector('button[aria-label=Stop]'), thinkingVisible: document.querySelector('main').textContent.includes('Thinking') || document.querySelector('main').textContent.includes('Thought') })",
+      "shot": "message-steps",
+      "wait": 7000
+    },
+    {
+      "run": "({ replyComplete: document.querySelector('main').textContent.includes('Preview reply complete.'), toolStepVisible: document.querySelector('main').textContent.includes('Check the project steps'), replyStopped: !document.querySelector('button[aria-label=Stop]') })",
+      "shot": "message-reply"
+    }
+  ]
+}

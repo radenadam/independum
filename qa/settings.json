@@ -1,0 +1,18 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [1280, 900], "go": true },
+    { "clickOn": "document.querySelector('button[aria-label=Settings]')" },
+    {
+      "run": "({ settingsOpen: !!document.querySelector('dialog[open]'), loginsVisible: document.querySelector('dialog').textContent.includes('Logins'), standInLoginVisible: document.querySelector('dialog').textContent.includes('faux') })",
+      "shot": "settings-logins"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog button')].find(button => button.textContent.trim() === 'Appearance')"
+    },
+    {
+      "run": "({ appearanceVisible: document.querySelector('dialog').textContent.includes('System follows') })",
+      "shot": "settings-appearance"
+    }
+  ]
+}

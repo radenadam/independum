@@ -1,0 +1,47 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 900],
+      "go": true
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
+    },
+    {
+      "clickOn": "document.querySelector('textarea')",
+      "wait": 100
+    },
+    {
+      "text": "Keep replying while I switch chats.",
+      "wait": 100
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      },
+      "wait": 800
+    },
+    {
+      "run": "({ replyStartsBeforeSwitch: !!document.querySelector('button[aria-label=Stop]') })"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))",
+      "wait": 900
+    },
+    {
+      "run": "({ otherChatOpens: document.querySelector('main').textContent.includes('Explain why the site exists'), otherChatIsIdle: !document.querySelector('button[aria-label=Stop]') })",
+      "shot": "other-chat",
+      "wait": 7000
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
+    },
+    {
+      "run": "({ originalReplyFinishesInBackground: document.querySelector('main').textContent.includes('Preview reply complete.'), originalReplyIsIdle: !document.querySelector('button[aria-label=Stop]') })",
+      "shot": "background-reply"
+    }
+  ]
+}

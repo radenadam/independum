@@ -1,0 +1,76 @@
+# Browser QA
+
+Run `pnpm qa message` to start a preview, drive a headless browser, and save evidence. The command finds Edge or Chrome on Windows and macOS, and Edge, Chrome, or Chromium on the Linux command path. It uses the Chrome DevTools protocol through Node's built-in WebSocket, so no browser dependency or download is needed. Pass `--browser <executable-path>` to choose an installed browser.
+
+The command prints a fresh output folder in the system temporary directory. It holds screenshots, `values.jsonl` with each returned value and its step number, `browser.jsonl` with browser errors and warnings, `browser-stderr.txt` with browser process output, and the scenario used. A failure also saves `failure.txt` and, when the page is available, `failure.png`. The browser profile is removed when the command ends. Screenshots and logs stay for review.
+
+An expression that throws, a protocol error, a missing target, or a returned check whose value is `false` fails the scenario. A `run` value can be a boolean or an object with named checks. Any top-level property whose value is `false` fails. Browser errors and warnings also fail the run. Inspect screenshots even when checks pass, because the browser cannot judge visual quality.
+
+## Preview
+
+`pnpm preview` runs the same UI and API as `pnpm dev`, with Pi's stand-in provider. It prints a loopback link with a new access token in its fragment and the temporary home path. Stop it with Ctrl+C to close the app and remove the temporary home. A forced process termination can leave temporary files in the system temporary directory.
+
+| Flag | Effect |
+| --- | --- |
+| `--fixture empty` | Starts with no chats or stand-in provider, so the browser shows the welcome screen unless real logins are loaded. |
+| `--fixture chats` | Starts with three short saved chats and the stand-in model selected. This is the default. |
+| `--fixture compacted` | Starts with eight turns, a compaction after turn six that summarizes the first four turns, and a change of effort. Pi's `SessionManager` writes every entry. |
+| `--real-logins` | Loads real logins and model settings through Pi from `~/.independum`. Chats and harness settings stay in the temporary home. Login changes in this preview affect the real Pi login store. |
+| `--port <number>` | Chooses a port. The default is `0`, which asks the operating system for a free port. |
+
+The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. Real model calls follow the Real model calls section of `AGENTS.md`.
+
+## Scenarios
+
+| Command | Checks |
+| --- | --- |
+| `pnpm qa welcome` | The welcome screen and looking around without a login. |
+| `pnpm qa message` | Sending a message, thinking, tool steps, and the completed reply. |
+| `pnpm qa switch-chats` | Opening another chat while the original reply finishes in the background. |
+| `pnpm qa model-menu` | The model search and changing thinking effort while the menu stays open. |
+| `pnpm qa session` | The side panel, Session place, and its conversation. |
+| `pnpm qa compacted` | A saved compaction and its summary. |
+| `pnpm qa settings` | Logins and appearance. |
+| `pnpm qa phone` | A 360 pixel phone in both themes and its settings. |
+
+`pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, or `compacted`.
+
+Pass `--url` to use a preview that already runs and leave it running. Use the whole link printed by `pnpm preview`. That preview needs the fixture expected by the scenario. Without `--url`, QA starts a preview with the scenario's fixture and closes it when it ends. The preview flags in the table also work with `pnpm qa`, and an explicit fixture flag takes precedence over the scenario.
+
+```sh
+pnpm qa session --url 'http://127.0.0.1:4871/#token=TOKEN'
+```
+
+## Step format
+
+Each step can contain several fields. Fields run in the order below, followed by the delay and screenshot. Browser expressions run in the page and can access its DOM. Scenarios are trusted local code with the same authority as a person using the app.
+
+| Field | Value and effect |
+| --- | --- |
+| `size` | `[width, height]` in CSS pixels. Widths below 500 enable mobile and touch emulation. |
+| `scale` | A positive device pixel ratio with `size` in the same step. The default is `1`. |
+| `scheme` | `light` or `dark` for the emulated system color scheme. |
+| `go` | `true` navigates to the preview link and waits 2500 milliseconds. |
+| `run` | A JavaScript expression. Promises are awaited. The return value is saved. Name checks in an object so the evidence says what each value checks. |
+| `key` | A Chrome DevTools `Input.dispatchKeyEvent` parameter object without `type`. It sends key down and key up. Use `key`, `code`, and `windowsVirtualKeyCode` for Enter. Modifier bits are Alt `1`, Ctrl `2`, Meta `4`, and Shift `8`. |
+| `text` | Text inserted into the focused control. |
+| `clickOn` | An expression returning a DOM element or `[x, y]`. It sends mouse movement, press, and release at its center. |
+| `drag` | `{ "on": "element expression", "by": [xDistance, yDistance] }`. It drags from the center through ten points. |
+| `hoverOn` | An expression returning a DOM element or `[x, y]`. It moves the pointer there. |
+| `wait` | Milliseconds after the actions, from `0` to `60000`. The default is `700`. |
+| `shot` | A lowercase kebab-case name. It saves `<name>.png` after the delay. |
+
+Focus a control, insert text, and press Enter in separate steps because `key` precedes `text` and `clickOn`. Use `run` with a promise to wait for a condition instead of adding a long fixed delay. A browser command times out after 30 seconds. A browser expression times out after 25 seconds. Unknown step fields and invalid values fail before the browser starts.
+
+```json
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [360, 800], "scheme": "dark", "go": true },
+    {
+      "run": "({ messageVisible: !!document.querySelector('textarea'), phoneFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone"
+    }
+  ]
+}
+```

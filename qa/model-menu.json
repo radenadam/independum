@@ -1,0 +1,23 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [1280, 900], "go": true },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.includes('Faux typing'))"
+    },
+    {
+      "run": "({ modelSearchVisible: !!document.querySelector('#model-search'), thinkingEffortVisible: !!document.querySelector('input[aria-label=\"Thinking effort\"]') })",
+      "shot": "model-menu"
+    },
+    {
+      "drag": {
+        "on": "document.querySelector('input[aria-label=\"Thinking effort\"]')",
+        "by": [400, 0]
+      }
+    },
+    {
+      "run": "({ effortChangesToHigh: document.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High', menuStaysOpen: !!document.querySelector('#model-search') })",
+      "shot": "effort"
+    }
+  ]
+}
