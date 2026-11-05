@@ -271,14 +271,12 @@ test("a chat that opens while it replies shows its reply so far, and the rest st
   while (event.type !== "state" || !event.state.isReplying) {
     event = await events.next();
   }
-  const soFar = await events.next();
+  const soFar = event.state.reply;
   while (event.type !== "replyEnded") {
     event = await events.next();
   }
   await events.close();
-  expect(soFar.type === "replyPart" && soFar.part.type === "text" ? soFar.part.text : "").not.toBe(
-    "",
-  );
+  expect(soFar.some((part) => part.type === "text" && part.text !== "")).toBe(true);
   expect(textOf(event.reply ?? undefined)).toBe(tale);
 });
 
