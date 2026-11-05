@@ -187,6 +187,8 @@ export interface ChatState {
   thinking: { level: string; levels: string[] } | null;
   messages: ChatMessage[];
   isReplying: boolean;
+  reply: MessagePart[];
+  toolRuns: Record<string, { startedAt: number; details: unknown }>;
   backgroundCommands: RunningCommand[];
 }
 

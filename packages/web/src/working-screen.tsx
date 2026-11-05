@@ -102,7 +102,9 @@ export function WorkingScreen({
           setEndedReply({ chatId: event.chatId, reply: event.reply });
         }
         applyEvent(event, setChat);
-        if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
+        if (event.type === "state") {
+          setReply(event.state.reply);
+        } else if (event.type === "message" && event.message.role !== "user") {
           setReply([]);
         } else if (event.type === "replyDelta" || event.type === "replyPart") {
           setReply((current) => updateReply(current, event));
@@ -474,15 +476,18 @@ function commandsOf(messages: ChatMessage[], reply: MessagePart[]): ToolCallPart
   );
 }
 
-// The background commands that still run come with the chat, so their steps keep their timers
-// after a reload.
+// The tools and background commands that still run come with the chat, so their steps keep their
+// output and timers after a reload.
 function runsOf(state: ChatState): Record<string, ToolRun> {
-  return Object.fromEntries(
-    state.backgroundCommands.map((command) => [
-      command.toolCallId,
-      { startedAt: command.startedAt, details: command.progress },
-    ]),
-  );
+  return {
+    ...state.toolRuns,
+    ...Object.fromEntries(
+      state.backgroundCommands.map((command) => [
+        command.toolCallId,
+        { startedAt: command.startedAt, details: command.progress },
+      ]),
+    ),
+  };
 }
 
 function withEnd(runs: Record<string, ToolRun>, end: CommandEnd): Record<string, ToolRun> {
