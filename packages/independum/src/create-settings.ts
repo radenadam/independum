@@ -15,6 +15,8 @@ const handBackRange = { min: 5, max: 86_400 };
 export const builtInSettings: Settings = {
   shell: null,
   disabledTools: [],
+  disabledFacts: [],
+  knowledgeCutoffs: {},
   outputLimits: { maxLines: 2000, maxBytes: 50 * 1024 },
   handBackSeconds: 120,
   environment: {},
@@ -35,6 +37,8 @@ export async function createSettings(path: string): Promise<SettingsStore> {
   let settings: Settings = {
     shell: change.shell ?? builtInSettings.shell,
     disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
+    disabledFacts: change.disabledFacts ?? builtInSettings.disabledFacts,
+    knowledgeCutoffs: change.knowledgeCutoffs ?? builtInSettings.knowledgeCutoffs,
     outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
     handBackSeconds: change.handBackSeconds ?? builtInSettings.handBackSeconds,
     environment: change.environment ?? builtInSettings.environment,
@@ -83,6 +87,29 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
       isValid = false;
     } else {
       change.outputLimits = limits;
+    }
+  }
+  if ("disabledFacts" in fields) {
+    const { disabledFacts } = fields;
+    if (Array.isArray(disabledFacts) && disabledFacts.every((id) => typeof id === "string")) {
+      change.disabledFacts = disabledFacts;
+    } else {
+      isValid = false;
+    }
+  }
+  if ("knowledgeCutoffs" in fields) {
+    const providers = recordOf(
+      fields.knowledgeCutoffs,
+      (_provider, models): models is Record<string, string> =>
+        recordOf(
+          models,
+          (_model, cutoff): cutoff is string => typeof cutoff === "string" && cutoff.length > 0,
+        ) !== undefined,
+    );
+    if (providers === undefined) {
+      isValid = false;
+    } else {
+      change.knowledgeCutoffs = providers;
     }
   }
   if ("handBackSeconds" in fields) {

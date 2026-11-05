@@ -13,18 +13,23 @@ test("settings start from their defaults and keep each change across a restart",
   expect(settings.get()).toEqual({
     shell: null,
     disabledTools: [],
+    disabledFacts: [],
+    knowledgeCutoffs: {},
     outputLimits: { maxLines: 2000, maxBytes: 51200 },
     handBackSeconds: 120,
     environment: {},
     texts: {},
   });
   const texts = { "shell.description": { text: "Runs it.", builtIn: "Runs a command." } };
-  await settings.change({ shell: "bash", disabledTools: ["Shell"], texts });
-  expect((await createSettings(path)).get()).toMatchObject({
-    shell: "bash",
+  const next = {
+    shell: "bash" as const,
     disabledTools: ["Shell"],
     texts,
-  });
+    disabledFacts: ["facts.pi"],
+    knowledgeCutoffs: { provider: { model: "2026-04" } },
+  };
+  await settings.change(next);
+  expect((await createSettings(path)).get()).toMatchObject(next);
 });
 
 test("a file edited by hand keeps its valid settings and drops the rest", async () => {
@@ -61,6 +66,13 @@ test("a change with a setting that is not valid is refused whole", () => {
     undefined,
   );
   expect(readSettingsChange({ disabledTools: [5] })).toBeUndefined();
+  expect(readSettingsChange({ disabledFacts: [5] })).toBeUndefined();
+  expect(readSettingsChange({ knowledgeCutoffs: { provider: { model: 5 } } })).toBeUndefined();
+  expect(readSettingsChange({ knowledgeCutoffs: { provider: { model: "" } } })).toBeUndefined();
+  expect(readSettingsChange({ knowledgeCutoffs: { provider: [] } })).toBeUndefined();
+  expect(readSettingsChange({ knowledgeCutoffs: { provider: { model: "2026-04" } } })).toEqual({
+    knowledgeCutoffs: { provider: { model: "2026-04" } },
+  });
   expect(readSettingsChange({ texts: { a: "Text.", b: null } })).toEqual({
     texts: { a: "Text.", b: null },
   });

@@ -8,6 +8,7 @@ export interface KnownTexts {
   addedByPi: string;
   tools: { name: string; description: string }[];
   entries: { id: string; message: unknown }[];
+  addedFacts?: { id: string; label: string; text: string; group: RequestGroup; entryId?: string }[];
 }
 
 /** A part of a request before it knows its group. */
@@ -77,7 +78,7 @@ export function summarizeRequest(request: unknown, known: KnownTexts): RequestPa
     return [];
   }
   const sections = sectionsOf(request, known)
-    .map(groupedParts)
+    .map((section) => groupedParts(section, known))
     .filter((section) => section.some((part) => part.source !== "other"));
   const rank = (section: RequestPart[]): number => groups.indexOf(section[0]?.group ?? "messages");
   return sections.toSorted((first, second) => rank(first) - rank(second)).flat();
@@ -127,20 +128,30 @@ export function describeNextRequest(known: KnownTexts): RequestPart[] {
       group: "tools",
     }),
   );
+  instructions.push(
+    ...(known.addedFacts ?? [])
+      .filter((fact) => fact.group === "instructions")
+      .map((fact) => ({ ...factPartOf("next", fact), group: fact.group })),
+  );
   const messages = known.entries.flatMap(
     (entry): RequestPart[] =>
       summaryPartOf(entry.message) ??
-      messageOf(entry).map((message) => ({
-        ...partOf({
-          section: "next",
-          source: message.source,
-          label: message.label,
-          link: { kind: "entry", id: message.id },
-          content: [...message.texts, ...message.ids].join("\n"),
-          preview: message.preview,
-        }),
-        group: "messages",
-      })),
+      messageOf(entry).flatMap((message) => [
+        ...(known.addedFacts ?? [])
+          .filter((fact) => fact.entryId === entry.id)
+          .map((fact) => ({ ...factPartOf("next", fact), group: fact.group })),
+        {
+          ...partOf({
+            section: "next",
+            source: message.source,
+            label: message.label,
+            link: { kind: "entry", id: message.id },
+            content: [...message.texts, ...message.ids].join("\n"),
+            preview: message.preview,
+          }),
+          group: "messages",
+        },
+      ]),
   );
   return [...instructions, ...tools, ...messages];
 }
@@ -190,16 +201,20 @@ export function describeMessage(message: unknown): {
 // A tool, a message, or the system prompt says its own group. A text of Pi or an unknown text takes
 // the group of the known part before it in its key, or after it, such as a text of Pi before the
 // system prompt.
-function groupedParts(section: Part[]): RequestPart[] {
-  const own = section.map((part): RequestGroup | undefined =>
-    part.link.kind === "tool"
+function groupedParts(section: Part[], known: KnownTexts): RequestPart[] {
+  const own = section.map((part): RequestGroup | undefined => {
+    const { link } = part;
+    if (link.kind === "addedFact") {
+      return known.addedFacts?.find((fact) => fact.id === link.id)?.group;
+    }
+    return part.link.kind === "tool"
       ? "tools"
       : part.link.kind === "entry"
         ? "messages"
         : part.link.kind === "systemPrompt" || part.link.kind === "addedByPi"
           ? "instructions"
-          : undefined,
-  );
+          : undefined;
+  });
   return section.map((part, index) => {
     const before = own.slice(0, index + 1).findLast((group) => group !== undefined);
     const after = own.slice(index).find((group) => group !== undefined);
@@ -241,9 +256,7 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
         parts.push(...toolPartsOf(section, item, content, tools));
       } else if (matched.length > 0) {
         next = messages.indexOf(matched[0] as KnownMessage);
-        for (const piece of piecesOf(item, matched, content, strings, exact)) {
-          addPiece(parts, section, piece);
-        }
+        addRequestMessages(parts, section, item, matched, content, strings, exact, known);
       } else if (level !== undefined) {
         parts.push(
           partOf({
@@ -262,6 +275,50 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
     }
     return parts;
   });
+}
+
+function addRequestMessages(
+  parts: Part[],
+  section: string,
+  item: unknown,
+  matched: KnownMessage[],
+  content: string,
+  strings: string[],
+  exact: string,
+  known: KnownTexts,
+): void {
+  const facts = (known.addedFacts ?? []).filter(
+    (fact) =>
+      fact.group === "messages" &&
+      fact.text !== "" &&
+      matched.some((message) => message.id === fact.entryId) &&
+      content.includes(fact.text),
+  );
+  if (matched.length > 1 && facts.length > 0) {
+    for (const message of matched) {
+      const key = message.ids.find((id) => content.includes(id));
+      const holder = key === undefined ? item : (holderOf(item, key) ?? item);
+      const heldStrings = stringsOf(holder);
+      addRequestMessages(
+        parts,
+        section,
+        holder,
+        [message],
+        heldStrings.join("\n"),
+        heldStrings,
+        JSON.stringify(holder, null, 2),
+        known,
+      );
+    }
+    return;
+  }
+  for (const fact of facts) {
+    parts.push(factPartOf(section, fact));
+    content = content.replace(fact.text, "");
+  }
+  for (const piece of piecesOf(item, matched, content, strings, exact)) {
+    addPiece(parts, section, piece);
+  }
 }
 
 function toolsIn(
@@ -403,6 +460,12 @@ function textPartsOf(section: string, content: string, exact: string, known: Kno
       });
     }
   }
+  for (const fact of known.addedFacts ?? []) {
+    const index = fact.text === "" ? -1 : content.indexOf(fact.text);
+    if (index !== -1) {
+      spans.push({ index, length: fact.text.length, part: factPartOf(section, fact) });
+    }
+  }
   for (const found of findPiTexts(content)) {
     const isInside = spans.some(
       (span) => found.index >= span.index && found.index < span.index + span.length,
@@ -433,6 +496,23 @@ function textPartsOf(section: string, content: string, exact: string, known: Kno
   }
   parts.push(...leftOverOf(section, content.slice(end)));
   return parts;
+}
+
+function factPartOf(
+  section: string,
+  fact: { id: string; label: string; text: string; entryId?: string },
+): Part {
+  return partOf({
+    section,
+    source: "independum",
+    label: fact.label,
+    link: {
+      kind: "addedFact",
+      id: fact.id,
+      ...(fact.entryId === undefined ? {} : { entryId: fact.entryId }),
+    },
+    content: fact.text,
+  });
 }
 
 // An item that holds a thinking level and little else, such as a role, is the effort that Pi sends.
