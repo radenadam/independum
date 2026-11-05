@@ -35,6 +35,7 @@ interface SessionPlaceProps {
   chat: ChatState;
   models: ModelSummary[] | undefined;
   context: ContextSummary | undefined;
+  contextFailure: string | undefined;
 }
 
 /**
@@ -58,9 +59,19 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", tim
  * request of its conversation. Each part opens to its detail, which edits the texts that the model
  * reads where Independum writes them.
  */
-export function SessionPlace({ chat, models, context }: SessionPlaceProps): ReactElement {
+export function SessionPlace({
+  chat,
+  models,
+  context,
+  contextFailure,
+}: SessionPlaceProps): ReactElement {
   const settings = useAgentSettings(chat);
   const [path, setPath] = useState<View[]>([]);
+  const [pathChatId, setPathChatId] = useState(chat.id);
+  if (pathChatId !== chat.id) {
+    setPathChatId(chat.id);
+    setPath([]);
+  }
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [overviewWidth, setOverviewWidth] = useState(() => readColumnWidth("overview"));
@@ -98,6 +109,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
       chat={chat}
       models={models}
       context={context}
+      contextFailure={contextFailure}
       settings={settings}
       current={path[0]?.key}
       onOpen={(next) => setPath([next])}
@@ -117,6 +129,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
           onClose={isSplit ? () => setPath([]) : undefined}
         />
         <PlaceFrame>
+          {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
           <Detail
             view={view}
             folder={chat.folder}
@@ -181,6 +194,7 @@ interface OverviewProps {
   chat: ChatState;
   models: ModelSummary[] | undefined;
   context: ContextSummary | undefined;
+  contextFailure: string | undefined;
   settings: AgentSettings;
   current: string | undefined;
   onOpen: (view: View) => void;
@@ -190,6 +204,7 @@ function Overview({
   chat,
   models,
   context,
+  contextFailure,
   settings,
   current,
   onOpen,
@@ -204,6 +219,7 @@ function Overview({
 
   return (
     <PlaceFrame>
+      {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
       <PlaceBox>
         <PlaceRow
           icon={
@@ -254,7 +270,7 @@ function Overview({
       <PlaceSection heading="Context">
         <PlaceNote>{basisOf(context)}</PlaceNote>
         {context === undefined ? (
-          <PlaceNote>Loading the request.</PlaceNote>
+          <PlaceNote>{contextFailure ?? "Loading the request."}</PlaceNote>
         ) : (
           <ContextParts
             parts={context.requestParts}

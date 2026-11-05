@@ -36,7 +36,12 @@ export async function startLogin(
   );
   return {
     async answer(questionId, value) {
-      await requestApi(`/api/logins/${id}/answers`, { body: { questionId, value } });
+      const response = await requestApi(`/api/logins/${id}/answers`, {
+        body: { questionId, value },
+      });
+      if (!response.ok) {
+        throw new Error("The answer could not be sent. Try again.");
+      }
     },
     async cancel() {
       await requestApi(`/api/logins/${id}`, { method: "DELETE" });

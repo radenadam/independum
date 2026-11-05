@@ -52,9 +52,12 @@ export function LoginFlow({ provider, onChanged, onDone }: LoginFlowProps): Reac
     }
   }
 
-  function answer(question: Question, value: string): void {
+  async function answer(question: Question, value: string): Promise<void> {
+    if (handle.current === undefined) {
+      throw new Error("The login is not ready. Try again.");
+    }
+    await handle.current.answer(question.questionId, value);
     setAnswered((current) => [...current, question.questionId]);
-    handle.current?.answer(question.questionId, value);
   }
 
   return (
@@ -124,7 +127,7 @@ function Options({ provider, onBegin }: OptionsProps): ReactElement {
 interface StepsProps {
   events: LoginEvent[];
   answered: string[];
-  onAnswer: (question: Question, value: string) => void;
+  onAnswer: (question: Question, value: string) => Promise<void>;
   onRetry: () => void;
   onDone: () => void;
 }
@@ -230,25 +233,50 @@ function SignInLink({ url }: SignInLinkProps): ReactElement {
 /** Properties of a question form. */
 interface QuestionFormProps {
   question: Question;
-  onAnswer: (question: Question, value: string) => void;
+  onAnswer: (question: Question, value: string) => Promise<void>;
 }
 
 function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
   const [value, setValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [failure, setFailure] = useState<string | undefined>();
+
+  function send(value: string): void {
+    if (isSending) {
+      return;
+    }
+    setIsSending(true);
+    setFailure(undefined);
+    onAnswer(question, value).then(
+      () => setIsSending(false),
+      () => {
+        setIsSending(false);
+        setFailure("The answer could not be sent. Try again.");
+      },
+    );
+  }
+
+  const status =
+    failure === undefined ? (
+      isSending ? (
+        <p className={styles.status}>Sending the answer.</p>
+      ) : null
+    ) : (
+      <p className={styles.error} role="alert">
+        {failure}
+      </p>
+    );
 
   if (question.kind === "choice") {
     return (
-      <div className={styles.step}>
+      <div className={styles.step} aria-busy={isSending}>
         <p className={styles.text}>{question.message}</p>
         <div className={styles.buttons}>
           {(question.options ?? []).map((option) => (
-            <TextButton
-              key={option.id}
-              label={option.label}
-              onClick={() => onAnswer(question, option.id)}
-            />
+            <TextButton key={option.id} label={option.label} onClick={() => send(option.id)} />
           ))}
         </div>
+        {status}
       </div>
     );
   }
@@ -256,10 +284,11 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
   return (
     <form
       className={styles.step}
+      aria-busy={isSending}
       onSubmit={(event) => {
         event.preventDefault();
         if (value.trim() !== "") {
-          onAnswer(question, value.trim());
+          send(value.trim());
         }
       }}
     >
@@ -277,6 +306,7 @@ function QuestionForm({ question, onAnswer }: QuestionFormProps): ReactElement {
         </p>
       ) : null}
       <TextButton label="Continue" isPrimary isSubmit />
+      {status}
     </form>
   );
 }
