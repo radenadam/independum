@@ -85,7 +85,7 @@ test("every harness fact is on by default and uses the running versions and envi
   expect(prompt).toContain(`Operating system: ${type()} ${release()}, ${machine()}.`);
   expect(prompt).toContain(`Time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}.`);
   expect(prompt).toContain("Chat folder: project");
-  expect(prompt).toMatch(/^Harness: Independum \d+\.\d+\.\d+\./);
+  expect(prompt).toMatch(/^Harness: Independum \d+\.\d+\.\d+(-[\w.]+)?\./);
   expect(prompt).not.toContain("cutoff");
   expect(prompt).not.toContain("Written at");
 });
@@ -95,7 +95,7 @@ test("each disabled fact is absent and an edited fact is sent exactly as edited"
     changeTexts(addedFactTexts, {}, { "facts.harness": "Running {version} in this harness." }) ??
     {};
   expect(addedFactPrompt({ ...options, settings: { ...builtInSettings, texts } })).toMatch(
-    /^Running \d+\.\d+\.\d+ in this harness\./,
+    /^Running \d+\.\d+\.\d+(-[\w.]+)? in this harness\./,
   );
   for (const fact of summarizeAddedFacts(options).filter(
     (fact) => fact.id !== "facts.messageTime" && fact.text !== null,

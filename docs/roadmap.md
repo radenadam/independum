@@ -4,24 +4,27 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 ## Now
 
-The maintainer agreed to these, and they come in this order, one small change at a time.
+The 0.5 checkpoint of [decision 0057](decisions/0057-versions-and-checkpoints.md): everything Independum promises, with the tools it has today. The maintainer agreed to it, and its parts come in this order, each planned from a design proposal and checked in the running app.
 
-- An evaluation of the build so far with the maintainer, now that Shell, Read, Write, and Edit are done, before any other work starts. See the Evaluation section of `AGENTS.md`. It also compares Independum, workflow by workflow, with how a power user works with agent CLIs in tabs of a terminal, such as several agents at once, queue and steer, and questions from the model, and lists every gap, because the evaluation kept finding gaps one at a time.
+- Every chat addressed by its id in the API, so each browser, phone, and script follows its own chat.
+- Profiles, and every setting as plain files that the UI and a text editor both change.
+- Control over the context: project instructions such as `AGENTS.md`, skills and slash commands, and a switch for each thing that Pi adds.
+- Hooks, and the contract for add-ons that built-in tools share (decision 0006).
+- Permissions, approvals, and sandboxing, by default allowed inside the project folder and asked for outside it or for the network.
+- Queue and steer, attachments, and edit, resend, and retry with branches.
+- A headless mode for scripts and other agents, with full control and output that costs few tokens.
 - Review the added facts of [decision 0054](decisions/0054-added-facts.md) in the running app with the maintainer, including phone width and the texts and switches of the request.
-- Terminal mode, planned with the maintainer before it is built: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal.
+- A last pass of the whole checkpoint with `pnpm qa` and real models, before the version drops its `-dev` suffix.
 
 ## Next
 
 - More tools, each planned the same way, such as web search, web fetch, an agent tool, and a browser.
 - More for Read: outlines of large files, PDF, Word, Excel, and notebook files as text, several files in one call, folders, and no second read of a file that has not changed.
-- Branching: edit and resend a prompt, retry a reply with the same or another model or effort, and fork a chat. Each makes a branch, which Pi already keeps, and a switcher under a message moves between branches. The look needs a decision first.
-- Attachments: paste or drop images and files into a message.
-- Queue and steer: while a reply runs, queue a message for after it, or steer the reply with it.
-- Network access and phone pairing with a QR code. See decision 0005.
-- Packaging: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, recommend PowerShell from its installer over the one from the Microsoft Store as decision 0041 explains, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
+- Packaging, for the 1.0 release as decision 0057 says: build the `independum` command, check that Windows has PowerShell 7 or Git Bash and explain why Independum needs one, recommend PowerShell from its installer over the one from the Microsoft Store as decision 0041 explains, serve the built UI, generate the favicon from the mark in `packages/web/src/mark.tsx`, and publish to npm. See decision 0010.
 
 ## Later
 
+- Terminal mode: an optional pseudo terminal for a command, which the user and the model can type into, and which the step shows as a live terminal. The 0.5 checkpoint has a headless mode instead, for scripts and other agents.
 - Graphics settings, either off and on, or low, medium, and high, each with a custom choice. The wave of the title of a replying chat is the richest motion, and a box with a bar that moves up and down in it is its lighter form for a low setting.
 
 - Desktop app. See decision 0001.
