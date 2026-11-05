@@ -1,6 +1,6 @@
 # Session place
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0052](0052-window-figure.md), which defines the window figure, and by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies request storage, detection, and refresh timing
 - Date: 2026-11-04
 
 ## Context

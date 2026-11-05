@@ -9,7 +9,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 - The corners of boxes are cut at 45 degrees, like the straight cuts of the raven in Independum's mark. A cut is 2 units, or 1 unit on a shape smaller than 10 units.
 - Circles and arcs stay round. A search lens is a circle, never an octagon.
 - Straight lines run horizontally, vertically, or at 45 degrees. Another angle appears only where a familiar shape needs it, such as the tip of a pencil.
-- An icon has at most four separate shapes, so it stays clear at 16 pixels.
+- An icon has at most four separate shapes, so it stays clear at 16 pixels. Settings uses six shapes so its knobs and lines move separately, and Stop command uses five so the strike has gaps where it crosses the box and cursor.
 
 ## Grid and size
 
@@ -18,8 +18,8 @@ This is the specification for every icon in Independum. Follow it for each new i
 - No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box. A slanted box, such as the front of an open folder, has every corner cut, the wide ones too.
 - The icon of a tool that acts on a file is the page of Read with its own mark over the lower right corner, and the icon of a tool that acts on a command is the box of Shell with its own mark, so each family reads as one.
 - An icon with two states, such as a closed and an open folder, keeps the whole shape of its first state in the second. The second state only adds to it, so the change reads as one thing that moves, never as one that shrinks.
-- Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones.
-- Place points on whole or half units, so that lines stay sharp.
+- Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones. `IconButton` keeps its regular, small, and tiny icons at 18, 16, and 14 pixels on every screen because its control supplies the touch target.
+- Place points on whole or half units, so that lines stay sharp. The eye of Read and the lens of Check command use fractional radii to fit their file and command shapes.
 
 ## Color and state
 
@@ -78,8 +78,8 @@ Decision 0024 records why icons move and where the line falls.
 - A part of an icon moves once, there and back, when its button is pointed at or reached with the keyboard, and a tap on a touch screen plays it too. The search lens moves when its field takes the focus.
 - A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open, or the dots of Replying, which play their motion over and over at half speed while a reply goes on.
 - Provider logos never move on hover, because a logo is the mark of another company. The raven moves only beside thinking: it tilts its head toward the user and back while the model thinks, and it turns to face forward while its row is pointed at. See decision 0049.
-- A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion.
-- `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes.
+- A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion. State transitions take 200 milliseconds for the meter and the raven color and 180 milliseconds for the folder, while the raven turns on a 2.4 second loop and glances in 180 milliseconds with its front face appearing after 90 milliseconds.
+- `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes. The state transitions use their own easing, and `packages/web/src/thinking-mark.module.css` holds the raven motion with cuts between its faces.
 
 | Icon | Motion |
 | --- | --- |

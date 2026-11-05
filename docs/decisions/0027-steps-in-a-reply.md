@@ -1,6 +1,6 @@
 # Steps in a reply
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the saved times in the Session place, and by [decision 0049](0049-turning-raven.md), which tilts the mark beside thinking
+- Status: accepted, and amended by [decision 0029](0029-own-tools.md), which adds tool steps and combines turns into one reply, by [decision 0047](0047-step-groups.md), which groups steps and thoughts between texts, by [decision 0048](0048-session-place.md), which lists the saved times in the Session place, by [decision 0049](0049-turning-raven.md), which tilts the mark beside thinking, and by [decision 0053](0053-documented-behavior-and-limits.md), which specifies copy formats
 - Date: 2026-10-27
 
 ## Context

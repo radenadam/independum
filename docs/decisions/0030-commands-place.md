@@ -1,6 +1,6 @@
 # Commands place
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session
 - Date: 2026-10-28
 
 ## Context
