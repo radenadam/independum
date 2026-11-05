@@ -8,7 +8,6 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { WriteDetails } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import { type FileFingerprint, versionOf } from "./file-fingerprint.ts";
 import {
   checkNotFolder,
   type DecodedText,
@@ -19,6 +18,7 @@ import {
   pathParameterOf,
   splitLines,
 } from "./text-file.ts";
+import { type FileFingerprint, versionOf } from "./version-of.ts";
 
 const group = "Write";
 const pathSlot = { meaning: "The file as the model gave it.", example: "src/app.ts" };
@@ -264,9 +264,9 @@ function describeLineCount(count: number): string {
 // A folder inside the project reads as a path from it, like the paths that the model gives. On
 // Windows, mkdir names a folder that it made in its long form, which starts with a backslash, a
 // backslash, a question mark, and a backslash.
-function shownPathOf(made: string, cwd: string): string {
+function shownPathOf(made: string, workingFolder: string): string {
   const folder = made.startsWith("\\\\?\\") ? made.slice(4) : made;
-  const inside = relative(cwd, folder);
+  const inside = relative(workingFolder, folder);
   return inside === "" || inside.startsWith("..") || isAbsolute(inside)
     ? folder.replaceAll("\\", "/")
     : inside.replaceAll("\\", "/");

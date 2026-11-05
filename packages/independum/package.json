@@ -6,6 +6,7 @@
   "license": "MIT",
   "exports": {
     "./api-types": "./src/api-types.ts",
+    "./output-limit-ranges": "./src/output-limit-ranges.ts",
     "./text-slots": "./src/text-slots.ts"
   },
   "scripts": {

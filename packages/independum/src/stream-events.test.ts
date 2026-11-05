@@ -4,11 +4,9 @@ import { followEventStream } from "./follow-event-stream.ts";
 import { streamEvents } from "./stream-events.ts";
 
 test("events during a snapshot arrive after it and release the subscription", async () => {
-  let finishSnapshot = (_events: string[]): void => undefined;
-  const snapshot = new Promise<string[]>((resolve) => {
-    finishSnapshot = resolve;
-  });
-  let listener = (_event: string): void => undefined;
+  const { promise: snapshot, resolve: finishSnapshot } = Promise.withResolvers<string[]>();
+  function ignoreEvent(_event: string): void {}
+  let listener = ignoreEvent;
   let isFollowing = false;
   const routes = new Hono();
   routes.get("/events", (context) =>

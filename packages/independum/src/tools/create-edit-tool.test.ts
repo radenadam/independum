@@ -58,7 +58,7 @@ test("an exact text is replaced, and the result names the lines before and after
   ).toBe("Removed the text at line 3 of fruits.txt.");
 });
 
-test("line breaks of Windows, a byte order mark, and UTF-16 stay as the file had them", async () => {
+test("line breaks of windows, a byte order mark, and utf-16 stay as the file had them", async () => {
   const windows = write(
     "windows.txt",
     Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("one\r\ntwo\r\nthree\r\n")]),
@@ -75,7 +75,7 @@ test("line breaks of Windows, a byte order mark, and UTF-16 stay as the file had
   );
 });
 
-test("an edit through the final line break consumes the whole Windows line break", async () => {
+test("an edit through the final line break consumes the whole windows line break", async () => {
   const path = write("final-break.txt", "a\r\n");
   expect(
     (await edit({ path: "final-break.txt", oldString: "a\n", newString: "b\n" })).isError,
@@ -94,14 +94,14 @@ test("a space at the end of a line blocks a match only when old_string goes past
       newString: "an apple\na cherry",
     }),
   ).toMatchObject({
-    text: "old_string is not in spaces.txt. It matches lines 2 to 3 except for the space at the end of line 2, which the file has and old_string does not.",
+    text: "Old_string is not in spaces.txt. It matches lines 2 to 3 except for the space at the end of line 2, which the file has and old_string does not.",
     isError: true,
   });
   await edit({ path: "spaces.txt", oldString: "apple is not a banana", newString: "an apple" });
   expect(readFileSync(path, "utf8")).toBe("apples\nan apple \ncherry is red\n");
 });
 
-test("tabs, lookalike quotes, and the line numbers of Read are named as the difference", async () => {
+test("tabs, lookalike quotes, and the line numbers of read are named as the difference", async () => {
   write("indent.ts", "function a() {\n\treturn 1;\n}\n");
   expect(
     (
@@ -112,7 +112,7 @@ test("tabs, lookalike quotes, and the line numbers of Read are named as the diff
       })
     ).text,
   ).toBe(
-    "old_string is not in indent.ts. It matches lines 1 to 2 except for the start of line 2, where the file has a tab and old_string has 4 spaces.",
+    "Old_string is not in indent.ts. It matches lines 1 to 2 except for the start of line 2, where the file has a tab and old_string has 4 spaces.",
   );
   write("nested.ts", "if (a) {\n\tfor (const b of c) {\n\t\tuse(b);\n\t}\n}\n");
   expect(
@@ -124,13 +124,13 @@ test("tabs, lookalike quotes, and the line numbers of Read are named as the diff
       })
     ).text,
   ).toBe(
-    "old_string is not in nested.ts. It matches lines 2 to 3 except for the start of line 2, where the file has a tab and old_string has 2 tabs, and the start of line 3, where the file has 2 tabs and old_string has 3 tabs.",
+    "Old_string is not in nested.ts. It matches lines 2 to 3 except for the start of line 2, where the file has a tab and old_string has 2 tabs, and the start of line 3, where the file has 2 tabs and old_string has 3 tabs.",
   );
   write("quotes.md", "It\u2019s done.\n");
   expect(
     (await edit({ path: "quotes.md", oldString: "It's done.", newString: "Done." })).text,
   ).toBe(
-    "old_string is not in quotes.md. It matches line 1 except for the character at line 1, column 3, where the file has `\u2019` and old_string has `'`.",
+    "Old_string is not in quotes.md. It matches line 1 except for the character at line 1, column 3, where the file has `\u2019` and old_string has `'`.",
   );
   write("numbered.ts", "const a = 1;\nconst b = 2;\n");
   expect(
@@ -142,7 +142,7 @@ test("tabs, lookalike quotes, and the line numbers of Read are named as the diff
       })
     ).text,
   ).toBe(
-    "old_string is not in numbered.ts. It matches lines 1 to 2 except for the line number and tab at the start of each line of old_string, which Read adds and the file does not hold.",
+    "Old_string is not in numbered.ts. It matches lines 1 to 2 except for the line number and tab at the start of each line of old_string, which Read adds and the file does not hold.",
   );
 });
 
@@ -152,11 +152,11 @@ test("a miss with no near match shows the closest text, or only says it is missi
     (await edit({ path: "closest.ts", oldString: "const total = items.size;", newString: "x" }))
       .text,
   ).toBe(
-    "old_string is not in closest.ts. The closest text is at line 1:\n1\tconst total = items.length;",
+    "Old_string is not in closest.ts. The closest text is at line 1:\n1\tconst total = items.length;",
   );
   expect(
     (await edit({ path: "closest.ts", oldString: "nothing like it", newString: "x" })).text,
-  ).toBe("old_string is not in closest.ts.");
+  ).toBe("Old_string is not in closest.ts.");
 });
 
 test("repeated text needs replace_all, or line and column, to choose its place", async () => {
@@ -165,14 +165,14 @@ test("repeated text needs replace_all, or line and column, to choose its place",
     "apple, apple, apple\nbanana\napple, apple, apple\napple, apple, apple\n",
   );
   expect((await edit({ path: "repeat.txt", oldString: "apple", newString: "pear" })).text).toBe(
-    "old_string occurs 9 times in repeat.txt, at lines 1, 3, and 4, and replace_all is not set.",
+    "Old_string occurs 9 times in repeat.txt, at lines 1, 3, and 4, and replace_all is not set.",
   );
   expect(
     (await edit({ path: "repeat.txt", oldString: "apple", newString: "pear", line: 2 })).text,
-  ).toBe("old_string does not start at line 2 of repeat.txt. It starts at lines 1, 3, and 4.");
+  ).toBe("Old_string does not start at line 2 of repeat.txt. It starts at lines 1, 3, and 4.");
   expect(
     (await edit({ path: "repeat.txt", oldString: "apple", newString: "pear", line: 3 })).text,
-  ).toBe("old_string occurs 3 times on line 3 of repeat.txt, at columns 1, 8, and 15.");
+  ).toBe("Old_string occurs 3 times on line 3 of repeat.txt, at columns 1, 8, and 15.");
   expect(
     (
       await edit({
@@ -184,7 +184,7 @@ test("repeated text needs replace_all, or line and column, to choose its place",
       })
     ).text,
   ).toBe(
-    "old_string does not start at line 3, column 9 of repeat.txt. On that line it starts at columns 1, 8, and 15.",
+    "Old_string does not start at line 3, column 9 of repeat.txt. On that line it starts at columns 1, 8, and 15.",
   );
   expect(
     (
@@ -207,12 +207,12 @@ test("repeated text needs replace_all, or line and column, to choose its place",
 test("an input that cannot work fails before the file is read", async () => {
   write("input.txt", "text\n");
   const cases: [Omit<EditInput, "path">, string][] = [
-    [{ oldString: "", newString: "x" }, "old_string is empty."],
-    [{ oldString: "text", newString: "text" }, "old_string and new_string are the same."],
-    [{ oldString: "text", newString: "x", column: 2 }, "column needs line."],
+    [{ oldString: "", newString: "x" }, "Old_string is empty."],
+    [{ oldString: "text", newString: "text" }, "Old_string and new_string are the same."],
+    [{ oldString: "text", newString: "x", column: 2 }, "Column needs line."],
     [
       { oldString: "text", newString: "x", replaceAll: true, line: 1 },
-      "replace_all and line cannot be used together.",
+      "Replace_all and line cannot be used together.",
     ],
   ];
   for (const [input, message] of cases) {
@@ -223,7 +223,7 @@ test("an input that cannot work fails before the file is read", async () => {
   }
 });
 
-test("a file that is not valid UTF-8, a binary file, and a missing file are refused", async () => {
+test("a file that is not valid utf-8, a binary file, and a missing file are refused", async () => {
   write("latin1.txt", Buffer.from([0x63, 0x61, 0x66, 0xe9]));
   expect((await edit({ path: "latin1.txt", oldString: "caf", newString: "x" })).text).toBe(
     "latin1.txt is not valid UTF-8, so Edit cannot change it without losing bytes.",

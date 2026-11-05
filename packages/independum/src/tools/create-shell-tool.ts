@@ -302,7 +302,9 @@ export function createShellTool({
       // with the reply.
       const startedAt = Date.now();
       const own = new AbortController();
-      const stopWithReply = (): void => own.abort();
+      function stopWithReply(): void {
+        own.abort();
+      }
       if (signal?.aborted === true) {
         own.abort();
       }

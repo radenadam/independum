@@ -47,10 +47,9 @@ export interface DescribedCall {
 const quietTime = 30_000;
 const numberFormat = new Intl.NumberFormat("en-US");
 
-/**
- * Returns how a call to a tool reads in the chat and in the Commands place. A call to the Shell
- * tool reads as what the model said its command is for, or else as the first line of the command.
- */
+// A call to the Shell tool reads as what the model said its command is for, or else as the
+// first line of the command.
+/** Returns how a call to a tool reads in the chat and in the Commands place. */
 export function describeToolCall(
   part: ToolCallPart,
   run: ToolRun | undefined,

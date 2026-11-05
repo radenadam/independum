@@ -1,9 +1,9 @@
 import { defineText, type ModelText, type ModelTexts } from "./model-texts.ts";
 
+// It shows with the texts of Shell, whose background commands send the only notes so far.
 /**
  * The envelope around every note that Independum adds to a chat, which names its source so the
- * model can tell it from what the user wrote. It shows with the texts of Shell, whose background
- * commands send the only notes so far.
+ * model can tell it from what the user wrote.
  */
 export const envelopeText: ModelText = defineText({
   id: "note.envelope",

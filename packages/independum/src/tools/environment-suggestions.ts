@@ -1,9 +1,7 @@
 import type { EnvironmentSuggestion } from "../api-types.ts";
 
-/**
- * Variables that the user can add to the environment of commands, each with what it changes. A
- * command gets none of them unless the user adds it.
- */
+// A command gets none of them unless the user adds it.
+/** Variables that the user can add to the environment of commands, each with what it changes. */
 export const environmentSuggestions: EnvironmentSuggestion[] = [
   {
     name: "GIT_EDITOR",

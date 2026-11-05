@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type AssistantMessage,
+  type FauxResponseFactory,
   fauxAssistantMessage,
   fauxProvider,
   fauxToolCall,
@@ -11,8 +12,8 @@ import {
 import { shouldCompact } from "@earendil-works/pi-coding-agent";
 import { afterAll, expect, test } from "vitest";
 import type { ChatState, ModelOverrideChange } from "./api-types.ts";
-import { createChatRoutes } from "./chat-routes.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
+import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { builtInSettings, createSettings, readSettingsChange } from "./create-settings.ts";
 import { applyModelOverrides, modelSettingsOf } from "./model-settings.ts";
@@ -27,8 +28,8 @@ afterAll(() => {
 async function setup() {
   const directory = mkdtempSync(join(tmpdir(), "independum-model-settings-"));
   folders.push(directory);
-  const cwd = join(directory, "project");
-  mkdirSync(cwd);
+  const folder = join(directory, "project");
+  mkdirSync(folder);
   const models = await createModelRuntime(directory);
   const provider = `settings-models-${folders.length}`;
   const faux = fauxProvider({ provider, models: [{ id: "first" }, { id: "second" }] });
@@ -37,13 +38,13 @@ async function setup() {
     models.registerNativeProvider(entry.provider);
     await models.setRuntimeApiKey(entry.provider.id, "test-key");
   }
-  const chats = await createChat({ models, directory, cwd });
+  const chats = await createChat({ models, directory, folder });
   const chat = await chats.open(await chats.first());
   if (chat === undefined) {
     throw new Error("The test chat did not open.");
   }
   await chat.chooseModel(provider, "first");
-  return { chat, chats, models, faux, other, directory, cwd, provider };
+  return { chat, chats, models, faux, other, directory, folder, provider };
 }
 
 async function startNextChat(chats: Chat, chat: OpenChat): Promise<OpenChat> {
@@ -112,15 +113,12 @@ test("model overrides reach only requests of their provider and model", async ()
     maxTokens: number;
     options: SimpleStreamOptions | undefined;
   }[] = [];
-  const capture: Parameters<typeof faux.setResponses>[0][number] = (
-    _context,
-    options,
-    _state,
-    model,
-  ) => {
+  function capture(
+    ...[_context, options, _state, model]: Parameters<FauxResponseFactory>
+  ): ReturnType<FauxResponseFactory> {
     requests.push({ contextWindow: model.contextWindow, maxTokens: model.maxTokens, options });
     return fauxAssistantMessage("A reply.");
-  };
+  }
   faux.setResponses([capture, capture, capture]);
   other.setResponses([capture]);
   await reply(chat);
@@ -157,11 +155,11 @@ test("model overrides keep cutoff facts and message times through changes and re
   });
   const prompts: string[] = [];
   const messages: string[] = [];
-  const capture: Parameters<typeof faux.setResponses>[0][number] = (context) => {
+  function capture(...[context]: Parameters<FauxResponseFactory>): ReturnType<FauxResponseFactory> {
     prompts.push(JSON.stringify(context.messages.filter((message) => message.role === "system")));
     messages.push(JSON.stringify(context.messages));
     return fauxAssistantMessage("A reply.");
-  };
+  }
   faux.setResponses([capture, capture, capture]);
   await reply(chat, "First message");
   await chats.changeSettings(overridesOf(provider, { maxOutput: 1200 }));
@@ -271,10 +269,12 @@ test("manual compaction works while automatic compaction is off and reports fail
   await reply(chat, "An older message.");
   await reply(chat, "A newer message.");
   const summaryOptions: (SimpleStreamOptions | undefined)[] = [];
-  const summarize: Parameters<typeof faux.setResponses>[0][number] = (_context, options) => {
+  function summarize(
+    ...[_context, options]: Parameters<FauxResponseFactory>
+  ): ReturnType<FauxResponseFactory> {
     summaryOptions.push(options);
     return fauxAssistantMessage("A summary of older messages.");
-  };
+  }
   faux.setResponses([summarize, summarize]);
   const completed = waitForCompaction(chat);
   const routes = createChatRoutes(chats, models);
@@ -296,13 +296,13 @@ test("manual compaction works while automatic compaction is off and reports fail
 });
 
 test("model and compaction settings survive reopening a saved chat after a restart", async () => {
-  const { chat, chats, faux, models, directory, cwd, provider } = await setup();
+  const { chat, chats, faux, models, directory, folder, provider } = await setup();
   const overrides = { contextWindow: 200_000, maxOutput: 1500, temperature: 0.4 };
   const compaction = { isEnabled: false, reserveTokens: 600, keepRecentTokens: 300 };
   await chats.changeSettings({ ...overridesOf(provider, overrides), compaction });
   faux.setResponses([fauxAssistantMessage("Saved.")]);
   await reply(chat);
-  const restartedChats = await createChat({ models, directory, cwd });
+  const restartedChats = await createChat({ models, directory, folder });
   const restarted = await restartedChats.open(await restartedChats.first());
   if (restarted === undefined) {
     throw new Error("The saved test chat did not reopen.");

@@ -14,7 +14,7 @@ const directory = join(homedir(), ".independum");
 const models = await createModelRuntime(directory);
 // Scripts run from the package folder under pnpm, which keeps the folder the user started from in
 // INIT_CWD.
-const chat = await createChat({ models, directory, cwd: process.env.INIT_CWD ?? process.cwd() });
+const chat = await createChat({ models, directory, folder: process.env.INIT_CWD ?? process.cwd() });
 
 // Commands of the agent can run in process groups of their own, so they end with
 // Independum instead of outliving it.

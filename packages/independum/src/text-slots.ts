@@ -1,10 +1,8 @@
 // A slot is a name in braces, such as `{id}`.
 const slotPattern = /\{(\w+)\}/g;
 
-/**
- * Puts each value where its name stands in braces. A name in braces that has no value stays as
- * written.
- */
+// A name in braces that has no value stays as written.
+/** Puts each value where its name stands in braces. */
 export function fillText(text: string, values: Record<string, string | number>): string {
   return text.replace(slotPattern, (whole, name: string) =>
     Object.hasOwn(values, name) ? String(values[name]) : whole,

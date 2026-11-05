@@ -96,8 +96,8 @@ The request hook observes Pi's provider payload and does not replace it. Ordinar
 ## Code
 
 - [CLI](../../packages/independum/src/cli.ts), [development launcher](../../packages/independum/src/dev.ts), [access checks](../../packages/independum/src/create-server.ts), and [model runtime](../../packages/independum/src/create-model-runtime.ts).
-- [Chat implementation](../../packages/independum/src/create-chat.ts), [chat routes](../../packages/independum/src/chat-routes.ts), [login routes](../../packages/independum/src/login-routes.ts), and [login session](../../packages/independum/src/login-session.ts).
-- [Request persistence](../../packages/independum/src/saved-requests.ts), [request matching](../../packages/independum/src/summarize-request.ts), [history reconstruction](../../packages/independum/src/list-requests.ts), and [stream transport](../../packages/independum/src/stream-events.ts).
+- [Chat implementation](../../packages/independum/src/create-chat.ts), [chat routes](../../packages/independum/src/create-chat-routes.ts), [login routes](../../packages/independum/src/create-login-routes.ts), and [login session](../../packages/independum/src/start-login-session.ts).
+- [Request persistence](../../packages/independum/src/create-saved-requests.ts), [request matching](../../packages/independum/src/summarize-request.ts), [history reconstruction](../../packages/independum/src/list-requests.ts), and [stream transport](../../packages/independum/src/stream-events.ts).
 
 ## Known differences from the decisions
 

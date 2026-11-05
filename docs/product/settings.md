@@ -55,6 +55,6 @@ The inventory is copied into `pi-texts.ts` because Pi does not export these text
 
 ## Known differences from the decisions
 
-- Decision 0011 says the provider list shows login provenance. The API returns `source`, but the UI does not display it. See `packages/independum/src/login-routes.ts:37` and `packages/web/src/logins-section.tsx:91`.
-- Decision 0033 says every result constituent is editable. Some connecting words, size descriptions, and ranges are fixed code. See `packages/independum/src/tools/create-edit-tool.ts:649`, `packages/independum/src/tools/file-fingerprint.ts:218`, and `packages/independum/src/tools/create-write-tool.ts:253`.
+- Decision 0011 says the provider list shows login provenance. The API returns `source`, but the UI does not display it. See `packages/independum/src/create-login-routes.ts:37` and `packages/web/src/logins-section.tsx:91`.
+- Decision 0033 says every result constituent is editable. Some connecting words, size descriptions, and ranges are fixed code. See `packages/independum/src/tools/create-edit-tool.ts:649`, `packages/independum/src/tools/version-of.ts:218`, and `packages/independum/src/tools/create-write-tool.ts:253`.
 - Decision 0034 promises a check against each whole Pi text. The test checks fixed fragments anywhere in combined Pi code. See `packages/independum/src/pi-texts.test.ts:38` and `packages/independum/src/pi-texts.ts:314`.

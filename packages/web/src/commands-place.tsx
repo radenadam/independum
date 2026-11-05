@@ -22,10 +22,10 @@ interface CommandsPlaceProps {
   onShow: (id: string) => void;
 }
 
+// A command opens here, with what it ran and printed, and a way to its step in the chat.
 /**
  * Draws the commands of the open chat: the ones under way on top, where each running one has a
- * button that stops it alone, and the earlier ones below, newest first. A command opens here, with
- * what it ran and printed, and a way to its step in the chat.
+ * button that stops it alone, and the earlier ones below, newest first.
  */
 export function CommandsPlace({
   commands,

@@ -13,10 +13,7 @@ export function streamEvents<StreamedEvent>(
 ): Response {
   return streamSSE(context, async (stream) => {
     let writing = Promise.resolve();
-    let finish = (): void => undefined;
-    const finished = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
+    const { promise: finished, resolve: finish } = Promise.withResolvers<void>();
     function send(event: StreamedEvent): void {
       writing = writing.then(() => stream.writeSSE({ data: JSON.stringify(event) }));
       if (isLast(event)) {

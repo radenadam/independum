@@ -70,7 +70,7 @@ export function ChatMessages({
     if (seen.current?.chatId !== chatId) {
       seen.current = { chatId, userCount };
       isAnchored.current = false;
-      spacerElement.style.height = "0px";
+      spacerElement.style.setProperty("--spacer-height", "0px");
       scrollerElement.scrollTop = scrollerElement.scrollHeight;
       return;
     }
@@ -442,7 +442,7 @@ function fitSpacer(
       ? 0
       : Math.max(0, scroller.clientHeight - (spacer.offsetTop - anchor.offsetTop) - topGap);
   if (Math.abs(nextHeight - spacer.offsetHeight) > 1) {
-    spacer.style.height = `${nextHeight}px`;
+    spacer.style.setProperty("--spacer-height", `${nextHeight}px`);
   }
   return anchor;
 }

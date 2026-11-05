@@ -14,8 +14,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ChatEvent } from "./api-types.ts";
-import { createChatRoutes } from "./chat-routes.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
+import { createChatRoutes } from "./create-chat-routes.ts";
 import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
@@ -47,7 +47,7 @@ interface SessionDouble {
   setStreaming(message: AgentSession["agent"]["state"]["streamingMessage"]): void;
 }
 
-const cwd = process.cwd();
+const launchFolder = process.cwd();
 const folder = createTestFolder("chat");
 const directory = join(folder, "state");
 const model = { provider: "faux", id: "chosen" };
@@ -112,11 +112,11 @@ function createSession(manager: SessionManager, settingsManager: SettingsManager
   };
 }
 
-function savedChat(manager: SessionManager = SessionManager.inMemory(cwd)): SessionInfo {
+function savedChat(manager: SessionManager = SessionManager.inMemory(launchFolder)): SessionInfo {
   const info: SessionInfo = {
     id: manager.getSessionId(),
     path: join(directory, `${manager.getSessionId()}.jsonl`),
-    cwd,
+    cwd: launchFolder,
     created: new Date(),
     modified: new Date(),
     firstMessage: "A saved chat",
@@ -168,7 +168,9 @@ beforeEach(() => {
   };
   vi.mocked(createSavedChats).mockResolvedValue(savedChats);
   vi.spyOn(DefaultResourceLoader.prototype, "reload").mockResolvedValue(undefined);
-  vi.spyOn(SessionManager, "create").mockImplementation(() => SessionManager.inMemory(cwd));
+  vi.spyOn(SessionManager, "create").mockImplementation(() =>
+    SessionManager.inMemory(launchFolder),
+  );
   vi.spyOn(SessionManager, "open").mockImplementation((path) => {
     const manager = managers.get(path);
     if (manager === undefined) {
@@ -180,7 +182,7 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(async (options) => {
       const double = createSession(
-        options?.sessionManager ?? SessionManager.inMemory(cwd),
+        options?.sessionManager ?? SessionManager.inMemory(launchFolder),
         options?.settingsManager ?? SettingsManager.inMemory(),
       );
       sessions.push(double);
@@ -191,7 +193,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 test("concurrent opens share one saved session and keep its reply tracked", async () => {
-  const chat = await createChat({ models, directory, cwd });
+  const chat = await createChat({ models, directory, folder: launchFolder });
   const info = savedChat();
   const loading = Promise.withResolvers<void>();
   const loaded = Promise.withResolvers<void>();
@@ -213,7 +215,7 @@ test("concurrent opens share one saved session and keep its reply tracked", asyn
 });
 
 test("a failed saved open can be retried", async () => {
-  const chat = await createChat({ models, directory, cwd });
+  const chat = await createChat({ models, directory, folder: launchFolder });
   const info = savedChat();
   vi.mocked(createAgentSession).mockRejectedValueOnce(new Error("The session cannot load."));
   await expect(chat.open(info.id)).rejects.toThrow("The session cannot load.");
@@ -221,7 +223,7 @@ test("a failed saved open can be retried", async () => {
 });
 
 test("a model choice stays with its chat when another chat opens before it finishes", async () => {
-  const chat = await createChat({ models, directory, cwd });
+  const chat = await createChat({ models, directory, folder: launchFolder });
   const opened = await openTestChat(chat);
   const original = sessionAt(-1);
   original.emit({ type: "agent_start" });
@@ -237,7 +239,7 @@ test("a model choice stays with its chat when another chat opens before it finis
 });
 
 test("reconnecting and changing effort restore every part of the reply so far", async () => {
-  const chat = await createChat({ models, directory, cwd });
+  const chat = await createChat({ models, directory, folder: launchFolder });
   const opened = await openTestChat(chat);
   await opened.chooseModel("faux", "chosen");
   const active = sessionAt(-1);
@@ -269,7 +271,7 @@ test("reconnecting and changing effort restore every part of the reply so far", 
 });
 
 test("a foreground tool keeps its start and latest progress while its chat is closed", async () => {
-  const chat = await createChat({ models, directory, cwd });
+  const chat = await createChat({ models, directory, folder: launchFolder });
   let opened = await openTestChat(chat);
   const active = sessionAt(-1);
   active.emit({ type: "agent_start" });
@@ -323,7 +325,11 @@ async function setup() {
     commands.push({ options, finish: () => running.resolve(stopped) });
     return running.promise;
   });
-  const chat = await createChat({ models, directory: join(folder, randomUUID()), cwd });
+  const chat = await createChat({
+    models,
+    directory: join(folder, randomUUID()),
+    folder: launchFolder,
+  });
   const opened = await openTestChat(chat);
   const tool = vi.mocked(createShellTool).mock.results.at(-1)?.value as ToolDefinition;
   function start(opened: OpenChat, id: string): ReturnType<ToolDefinition["execute"]> {
@@ -336,7 +342,7 @@ async function setup() {
       savedChat(active.session.sessionManager);
     }
     const context = {
-      cwd,
+      cwd: launchFolder,
       sessionManager: { getSessionId: () => chatId },
     } as unknown as Parameters<ToolDefinition["execute"]>[4];
     const running = tool.execute(id, { command: "long command" }, undefined, undefined, context);

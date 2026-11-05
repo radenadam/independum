@@ -16,9 +16,10 @@ interface ModelMenuProps {
   onManageLogins: () => void;
 }
 
+// With no login yet, it offers to add one in place of models.
 /**
- * Draws a search field, the models of every provider with a login, grouped by provider, and the
- * thinking effort of the current model. With no login yet, it offers to add one in place of models.
+ * Draws a search field, the models of every provider with a login, grouped by provider, and
+ * the thinking effort of the current model.
  */
 export function ModelMenu({
   models,

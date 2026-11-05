@@ -11,11 +11,9 @@ interface PiTextListProps {
   texts: PiTextSummary[];
 }
 
-/**
- * Draws every text that Pi can send to the model, grouped by where the model gets it. Each one says
- * when Pi sends it and opens to its exact text and its slots, and a mark shows the texts in the
- * last request.
- */
+// Each one says when Pi sends it and opens to its exact text and its slots, and a mark shows
+// the texts in the last request.
+/** Draws every text that Pi can send to the model, grouped by where the model gets it. */
 export function PiTextList({ texts }: PiTextListProps): ReactElement {
   const groups = [...new Set(texts.map((text) => text.group))];
   return (

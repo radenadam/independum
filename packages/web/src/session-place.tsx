@@ -55,11 +55,12 @@ interface View {
 const splitWidth = 720;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
+// Each part opens to its detail, which edits the texts that the model reads where Independum
+// writes them.
 /**
- * Draws everything the open chat runs with: its model and its folder, its use of tokens, and its
- * context, which is the context window and what fills it, the instructions and tools, and every
- * request of its conversation. Each part opens to its detail, which edits the texts that the model
- * reads where Independum writes them.
+ * Draws everything the open chat runs with: its model and its folder, its use of tokens, and
+ * its context, which is the context window and what fills it, the instructions and tools, and
+ * every request of its conversation.
  */
 export function SessionPlace({
   chat,
@@ -454,8 +455,9 @@ interface RequestProps {
 
 // The newest request is the one the chat sent last, so it shows the request exactly as it went.
 function Request({ title, request, context, models }: RequestProps): ReactElement {
-  const entryOf = (id: string): string =>
-    JSON.stringify(context.entries.find((entry) => entry.id === id)?.data ?? null, null, 2);
+  function entryOf(id: string): string {
+    return JSON.stringify(context.entries.find((entry) => entry.id === id)?.data ?? null, null, 2);
+  }
   const isNewest = context.requests.at(-1)?.id === request.id;
   function sentOf(id: string): string | undefined {
     const parts = isNewest

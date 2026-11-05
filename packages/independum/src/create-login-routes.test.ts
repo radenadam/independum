@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, expect, test } from "vitest";
 import type { LoginEvent, ProviderSummary } from "./api-types.ts";
+import { createLoginRoutes } from "./create-login-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { followEventStream } from "./follow-event-stream.ts";
-import { createLoginRoutes } from "./login-routes.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
 afterAll(() => rmSync(directory, { recursive: true, force: true }));

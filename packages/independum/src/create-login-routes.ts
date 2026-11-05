@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { Hono } from "hono";
 import type { LoginEvent, LoginMethod, ProviderSummary } from "./api-types.ts";
-import { type LoginOptions, type LoginSession, startLoginSession } from "./login-session.ts";
+import { type LoginOptions, type LoginSession, startLoginSession } from "./start-login-session.ts";
 import { streamEvents } from "./stream-events.ts";
 
 const loginMethods: LoginMethod[] = ["apiKey", "account"];

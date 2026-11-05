@@ -32,7 +32,7 @@ function codeOf(folder: string): string[] {
 
 const code = packages.flatMap((folder) => codeOf(join(folder, "dist"))).join("\n");
 
-test("every text of Pi in the list is still in the code of the installed Pi", () => {
+test("every text of pi in the list is still in the code of the installed pi", () => {
   for (const text of piTexts) {
     const missing = fixedPartsOf(text.text).filter(
       (part) => part.length >= 6 && !code.includes(part),
@@ -41,7 +41,7 @@ test("every text of Pi in the list is still in the code of the installed Pi", ()
   }
 });
 
-test("a text of Pi is marked when the last request holds it", () => {
+test("a text of pi is marked when the last request holds it", () => {
   const request = {
     messages: [
       { role: "tool", content: "Tool Read not found" },

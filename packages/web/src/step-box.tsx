@@ -28,11 +28,12 @@ interface StepBoxProps {
   children: ReactNode;
 }
 
+// The box stays open while the step is under way and shows its latest lines, and folds once
+// the step ends, unless the user opens or closes it. Asked to show itself, it opens and comes
+// into view.
 /**
- * Draws one step of the agent, such as thinking or a call to a tool, in a box set apart from the
- * reply. The box stays open while the step is under way and shows its latest lines, and folds once
- * the step ends, unless the user opens or closes it. Asked to show itself, it opens and comes into
- * view.
+ * Draws one step of the agent, such as thinking or a call to a tool, in a box set apart from
+ * the reply.
  */
 export function StepBox({
   leading,

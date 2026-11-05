@@ -25,9 +25,10 @@ const gap = 6;
 // A tooltip below an element this close to the bottom of the window would leave it, so it shows above.
 const roomBelow = 120;
 
+// The tooltip sits on the page, so no clipped parent cuts it.
 /**
- * Shows a text in a tooltip while a mouse rests on an element or the keyboard focuses it, and shows
- * nothing while the text is undefined. The tooltip sits on the page, so no clipped parent cuts it.
+ * Shows a text in a tooltip while a mouse rests on an element or the keyboard focuses it, and
+ * shows nothing while the text is undefined.
  */
 export function useTooltip(text: string | undefined): Tooltip {
   const [place, setPlace] = useState<CSSProperties | undefined>();

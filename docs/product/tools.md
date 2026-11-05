@@ -18,7 +18,7 @@ Read, Write, and Edit save SHA-256 file fingerprints in their result details on 
 
 ## Read
 
-Source: [create-read-tool.ts](../../packages/independum/src/tools/create-read-tool.ts), [text-file.ts](../../packages/independum/src/tools/text-file.ts), and [file-fingerprint.ts](../../packages/independum/src/tools/file-fingerprint.ts).
+Source: [create-read-tool.ts](../../packages/independum/src/tools/create-read-tool.ts), [text-file.ts](../../packages/independum/src/tools/text-file.ts), and [version-of.ts](../../packages/independum/src/tools/version-of.ts).
 
 Parameters are required nonempty `path`, and optional positive integers `offset`, `limit`, `column`, and `length`. Offset defaults to line one and column to position one. Limit counts lines, and length counts returned text characters without line breaks or number prefixes. The starting column applies only to the first line.
 

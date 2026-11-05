@@ -34,12 +34,13 @@ const kinds: FigureKind[] = ["instructions", "tools", "summary", "messages"];
 const pinKey = "independum.windowPinned";
 const numberFormat = new Intl.NumberFormat();
 
+// The bar and its caption stay at the top of the overview while the rest scrolls under them,
+// until the user lets them go, and a legend follows. The figure mirrors the list of parts
+// under it, which every keyboard and screen reader reaches, so it answers only the pointer.
 /**
- * Draws a context window and what fills it as a zoom bar: a thin bar is the window, and its part in
- * use opens below it to the full width, with each part in the color of what it holds, in the order the
- * model reads it. The bar and its caption stay at the top of the overview while the rest scrolls under
- * them, until the user lets them go, and a legend follows. The figure mirrors the list of parts under
- * it, which every keyboard and screen reader reaches, so it answers only the pointer.
+ * Draws a context window and what fills it as a zoom bar: a thin bar is the window, and its
+ * part in use opens below it to the full width, with each part in the color of what it holds,
+ * in the order the model reads it.
  */
 export function WindowFigure({
   parts,

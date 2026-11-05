@@ -6,7 +6,7 @@ import { Icon } from "./icon.tsx";
 import { StepBox } from "./step-box.tsx";
 import styles from "./tool-call-body.module.css";
 import { ToolCallBody } from "./tool-call-body.tsx";
-import { toolIconOf } from "./tool-icon.ts";
+import { toolIconOf } from "./tool-icon-of.ts";
 import { useDescribedCall } from "./use-described-call.ts";
 
 /** What the chat knows about the calls to tools, and what the user can do with them. */
@@ -25,9 +25,10 @@ interface ToolStepProps {
   isReplying: boolean;
 }
 
+// A running command has a button that stops it alone.
 /**
- * Draws a call to a tool as a step: what the call is for and how it is going or how it ended, and
- * inside it what went in and what came back. A running command has a button that stops it alone.
+ * Draws a call to a tool as a step: what the call is for and how it is going or how it ended,
+ * and inside it what went in and what came back.
  */
 export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactElement {
   const isUnderWay = part.result === null && isReplying;

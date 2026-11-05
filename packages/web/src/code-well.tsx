@@ -9,10 +9,9 @@ interface CodeWellProps {
   isWhole?: boolean;
 }
 
-/**
- * Draws code in a well with a button in its corner that copies it. A long code scrolls in the well,
- * or, when the well shows it whole, the place around it scrolls.
- */
+// A long code scrolls in the well, or, when the well shows it whole, the place around it
+// scrolls.
+/** Draws code in a well with a button in its corner that copies it. */
 export function CodeWell({ code, copyLabel, isWhole = false }: CodeWellProps): ReactElement {
   return (
     <div className={styles.well}>

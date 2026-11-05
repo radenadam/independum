@@ -59,7 +59,7 @@ export async function startPreview(options: {
             { stopReason: "toolUse" },
           );
     }
-    const chat = await createChat({ models, directory, cwd: project });
+    const chat = await createChat({ models, directory, folder: project });
     stop = stopChat;
     async function stopChat(): Promise<void> {
       await chat.stopAll();
