@@ -72,6 +72,9 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
   let ending: RunEnd["ending"] = "exited";
   let stopping: Promise<void> | undefined;
   function stop(reason: RunEnd["ending"]): void {
+    if (stopping !== undefined) {
+      return;
+    }
     ending = reason;
     stopping = endTree(child, job);
   }
@@ -149,15 +152,12 @@ async function endTree(child: ChildProcess, job: WindowsJob | undefined): Promis
     job?.end();
     return;
   }
-  if (!isShellRunning) {
+  if (pid === undefined) {
     return;
   }
   signalGroup(pid, "SIGTERM");
-  setTimeout(() => {
-    if (child.exitCode === null) {
-      signalGroup(pid, "SIGKILL");
-    }
-  }, killDelay).unref();
+  await new Promise<void>((resolve) => setTimeout(resolve, killDelay));
+  signalGroup(pid, "SIGKILL");
 }
 
 function killTree(pid: number): Promise<void> {

@@ -10,7 +10,7 @@ A command of the Shell tool blocks the reply until it ends, so a server or a wat
 ## Decision
 
 - Shell takes an optional `background`. The call returns at once with the id of the command, a number from 1, and the path of the file that receives its output, and the command runs on. The parameter says so in facts, and that a new turn starts when the command ends.
-- StopCommand is a tool of its own. It takes the `id` of a background command and stops it with every program that it started, and its result says how the command ended. A tool of its own keeps one job per tool, and keeps `command` required in Shell.
+- StopCommand is a tool of its own. It takes the `id` of a background command of its chat and stops it with every program that it started, and its result says how the command ended. An id from another chat fails. A tool of its own keeps one job per tool, and keeps `command` required in Shell.
 - When a background command ends, Independum adds a note to its chat: how it ended, where its whole output is, and its last 20 lines. The note wakes the agent, which starts a turn by itself, or reaches the agent at the next step when a reply is under way. The note shows in the chat as a step that holds the exact text that the model read.
 - A command that StopCommand ends gets no note, because the result of StopCommand already says how it ended. A command that the user stops gets a note that says so.
 - A background command keeps running while the user opens other chats. When it ends, a chat that is not open keeps the note for its next turn. Every background command ends when Independum quits.

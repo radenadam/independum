@@ -51,8 +51,8 @@ export function createStopCommandTool(
         id: Type.Integer({ minimum: 1, description: texts.get(stopCommandTexts.id) }),
       });
     },
-    async execute(_toolCallId, { id }) {
-      const ended = await background.stopByModel(id);
+    async execute(_toolCallId, { id }, _signal, _onUpdate, context) {
+      const ended = await background.stopByModel(context.sessionManager.getSessionId(), id);
       if (ended === undefined) {
         throw new Error(texts.fill(stopCommandTexts.notRunning, { id }));
       }

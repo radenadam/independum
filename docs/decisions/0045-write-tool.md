@@ -13,7 +13,7 @@ A tool that writes a whole file can erase what the model never saw, such as a fi
 - Replacing a file that this chat has not seen fails once with the facts, such as `src/app.ts already exists, with 812 lines, and this chat has not seen it.` Replacing a file that changed since the chat last saw it fails once with the lines that differ now, and how many lines it has, from the fingerprints of decision 0043. Each refusal keeps the fingerprint of the file as it is, so it counts as seeing it, and the same call again goes through. A read of any part of a file, a write, or an edit counts as seeing it too.
 - A replaced file keeps its encoding and its byte order mark, and the new content takes the line break that the file uses most. A binary file that is replaced becomes UTF-8.
 - The result names the file and how many lines it has now, and names the first folder that Write made. A path that is a folder fails.
-- Write uses the queue of Pi for the file, like Read and Edit, so calls on one file run in the order of the reply.
+- Write uses the queue of Pi for the file, like Read and Edit, so calls on one file run in the order of the reply. A write that waits in the queue when the reply stops leaves the file unchanged.
 - The step of a new file shows its content with `New, 40 lines` as its status. The step of a replaced file shows its diff, which its details keep, so a later undo can turn the file back. Write has its own icon, drawn to `docs/icons.md`, and every text of Write is a model text.
 
 ## Consequences

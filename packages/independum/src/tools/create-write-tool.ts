@@ -137,15 +137,18 @@ export function createWriteTool(texts: ModelTexts): ToolDefinition {
         content: Type.String({ description: texts.get(writeTexts.content) }),
       });
     },
-    async execute(_toolCallId, { path, content }, _signal, _onUpdate, context) {
+    async execute(_toolCallId, { path, content }, signal, _onUpdate, context) {
       const file = resolve(context.cwd, path);
       checkNotFolder(file, path, texts);
       return withFileMutationQueue(file, async () => {
+        signal?.throwIfAborted();
         const existing = await readExisting(file);
+        signal?.throwIfAborted();
         if (existing === undefined) {
           const madeFolder = await mkdir(dirname(file), { recursive: true });
           // A new file gets the content exactly as the model sent it.
           const bytes = Buffer.from(content, "utf8");
+          signal?.throwIfAborted();
           await writeFile(file, bytes);
           const lines = splitLines(content);
           const { fingerprint } = versionOf(context, file, bytes, lines, path, texts);
@@ -190,6 +193,7 @@ export function createWriteTool(texts: ModelTexts): ToolDefinition {
           decoded === undefined ? wanted : wanted.replaceAll("\n", lineBreakOf(decoded.text));
         const written =
           decoded === undefined ? Buffer.from(text, "utf8") : encodeText(text, decoded);
+        signal?.throwIfAborted();
         await writeFile(file, written);
         const writtenLines = splitLines(wanted);
         const { fingerprint } = versionOf(context, file, written, writtenLines, path, texts);
