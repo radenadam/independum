@@ -14,7 +14,7 @@
     },
     {
       "drag": {
-        "on": "document.querySelector('input[aria-label=\"Thinking effort\"]').nextElementSibling",
+        "on": "(() => { const box = document.querySelector('input[aria-label=\"Thinking effort\"]').nextElementSibling.getBoundingClientRect(); return [box.left + box.width / 2, box.top + box.height / 2]; })()",
         "by": [400, 0]
       }
     },

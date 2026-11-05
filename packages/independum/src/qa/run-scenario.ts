@@ -128,7 +128,7 @@ export async function runScenario(
 
   async function pointOf(expression: string): Promise<[number, number]> {
     const point = await evaluate(
-      `(() => { const element = (${expression}); if (Array.isArray(element)) return element; if (!element) throw new Error('The target does not exist.'); const box = element.getBoundingClientRect(); if (!box.width || !box.height) throw new Error('The target has no visible size.'); return [box.left + box.width / 2, box.top + box.height / 2]; })()`,
+      `(() => { const element = (${expression}); if (Array.isArray(element)) return element; if (!element) throw new Error('The target does not exist.'); element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }); const box = element.getBoundingClientRect(); if (!box.width || !box.height) throw new Error('The target has no visible size.'); const x = box.left + box.width / 2; const y = box.top + box.height / 2; const hit = document.elementFromPoint(x, y); if (hit === null || !element.contains(hit)) throw new Error('Another element covers the target.'); return [x, y]; })()`,
     );
     if (
       !Array.isArray(point) ||
