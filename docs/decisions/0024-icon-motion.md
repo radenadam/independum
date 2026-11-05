@@ -1,6 +1,6 @@
 # Icon motion
 
-- Status: accepted, and amended by [decision 0049](0049-turning-raven.md), which turns the raven beside thinking instead of letting it breathe
+- Status: accepted, and amended by [decision 0049](0049-turning-raven.md), which turns the raven beside thinking instead of letting it breathe, and by [decision 0053](0053-documented-behavior-and-limits.md), which records timing exceptions in the icon specification
 - Date: 2026-10-27
 
 ## Context

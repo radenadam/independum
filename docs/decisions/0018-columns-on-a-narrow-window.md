@@ -1,6 +1,6 @@
 # Columns on a narrow window
 
-- Status: superseded by [decision 0025](0025-resizable-columns.md)
+- Status: superseded by [decision 0025](0025-resizable-columns.md), and amended by [decision 0053](0053-documented-behavior-and-limits.md), which replaces sliding titles with tooltips
 - Date: 2026-10-26
 
 ## Context

@@ -83,9 +83,9 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 - Files and folders are kebab-case, including React components, for example `chat-panel.tsx`.
 - A file that exports one function or component is named after it. For example, `run-check.ts` exports `runCheck`.
-- Types, interfaces, classes, and React components are PascalCase. Everything else is camelCase, constants included.
+- Types, interfaces, classes, and React components are PascalCase. Everything else is camelCase, constants included. Fixed names in external APIs and the model-facing parameters of Edit, `old_string`, `new_string`, and `replace_all`, keep their required spelling.
 - Acronyms are words, for example `httpServer` and `HtmlView`.
-- Use full words, such as `context`, `request`, `response`, `error`, and `message`. The only abbreviations are `id`, `url`, `api`, `ui`, and `html`.
+- Use full words, such as `context`, `request`, `response`, `error`, and `message`. The only abbreviations are `id`, `url`, `api`, `ui`, and `html`. Unit suffixes such as `Ms` in `timeoutMs` and `workdir` in Shell are exceptions because they name the unit or a fixed tool parameter.
 - Booleans read as yes-or-no questions, for example `isEnabled` and `hasTools`.
 - Names for Independum concepts come from `docs/glossary.md`. A change that introduces a concept adds it there.
 - Vague names such as `utils`, `helpers`, `common`, `shared`, `misc`, and `lib` are not allowed. Name things after what they hold.
@@ -116,7 +116,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 ## Security
 
-- Every API route sits under `/api/`, where the server requires the access token and accepts requests only from its own address and origin. See decision 0005.
+- Every API route sits under `/api/`, where the server requires the access token and its own address, and rejects an origin other than its own when the request supplies one. See decision 0005.
 - The server listens on `127.0.0.1` only until network access and phone pairing exist.
 - Never read, print, copy, or edit `~/.independum/auth.json`, `~/.independum/models.json`, or any `.env` file. They hold credentials, and their contents must stay out of every conversation.
 - Read chats in `~/.independum/sessions` whenever the work needs them, and test with real models through the app, which saves its chats there like any other. Never change a chat file by hand, because Pi owns its format.
@@ -169,8 +169,8 @@ To review a Pi update with the maintainer:
 - Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - The focus ring reaches 5 pixels outside a control. A container that clips keeps that much room inside its edges, or a control too small for the ring shows its focus another way, such as the color it takes when pointed at.
-- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
-- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
+- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration. Selected, active, and error text and the thinking mark may use `--signal`, and text on a filled signal button uses `--on-signal`.
+- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion. JavaScript motion checks `prefersReducedMotion()` instead of a media query.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
 - A class that composes a class of another file never sets a property that the other sets, because the page can load the other file after it, and then the other wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
 - `pnpm check` enforces the token, motion, and composes rules through `scripts/check-styles.ts`.
@@ -181,7 +181,7 @@ To review a Pi update with the maintainer:
 - A comment explains what the code cannot: why a choice was made, an outside constraint, or a trap.
 - A comment is one or more complete sentences in plain present tense and neutral voice. It starts with a capital letter, ends with a period, and never uses "we", "you", or "I".
 - Comments go on their own line, above the code they explain.
-- Line comments use `//`. Block comments are only for doc comments.
+- Line comments use `//`. Block comments are only for doc comments. Stylesheets use block comments because CSS has no line comments.
 - A doc comment is one sentence. It starts with a verb for a function and a noun phrase for a type. Doc comments have no tags such as `@param`, because types already document parameters and return values.
 - Never write commented-out code, change history such as "Changed X to Y", restatements of the code, or decorative separators.
 - `pnpm check` enforces the format, and `scripts/check-comments.ts` holds the exact rules.
