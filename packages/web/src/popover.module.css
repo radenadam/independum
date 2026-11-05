@@ -31,22 +31,22 @@
   color: var(--muted);
 }
 
-/* A pop-up beside its button sits centered on it, moved by the shift that keeps it on the screen. */
+/* A pop-up keeps the position where it opens, even when its button changes width. */
 .above,
 .below {
-  left: 50%;
-  translate: calc(var(--shift, 0px) - 50%) 0;
+  position: fixed;
+  left: var(--left);
 }
 
 /* A pop-up beside its button grows up to the room that it measures toward the edge of the window. */
 .above {
-  bottom: calc(100% + 8px);
+  bottom: var(--bottom);
   max-height: min(420px, var(--room, 55dvh));
   transform-origin: bottom center;
 }
 
 .below {
-  top: calc(100% + 6px);
+  top: var(--top);
   max-height: min(420px, var(--room, 40dvh));
   transform-origin: top center;
 }

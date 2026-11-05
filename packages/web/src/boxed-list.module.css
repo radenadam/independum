@@ -50,6 +50,14 @@
   gap: 8px;
 }
 
+@media (hover: none) {
+  .list[data-long-names="true"] .name,
+  .list[data-long-names="true"] .detail {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* A narrow list has no room for the controls beside a long name, so they move below it. */
 @container (max-width: 420px) {
   .list[data-long-names="true"] .entry {

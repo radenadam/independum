@@ -25,13 +25,15 @@ const gap = 6;
 // A tooltip below an element this close to the bottom of the window would leave it, so it shows above.
 const roomBelow = 120;
 
-// The tooltip sits on the page, so no clipped parent cuts it.
+// The tooltip sits in the dialog of its element, or else on the page, so no clipped parent cuts it
+// and a modal dialog never covers it.
 /**
  * Shows a text in a tooltip while a mouse rests on an element or the keyboard focuses it, and
  * shows nothing while the text is undefined.
  */
 export function useTooltip(text: string | undefined): Tooltip {
   const [place, setPlace] = useState<CSSProperties | undefined>();
+  const [container, setContainer] = useState<Element | undefined>();
 
   // The tooltip grows away from the nearer side of the window, so it stays inside without measuring.
   function show(element: HTMLElement): void {
@@ -39,6 +41,7 @@ export function useTooltip(text: string | undefined): Tooltip {
       return;
     }
     const box = element.getBoundingClientRect();
+    setContainer(element.closest("dialog") ?? document.body);
     const across =
       box.left < window.innerWidth / 2
         ? { "--left": `${Math.max(edge, box.left)}px` }
@@ -76,13 +79,13 @@ export function useTooltip(text: string | undefined): Tooltip {
       onBlur: hide,
     },
     tooltip:
-      place === undefined || text === undefined
+      place === undefined || text === undefined || container === undefined
         ? null
         : createPortal(
             <span className={styles.floating} role="tooltip" style={place}>
               {text}
             </span>,
-            document.body,
+            container,
           ),
   };
 }

@@ -59,7 +59,7 @@
   font-weight: 600;
 }
 
-/* On a phone, the settings cover the screen, and the sections sit in a row along the top. */
+/* On a phone, the settings cover the screen, and the sections wrap along the top. */
 @media (max-width: 760px) {
   .frame {
     flex-direction: column;
@@ -68,14 +68,14 @@
   .nav {
     width: auto;
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     padding: 8px;
-    overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
-  /* Each section keeps its name on one line, and the row scrolls when the names outgrow it. */
+  /* Each section keeps its name on one line. */
   .title,
   .section {
     flex: none;
@@ -83,6 +83,7 @@
   }
 
   .title {
+    width: 100%;
     padding: 0 6px;
   }
 

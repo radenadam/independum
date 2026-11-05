@@ -89,7 +89,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
                 key: provider.id,
                 name: provider.name,
                 detail: provider.login === null ? methodsOf(provider) : "connected",
-                logo: <ProviderLogo providerId={provider.id} size={18} keepsSpace />,
+                logo: <ProviderLogo providerId={provider.id} size={18} />,
                 isCurrent: false,
                 onChoose: () => setView({ kind: "provider", providerId: provider.id }),
               })),
@@ -116,7 +116,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
             provider.login?.method === "account"
               ? (provider.account?.label ?? "Account")
               : "API key",
-          leading: <ProviderLogo providerId={provider.id} size={20} keepsSpace />,
+          leading: <ProviderLogo providerId={provider.id} size={20} />,
           trailing: (
             <>
               <span className={styles.connected}>connected</span>

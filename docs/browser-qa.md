@@ -27,13 +27,14 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | Command | Checks |
 | --- | --- |
 | `pnpm qa welcome` | The welcome screen and looking around without a login. |
-| `pnpm qa message` | Sending a message, thinking, tool steps, and the completed reply. |
+| `pnpm qa message` | Keyboard focus, sending a message, thinking, tool steps, and the completed reply. |
 | `pnpm qa switch-chats` | Opening another chat while the original reply finishes in the background, and preserving independent chat ids through the URL and API. |
-| `pnpm qa model-menu` | The model search and changing thinking effort while the menu stays open. |
-| `pnpm qa session` | The side panel, Session place, and its conversation. |
-| `pnpm qa compacted` | A saved compaction and its summary. |
-| `pnpm qa settings` | Logins and appearance. |
-| `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and its settings. |
+| `pnpm qa model-menu` | The model search and changing thinking effort while the menu keeps its opening position. |
+| `pnpm qa session` | The side panel, Session place, its conversation, and a wide panel after window resizing. |
+| `pnpm qa compacted` | A saved compaction, its summary, and keeping the chat end in view when the panel opens. |
+| `pnpm qa settings` | Logins, missing provider logos, and appearance. |
+| `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |
+| `pnpm qa archived` | Archived title tooltips inside Settings and full titles on a 360 pixel touch screen in both themes. |
 
 `pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, or `compacted`.
 
