@@ -18,7 +18,8 @@ export const columnWidths: Record<Column, WidthRange> = {
   overview: { initial: 380, least: 300, most: 600 },
 };
 
-/** The narrowest the chat gets between the columns, so it stays readable. See decision 0018. */
+// See decision 0018.
+/** The narrowest the chat gets between the columns, so it stays readable. */
 export const chatWidth = 480;
 
 /** The narrowest the detail beside the overview of Session gets, so a tool card still fits. */

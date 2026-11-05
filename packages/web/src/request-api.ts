@@ -1,4 +1,4 @@
-import { readAccessToken } from "./access-token.ts";
+import { readAccessToken } from "./read-access-token.ts";
 
 /** How to send an API request, when it is more than a plain read. */
 interface RequestOptions {

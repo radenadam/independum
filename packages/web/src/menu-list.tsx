@@ -37,10 +37,8 @@ interface MenuListProps {
   emptyNote: string;
 }
 
-/**
- * Draws the choices of a pop-up in groups, with the current choice checked. A name or a detail too
- * long for its row slides into view while the row is hovered.
- */
+// A name or a detail too long for its row slides into view while the row is hovered.
+/** Draws the choices of a pop-up in groups, with the current choice checked. */
 export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
   const list = useRef<HTMLDivElement>(null);
   const [gutter, setGutter] = useState(0);

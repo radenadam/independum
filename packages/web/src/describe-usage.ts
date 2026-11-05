@@ -2,10 +2,10 @@ import type { ContextSummary } from "independum/api-types";
 
 const numberFormat = new Intl.NumberFormat();
 
+// Pi counts the use after a reply, and knows the window once a model is chosen.
 /**
  * Returns how much of its context window the open chat uses and how big the window is, such as
- * 0.3%, 374 of 272,000 tokens. Pi counts the use after a reply, and knows the window once a model
- * is chosen.
+ * 0.3%, 374 of 272,000 tokens.
  */
 export function describeUsage(context: ContextSummary | undefined): string {
   const tokens = context?.contextTokens ?? null;

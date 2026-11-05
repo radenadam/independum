@@ -19,9 +19,10 @@ interface Named {
 // Starting a shell to ask its version takes a moment, so each one answers once.
 const namesByPath = new Map<string, Named>();
 
+// PowerShell counts from version 7.
 /**
  * Returns the shell of a kind on this computer, or the default kind of the system when none is
- * chosen, or undefined when it is not installed. PowerShell counts from version 7.
+ * chosen, or undefined when it is not installed.
  */
 export function findShell(kind: ShellKind = defaultShellKind()): Shell | undefined {
   const path = kind === "bash" ? findBash() : findPowerShell();

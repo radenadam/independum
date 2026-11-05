@@ -40,6 +40,7 @@ import type {
   ToolSummary,
 } from "./api-types.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
+import { createSavedRequests } from "./create-saved-requests.ts";
 import { builtInSettings, createSettings } from "./create-settings.ts";
 import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
@@ -51,7 +52,6 @@ import {
   summarizeTexts,
 } from "./model-texts.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
-import { createSavedRequests } from "./saved-requests.ts";
 import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
 import {
   type BackgroundEnded,
@@ -67,9 +67,9 @@ import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { createWriteTool, writeTextList } from "./tools/create-write-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
-import { fingerprintTextList } from "./tools/file-fingerprint.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
 import { fileTextList } from "./tools/text-file.ts";
+import { fingerprintTextList } from "./tools/version-of.ts";
 import { envelopeText } from "./wrap-note.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
@@ -150,7 +150,7 @@ const callUpdateInterval = 80;
 export interface ChatOptions {
   models: ModelRuntime;
   directory: string;
-  cwd: string;
+  folder: string;
 }
 
 /** A chat held by an API request, with a separate subscription for each follower. */
@@ -188,10 +188,10 @@ export interface Chat {
 }
 
 /** Keeps independent chat runs and reopens saved chats through Pi. */
-export async function createChat({ models, directory, cwd }: ChatOptions): Promise<Chat> {
+export async function createChat({ models, directory, folder }: ChatOptions): Promise<Chat> {
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
-  const startFolder = toFolder(cwd);
+  const startFolder = toFolder(folder);
   const settings = await createSettings(join(directory, "settings.json"));
   const texts = createModelTexts(() => settings.get().texts);
   let shell = findShell(settings.get().shell ?? undefined);
@@ -799,7 +799,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     hold.run = run;
     applySessionSettings(session);
     const stream = session.agent.streamFunction;
-    session.agent.streamFunction = (requestModel, context, options) => {
+    function streamWithOverrides(
+      ...[requestModel, context, options]: Parameters<typeof stream>
+    ): ReturnType<typeof stream> {
       const overrides =
         settings.get().modelOverrides[requestModel.provider]?.[requestModel.id] ?? {};
       return stream(applyModelOverrides(requestModel, overrides), context, {
@@ -817,7 +819,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
               samplingParams: { ...options?.samplingParams, temperature: overrides.temperature },
             }),
       });
-    };
+    }
+    session.agent.streamFunction = streamWithOverrides;
     session.setActiveToolsByName(activeToolNames(run));
     run.stopFollowing = session.subscribe(followRun(run));
     runs.set(session.sessionId, run);

@@ -188,12 +188,14 @@ function summaryOf(
 ): ModelSummary {
   const images = model.inputLimits?.images;
   const resize = images?.resize;
-  const pricesOf = ({ input, output, cacheRead, cacheWrite }: ModelPrices): ModelPrices => ({
-    input,
-    output,
-    cacheRead,
-    cacheWrite,
-  });
+  function pricesOf({ input, output, cacheRead, cacheWrite }: ModelPrices): ModelPrices {
+    return {
+      input,
+      output,
+      cacheRead,
+      cacheWrite,
+    };
+  }
   return {
     providerId: model.provider,
     providerName,

@@ -10,12 +10,15 @@ export interface SavedRequests {
   remove: (chatId: string) => void;
 }
 
+// Pi does not save requests, only the messages that they hold.
 /**
- * Keeps the last request of each chat in a folder, so a chat shows what it sent last when it opens
- * again. Pi does not save requests, only the messages that they hold.
+ * Keeps the last request of each chat in a folder, so a chat shows what it sent last when it
+ * opens again.
  */
 export function createSavedRequests(folder: string): SavedRequests {
-  const fileOf = (chatId: string): string => join(folder, `${chatId}.json`);
+  function fileOf(chatId: string): string {
+    return join(folder, `${chatId}.json`);
+  }
   return {
     pathOf: fileOf,
     read(chatId) {

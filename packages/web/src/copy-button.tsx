@@ -23,9 +23,10 @@ interface CopyButtonProps {
 // How long the check stays after a copy, before the button turns back.
 const copiedTime = 1500;
 
+// Other ways to copy open from a menu beside it.
 /**
- * Draws a button that copies a text, with its formatting when it has some, and turns into an orange
- * check for a moment. Other ways to copy open from a menu beside it.
+ * Draws a button that copies a text, with its formatting when it has some, and turns into an
+ * orange check for a moment.
  */
 export function CopyButton({
   text,

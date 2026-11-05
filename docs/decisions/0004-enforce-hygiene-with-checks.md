@@ -21,7 +21,8 @@ A rule that a tool can check becomes a check in `pnpm check`. The pre-commit hoo
 | `scripts/check-docs.ts` | Punctuation shortcuts in Markdown. |
 | `scripts/check-characters.ts` | Characters outside printable ASCII in any file. |
 | `scripts/check-layout.ts` | Top-level entries, kebab-case paths, vague names, single-entry folders, file types. |
-| `scripts/check-comments.ts` | Comment placement, format, voice, and punctuation. |
+| `scripts/check-comments.ts` | Comment placement, format, voice, punctuation, and one sentence per doc comment. |
+| `scripts/check-code.ts` | Named function declarations, sole exported function file names, internal folder names, error sentence casing, inline custom properties, test names, and repeated numeric ranges. |
 | `scripts/check-styles.ts` | Color literals outside the theme tokens, and motion outside the reduced motion guard. |
 
 Rules that no tool can check live in `AGENTS.md`. When a case is not covered, the change that decides it adds the rule.

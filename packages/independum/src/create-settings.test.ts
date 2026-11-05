@@ -89,7 +89,7 @@ test("a file edited by hand keeps its valid settings and drops the rest", async 
   });
 });
 
-test("a file with a byte order mark keeps its settings, and a file that is not JSON gives the built-in ones", async () => {
+test("a file with a byte order mark keeps its settings, and a file that is not json gives the built-in ones", async () => {
   const marked = join(folder, "marked.json");
   writeFileSync(marked, `\uFEFF${JSON.stringify({ shell: "bash" })}`);
   expect((await createSettings(marked)).get().shell).toBe("bash");

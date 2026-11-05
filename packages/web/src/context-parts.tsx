@@ -53,10 +53,11 @@ type Pointed = { kind: "part"; key: string } | ConversationPoint;
 
 const numberFormat = new Intl.NumberFormat();
 
+// Pointing at a part, a request, or the latest compaction lights up its parts in the figure
+// and its row under it.
 /**
- * Draws the context of a chat: a figure of the context window and what fills it, the instructions
- * and the tools in one box, and the conversation, newest first. Pointing at a part, a request, or the
- * latest compaction lights up its parts in the figure and its row under it.
+ * Draws the context of a chat: a figure of the context window and what fills it, the
+ * instructions and the tools in one box, and the conversation, newest first.
  */
 export function ContextParts({
   compactionRow,
@@ -83,7 +84,9 @@ export function ContextParts({
   // estimated from its length.
   const estimated = shown.reduce((sum, part) => sum + part.tokens, 0);
   const scale = total === undefined || estimated === 0 ? 1 : total / estimated;
-  const tokensOf = (part: ShownPart): number => Math.max(1, Math.round(part.tokens * scale));
+  function tokensOf(part: ShownPart): number {
+    return Math.max(1, Math.round(part.tokens * scale));
+  }
   const requestOfEntry = new Map(
     requests.flatMap((request) =>
       [...request.inputs.map((input) => input.entryId), request.id].map((id) => [id, request.id]),

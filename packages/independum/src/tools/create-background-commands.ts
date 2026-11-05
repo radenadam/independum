@@ -56,9 +56,10 @@ const endSlots = {
   },
 };
 
+// It shows with the texts of Shell.
 /**
- * The text after how a command ended, in the foreground or in the background, when a program that
- * it started still holds its output. It shows with the texts of Shell.
+ * The text after how a command ended, in the foreground or in the background, when a program
+ * that it started still holds its output.
  */
 export const outputOpenText: ModelText = defineText({
   id: "shell.outputOpen",
@@ -179,11 +180,9 @@ interface BackgroundCommand {
 
 const lastLineCount = 20;
 
-/**
- * Keeps track of the background commands of every chat. They are numbered from 1, so the model can
- * name one, and they keep running while the user opens other chats. An ended one stays, so the
- * model can still check it.
- */
+// They are numbered from 1, so the model can name one, and they keep running while the user
+// opens other chats. An ended one stays, so the model can still check it.
+/** Keeps track of the background commands of every chat. */
 export function createBackgroundCommands({
   onProgress,
   onEnd,

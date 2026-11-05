@@ -6,7 +6,6 @@ import {
   withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import { versionOf } from "./file-fingerprint.ts";
 import {
   decodeText,
   diffOf,
@@ -16,6 +15,7 @@ import {
   pathParameterOf,
   splitLines,
 } from "./text-file.ts";
+import { versionOf } from "./version-of.ts";
 
 /**
  * A text as Edit matches it: its lines joined by line feeds, with where each line starts and how
@@ -133,7 +133,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string is not in the file",
-    builtIn: "old_string is not in {path}.",
+    builtIn: "Old_string is not in {path}.",
     slots: { path: pathSlot },
   }),
   nearMiss: defineText({
@@ -250,7 +250,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string occurs more than once, and neither replace_all nor line is set",
-    builtIn: "old_string occurs {count} times in {path}, at {lines}, and replace_all is not set.",
+    builtIn: "Old_string occurs {count} times in {path}, at {lines}, and replace_all is not set.",
     slots: {
       count: { meaning: "How many times it occurs.", example: "30" },
       path: pathSlot,
@@ -262,7 +262,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string occurs more than once on one line, and column is not set",
-    builtIn: "old_string occurs {count} times on line {line} of {path}, at columns {columns}.",
+    builtIn: "Old_string occurs {count} times on line {line} of {path}, at columns {columns}.",
     slots: {
       count: { meaning: "How many times it occurs on the line.", example: "4" },
       line: lineSlot,
@@ -275,7 +275,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string does not start at the line given",
-    builtIn: "old_string does not start at line {line} of {path}. It starts at {lines}.",
+    builtIn: "Old_string does not start at line {line} of {path}. It starts at {lines}.",
     slots: {
       line: lineSlot,
       path: pathSlot,
@@ -288,7 +288,7 @@ const editTexts = {
     section: "result",
     label: "When old_string does not start at the column given",
     builtIn:
-      "old_string does not start at line {line}, column {column} of {path}. On that line it starts at columns {columns}.",
+      "Old_string does not start at line {line}, column {column} of {path}. On that line it starts at columns {columns}.",
     slots: {
       line: lineSlot,
       column: { meaning: "The column that the model gave.", example: "48" },
@@ -301,7 +301,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When column is set without line",
-    builtIn: "column needs line.",
+    builtIn: "Column needs line.",
     slots: {},
   }),
   replaceAllWithLine: defineText({
@@ -309,7 +309,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When replace_all and line are both set",
-    builtIn: "replace_all and line cannot be used together.",
+    builtIn: "Replace_all and line cannot be used together.",
     slots: {},
   }),
   same: defineText({
@@ -317,7 +317,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string and new_string are the same",
-    builtIn: "old_string and new_string are the same.",
+    builtIn: "Old_string and new_string are the same.",
     slots: {},
   }),
   empty: defineText({
@@ -325,7 +325,7 @@ const editTexts = {
     group,
     section: "result",
     label: "When old_string is empty",
-    builtIn: "old_string is empty.",
+    builtIn: "Old_string is empty.",
     slots: {},
   }),
   notUtf8: defineText({

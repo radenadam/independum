@@ -250,10 +250,10 @@ export interface TextSlot {
   example: string;
 }
 
+// The built-in text that an edit started from shows when Independum has changed it since.
 /**
- * A model text as the user sees and edits it: when the model gets it, the text it has now, and its
- * built-in text. The built-in text that an edit started from shows when Independum has changed it
- * since.
+ * A model text as the user sees and edits it: when the model gets it, the text it has now, and
+ * its built-in text.
  */
 export interface TextSummary {
   id: string;
@@ -341,10 +341,8 @@ export interface Settings {
   texts: Record<string, EditedText>;
 }
 
-/**
- * A change to the settings. Each model text in it gets a new text, or goes back to its built-in
- * text with null.
- */
+// Each model text in it gets a new text, or goes back to its built-in text with null.
+/** A change to the settings. */
 export type SettingsChange = Partial<Omit<Settings, "texts" | "modelOverrides" | "compaction">> & {
   tool?: { name: string; isEnabled: boolean };
   modelOverrides?: Record<string, Record<string, ModelOverrideChange | null>>;

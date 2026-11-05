@@ -4,10 +4,10 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { getRequestListener } from "@hono/node-server";
 import { Hono } from "hono";
 import { createServer as createViteServer } from "vite";
-import { createChatRoutes } from "./chat-routes.ts";
 import type { Chat } from "./create-chat.ts";
+import { createChatRoutes } from "./create-chat-routes.ts";
+import { createLoginRoutes } from "./create-login-routes.ts";
 import { createServer } from "./create-server.ts";
-import { createLoginRoutes } from "./login-routes.ts";
 import { readInstallationId } from "./read-installation-id.ts";
 
 /** Starts the UI and API on one loopback port. */

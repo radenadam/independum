@@ -11,9 +11,10 @@ interface ModalDialogProps {
   children: ReactNode;
 }
 
+// A large dialog can cover the whole screen of a phone.
 /**
  * Draws a dialog over the page while it is open, which keeps the focus inside it and closes on
- * Escape or a click outside it. A large dialog can cover the whole screen of a phone.
+ * Escape or a click outside it.
  */
 export function ModalDialog({
   isOpen,

@@ -16,10 +16,9 @@ interface ThoughtBoxProps {
 
 const thoughtTyping: Typing = { charactersPerSecond: 160, isCatchingUp: true };
 
-/**
- * Draws what the model thought as a step of its own, with the time of all its parts. The box stays
- * open while the model thinks, so the thoughts stream in, and folds away once the model goes on.
- */
+// The box stays open while the model thinks, so the thoughts stream in, and folds away once
+// the model goes on.
+/** Draws what the model thought as a step of its own, with the time of all its parts. */
 export function ThoughtBox({ parts, isLive, isThinking }: ThoughtBoxProps): ReactElement {
   const text = parts
     .map((part) => part.text)
