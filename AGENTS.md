@@ -20,6 +20,7 @@ Every decision about what the model gets follows these, from the system prompt t
 - `docs/standard.md`: how the maintainer judges work, and what an agent decides or asks.
 - `docs/design.md`: how Independum looks, and what each look means.
 - `docs/glossary.md`: the names of Independum concepts.
+- `docs/product`: what each product area does today, with its code and limits.
 - `docs/icons.md`: how every icon is drawn.
 - `docs/decisions`: one record per decision, with its reasons.
 - `docs/roadmap.md`: current work, next work, and open questions.
@@ -41,11 +42,12 @@ Every decision about what the model gets follows these, from the system prompt t
 1. Read `docs/roadmap.md`, `docs/standard.md`, and the decision records that touch the task. Before work that a user sees, also read `docs/design.md`.
 2. If the task depends on an open question in the roadmap, ask the maintainer first, then record the answer as a decision.
 3. Update `main` with `git switch main` and `git pull`, then create a branch as described in [Commits and pull requests](#commits-and-pull-requests).
-4. Make the change, following the rules below.
-5. Leave nothing behind, as described in [No leftovers](#no-leftovers).
-6. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
-7. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
-8. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
+4. Before changing an area, read its page in `docs/product`. Update the page in the same change when the change makes it wrong.
+5. Make the change, following the rules below.
+6. Leave nothing behind, as described in [No leftovers](#no-leftovers).
+7. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
+8. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
+9. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
 
 GitHub rejects direct pushes to `main`, so every change goes through a pull request.
 
