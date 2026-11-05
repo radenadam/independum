@@ -40,10 +40,11 @@ const powerShellArguments = ["-NoLogo", "-NoProfile", "-NonInteractive", "-Comma
 // and the command keeps its own line numbers.
 const powerShellPrefix = "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ";
 
+// The command gets the environment of the user with the variables that the user added for
+// commands.
 /**
- * Runs one command, as written, in a new process of the shell, in the folder, with no input, and
- * ends the whole process tree on timeout or when the signal aborts. The command gets the
- * environment of the user with the variables that the user added for commands.
+ * Runs one command, as written, in a new process of the shell, in the folder, with no input,
+ * and ends the whole process tree on timeout or when the signal aborts.
  */
 export async function runCommand(options: RunOptions): Promise<RunEnd> {
   const { shell, command, folder, environment, timeoutMs, signal, onOutput } = options;

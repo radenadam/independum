@@ -5,10 +5,11 @@ import type { ExtensionToolContext } from "@earendil-works/pi-coding-agent";
 import { diffArrays } from "diff";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
+// The lines are left out when they are the same as in the version before, and they are null
+// for a file with more lines than the cap.
 /**
- * The fingerprints of the version of a file that a tool saw: of its whole content, and of each of
- * its lines. The lines are left out when they are the same as in the version before, and they are
- * null for a file with more lines than the cap.
+ * The fingerprints of the version of a file that a tool saw: of its whole content, and of each
+ * of its lines.
  */
 export interface FileFingerprint {
   file: string;

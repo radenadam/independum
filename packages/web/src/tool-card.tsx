@@ -15,7 +15,7 @@ import { EnvironmentEditor } from "./environment-editor.tsx";
 import { Icon } from "./icon.tsx";
 import { ToggleSwitch } from "./toggle-switch.tsx";
 import styles from "./tool-card.module.css";
-import { toolIconOf } from "./tool-icon.ts";
+import { toolIconOf } from "./tool-icon-of.ts";
 
 /** Properties of a tool card. */
 interface ToolCardProps {
@@ -40,10 +40,11 @@ const handBackChoices = [
   { value: "600", label: "10 min" },
 ];
 
+// A mark says when the user has changed it, its texts open to edit, and a reset brings back
+// everything built in.
 /**
- * Draws a tool of the agent with a switch that turns it on or off, the description that the model
- * reads, its settings, and the parameters that the model fills in. A mark says when the user has
- * changed it, its texts open to edit, and a reset brings back everything built in.
+ * Draws a tool of the agent with a switch that turns it on or off, the description that the
+ * model reads, its settings, and the parameters that the model fills in.
  */
 export function ToolCard({
   tool,

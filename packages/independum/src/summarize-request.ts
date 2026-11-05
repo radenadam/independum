@@ -64,14 +64,16 @@ const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 // The thinking levels of Pi, which some requests carry as a message of their own among the messages.
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
+// It reads the request as data, so it works for every provider: it walks the keys and items of
+// the request and matches each one against the texts and the messages it knows. Inside a key,
+// the parts keep the order Independum sent them in. Separate keys, such as a system prompt
+// beside the messages, come in the order a model reads them, because the order of keys means
+// nothing to a provider. A key that holds nothing known, such as a setting, stays in the raw
+// request, and an item of a key that holds known parts always shows, so nothing that was sent
+// goes missing.
 /**
- * Returns the parts of a request, each with who put it there and its group: the instructions, the
- * tools, or the messages. It reads the request as data, so it works for every provider: it walks the
- * keys and items of the request and matches each one against the texts and the messages it knows.
- * Inside a key, the parts keep the order Independum sent them in. Separate keys, such as a system
- * prompt beside the messages, come in the order a model reads them, because the order of keys means
- * nothing to a provider. A key that holds nothing known, such as a setting, stays in the raw request,
- * and an item of a key that holds known parts always shows, so nothing that was sent goes missing.
+ * Returns the parts of a request, each with who put it there and its group: the instructions,
+ * the tools, or the messages.
  */
 export function summarizeRequest(request: unknown, known: KnownTexts): RequestPart[] {
   if (typeof request !== "object" || request === null) {
@@ -80,14 +82,17 @@ export function summarizeRequest(request: unknown, known: KnownTexts): RequestPa
   const sections = sectionsOf(request, known)
     .map((section) => groupedParts(section, known))
     .filter((section) => section.some((part) => part.source !== "other"));
-  const rank = (section: RequestPart[]): number => groups.indexOf(section[0]?.group ?? "messages");
+  function rank(section: RequestPart[]): number {
+    return groups.indexOf(section[0]?.group ?? "messages");
+  }
   return sections.toSorted((first, second) => rank(first) - rank(second)).flat();
 }
 
+// Its sizes are estimates, because no provider has counted it yet.
 /**
- * Returns the parts that the next request will hold, before a chat sends one: the system prompt and
- * what Pi adds to it, the tools that are on, and the messages that Pi will send, in the order a
- * model reads them. Its sizes are estimates, because no provider has counted it yet.
+ * Returns the parts that the next request will hold, before a chat sends one: the system
+ * prompt and what Pi adds to it, the tools that are on, and the messages that Pi will send, in
+ * the order a model reads them.
  */
 export function describeNextRequest(known: KnownTexts): RequestPart[] {
   const instructions: RequestPart[] = [
@@ -407,13 +412,13 @@ function piecesOf(
   if (texts.length === 0) {
     return [calls];
   }
-  const piece = (keys: string[]): { content: string; exact: string } => {
+  function piece(keys: string[]): { content: string; exact: string } {
     const holders = keys.map((key) => holderOf(item, key) ?? key);
     return {
       content: holders.flatMap((holder) => stringsOf(holder)).join("\n"),
       exact: JSON.stringify(holders.length === 1 ? holders[0] : holders, null, 2),
     };
-  };
+  }
   return [
     { ...base, label: "Model replied", preview: first.preview, ...piece(texts) },
     { ...calls, ...piece(ids) },

@@ -23,10 +23,10 @@ const sections: { section: TextSection; heading: string | null }[] = [
   { section: "note", heading: "Notes" },
 ];
 
+// A text saved as its built-in text stops being an edit.
 /**
  * Draws the model texts of one part of the agent over the page, grouped by when the model gets
- * them, and saves the ones that changed together. A text saved as its built-in text stops being
- * an edit.
+ * them, and saves the ones that changed together.
  */
 export function TextDialog({
   title,

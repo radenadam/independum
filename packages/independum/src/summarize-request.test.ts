@@ -332,7 +332,7 @@ test("the next request, before a chat sends one, holds the prompt, the tools, an
   ]);
 });
 
-test("a tools update of Pi among the messages reads as one part of Pi, not as tools", () => {
+test("a tools update of pi among the messages reads as one part of pi, not as tools", () => {
   const update = piTexts.find((text) => text.id === "toolsUpdated")?.text ?? "";
   const request = {
     input: [
@@ -374,7 +374,7 @@ test("a short message matches, shows as it was sent, and nothing sent goes missi
   expect(parts[1]?.text).toBe(JSON.stringify(sent, null, 2));
 });
 
-test("a thinking level among the messages reads as the effort that Pi sends, but a setting stays out", () => {
+test("a thinking level among the messages reads as the effort that pi sends, but a setting stays out", () => {
   const effort = { role: "system", content: [], settings: { effort: "xhigh" } };
   const setting = { effort: "medium", summary: "auto" };
   expect(partsOf({ instructions: prompt, reasoning: setting, messages: [effort] })).toEqual([

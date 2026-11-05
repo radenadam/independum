@@ -24,10 +24,8 @@ export interface DecodedText {
 
 const pathSlot = { meaning: "The file as the model gave it.", example: "src/app.ts" };
 
-/**
- * The texts that say why a tool cannot open a file, which the user can edit. They show with the
- * texts of Read.
- */
+// They show with the texts of Read.
+/** The texts that say why a tool cannot open a file, which the user can edit. */
 const fileTexts = {
   folder: defineText({
     id: "file.folder",
@@ -109,10 +107,9 @@ export function decodeText(bytes: Buffer, path: string, texts: ModelTexts): Deco
   return decoded;
 }
 
-/**
- * Returns the text of a file from its bytes, or undefined for a binary file. A file is text in
- * UTF-16 when it starts with the mark of that encoding, and otherwise in UTF-8.
- */
+// A file is text in UTF-16 when it starts with the mark of that encoding, and otherwise in
+// UTF-8.
+/** Returns the text of a file from its bytes, or undefined for a binary file. */
 export function decodeBytes(bytes: Buffer): DecodedText | undefined {
   if (bytes[0] === 0xff && bytes[1] === 0xfe) {
     const text = new TextDecoder("utf-16le").decode(bytes);

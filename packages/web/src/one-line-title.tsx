@@ -16,12 +16,12 @@ interface OneLineTitleProps {
 // A title catches up on its backlog, so even a long one types in about half a second.
 const titleTyping: Typing = { charactersPerSecond: 40, isCatchingUp: true };
 
+// A given tooltip, such as the path of a folder, shows in its place whether the title fits or
+// not. A title that is typed when it first appears types itself in, a waving title lifts its
+// letters in turn, and a title aligned to the end sits there while it fits.
 /**
  * Draws a title on one line, which fades out at its end when it is too long and then shows the
- * whole title in a tooltip while the pointer rests on it. A given tooltip, such as the path of a
- * folder, shows in its place whether the title fits or not. A title that is typed when it first
- * appears types itself in, a waving title lifts its letters in turn, and a title aligned to the end
- * sits there while it fits.
+ * whole title in a tooltip while the pointer rests on it.
  */
 export function OneLineTitle({
   text,

@@ -25,8 +25,8 @@ import type {
   ModelSummary,
   ProjectSummary,
 } from "./api-types.ts";
-import { createChatRoutes } from "./chat-routes.ts";
 import { createChat } from "./create-chat.ts";
+import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 
@@ -57,8 +57,8 @@ await models.setRuntimeApiKey("faux", "test-key");
 await models.setRuntimeApiKey("faux-slow", "test-key");
 const json = { "content-type": "application/json" };
 
-async function createRoutes(cwd: string): Promise<Hono> {
-  return createChatRoutes(await createChat({ models, directory, cwd }), models);
+async function createRoutes(folder: string): Promise<Hono> {
+  return createChatRoutes(await createChat({ models, directory, folder }), models);
 }
 
 let routes = await createRoutes(startFolder);
@@ -394,7 +394,7 @@ test("the agent shows its prompts and its tools", async () => {
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
 }, 20_000);
 
-test("files that Pi would add to the system prompt stay out of it", async () => {
+test("files that pi would add to the system prompt stay out of it", async () => {
   const addendum = "Text from a file that the Session place does not show.";
   mkdirSync(join(startFolder, ".pi"), { recursive: true });
   writeFileSync(join(startFolder, ".pi", "APPEND_SYSTEM.md"), addendum);
@@ -469,7 +469,7 @@ test("fact switches and edits reach the next request and cutoffs follow only the
   expect(requests[0]).toContain("An edited harness fact.");
   expect(requests[0]).toContain("Model knowledge cutoff: 2026-04.");
   expect(requests[0]).not.toContain("Chat folder:");
-  expect(requests[0]).not.toContain("<cwd>");
+  expect(requests[0]).not.toContain("<folder>");
   expect(requests[0]).not.toContain("Written at");
   await chooseModel("faux", "faux-thinker");
   await sendAndReadReply("See the other model");
@@ -521,14 +521,15 @@ test("a model that thinks offers its thinking levels, and the chat keeps the cho
   expect((await chooseModel("faux", "faux-thinker")).status).toBe(204);
   const offered = (await readStart()).state.thinking;
   expect(offered?.levels).toContain("high");
-  const choose = (level: unknown): Promise<Response> =>
-    Promise.resolve(
+  function choose(level: unknown): Promise<Response> {
+    return Promise.resolve(
       routes.request(chatPath("/thinking"), {
         method: "PUT",
         headers: json,
         body: JSON.stringify({ level }),
       }),
     );
+  }
   expect((await choose("high")).status).toBe(204);
   expect((await readStart()).state.thinking?.level).toBe("high");
   expect((await choose("as hard as possible")).status).toBe(400);
@@ -873,7 +874,7 @@ test("a background command that ends before its call returns gives its whole res
   await expectNothingInBackground();
 });
 
-test("StopCommand stops a background command, and no note follows", async () => {
+test("stopcommand stops a background command, and no note follows", async () => {
   expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const pause = process.platform === "win32" ? "Start-Sleep -Seconds 30" : "sleep 30";
@@ -893,7 +894,7 @@ test("StopCommand stops a background command, and no note follows", async () => 
   await expectNothingInBackground();
 });
 
-test("CheckCommand returns what a background command printed since the last check, and waits for it", async () => {
+test("checkcommand returns what a background command printed since the last check, and waits for it", async () => {
   expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const command =

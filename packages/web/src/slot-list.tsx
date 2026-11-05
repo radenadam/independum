@@ -7,10 +7,8 @@ interface SlotListProps {
   onInsert?: (name: string) => void;
 }
 
-/**
- * Draws the slots of a text, each with what it holds. A slot of a text that the user edits is a
- * button that puts it into the text.
- */
+// A slot of a text that the user edits is a button that puts it into the text.
+/** Draws the slots of a text, each with what it holds. */
 export function SlotList({ slots, onInsert }: SlotListProps): ReactElement {
   return (
     <ul className={styles.slots} aria-label="Slots">

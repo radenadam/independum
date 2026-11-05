@@ -8,6 +8,7 @@ import type {
   Settings,
   SettingsChange,
 } from "./api-types.ts";
+import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
 
 /** The settings of the user, which last in a file across restarts. */
 export interface SettingsStore {
@@ -15,8 +16,6 @@ export interface SettingsStore {
   change(change: Partial<Settings> & Pick<SettingsChange, "tool">): Promise<Settings>;
 }
 
-const lineRange = { min: 10, max: 1_000_000 };
-const byteRange = { min: 1024, max: 100 * 1024 * 1024 };
 const handBackRange = { min: 5, max: 86_400 };
 const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 
@@ -81,9 +80,10 @@ export async function createSettings(path: string): Promise<SettingsStore> {
   };
 }
 
+// A file that someone edited by hand keeps its valid settings instead.
 /**
  * Returns the settings that a request or a file asks for, or undefined when a request holds a
- * setting that is not valid. A file that someone edited by hand keeps its valid settings instead.
+ * setting that is not valid.
  */
 export function readSettingsChange(body: unknown, isLenient = false): SettingsChange | undefined {
   if (typeof body !== "object" || body === null) {
@@ -312,7 +312,7 @@ function outputLimitsOf(value: unknown): OutputLimits | undefined {
     return undefined;
   }
   const { maxLines, maxBytes } = value as Record<string, unknown>;
-  return isWhole(maxLines, lineRange) && isWhole(maxBytes, byteRange)
+  return isWhole(maxLines, outputLineRange) && isWhole(maxBytes, outputByteRange)
     ? { maxLines, maxBytes }
     : undefined;
 }

@@ -1,10 +1,10 @@
 import type { ProviderSummary } from "independum/api-types";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
-import { readAccessToken } from "./access-token.ts";
 import styles from "./app.module.css";
 import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
 import { Greeting } from "./greeting.tsx";
 import { fetchProviders } from "./login-api.ts";
+import { readAccessToken } from "./read-access-token.ts";
 import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
 import { WelcomeScreen } from "./welcome-screen.tsx";

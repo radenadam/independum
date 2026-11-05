@@ -57,10 +57,11 @@ export function summarizeTexts(
   });
 }
 
+// A text that matches its built-in text is not an edit, so it goes back to the built-in text
+// and follows it when Independum changes it.
 /**
  * Returns the edits of the user after a change, or undefined when the change names a text that
- * does not exist. A text that matches its built-in text is not an edit, so it goes back to the
- * built-in text and follows it when Independum changes it.
+ * does not exist.
  */
 export function changeTexts(
   texts: ModelText[],

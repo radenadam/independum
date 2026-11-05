@@ -92,14 +92,14 @@ test("a length ends the read inside a line, from the column that the read starts
   );
 });
 
-test("line breaks of Windows and a byte order mark read as plain lines", async () => {
+test("line breaks of windows and a byte order mark read as plain lines", async () => {
   write("windows.txt", Buffer.from([0xef, 0xbb, 0xbf, ...Buffer.from("one\r\ntwo\r\n")]));
   expect((await read({ path: "windows.txt" })).text).toBe("1\tone\n2\ttwo");
   write("utf16.txt", Buffer.from([0xff, 0xfe, ...Buffer.from("one\ntwo", "utf16le")]));
   expect((await read({ path: "utf16.txt" })).text).toBe("1\tone\n2\ttwo");
 });
 
-test("a file that is not valid UTF-8 reads with a note", async () => {
+test("a file that is not valid utf-8 reads with a note", async () => {
   write("latin1.txt", Buffer.from([0x63, 0x61, 0x66, 0xe9]));
   expect((await read({ path: "latin1.txt" })).text).toBe(
     "1\tcaf\uFFFD\n[The file is not valid UTF-8, so bytes that are not text show as \uFFFD.]",

@@ -31,10 +31,11 @@ const newestShown = 5;
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const numberFormat = new Intl.NumberFormat();
 
+// A request that the model now reads only as a summary is faded, and so is every compaction
+// but the latest.
 /**
- * Draws every request of a chat, newest first, on one line, with each change of settings as a dot
- * and each compaction as a row that opens its summary, right below the request it led to. A request
- * that the model now reads only as a summary is faded, and so is every compaction but the latest.
+ * Draws every request of a chat, newest first, on one line, with each change of settings as a
+ * dot and each compaction as a row that opens its summary, right below the request it led to.
  */
 export function Conversation({
   requests,

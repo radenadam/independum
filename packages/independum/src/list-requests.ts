@@ -8,13 +8,13 @@ export interface RequestList {
   pendingChanges: RequestChange[];
 }
 
+// A change of model or effort is no request, so it shows only beside the request after it,
+// once, with the value it ended at, and only when that value differs from the one the request
+// before it used. What changed after the last request waits for the next one.
 /**
  * Returns each request that the model answered, from the saved entries of a chat: what came in
- * since the request before it, the settings that changed and the compactions since then, its reply,
- * its use, and whether the model now reads it only as a summary. A change of model or effort is no
- * request, so it shows only beside the request after it, once, with the value it ended at, and only
- * when that value differs from the one the request before it used. What changed after the last
- * request waits for the next one.
+ * since the request before it, the settings that changed and the compactions since then, its
+ * reply, its use, and whether the model now reads it only as a summary.
  */
 export function listRequests(branch: SessionEntry[]): RequestList {
   const places = new Map(branch.map((entry, index) => [entry.id, index]));

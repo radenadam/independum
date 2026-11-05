@@ -3,10 +3,11 @@ const fencePattern = /^ {0,3}(`{3,}|~{3,})/;
 // A code span is a run of backticks, its code, and a run of the same length.
 const codeSpanPattern = /(`+)[\s\S]*?[^`]\1(?!`)/g;
 
+// The rule follows Pandoc: math opens at a dollar sign with no space after it, and closes at
+// the next dollar sign with no space before it and no digit after it.
 /**
- * Returns Markdown in which each dollar sign that cannot start or end inline math is escaped, so a
- * price such as $5 stays text. The rule follows Pandoc: math opens at a dollar sign with no space
- * after it, and closes at the next dollar sign with no space before it and no digit after it.
+ * Returns Markdown in which each dollar sign that cannot start or end inline math is escaped,
+ * so a price such as $5 stays text.
  */
 export function escapePlainDollars(markdown: string): string {
   let fence: string | undefined;

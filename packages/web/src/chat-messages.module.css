@@ -92,6 +92,7 @@
 }
 
 .spacer {
+  height: var(--spacer-height, 0px);
   flex: none;
 }
 

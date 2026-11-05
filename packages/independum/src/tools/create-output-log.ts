@@ -93,11 +93,10 @@ const outputTexts = {
   }),
 };
 
-/**
- * The output of one tool call, which grows as the tool prints. Each take returns what is new since
- * the last one, and a check of a background command can wait for a text to appear. A command that
- * goes on in the background keeps its file and gets a new listener for its latest lines.
- */
+// Each take returns what is new since the last one, and a check of a background command can
+// wait for a text to appear. A command that goes on in the background keeps its file and gets
+// a new listener for its latest lines.
+/** The output of one tool call, which grows as the tool prints. */
 export interface OutputLog {
   append(text: string): void;
   latest(): string;
@@ -144,10 +143,11 @@ interface OutputWindow {
 /** The texts of the note that marks where output is cut, in the order that the Session place shows them. */
 export const outputTextList: ModelText[] = Object.values(outputTexts);
 
+// When the output passes the limits, the model gets its start and its end with a note of the
+// lines that are cut, and the file stays for the rest.
 /**
- * Starts the output log of one tool call, which cleans each line as a plain text reader sees it and
- * writes all of it to the file at the path. When the output passes the limits, the model gets its
- * start and its end with a note of the lines that are cut, and the file stays for the rest.
+ * Starts the output log of one tool call, which cleans each line as a plain text reader sees
+ * it and writes all of it to the file at the path.
  */
 export function createOutputLog(path: string, options: OutputLogOptions): OutputLog {
   const { limits, texts } = options;

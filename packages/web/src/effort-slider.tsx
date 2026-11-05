@@ -9,10 +9,10 @@ interface EffortSliderProps {
   onChoose: (level: string) => Promise<void>;
 }
 
+// The knob moves freely while it is dragged, and its level is chosen only once it is let go,
+// so the rest of the screen stays still while it moves.
 /**
- * Draws the thinking effort of the model as a wide bar with a stop for each level and a knob. The
- * knob moves freely while it is dragged, and its level is chosen only once it is let go, so the rest
- * of the screen stays still while it moves.
+ * Draws the thinking effort of the model as a wide bar with a stop for each level and a knob.
  */
 export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactElement {
   const input = useRef<HTMLInputElement>(null);

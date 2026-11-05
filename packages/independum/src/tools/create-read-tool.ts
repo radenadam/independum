@@ -10,8 +10,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ReadDetails } from "../api-types.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
-import { type FileFingerprint, versionOf } from "./file-fingerprint.ts";
 import { decodeText, findFile, pathParameterOf, splitLines } from "./text-file.ts";
+import { type FileFingerprint, versionOf } from "./version-of.ts";
 
 /** What the Read tool needs: the output limits that it shares with Shell, and the model texts. */
 interface ReadToolOptions {

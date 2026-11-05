@@ -8,10 +8,9 @@ interface TypedTextProps {
   hasCaret: boolean;
 }
 
-/**
- * Draws a text typed up to a number of characters, with an optional caret after them. The untyped
- * rest is there but hidden, so nothing moves while it types and a screen reader reads it whole.
- */
+// The untyped rest is there but hidden, so nothing moves while it types and a screen reader
+// reads it whole.
+/** Draws a text typed up to a number of characters, with an optional caret after them. */
 export function TypedText({ text, shown, hasCaret }: TypedTextProps): ReactElement {
   return (
     <>

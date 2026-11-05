@@ -18,10 +18,8 @@ interface BoxedListProps {
   hasLongNames?: boolean;
 }
 
-/**
- * Draws entries in a bordered box, one to a row, with lines between them. Long names, such as chat
- * titles, push the controls below them when the box is narrow.
- */
+// Long names, such as chat titles, push the controls below them when the box is narrow.
+/** Draws entries in a bordered box, one to a row, with lines between them. */
 export function BoxedList({ entries, hasLongNames = false }: BoxedListProps): ReactElement {
   return (
     <ul className={styles.list} data-long-names={hasLongNames}>
