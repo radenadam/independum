@@ -158,7 +158,7 @@ export function describeNextRequest(known: KnownTexts): RequestPart[] {
         },
       ]),
   );
-  return [...instructions, ...tools, ...messages];
+  return [...instructions.filter((part) => part.text !== ""), ...tools, ...messages];
 }
 
 // After a compaction, Pi sends its summary in place of the older messages, in the words of its text
@@ -258,6 +258,11 @@ function sectionsOf(request: object, known: KnownTexts): Part[][] {
           }),
         );
       } else if (tools.length > 0) {
+        const prefix = content.slice(0, tools[0]?.index ?? 0);
+        const prefixParts = textPartsOf(section, prefix, prefix, known);
+        if (prefixParts.some((part) => part.source !== "other")) {
+          parts.push(...prefixParts);
+        }
         parts.push(...toolPartsOf(section, item, content, tools));
       } else if (matched.length > 0) {
         next = messages.indexOf(matched[0] as KnownMessage);
@@ -347,7 +352,7 @@ function toolPartsOf(
   tools: { name: string; description: string; index: number }[],
 ): Part[] {
   return tools.map((tool, index) => {
-    const start = index === 0 ? 0 : tool.index;
+    const start = tool.index;
     return partOf({
       section,
       source: "independum",

@@ -10,68 +10,41 @@ interface PiText {
   slots: Record<string, string>;
 }
 
-// The texts are copies, because Pi does not export them. A test checks each one against the code
-// of the installed Pi, so an update of Pi that changes one fails `pnpm check`.
-const summaryFormat = `## Goal
-[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
-
-## Constraints & Preferences
-- [Any constraints, preferences, or requirements mentioned by user]
-- [Or "(none)" if none were mentioned]
-
-## Progress
-### Done
-- [x] [Completed tasks/changes]
-
-### In Progress
-- [ ] [Current work]
-
-### Blocked
-- [Issues preventing progress, if any]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale]
-
-## Next Steps
-1. [Ordered list of what should happen next]
-
-## Critical Context
-- [Any data, examples, or references needed to continue]
-- [Or "(none)" if not applicable]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`;
-
-const updateFormat = `## Goal
-[Preserve existing goals, add new ones if the task expanded]
-
-## Constraints & Preferences
-- [Preserve existing, add new ones discovered]
-
-## Progress
-### Done
-- [x] [Include previously done items AND newly completed items]
-
-### In Progress
-- [ ] [Current work - update based on progress]
-
-### Blocked
-- [Current blockers - remove if resolved]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale] (preserve all previous, add new)
-
-## Next Steps
-1. [Update based on current state]
-
-## Critical Context
-- [Preserve important context, add new if needed]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.`;
-
+// Installed-source checks keep this inventory tied to Pi.
 const toolName = "The name of the tool that the model called.";
 
 /** Every text that Pi can send to the model while Independum runs it, in the order shown. */
 export const piTexts: PiText[] = [
+  {
+    id: "imageConversionFailed",
+    group: "Images",
+    condition: "When Pi cannot convert an image to a supported inline format.",
+    text: "[Image omitted: could not be converted to a supported inline image format.]",
+    slots: {},
+  },
+  {
+    id: "imageResizeFailed",
+    group: "Images",
+    condition: "When Pi cannot resize an image below its inline size limit.",
+    text: "[Image omitted: could not be resized below the inline image size limit.]",
+    slots: {},
+  },
+  {
+    id: "thinkingEffort",
+    group: "In the chat, with thinking",
+    condition:
+      "Pi adds native system blocks with this field for thinking effort on compatible models. The raw request shows their exact values. Turning thinking off is coupled to thinking behavior and has no independent marker switch.",
+    text: "output_config",
+    slots: {},
+  },
+  {
+    id: "emptySystemFallback",
+    group: "Before the system prompt",
+    condition:
+      "The Codex adapter substitutes this text when the system prompt is empty. Independent omission is unavailable.",
+    text: "You are a helpful assistant.",
+    slots: {},
+  },
   {
     id: "claudeCode",
     group: "Before the system prompt",
@@ -247,99 +220,6 @@ export const piTexts: PiText[] = [
     slots: { from: "The format of the image.", to: "The format that the model gets." },
   },
   {
-    id: "summarySystemPrompt",
-    group: "Compaction",
-    condition:
-      "When the user compacts a chat now, or automatic compaction is on and the context exceeds the model window minus the configured room kept free, or overflows it. Pi asks the same model for a summary with this system prompt. That request does not show in the Session place.",
-    text: "You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.\n\nDo NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.",
-    slots: {},
-  },
-  {
-    id: "summaryRequest",
-    group: "Compaction",
-    condition:
-      "The message of that request. The previous summary is there only when the chat was compacted before.",
-    text: "<conversation>\n{conversation}\n</conversation>\n\n<previous-summary>\n{summary}\n</previous-summary>\n\n{prompt}",
-    slots: {
-      conversation: "The older messages, written as the next text shows.",
-      summary: "The summary from the compaction before.",
-      prompt: "One of the prompts below.",
-    },
-  },
-  {
-    id: "summaryConversation",
-    group: "Compaction",
-    condition:
-      "How Pi writes the older messages for the summary. It leaves thinking out, and cuts a tool result after 2,000 characters with the last line.",
-    text: "[User]: {text}\n\n[Assistant]: {text}\n\n[Assistant tool calls]: {calls}\n\n[Tool result]: {result}\n\n[... {count} more characters truncated]",
-    slots: {
-      text: "The text of a message.",
-      calls: "Each tool call as its name and arguments.",
-      result: "The text of a tool result.",
-      count: "How many characters of the result are cut.",
-    },
-  },
-  {
-    id: "summaryPrompt",
-    group: "Compaction",
-    condition: "The prompt for the first summary of a chat.",
-    text: `The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.\n\nUse this EXACT format:\n\n${summaryFormat}`,
-    slots: {},
-  },
-  {
-    id: "updatePrompt",
-    group: "Compaction",
-    condition: "The prompt for a summary that updates the one before it.",
-    text: `The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.\n\nUpdate the existing structured summary with new information. RULES:\n- PRESERVE all existing information from the previous summary\n- ADD new progress, decisions, and context from the new messages\n- UPDATE the Progress section: move items from "In Progress" to "Done" when completed\n- UPDATE "Next Steps" based on what was accomplished\n- PRESERVE exact file paths, function names, and error messages\n- If something is no longer relevant, you may remove it\n\nUse this EXACT format:\n\n${updateFormat}`,
-    slots: {},
-  },
-  {
-    id: "turnRequest",
-    group: "Compaction",
-    condition: "The message of a summary request for the earlier part of a split turn.",
-    text: "# Conversation\n{conversation}\n\n# Instructions\n{prompt}",
-    slots: {
-      conversation: "The earlier messages of the turn, written as the older conversation above.",
-      prompt: "The prompt for the earlier part of a split turn below.",
-    },
-  },
-  {
-    id: "turnPrompt",
-    group: "Compaction",
-    condition:
-      "The prompt for the earlier part of a split turn, which can require a second summary request.",
-    text: "The messages above are earlier context from an ongoing conversation. Later messages are stored separately and do not need to be reconstructed.\n\nCreate a concise checkpoint of the user's request and the progress shown above. This checkpoint will be placed before the later messages so the conversation can continue with the necessary context.\n\n## Original Request\n[What did the user ask for?]\n\n## Progress So Far\n- [Key decisions and work completed in these messages]\n\n## Context Needed to Continue\n- [Information from these messages needed to understand the later work]\n\nOnly summarize information explicitly present above. Do not infer or recreate later messages.",
-    slots: {},
-  },
-  {
-    id: "splitSummary",
-    group: "Compaction",
-    condition: "Between the history summary and the summary of the earlier part of a split turn.",
-    text: "---\n\n**Turn Context (split turn):**",
-    slots: {},
-  },
-  {
-    id: "emptyHistory",
-    group: "Compaction",
-    condition: "Before the split turn summary when there is no older history or previous summary.",
-    text: "No prior history.",
-    slots: {},
-  },
-  {
-    id: "summaryReadFiles",
-    group: "Compaction",
-    condition: "After the summary when Pi records files that were read but not changed.",
-    text: "<read-files>\n{files}\n</read-files>",
-    slots: { files: "The paths that Pi records, one per line." },
-  },
-  {
-    id: "summaryModifiedFiles",
-    group: "Compaction",
-    condition: "After the summary when Pi records files that were written or edited.",
-    text: "<modified-files>\n{files}\n</modified-files>",
-    slots: { files: "The paths that Pi records, one per line." },
-  },
-  {
     id: "compacted",
     group: "Compaction",
     condition: "In the chat after compaction, in place of the older messages.",
@@ -369,7 +249,39 @@ export function summarizePiTexts(lastRequest: unknown): PiTextSummary[] {
     text: text.text,
     slots: Object.entries(text.slots).map(([name, meaning]) => ({ name, meaning })),
     isInLastRequest: patternOf(text.text).test(sent),
+    ...capabilityOf(text.id),
   }));
+}
+
+function capabilityOf(id: string): Pick<PiTextSummary, "control" | "source" | "limitation"> {
+  const control =
+    id === "promptUpdated" || id === "promptRemoved"
+      ? "promptUpdates"
+      : ["toolsUpdated", "stillUnavailable", "toolsRemoved"].includes(id)
+        ? "toolUpdates"
+        : id === "compacted"
+          ? "compactionEnvelope"
+          : id === "imageResized"
+            ? "imageResize"
+            : null;
+  const source =
+    id === "claudeCode" || id === "placeholderTool"
+      ? "pi-ai/dist/api/anthropic-messages.js"
+      : id === "emptySystemFallback"
+        ? "pi-ai/dist/api/openai-codex-responses.js"
+        : id === "compacted"
+          ? "pi-coding-agent/dist/core/messages.js"
+          : id === "imageResized" || id === "imageConverted"
+            ? "pi-coding-agent/dist/utils/image-process.js"
+            : "Pi agent validation or pi-ai provider message conversion";
+  return {
+    control,
+    source,
+    limitation:
+      control === null
+        ? "Unavailable. Pi exposes no provider-neutral independent omission control for this addition."
+        : `Controlled by ${control}.`,
+  };
 }
 
 /** Where a text of Pi stands in a longer text: its id, its group, and its span. */

@@ -9,6 +9,7 @@ import styles from "./text-editor.module.css";
 
 /** Properties of a text editor. */
 interface TextEditorProps {
+  isSource?: boolean;
   text: TextSummary;
   draft: string;
   type: string | undefined;
@@ -23,10 +24,16 @@ const rowLength = 64;
  * Draws one model text to edit: when the model gets it, the text itself, the slots it can hold
  * with a preview filled with examples, and a way back to the built-in text.
  */
-export function TextEditor({ text, draft, type, onChange }: TextEditorProps): ReactElement {
+export function TextEditor({
+  text,
+  draft,
+  type,
+  onChange,
+  isSource = false,
+}: TextEditorProps): ReactElement {
   const field = useRef<HTMLTextAreaElement>(null);
   const [isKept, setIsKept] = useState(false);
-  const names = slotNamesOf(draft);
+  const names = isSource ? [] : slotNamesOf(draft);
   const missing = text.slots.filter((slot) => !names.includes(slot.name));
   const unknown = names.filter((name) => !text.slots.some((slot) => slot.name === name));
   const examples = Object.fromEntries(text.slots.map((slot) => [slot.name, slot.example]));
@@ -57,7 +64,7 @@ export function TextEditor({ text, draft, type, onChange }: TextEditorProps): Re
           </label>
           {type === undefined ? null : <span className={styles.type}>{type}</span>}
         </span>
-        {draft === text.builtIn ? null : (
+        {isSource || draft === text.builtIn ? null : (
           <>
             <Badge label="edited" tone="quiet" />
             <IconButton

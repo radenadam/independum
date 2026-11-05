@@ -1,5 +1,7 @@
 import { addedFactTexts } from "./added-facts.ts";
+import { contextTexts } from "./context-texts.ts";
 import { defineText, type ModelText } from "./model-texts.ts";
+import { compactionTexts } from "./summarize-context.ts";
 import { backgroundTextList } from "./tools/create-background-commands.ts";
 import { checkCommandTextList } from "./tools/create-check-command-tool.ts";
 import { editTextList } from "./tools/create-edit-tool.ts";
@@ -24,6 +26,8 @@ export const systemPromptText: ModelText = defineText({
 // Every model text. The Session place groups them, and keeps this order within each group.
 export const allTexts: ModelText[] = [
   systemPromptText,
+  ...contextTexts,
+  ...compactionTexts,
   ...addedFactTexts,
   ...readTextList,
   ...fingerprintTextList,

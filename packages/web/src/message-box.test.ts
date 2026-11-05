@@ -38,6 +38,7 @@ test("a failed send restores its chat draft without replacing the open chat draf
     isReplying: false,
     runningCount: 0,
     onSend: () => pending,
+    onSlashAction: vi.fn(),
     onStop: vi.fn(),
     onOpenModels: vi.fn(),
     onChooseModel: vi.fn(),

@@ -111,3 +111,8 @@
     padding: 0 12px 10px;
   }
 }
+.commandNotice {
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}

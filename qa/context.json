@@ -1,0 +1,133 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "go": true
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "/review \"a change\""
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Close the menu\"]')",
+      "wait": 100
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "run": "({ previewIsEditable: document.querySelector('textarea[aria-label=Message]').value === 'Review a change.\\n', sourceLineVisible: document.body.innerText.includes('/review'), purposeVisible: document.body.innerText.includes('Command preview'), submissionNoteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') })",
+      "shot": "command-preview"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "run": "({ readablePreviewDetails: ['Values after the command', 'Original message text', 'File fingerprint', 'Restore command'].every(label => document.body.innerText.includes(label)) })"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark"
+    },
+    {
+      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
+      "shot": "command-preview-phone-dark"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
+      "shot": "command-preview-phone-light"
+    },
+    {
+      "size": [1440, 1000],
+      "scheme": "dark"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')",
+      "wait": 4500
+    },
+    {
+      "run": "({ submittedShownText: document.querySelector('main').innerText.includes('Review a change.') })"
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Context controls'))"
+    },
+    {
+      "run": "({ instructionsSwitchVisible: !!document.querySelector('button[aria-label=\"Send project instructions\"]'), skillAvailabilitySwitchVisible: !!document.querySelector('button[aria-label=\"Make skills available\"]'), skillDescriptionSwitchVisible: !!document.querySelector('button[aria-label=\"Send skill names and descriptions\"]'), commandSwitchVisible: !!document.querySelector('button[aria-label=\"Enable slash commands\"]'), labeledTextEditsVisible: ['Edit instruction texts', 'Edit skill texts'].every(label => [...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.trim() === label)), instructionListVisible: !!document.querySelector('ul[aria-label=\"Instruction filename list\"]'), noSaveButtons: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.startsWith('Save ')), profileSentenceVisible: /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(document.querySelector('aside [role=tabpanel]').innerText), duplicateVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('duplicate'), capturedRevisionVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Last request resources') })",
+      "shot": "context-controls"
+    },
+    {
+      "clickOn": "document.getElementById('instruction-names')"
+    },
+    {
+      "text": "NOTES, CONTEXT.md"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('form')].find(form => form.querySelector('#instruction-names')).querySelector('button[type=submit]')"
+    },
+    {
+      "run": "({ wholeFilenameSaved: [...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md'), entryFieldCleared: document.getElementById('instruction-names').value === '' })"
+    },
+    {
+      "clickOn": "[...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].find(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md').querySelector('button')"
+    },
+    {
+      "run": "({ filenameRemoved: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md') })"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-dark-instructions"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-dark-skills"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-dark-commands"
+    },
+    {
+      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-dark-catalog"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-light-instructions"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-light-skills"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-light-commands"
+    },
+    {
+      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "shot": "context-phone-light-catalog"
+    }
+  ]
+}

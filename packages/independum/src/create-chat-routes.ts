@@ -1,7 +1,7 @@
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
 import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
-import { validateChatSettings } from "./configuration-schema.ts";
+import { ConfigurationError, validateChatSettings } from "./configuration-schema.ts";
 import type { Chat, OpenChat } from "./create-chat.ts";
 import {
   bodyOf,
@@ -64,18 +64,92 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   active.get("/context", (context) => context.json(context.get("chat").getContext()));
 
+  active.get("/resources", (context) => context.json(context.get("chat").getResources()));
+  active.put("/resources/:resourceId", async (context) => {
+    const body = await contextBody(context);
+    if (typeof body.fingerprint !== "string" || typeof body.content !== "string") {
+      return context.json({ error: "A source edit needs its fingerprint and content." }, 400);
+    }
+    try {
+      return context.json(
+        await context
+          .get("chat")
+          .saveResource(context.req.param("resourceId"), body.fingerprint, body.content),
+      );
+    } catch (error) {
+      return contextFailure(context, error, "The resource could not be saved.", 409);
+    }
+  });
+  active.get("/resources/:resourceId", (context) => {
+    const resource = context
+      .get("chat")
+      .getResources()
+      .resources.find((entry) => entry.id === context.req.param("resourceId"));
+    return resource === undefined
+      ? context.json({ error: "This resource is unknown." }, 404)
+      : context.json(resource);
+  });
+  active.post("/resources/reload", async (context) => {
+    await chat.reconcile();
+    return context.json(context.get("chat").getResources());
+  });
+  active.post("/compose", async (context) => {
+    const body = await contextBody(context);
+    if (
+      typeof body.text !== "string" ||
+      (body.interpretation !== "literal" && body.interpretation !== "commands")
+    ) {
+      return context.json(
+        { error: "Composition needs text and a literal or commands interpretation." },
+        400,
+      );
+    }
+    try {
+      return context.json(context.get("chat").compose(body.text, body.interpretation));
+    } catch (error) {
+      return contextFailure(context, error, "The command cannot expand.", 400);
+    }
+  });
+  active.post("/slash-actions", async (context) => {
+    const body = await contextBody(context);
+    if (typeof body.previewId !== "string") {
+      return context.json({ error: "An action needs a preview id." }, 400);
+    }
+    try {
+      return context.json(await context.get("chat").slashAction(body.previewId));
+    } catch (error) {
+      return contextFailure(context, error, "The action cannot run.", 409);
+    }
+  });
+
   active.post("/messages", async (context) => {
-    const body: { text?: unknown } = await context.req.json().catch(() => ({}));
+    const body = await contextBody(context);
     if (typeof body.text !== "string" || body.text.trim() === "") {
       return context.json({ error: "A message needs text." }, 400);
     }
-    if (!(await context.get("chat").send(body.text.trim()))) {
-      return context.json(
-        { error: "The chat needs a model and must be idle to receive a message." },
-        409,
-      );
+    if (
+      (body.interpretation !== undefined &&
+        body.interpretation !== "literal" &&
+        body.interpretation !== "commands") ||
+      (body.previewId !== undefined && typeof body.previewId !== "string")
+    ) {
+      return context.json({ error: "The message interpretation or preview id is invalid." }, 400);
     }
-    return context.body(null, 202);
+    try {
+      if (
+        !(await context
+          .get("chat")
+          .send(body.text, body.interpretation ?? "commands", body.previewId))
+      ) {
+        return context.json(
+          { error: "The chat needs a model and must be idle to receive a message." },
+          409,
+        );
+      }
+      return context.body(null, 202);
+    } catch (error) {
+      return contextFailure(context, error, "The message cannot be sent.", 409);
+    }
   });
 
   active.put("/model", async (context) => {
@@ -213,6 +287,31 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
 function answer(context: Context, isDone: boolean): Response {
   return isDone ? context.body(null, 204) : context.json({ error: "No chat has that id." }, 404);
+}
+
+function contextFailure(
+  context: Context,
+  error: unknown,
+  fallback: string,
+  status: 400 | 409,
+): Response {
+  const message = error instanceof Error ? error.message : fallback;
+  const code = message.includes("permission")
+    ? 403
+    : message.includes("unknown") || message.includes("does not belong")
+      ? 404
+      : typeof error === "object" && error !== null && "code" in error
+        ? 500
+        : status;
+  return context.json({ error: message }, code);
+}
+
+async function contextBody(context: Context): Promise<Record<string, unknown>> {
+  const value = await bodyOf(context);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new ConfigurationError("Expected an object.", "Request body", "", 400);
+  }
+  return value as Record<string, unknown>;
 }
 
 function summaryOf(

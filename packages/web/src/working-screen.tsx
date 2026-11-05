@@ -350,10 +350,10 @@ export function WorkingScreen({
     return chat.id;
   }
 
-  async function send(text: string): Promise<void> {
+  async function send(text: string, previewId?: string): Promise<void> {
     setNotice(undefined);
     try {
-      await sendMessage(requireChatId(), text);
+      await sendMessage(requireChatId(), text, previewId);
     } catch (error) {
       setNotice("The message was not sent. Try again.");
       throw error;
@@ -477,6 +477,24 @@ export function WorkingScreen({
               isEmpty={isEmpty}
               isReplying={chat.isReplying}
               onSend={send}
+              onSlashAction={(action, _argumentsText, newChatId) => {
+                if (newChatId !== undefined) {
+                  open(newChatId);
+                }
+                if (action === "settings") {
+                  setSettingsSection("logins");
+                }
+                if (action === "session") {
+                  openContext();
+                }
+                if (action === "commands") {
+                  openCommands();
+                }
+                if (action === "instructions" || action === "skills") {
+                  setPlaceRequest({ place: "session", detail: "resources", at: Date.now() });
+                  showPanel(true);
+                }
+              }}
               onStop={() =>
                 change(stopReply(chat.id), "The reply could not be stopped. Try again.")
               }

@@ -8,6 +8,7 @@ import {
   fauxText,
   fauxThinking,
   fauxToolCall,
+  getCurrentSystemPrompt,
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -416,7 +417,7 @@ test("message times reach requests and never enter the saved chat or its display
       requests.push(structuredClone(context));
       await options?.onPayload?.(
         {
-          system: context.messages[0]?.content,
+          system: getCurrentSystemPrompt(context.messages),
           messages: context.messages.filter((message) => message.role !== "system"),
         },
         model,

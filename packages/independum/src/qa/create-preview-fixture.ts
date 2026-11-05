@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
@@ -15,6 +15,20 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     return project;
   }
   if (fixture === "chats") {
+    const skills = join(project, ".agents", "skills", "review");
+    const commands = join(project, ".independum", "commands");
+    await mkdir(skills, { recursive: true });
+    await mkdir(commands, { recursive: true });
+    await writeFile(join(project, "AGENTS.md"), "Preview project facts.\n");
+    await writeFile(join(project, "CLAUDE.md"), "Preview project facts.\n");
+    await writeFile(
+      join(skills, "SKILL.md"),
+      "---\nname: review\ndescription: Review preview data.\n---\n\nReview the supplied data.\n",
+    );
+    await writeFile(
+      join(commands, "review.md"),
+      "---\ndescription: Review the supplied change.\nargument-hint: <change>\n---\nReview $1.\n",
+    );
     for (const [question, answer] of [
       ["Plan the first post.", "Explain why the site exists in a few short paragraphs."],
       ["Check the phone layout.", "Start with the widest item at 360 pixels."],

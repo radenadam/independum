@@ -283,7 +283,7 @@ test("manual compaction works while automatic compaction is off and reports fail
     summaryOptions.push(options);
     return fauxAssistantMessage("A summary of older messages.");
   }
-  faux.setResponses([summarize, summarize]);
+  faux.setResponses([summarize]);
   const completed = waitForCompaction(chat);
   const routes = createChatRoutes(chats, models);
   const path = `/chats/${chat.getState().id}/compact`;
@@ -293,7 +293,7 @@ test("manual compaction works while automatic compaction is off and reports fail
   expect(await chat.send("While compacting")).toBe(false);
   expect((await completed).compactionError).toBeNull();
   expect(chat.getContext().entries.filter((entry) => entry.type === "compaction")).toHaveLength(1);
-  expect(summaryOptions).toHaveLength(2);
+  expect(summaryOptions).toHaveLength(1);
   for (const options of summaryOptions) {
     expect(options).toMatchObject({ maxTokens: 250, temperature: 0.2 });
   }

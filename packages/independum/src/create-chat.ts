@@ -1,5 +1,6 @@
 import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
   type AgentSession,
@@ -32,7 +33,9 @@ import type {
   ChatSummary,
   ChatsEvent,
   CommandEnd,
+  ComposePreview,
   ConfigurationIssue,
+  ContextRevision,
   ContextSummary,
   MessagePart,
   ProfileReference,
@@ -47,6 +50,7 @@ import type {
 } from "./api-types.ts";
 import { configurationRevision } from "./configuration-files.ts";
 import { escapePointer } from "./configuration-schema.ts";
+import { createCommandPreviews } from "./create-command-previews.ts";
 import {
   createProfileStore,
   type ProfileStore,
@@ -58,8 +62,12 @@ import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
+import { projectContextMessages } from "./project-context-messages.ts";
+import { piControls } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
+import { resolveContext, saveContextResource } from "./resolve-context.ts";
 import { subscribeTo } from "./subscribe-to.ts";
+import { compactionEnvelope, summarizeContext } from "./summarize-context.ts";
 import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
 import {
   type BackgroundEnded,
@@ -91,6 +99,10 @@ interface ThinkingTimes {
 
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
+  preparedPiSections: Record<string, string | null>;
+  preparedContext: ContextRevision | undefined;
+  resources: ContextRevision;
+  preparationError: string | undefined;
   session: AgentSession;
   // The hidden extension of the chat, through which Independum registers its tools anew.
   extension: ExtensionAPI | undefined;
@@ -137,14 +149,18 @@ export interface ChatOptions {
 
 /** A chat held by an API request, with a separate subscription for each follower. */
 export interface OpenChat {
+  getResources(): ContextRevision;
+  saveResource(id: string, fingerprint: string, content: string): Promise<ContextRevision>;
+  compose(text: string, interpretation: "literal" | "commands"): ComposePreview;
+  slashAction(previewId: string): Promise<{ action: string; arguments: string; chatId?: string }>;
   getState(): ChatState;
   getAgent(): AgentSummary;
   getContext(): ContextSummary;
   subscribe(listener: (event: ChatEvent) => void): () => void;
-  send(text: string): Promise<boolean>;
+  send(text: string, interpretation?: "literal" | "commands", previewId?: string): Promise<boolean>;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   chooseThinking(level: string): Promise<boolean>;
-  compact(): Promise<boolean>;
+  compact(instructions?: string): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
   moveToBackground(id: string): boolean;
@@ -196,6 +212,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   );
   const outputFolder = join(directory, "outputs");
   const savedRequests = createSavedRequests(join(directory, "requests"));
+  const previews = createCommandPreviews();
+  const slashResults = new Map<string, Awaited<ReturnType<OpenChat["slashAction"]>>>();
   const commandStops = new Map<string, () => Promise<void>>();
   const commandHandBacks = new Map<string, () => void>();
   const background = createBackgroundCommands({
@@ -229,6 +247,26 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       createCheckCommandTool(background, texts),
       createStopCommandTool(background, texts),
     ];
+  }
+
+  function refreshResources(
+    run: ChatRun | undefined,
+    configuration: ResolvedProfile,
+    sessionFolder: string,
+  ): ContextRevision {
+    const revision = resolveContext({
+      projectRoot: sessionFolder,
+      folder: sessionFolder,
+      userDirectory: directory,
+      profileDirectory: configuration.profile.path,
+      settings: configuration.settings.context,
+      texts: createModelTexts(() => configuration.settings.texts),
+    });
+    if (run !== undefined && run.resources?.revision !== revision.revision) {
+      run.resources = revision;
+      refreshContext(run);
+    }
+    return revision;
   }
   const listeners = new Set<(event: ChatsEvent) => void>();
   const runs = new Map<string, ChatRun>();
@@ -591,7 +629,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         refreshContext(run);
       } else if (event.type === "compaction_end") {
         run.isCompacting = false;
-        run.compactionError = event.errorMessage ?? null;
+        run.compactionError = run.compactionError ?? event.errorMessage ?? null;
         refreshContext(run);
         releaseIfIdle(run);
         setImmediate(() => {
@@ -734,6 +772,23 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const settings = { get: () => configuration.settings };
     const texts = createModelTexts(() => configuration.settings.texts);
     const ownTools = toolsFor(configuration);
+    function promptSections(
+      resources: ContextRevision,
+      selected: Parameters<typeof addedFactPrompt>[0]["model"],
+    ): Record<string, string> {
+      return Object.fromEntries([
+        [
+          "independum-base",
+          settings.get().context.isBasePromptEnabled ? texts.get(systemPromptText) : "",
+        ],
+        [
+          "independum-facts",
+          addedFactPrompt({ settings: settings.get(), folder: sessionFolder, model: selected }),
+        ],
+        ["independum-instructions", resources.renderedInstructions],
+        ["independum-skills", resources.renderedSkills],
+      ]);
+    }
     const model = modelFor(configuration.model);
     const isChosen = model !== undefined && models.hasConfiguredAuth(model.provider);
     const thinkingLevel = configuration.thinkingLevel ?? "medium";
@@ -745,6 +800,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     // in a project could reach the model unseen.
     const piSettings = SettingsManager.inMemory({
       compaction: piCompactionSettings(configuration.settings),
+      images: { autoResize: !configuration.settings.context.pi.disabled.includes("imageResize") },
     });
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionFolder,
@@ -777,21 +833,139 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
               pi.registerTool(tool);
             }
             pi.on("before_agent_start", (event, context) => {
-              event.systemPromptOptions.customPrompt = texts.get(systemPromptText);
-              const facts = addedFactPrompt({
-                settings: settings.get(),
-                folder: sessionFolder,
-                model: context.model,
-              });
-              return {
-                systemPrompt: [texts.get(systemPromptText), facts]
-                  .filter((text) => text !== "")
-                  .join("\n\n"),
+              delete event.systemPromptOptions.customPrompt;
+              const resources = refreshResources(hold.run, configuration, sessionFolder);
+              event.systemPromptOptions.sections = {
+                ...event.systemPromptOptions.sections,
+                ...promptSections(resources, context.model),
               };
             });
             pi.on("context", (event) => ({
               messages: addMessageTimes(event.messages, settings.get()),
             }));
+            pi.on("context_with_system", (event, context) => {
+              const run = hold.run;
+              if (run === undefined) {
+                return;
+              }
+              try {
+                const resources = refreshResources(run, configuration, sessionFolder);
+                run.preparedContext = resources;
+                run.preparationError = resources.resources.find(
+                  (resource) =>
+                    resource.kind === "instructions" &&
+                    settings.get().context.instructions.isEnabled &&
+                    !settings.get().context.instructions.disabledPaths.includes(resource.path) &&
+                    (resource.state === "invalid" || resource.state === "needsPermission"),
+                )?.reason;
+                const desired = promptSections(resources, context.model);
+                const messages = event.messages.map((message) => {
+                  if (message.role !== "system") {
+                    return message;
+                  }
+                  return {
+                    ...message,
+                    sections: Object.fromEntries(
+                      Object.entries(message.sections ?? {})
+                        .filter(
+                          ([name]) =>
+                            ![
+                              "independum-facts",
+                              "independum-instructions",
+                              "independum-skills",
+                            ].includes(name) &&
+                            (settings.get().context.isBasePromptEnabled ||
+                              name !== "independum-base"),
+                        )
+                        .map(([name, text]) => [
+                          name,
+                          name.startsWith("independum-") && text !== null
+                            ? text
+                                .replace(new RegExp(`^<${name}>\\n`), "")
+                                .replace(new RegExp(`\\n</${name}>$`), "")
+                            : text,
+                        ]),
+                    ),
+                  };
+                });
+                const leading = messages.find((message) => message.role === "system");
+                if (leading?.role === "system") {
+                  leading.sections = {
+                    ...leading.sections,
+                    ...Object.fromEntries(
+                      Object.entries(desired).filter(([name]) => name !== "independum-base"),
+                    ),
+                  };
+                }
+                const current = getCurrentSystemMessage(messages);
+                run.preparedPiSections = Object.fromEntries(
+                  Object.entries(current?.sections ?? {}).filter(
+                    ([name]) => !name.startsWith("independum-"),
+                  ),
+                );
+                const changes = Object.fromEntries(
+                  Object.entries(desired).filter(
+                    ([name, value]) => (current?.sections?.[name] ?? "") !== value,
+                  ),
+                );
+                if (Object.keys(changes).length > 0) {
+                  messages.push({
+                    role: "system",
+                    content: "",
+                    sections: changes,
+                    timestamp: Date.now(),
+                  });
+                }
+                const projected = messages.map(
+                  (message): AgentMessage =>
+                    message.role === "compactionSummary" &&
+                    !settings.get().context.pi.disabled.includes("compactionEnvelope")
+                      ? {
+                          role: "user",
+                          content: texts.fill(compactionEnvelope, { summary: message.summary }),
+                          timestamp: message.timestamp,
+                        }
+                      : message,
+                );
+                return { messages: projectContextMessages(projected, settings.get().context) };
+              } catch (error) {
+                run.preparationError = messageOf(error);
+                return { messages: [] };
+              }
+            });
+            pi.on("session_before_compact", async (event, context) => {
+              if (
+                settings.get().context.pi.disabled.includes("compaction") ||
+                context.model === undefined
+              ) {
+                return { cancel: true };
+              }
+              try {
+                return {
+                  compaction: await summarizeContext(
+                    event,
+                    models,
+                    context.model,
+                    settings.get(),
+                    (request) => {
+                      const run = hold.run;
+                      if (run !== undefined) {
+                        request.sourceFingerprints = run.resources.resources
+                          .map((resource) => resource.fingerprint)
+                          .filter(Boolean);
+                        manager.appendCustomEntry("independum-compaction-request", request);
+                        refreshContext(run);
+                      }
+                    },
+                  ),
+                };
+              } catch (error) {
+                if (hold.run !== undefined) {
+                  hold.run.compactionError = messageOf(error);
+                }
+                return { cancel: true };
+              }
+            });
             pi.on("cache_warming_decision", (event) => {
               isWarming = event.action === "warm";
             });
@@ -807,6 +981,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 run.lastRequest = event.payload;
                 savedRequests.save(run.session.sessionId, event.payload);
               }
+              refreshContext(run);
             });
           },
         },
@@ -852,6 +1027,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       desired: undefined,
       rebuilding: previous?.rebuilding,
       ownTools,
+      resources: refreshResources(undefined, configuration, sessionFolder),
+      preparationError: undefined,
+      preparedContext: undefined,
+      preparedPiSections: {},
     });
     hold.run = run;
     applySessionSettings(session, configuration.settings);
@@ -859,6 +1038,22 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     function streamWithOverrides(
       ...[requestModel, context, options]: Parameters<typeof stream>
     ): ReturnType<typeof stream> {
+      if (run.preparationError !== undefined) {
+        throw new Error(run.preparationError);
+      }
+      const usedContext = run.preparedContext ?? run.resources;
+      const previousContext = manager
+        .getBranch()
+        .findLast((entry) => entry.type === "custom" && entry.customType === "independum-context");
+      if (
+        previousContext?.type !== "custom" ||
+        (previousContext.data as ContextRevision).revision !== usedContext.revision
+      ) {
+        manager.appendCustomEntry("independum-context", {
+          ...usedContext,
+          piSections: run.preparedPiSections,
+        });
+      }
       const overrides =
         settings.get().modelOverrides[requestModel.provider]?.[requestModel.id] ?? {};
       return stream(applyModelOverrides(requestModel, overrides), context, {
@@ -893,6 +1088,28 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       run.isModelChosen ? run.session.model : undefined,
       run.lastRequest,
     );
+    agent.chatId = run.session.sessionId;
+    agent.resources = refreshResources(run, run.configuration, run.folder);
+    const saved = run.session.sessionManager
+      .getBranch()
+      .findLast((entry) => entry.type === "custom" && entry.customType === "independum-context");
+    agent.lastContext = saved?.type === "custom" ? (saved.data as ContextRevision) : null;
+    agent.piSections =
+      Object.keys(run.preparedPiSections).length > 0
+        ? run.preparedPiSections
+        : (agent.lastContext?.piSections ?? {});
+    agent.addedByPi = Object.entries(agent.piSections)
+      .filter(
+        ([section]) =>
+          !piControls.some(
+            (control) =>
+              control.section === section &&
+              run.configuration.settings.context.pi.disabled.includes(control.id),
+          ),
+      )
+      .map(([, text]) => text ?? "")
+      .filter(Boolean)
+      .join("\n\n");
     if (agent.configuration !== undefined && run.desired !== undefined) {
       agent.configuration.pendingRevision =
         run.desired.effectiveRevision === run.configuration.effectiveRevision
@@ -932,6 +1149,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           ? null
           : modelSettingsOf(model, settings.get().modelOverrides[model.provider]?.[model.id]),
       compaction: settings.get().compaction,
+      contextSettings: settings.get().context,
+      resources: refreshResources(undefined, configuration, folder),
       builtInCompaction: builtInSettings.compaction,
       systemPrompt: prompt,
       addedByPi: "",
@@ -1070,7 +1289,11 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     settings: Settings,
   ): ReturnType<SettingsManager["getCompactionSettings"]> {
     const { isEnabled, reserveTokens, keepRecentTokens } = settings.compaction;
-    return { enabled: isEnabled, reserveTokens, keepRecentTokens };
+    return {
+      enabled: isEnabled && !settings.context.pi.disabled.includes("compaction"),
+      reserveTokens,
+      keepRecentTokens,
+    };
   }
 
   function applySessionSettings(session: AgentSession, settings: Settings): void {
@@ -1335,12 +1558,14 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function nextKnownTexts(agent: AgentSummary, branch: SessionEntry[]): KnownTexts {
     const messages = buildSessionContext(branch).messages;
     return {
-      systemPrompt: agent.systemPrompt,
+      systemPrompt: agent.contextSettings?.isBasePromptEnabled === false ? "" : agent.systemPrompt,
       addedByPi: agent.addedByPi,
-      addedFacts: knownFacts(agent, branch).filter((fact) =>
-        agent.addedFacts.some((each) => each.id === fact.id && each.isEnabled),
+      addedFacts: knownFacts(agent, branch, true).filter(
+        (fact) =>
+          fact.id.startsWith("context.") ||
+          agent.addedFacts.some((each) => each.id === fact.id && each.isEnabled),
       ),
-      tools: agent.tools.filter((tool) => tool.isEnabled),
+      tools: agent.tools.filter((tool) => tool.isEnabled && tool.unavailable === null),
       entries: messages.map((message, index) => ({
         id:
           branch.find((entry) => entry.type === "message" && entry.message === message)?.id ??
@@ -1353,8 +1578,24 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function knownFacts(
     agent: AgentSummary,
     branch: SessionEntry[],
+    isNextRequest = false,
   ): NonNullable<KnownTexts["addedFacts"]> {
+    const resources = isNextRequest ? agent.resources : (agent.lastContext ?? agent.resources);
     return [
+      ...[
+        {
+          id: "context.instructions",
+          label: "Project instructions",
+          text: resources?.renderedInstructions ?? "",
+        },
+        {
+          id: "context.skills",
+          label: "Skills",
+          text: resources?.renderedSkills ?? "",
+        },
+      ]
+        .filter((fact) => fact.text !== "")
+        .map((fact) => ({ ...fact, group: "instructions" as const })),
       ...agent.addedFacts
         .filter((fact) => fact.id !== "facts.messageTime" && fact.text !== null)
         .map((fact) => ({
@@ -1402,9 +1643,105 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     return true;
   }
 
+  function composeFor(
+    run: ChatRun,
+    text: string,
+    interpretation: "literal" | "commands",
+  ): ComposePreview {
+    return previews.compose(
+      run.session.sessionId,
+      text,
+      interpretation,
+      refreshResources(run, run.configuration, run.folder),
+      createModelTexts(() => run.configuration.settings.texts),
+    );
+  }
+
   function handleOf(run: ChatRun): OpenChat {
     let isClosed = false;
     return {
+      async saveResource(id, fingerprint, content) {
+        await saveContextResource(
+          {
+            projectRoot: run.folder,
+            folder: run.folder,
+            userDirectory: directory,
+            profileDirectory: run.configuration.profile.path,
+            settings: run.configuration.settings.context,
+            texts: createModelTexts(() => run.configuration.settings.texts),
+          },
+          id,
+          fingerprint,
+          content,
+        );
+        return refreshResources(run, run.configuration, run.folder);
+      },
+      getResources: () => refreshResources(run, run.configuration, run.folder),
+      compose: (text, interpretation) => composeFor(run, text, interpretation),
+      async slashAction(previewId) {
+        const preview = previews.get(run.session.sessionId, previewId);
+        if (preview.kind !== "action" || preview.action === undefined) {
+          throw new Error("This preview does not describe an action.");
+        }
+        const action = preview.action;
+        let newId: string | undefined;
+        await previews.submit(run.session.sessionId, previewId, "", async () => {
+          const opened = handleOf(run);
+          if (action === "stop") {
+            await run.session.abort();
+          }
+          if (action === "compact" && !(await opened.compact(preview.arguments || undefined))) {
+            throw new Error("The chat cannot compact now.");
+          }
+          if (action === "model" && preview.arguments !== "") {
+            const boundary = preview.arguments.indexOf("/");
+            if (
+              boundary < 1 ||
+              !(await opened.chooseModel(
+                preview.arguments.slice(0, boundary),
+                preview.arguments.slice(boundary + 1),
+              ))
+            ) {
+              throw new Error("That exact provider and model are not available.");
+            }
+          }
+          if (
+            action === "thinking" &&
+            preview.arguments !== "" &&
+            !(await opened.chooseThinking(preview.arguments))
+          ) {
+            throw new Error("That exact thinking level is not available.");
+          }
+          if (action === "new") {
+            const target = preview.arguments === "" ? run.folder : toFolder(preview.arguments);
+            if ((await getProjects()).some((project) => project.folder === target)) {
+              const created = await openNew(target, undefined, run);
+              newId = created.session.sessionId;
+              releaseIfIdle(created);
+            }
+            if (newId === undefined) {
+              throw new Error("That folder is not a registered project.");
+            }
+          }
+          if (action === "reload") {
+            await reconcileRun(run);
+            refreshResources(run, run.configuration, run.folder);
+          }
+          slashResults.set(previewId, {
+            action,
+            arguments: preview.arguments,
+            ...(newId === undefined ? {} : { chatId: newId }),
+          });
+          return true;
+        });
+        return (
+          slashResults.get(previewId) ?? {
+            action,
+            arguments: preview.arguments,
+            ...(newId === undefined ? {} : { chatId: newId }),
+          }
+        );
+      },
       getState: () => getState(run),
       getAgent: () => getAgent(run),
       getContext: () => getContext(run),
@@ -1422,26 +1759,50 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           releaseIfIdle(run);
         };
       },
-      async send(text) {
-        await reconcileRun(run);
-        if (run.isClosing || configurationIssues(run).length > 0 || !canStart(run)) {
-          return false;
+      async send(text, interpretation = "commands", previewId) {
+        const id = run.session.sessionId;
+        const preview =
+          previewId === undefined
+            ? composeFor(run, text, interpretation)
+            : previews.get(id, previewId);
+        if (preview.kind === "action" || (preview.kind === "preview" && previewId === undefined)) {
+          throw new Error("This command needs a preview before submission.");
         }
-        await profiles.saveChoices(run.session.sessionId);
-        setReplying(run, true);
-        run.session.prompt(text).catch((error: unknown) => {
-          const reply: ChatMessage = {
-            role: "assistant",
-            parts: [],
-            commandEnd: null,
-            error: messageOf(error),
-            timestamp: Date.now(),
-            durationMs: null,
-          };
-          emitFor(run, { type: "message", message: reply });
-          endReply(run, reply);
-        });
-        return true;
+        return previews.submit(
+          id,
+          preview.id,
+          previewId === undefined ? preview.text : text,
+          async (captured, submitted) => {
+            await reconcileRun(run);
+            if (run.isClosing || configurationIssues(run).length > 0 || !canStart(run)) {
+              return false;
+            }
+            await profiles.saveChoices(run.session.sessionId);
+            if (captured.kind === "preview") {
+              run.session.sessionManager.appendCustomEntry("independum-command", {
+                ...captured,
+                submitted,
+                isEdited: captured.text !== submitted,
+              });
+            }
+            setReplying(run, true);
+            run.session
+              .prompt(submitted, { expandPromptTemplates: false })
+              .catch((error: unknown) => {
+                const reply: ChatMessage = {
+                  role: "assistant",
+                  parts: [],
+                  commandEnd: null,
+                  error: messageOf(error),
+                  timestamp: Date.now(),
+                  durationMs: null,
+                };
+                emitFor(run, { type: "message", message: reply });
+                endReply(run, reply);
+              });
+            return true;
+          },
+        );
       },
       async chooseModel(providerId, modelId) {
         const model = models.getModel(providerId, modelId);
@@ -1472,15 +1833,19 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         }
         return changeChoices(run, { thinkingLevel: chosen });
       },
-      async compact() {
+      async compact(instructions) {
         await reconcileRun(run);
-        if (run.isClosing || !canStart(run)) {
+        if (
+          run.isClosing ||
+          run.configuration.settings.context.pi.disabled.includes("compaction") ||
+          !canStart(run)
+        ) {
           return false;
         }
         run.isCompacting = true;
         run.compactionError = null;
         refreshContext(run);
-        run.session.compact().catch(() => undefined);
+        run.session.compact(instructions).catch(() => undefined);
         return true;
       },
       async stop() {

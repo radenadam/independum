@@ -213,6 +213,11 @@ export interface ChatState {
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
+  piSections?: Record<string, string | null>;
+  chatId?: string;
+  contextSettings?: ContextSettings;
+  resources?: ContextRevision;
+  lastContext?: ContextRevision | null;
   configuration?: ChatConfiguration;
   modelSettings: ModelSettingsSummary | null;
   compaction: CompactionSettings;
@@ -246,6 +251,9 @@ export interface EnvironmentSuggestion {
  * marked when the last request of the open chat holds it.
  */
 export interface PiTextSummary {
+  control?: string | null;
+  source?: string;
+  limitation?: string;
   id: string;
   group: string;
   condition: string;
@@ -439,6 +447,7 @@ export interface CompactionSettings {
 
 /** The resolved runtime settings of a profile with user facts about models. */
 export interface Settings {
+  context: ContextSettings;
   modelOverrides: Record<string, Record<string, ModelOverrides>>;
   compaction: CompactionSettings;
   shell: ShellKind | null;
@@ -449,6 +458,59 @@ export interface Settings {
   handBackSeconds: number;
   environment: Record<string, string>;
   texts: Record<string, EditedText>;
+}
+
+/** Profile controls for discovered resources and Pi additions. */
+export interface ContextSettings {
+  version: 1;
+  isBasePromptEnabled: boolean;
+  instructions: { isEnabled: boolean; names: string[]; disabledPaths: string[] };
+  skills: { isEnabled: boolean; isAdvertised: boolean; paths: string[]; disabledPaths: string[] };
+  slashCommands: { isEnabled: boolean; paths: string[]; disabledPaths: string[] };
+  pi: { disabled: string[] };
+}
+
+/** A discovered source, including exclusions and the exact bytes captured for a request. */
+export interface ContextResource {
+  id: string;
+  kind: "instructions" | "skill" | "command";
+  scope: "user" | "profile" | "project";
+  path: string;
+  name: string;
+  state: "enabled" | "off" | "duplicate" | "overridden" | "invalid" | "needsPermission";
+  reason: string;
+  aliases: string[];
+  bytes: number;
+  fingerprint: string;
+  source: string;
+  insertedText: string;
+  body: string;
+  description: string;
+  metadata: Record<string, unknown>;
+}
+
+/** An immutable discovered revision saved through Pi when a request uses it. */
+export interface ContextRevision {
+  piSections?: Record<string, string | null>;
+  version: 1;
+  revision: string;
+  settings: ContextSettings;
+  resources: ContextResource[];
+  renderedInstructions: string;
+  renderedSkills: string;
+}
+
+/** An expansion captured before the user submits the shown text. */
+export interface ComposePreview {
+  kind: "literal" | "preview" | "action";
+  action?: string;
+  id: string;
+  chatId: string;
+  invocation: string;
+  arguments: string;
+  fingerprint: string;
+  text: string;
+  expires: number;
 }
 
 // Each model text in it gets a new text, or goes back to its built-in text with null.

@@ -27,6 +27,7 @@ interface SidePanelProps {
 
 /** A request from outside the panel to open a place, such as Session from the context meter. */
 export interface PlaceRequest {
+  detail?: "resources";
   place: "session" | "commands";
   at: number;
 }
@@ -152,6 +153,8 @@ export function SidePanel({
         <div key={`${active?.id}-${active?.place}`} className={styles.view}>
           {active?.place === "session" ? (
             <SessionPlace
+              requestedDetail={placeRequest?.detail}
+              requestedAt={placeRequest?.at}
               chat={chat}
               models={models}
               context={context}
