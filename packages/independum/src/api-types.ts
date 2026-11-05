@@ -309,6 +309,7 @@ export interface Settings {
  * text with null.
  */
 export type SettingsChange = Partial<Omit<Settings, "texts">> & {
+  tool?: { name: string; isEnabled: boolean };
   texts?: Record<string, string | null>;
 };
 

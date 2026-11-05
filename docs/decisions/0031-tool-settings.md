@@ -18,5 +18,6 @@ The Shell tool needed a choice of shell and a limit on the output that reaches t
 ## Consequences
 
 - `PUT /api/settings` changes settings and answers with the agent as it now is, and `GET /api/chat/agent` describes the tools, the shells, and the limits.
+- A tool switch changes only its named tool, so overlapping requests keep each choice. Settings saves run in the file queue, so an older save never overwrites a newer one.
 - The appearance settings and the choice of shell share `ChoiceGroup`.
 - Whether some settings also belong to a project stays open in the roadmap.

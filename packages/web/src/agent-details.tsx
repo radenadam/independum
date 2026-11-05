@@ -82,7 +82,6 @@ export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
   if (agent === undefined) {
     return <PlaceNote>Loading the tools.</PlaceNote>;
   }
-  const disabledTools = agent.tools.filter((tool) => !tool.isEnabled).map((tool) => tool.name);
   const limits = agent.outputLimits;
   const builtInLimits = agent.builtInOutputLimits;
   const isLimitEdited =
@@ -101,14 +100,13 @@ export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
             handBackSeconds={agent.handBackSeconds}
             environment={agent.environment}
             environmentSuggestions={agent.environmentSuggestions}
-            disabledTools={disabledTools}
             mark={isToolChanged(settings, tool.name) ? markOf(tool.name, true) : undefined}
             onChange={change}
             onEdit={() => setEditing(tool.name)}
             onReset={() =>
               change({
                 texts: builtInTextsOf(tool.name),
-                disabledTools: disabledTools.filter((name) => name !== tool.name),
+                tool: { name: tool.name, isEnabled: true },
                 ...(tool.name === "Shell"
                   ? {
                       shell: null,

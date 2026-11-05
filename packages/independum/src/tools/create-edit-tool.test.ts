@@ -75,6 +75,16 @@ test("line breaks of Windows, a byte order mark, and UTF-16 stay as the file had
   );
 });
 
+test("an edit through the final line break consumes the whole Windows line break", async () => {
+  const path = write("final-break.txt", "a\r\n");
+  expect(
+    (await edit({ path: "final-break.txt", oldString: "a\n", newString: "b\n" })).isError,
+  ).toBe(false);
+  expect(readFileSync(path, "utf8")).toBe("b\r\n");
+  await edit({ path: "final-break.txt", oldString: "b\n", newString: "" });
+  expect(readFileSync(path, "utf8")).toBe("");
+});
+
 test("a space at the end of a line blocks a match only when old_string goes past it", async () => {
   const path = write("spaces.txt", "apples\napple is not a banana \ncherry is red\n");
   expect(
