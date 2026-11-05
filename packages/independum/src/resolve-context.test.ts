@@ -3,10 +3,11 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { expect, test } from "vitest";
 import { createModelTexts } from "./model-texts.ts";
 import { builtInContext } from "./read-context-settings.ts";
@@ -15,10 +16,14 @@ import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("context-discovery");
 
-function setup(): ContextScope {
+function setup(isLinked = false): ContextScope {
   const root = mkdtempSync(join(parent, "case-"));
-  const projectRoot = join(root, "project");
-  const userDirectory = join(root, "state");
+  const location = isLinked ? join(parent, `linked-${basename(root)}`) : root;
+  if (isLinked) {
+    symlinkSync(root, location, "junction");
+  }
+  const projectRoot = join(location, "project");
+  const userDirectory = join(location, "state");
   const profileDirectory = join(userDirectory, "profiles", "research");
   mkdirSync(projectRoot);
   mkdirSync(profileDirectory, { recursive: true });
@@ -70,36 +75,95 @@ test("a project reached through a linked folder reads its instructions", () => {
   expect(captured.resources.map((resource) => [resource.source, resource.state])).toEqual([
     ["Linked facts.", "enabled"],
   ]);
+  expect(captured.resources[0]?.path).toBe(join(options.projectRoot, "AGENTS.md"));
 });
 
-test("byte equality preserves line endings and the first file supplies identical content", () => {
-  const options = setup();
-  writeFileSync(join(options.projectRoot, "AGENTS.md"), "Same\r\n");
-  writeFileSync(join(options.projectRoot, "CLAUDE.md"), "Same\r\n");
-  let captured = resolveContext(options);
-  expect(captured.resources.map((resource) => resource.state)).toEqual(["enabled", "duplicate"]);
-  expect(captured.resources[0]?.aliases).toEqual([join(options.projectRoot, "CLAUDE.md")]);
-  writeFileSync(join(options.projectRoot, "CLAUDE.md"), "Same\n");
-  captured = resolveContext(options);
-  expect(captured.resources.map((resource) => resource.state)).toEqual(["enabled", "enabled"]);
-  expect(captured.renderedInstructions).toContain("Same\r\n");
-  expect(captured.renderedInstructions).toContain("Same\n");
+test("linked chat folders use their real project ancestors and preserve their paths", () => {
+  const options = setup(true);
+  const nested = join(options.projectRoot, "nested");
+  const folder = join(nested, "chat");
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(join(options.projectRoot, "AGENTS.md"), "Root facts.");
+  writeFileSync(join(nested, "CLAUDE.md"), "Nested facts.");
+  writeFileSync(join(folder, "AGENTS.md"), "Chat facts.");
+  options.folder = join(parent, `chat-${basename(dirname(options.projectRoot))}`);
+  symlinkSync(folder, options.folder, "junction");
+  expect(
+    resolveContext(options).resources.map((resource) => [resource.path, resource.source]),
+  ).toEqual([
+    [join(options.projectRoot, "AGENTS.md"), "Root facts."],
+    [join(nested, "CLAUDE.md"), "Nested facts."],
+    [join(options.folder, "AGENTS.md"), "Chat facts."],
+  ]);
 });
 
-test("filesystem identity aliases contribute once and disabled files do not suppress enabled ones", () => {
-  const options = setup();
-  const first = join(options.projectRoot, "AGENTS.md");
-  writeFileSync(first, "One physical file.");
-  linkSync(first, join(options.projectRoot, "CLAUDE.md"));
-  expect(resolveContext(options).resources.map((resource) => resource.state)).toEqual([
-    "enabled",
-    "duplicate",
+test.each([false, true])(
+  "byte equality preserves line endings and the first file supplies identical content with junction %s",
+  (isLinked) => {
+    const options = setup(isLinked);
+    writeFileSync(join(options.projectRoot, "AGENTS.md"), "Same\r\n");
+    writeFileSync(join(options.projectRoot, "CLAUDE.md"), "Same\r\n");
+    let captured = resolveContext(options);
+    expect(captured.resources.map((resource) => resource.state)).toEqual(["enabled", "duplicate"]);
+    expect(captured.resources[0]?.aliases).toEqual([join(options.projectRoot, "CLAUDE.md")]);
+    writeFileSync(join(options.projectRoot, "CLAUDE.md"), "Same\n");
+    captured = resolveContext(options);
+    expect(captured.resources.map((resource) => resource.state)).toEqual(["enabled", "enabled"]);
+    expect(captured.renderedInstructions).toContain("Same\r\n");
+    expect(captured.renderedInstructions).toContain("Same\n");
+  },
+);
+
+test.each([false, true])(
+  "filesystem identity aliases contribute once and disabled files do not suppress enabled ones with junction %s",
+  (isLinked) => {
+    const options = setup(isLinked);
+    const first = join(options.projectRoot, "AGENTS.md");
+    writeFileSync(first, "One physical file.");
+    linkSync(first, join(options.projectRoot, "CLAUDE.md"));
+    expect(resolveContext(options).resources.map((resource) => resource.state)).toEqual([
+      "enabled",
+      "duplicate",
+    ]);
+    options.settings.instructions.disabledPaths = [first];
+    expect(resolveContext(options).resources.map((resource) => resource.state)).toEqual([
+      "off",
+      "enabled",
+    ]);
+  },
+);
+
+test("linked user and profile scopes preserve resource paths and disabled settings", () => {
+  const options = setup(true);
+  const userSkill = join(options.userDirectory, "skills", "review", "SKILL.md");
+  const profileSkill = join(options.profileDirectory, "skills", "review", "SKILL.md");
+  skill(join(options.userDirectory, "skills"), "User description.");
+  skill(join(options.profileDirectory, "skills"), "Profile description.");
+  const userCommand = join(options.userDirectory, "commands", "review.md");
+  const profileCommand = join(options.profileDirectory, "commands", "review.md");
+  for (const path of [userCommand, profileCommand]) {
+    mkdirSync(dirname(path));
+    writeFileSync(path, "---\ndescription: Review data.\n---\nReview $1.");
+  }
+  options.settings.skills.disabledPaths = [userSkill];
+  options.settings.slashCommands.disabledPaths = [profileCommand];
+  const captured = resolveContext(options);
+  expect(captured.resources.map((resource) => [resource.path, resource.state])).toEqual([
+    [userSkill, "off"],
+    [userCommand, "enabled"],
+    [profileSkill, "enabled"],
+    [profileCommand, "off"],
   ]);
-  options.settings.instructions.disabledPaths = [first];
-  expect(resolveContext(options).resources.map((resource) => resource.state)).toEqual([
-    "off",
-    "enabled",
-  ]);
+  expect(captured.renderedSkills).toContain(profileSkill);
+});
+
+test("missing resource roots under linked parents remain absent", () => {
+  const options = setup(true);
+  options.userDirectory = join(dirname(options.userDirectory), "missing", "state");
+  options.profileDirectory = join(options.userDirectory, "profiles", "research");
+  options.settings.skills.paths = [join("extra", "skills")];
+  options.settings.slashCommands.paths = [join("extra", "commands")];
+  expect(resolveContext(options).resources).toEqual([]);
 });
 
 test("empty files, byte order marks, and large instructions stay exact without truncation", () => {
@@ -180,36 +244,74 @@ test("outside configured resources need permission before metadata or content is
   });
 });
 
-test("external directory links stay unread and a missing working folder fails explicitly", () => {
-  const options = setup();
-  const external = mkdtempSync(join(parent, "external-"));
-  skill(external);
-  const agents = join(options.projectRoot, ".agents");
-  mkdirSync(agents);
-  symlinkSync(external, join(agents, "skills"), "junction");
-  expect(resolveContext(options).resources[0]).toMatchObject({
-    state: "needsPermission",
-    source: "",
-    fingerprint: "",
-  });
-  options.folder = join(options.projectRoot, "deleted-folder");
-  expect(() => resolveContext(options)).toThrow("does not exist");
-});
+test.each([false, true])(
+  "external directory links stay unread and a missing working folder fails explicitly with junction %s",
+  (isLinked) => {
+    const options = setup(isLinked);
+    const external = mkdtempSync(join(parent, "external-"));
+    skill(external);
+    const agents = join(options.projectRoot, ".agents");
+    mkdirSync(agents);
+    symlinkSync(external, join(agents, "skills"), "junction");
+    expect(resolveContext(options).resources[0]).toMatchObject({
+      state: "needsPermission",
+      source: "",
+      fingerprint: "",
+    });
+    options.folder = join(options.projectRoot, "deleted-folder");
+    expect(() => resolveContext(options)).toThrow("does not exist");
+    options.folder = join(external, "missing", "deleted-folder");
+    expect(() => resolveContext(options)).toThrow("does not exist");
+  },
+);
 
-test("source editing preserves exact supplied bytes and rejects a stale fingerprint", async () => {
-  const options = setup();
-  const path = join(options.projectRoot, "AGENTS.md");
-  writeFileSync(path, "\uFEFFOriginal.\r\n");
-  const resource = resolveContext(options).resources[0];
-  if (resource === undefined) {
-    throw new Error("The source is missing.");
-  }
-  await saveContextResource(options, resource.id, resource.fingerprint, "\uFEFFEdited.\r\n");
-  expect(readFileSync(path, "utf8")).toBe("\uFEFFEdited.\r\n");
-  await expect(
-    saveContextResource(options, resource.id, resource.fingerprint, "Overwrite."),
-  ).rejects.toThrow("changed on disk");
-  expect(readFileSync(path, "utf8")).toBe("\uFEFFEdited.\r\n");
+test.each([false, true])(
+  "source editing preserves exact supplied bytes and rejects a stale fingerprint with junction %s",
+  async (isLinked) => {
+    const options = setup(isLinked);
+    const path = join(options.projectRoot, "AGENTS.md");
+    writeFileSync(path, "\uFEFFOriginal.\r\n");
+    const resource = resolveContext(options).resources[0];
+    if (resource === undefined) {
+      throw new Error("The source is missing.");
+    }
+    const saved = await saveContextResource(
+      options,
+      resource.id,
+      resource.fingerprint,
+      "\uFEFFEdited.\r\n",
+    );
+    expect(saved.resources[0]).toMatchObject({ id: resource.id, path });
+    expect(readFileSync(path, "utf8")).toBe("\uFEFFEdited.\r\n");
+    await expect(
+      saveContextResource(options, resource.id, resource.fingerprint, "Overwrite."),
+    ).rejects.toThrow("changed on disk");
+    expect(readFileSync(path, "utf8")).toBe("\uFEFFEdited.\r\n");
+  },
+);
+
+test("source saves through directory aliases share one fingerprint check", async () => {
+  const options = setup(true);
+  writeFileSync(join(options.projectRoot, "AGENTS.md"), "Original.");
+  const direct = {
+    ...options,
+    projectRoot: realpathSync(options.projectRoot),
+    folder: realpathSync(options.folder),
+  };
+  const outcomes = await Promise.allSettled(
+    [options, direct].map((scope) => {
+      const resource = resolveContext(scope).resources[0];
+      if (resource === undefined) {
+        throw new Error("The source is missing.");
+      }
+      return saveContextResource(scope, resource.id, resource.fingerprint, "Edited.");
+    }),
+  );
+  expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+  expect(outcomes.find((outcome) => outcome.status === "rejected")).toMatchObject({
+    reason: new Error("The source changed on disk. Reload it before saving."),
+  });
+  expect(readFileSync(join(options.projectRoot, "AGENTS.md"), "utf8")).toBe("Edited.");
 });
 
 test("resource switches remove inserted sections and leave sources inspectable", () => {

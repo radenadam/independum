@@ -1,5 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { expect, test } from "vitest";
 import { addedFactTexts } from "./added-facts.ts";
@@ -61,25 +61,30 @@ test("resources enter one coherent request and their off switches remove histori
   await chats.stopAll();
 });
 
-test("invalid required instructions stop before the provider and disabling the candidate unblocks work", async () => {
-  const { chats, chat, faux, reference, projectId, project } = await setup();
-  const path = join(project, "AGENTS.md");
-  writeFileSync(path, Buffer.from([255]));
-  const callsBefore = faux.state.callCount;
-  await reply(chat, "Blocked request");
-  expect(faux.state.callCount).toBe(callsBefore);
-  const settings = chat.getResources().settings;
-  await chats.changeSettings(
-    reference,
-    projectId,
-    { context: { ...settings, instructions: { ...settings.instructions, disabledPaths: [path] } } },
-    chats.profiles.profile(reference, projectId).revision,
-  );
-  faux.setResponses([fauxAssistantMessage("Unblocked.")]);
-  await reply(chat, "Unblocked request");
-  expect(faux.state.callCount).toBe(callsBefore + 1);
-  await chats.stopAll();
-});
+test.each([false, true])(
+  "invalid required instructions stop before the provider and disabling the candidate unblocks work with junction %s",
+  async (isLinked) => {
+    const { chats, chat, faux, reference, projectId, project } = await setup(isLinked);
+    const path = join(project, "AGENTS.md");
+    writeFileSync(path, Buffer.from([255]));
+    const callsBefore = faux.state.callCount;
+    await reply(chat, "Blocked request");
+    expect(faux.state.callCount).toBe(callsBefore);
+    const settings = chat.getResources().settings;
+    await chats.changeSettings(
+      reference,
+      projectId,
+      {
+        context: { ...settings, instructions: { ...settings.instructions, disabledPaths: [path] } },
+      },
+      chats.profiles.profile(reference, projectId).revision,
+    );
+    faux.setResponses([fauxAssistantMessage("Unblocked.")]);
+    await reply(chat, "Unblocked request");
+    expect(faux.state.callCount).toBe(callsBefore + 1);
+    await chats.stopAll();
+  },
+);
 
 test("command previews submit their captured expansion exactly once through addressed routes", async () => {
   const { chats, chat, faux, models, project } = await setup();
@@ -163,9 +168,16 @@ test("context routes reject malformed bodies and repeated new actions return the
   await chats.stopAll();
 });
 
-async function setup() {
+async function setup(isLinked = false) {
   nextId += 1;
-  const { directory, project } = createTestProject(folder);
+  const created = createTestProject(folder);
+  const root = isLinked ? join(folder, `linked-${basename(created.directory)}`) : created.directory;
+  if (isLinked) {
+    symlinkSync(created.directory, root, "junction");
+  }
+  const directory = join(root, "state");
+  mkdirSync(directory);
+  const project = join(root, "project");
   const models = await createModelRuntime(directory);
   const faux = fauxProvider({
     provider: `profile-test-${nextId}`,

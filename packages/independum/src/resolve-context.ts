@@ -43,7 +43,7 @@ export async function saveContextResource(
     if (Buffer.from(content, "utf8").toString("utf8") !== content) {
       throw new Error("The source must contain valid Unicode text.");
     }
-    await writeFile(realpathSync(current.path), content, "utf8");
+    await writeFile(current.path, content, "utf8");
     return resolveContext(options);
   });
 }
@@ -52,35 +52,41 @@ export async function saveContextResource(
 export function resolveContext(options: ContextScope): ContextRevision {
   const { settings, texts } = options;
   const resources: ContextResource[] = [];
-  // A folder can be reached through a link, such as the temporary folder of macOS under /var, so
-  // every path is compared by its real location.
-  const roots = [options.projectRoot, options.userDirectory, options.profileDirectory].map(realOf);
-  const [
-    projectRoot = realOf(options.projectRoot),
-    userDirectory = realOf(options.userDirectory),
-    profileDirectory = realOf(options.profileDirectory),
-  ] = roots;
-  const folder = realOf(options.folder);
-  if (!isInside(projectRoot, folder)) {
-    throw new Error("The chat folder is outside its registered project.");
-  }
-  if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) {
+  if (!statSync(options.folder, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error("The chat folder does not exist or is not a directory.");
   }
+  const projectRoot = realLocation(options.projectRoot);
+  const roots = [
+    projectRoot,
+    realLocation(options.userDirectory),
+    realLocation(options.profileDirectory),
+  ];
+  let location = realLocation(options.folder);
+  if (!isInside(projectRoot, location)) {
+    throw new Error("The chat folder is outside its registered project.");
+  }
   const directories: string[] = [];
-  let directory = folder;
+  let directory = resolve(options.folder);
   while (true) {
     directories.unshift(directory);
-    if (relative(projectRoot, directory) === "") {
+    if (relative(projectRoot, location) === "") {
       break;
     }
-    directory = dirname(directory);
+    location = dirname(location);
+    const parent = dirname(directory);
+    directory =
+      relative(realLocation(parent), location) === ""
+        ? parent
+        : join(options.projectRoot, relative(projectRoot, location));
   }
   const identities = new Map<string, ContextResource>();
   const fingerprints = new Map<string, ContextResource>();
 
   function isAllowed(path: string, scope: ContextResource["scope"]): boolean {
-    return (scope === "project" ? roots.slice(0, 1) : roots).some((root) => isInside(root, path));
+    const location = realLocation(path);
+    return (scope === "project" ? roots.slice(0, 1) : roots).some((root) =>
+      isInside(root, location),
+    );
   }
 
   function read(
@@ -132,7 +138,7 @@ export function resolveContext(options: ContextScope): ContextRevision {
         resource.state = "invalid";
         resource.reason = "Credential files are not context resources.";
       } else {
-        const information = statSync(physical);
+        const information = statSync(physical, { bigint: true });
         if (!information.isFile()) {
           throw new Error("The resource is not a regular file.");
         }
@@ -263,11 +269,11 @@ export function resolveContext(options: ContextScope): ContextRevision {
     function add(file: string, name: string): void {
       read(kind, scope, file, name, feature.isEnabled && !feature.disabledPaths.includes(file));
     }
-    if (!isAllowed(path, scope)) {
-      add(path, basename(path));
-      return;
-    }
     try {
+      if (!isAllowed(path, scope)) {
+        add(path, basename(path));
+        return;
+      }
       const physical = realpathSync(path);
       if (!isAllowed(physical, scope)) {
         add(path, basename(path));
@@ -314,15 +320,15 @@ export function resolveContext(options: ContextScope): ContextRevision {
   }[] = [
     {
       scope: "user",
-      directory: userDirectory,
-      skills: join(userDirectory, "skills"),
-      commands: join(userDirectory, "commands"),
+      directory: options.userDirectory,
+      skills: join(options.userDirectory, "skills"),
+      commands: join(options.userDirectory, "commands"),
     },
     {
       scope: "profile",
-      directory: profileDirectory,
-      skills: join(profileDirectory, "skills"),
-      commands: join(profileDirectory, "commands"),
+      directory: options.profileDirectory,
+      skills: join(options.profileDirectory, "skills"),
+      commands: join(options.profileDirectory, "commands"),
     },
     ...directories.map((folder) => ({
       scope: "project" as const,
@@ -385,10 +391,17 @@ function digest(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function realOf(path: string): string {
-  return statSync(path, { throwIfNoEntry: false }) === undefined
-    ? resolve(path)
-    : realpathSync(path);
+function realLocation(path: string): string {
+  const absolute = resolve(path);
+  try {
+    return realpathSync(absolute);
+  } catch (error) {
+    const parent = dirname(absolute);
+    if (!hasCode(error, "ENOENT") || parent === absolute) {
+      throw error;
+    }
+    return join(realLocation(parent), basename(absolute));
+  }
 }
 
 function isInside(root: string, path: string): boolean {
