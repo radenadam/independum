@@ -9,8 +9,8 @@ import {
   messageTimeText,
   summarizeAddedFacts,
 } from "./added-facts.ts";
-import { builtInSettings } from "./create-settings.ts";
 import { changeTexts } from "./model-texts.ts";
+import { builtInSettings } from "./read-settings-change.ts";
 
 const timestamp = Date.parse("2026-11-05T14:14:00Z");
 const options = {

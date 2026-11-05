@@ -1,12 +1,14 @@
 import type {
   AgentSummary,
   ArchivedChatSummary,
+  ChatConfiguration,
   ChatEvent,
   ChatsEvent,
   ContextSummary,
   ModelSummary,
   SettingsChange,
 } from "independum/api-types";
+import { fetchProfileAgent, profilePath, readResponse } from "./profile-api.ts";
 import { readEvents } from "./read-events.ts";
 import { requestApi } from "./request-api.ts";
 
@@ -36,15 +38,37 @@ export async function fetchAgent(id: string): Promise<AgentSummary> {
 }
 
 /**
- * Changes settings of the user, such as the shell, the tools that are off, or the model texts, and
- * returns the agent with them.
+ * Changes an explicitly addressed profile or user model fact and returns its owner editor.
  */
-export async function changeSettings(id: string, change: SettingsChange): Promise<AgentSummary> {
-  const response = await requestApi("/api/settings", { method: "PUT", body: change });
-  if (!response.ok) {
-    throw new Error("The setting could not be saved.");
+export async function changeSettings(
+  id: string | undefined,
+  change: SettingsChange,
+  configuration?: ChatConfiguration,
+): Promise<AgentSummary> {
+  if (change.knowledgeCutoffs !== undefined) {
+    const user = configuration?.userSettings;
+    if (user?.document == null || configuration === undefined) {
+      throw new Error("The user settings have not loaded yet.");
+    }
+    await readResponse(
+      await requestApi("/api/settings", {
+        method: "PUT",
+        revision: user.revision,
+        body: { ...user.document, knowledgeCutoffs: change.knowledgeCutoffs },
+      }),
+    );
+    return id === undefined ? fetchProfileAgent(configuration.profile) : fetchAgent(id);
   }
-  return fetchAgent(id);
+  if (configuration === undefined) {
+    throw new Error("The profile has not loaded yet.");
+  }
+  return readResponse(
+    await requestApi(profilePath(configuration.profile, "/settings"), {
+      method: "PUT",
+      revision: configuration.profile.revision,
+      body: change,
+    }),
+  );
 }
 
 /** Returns what the model of the open chat works with, for the Session place. */

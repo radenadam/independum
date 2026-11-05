@@ -28,7 +28,7 @@
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
     },
     {
-      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); const nav = dialog.querySelector('nav[aria-label=\"Settings sections\"]'); const buttons = [...nav.querySelectorAll('button')]; return { allSettingsSectionsFit: nav.scrollWidth <= nav.clientWidth && buttons.length === 4 && buttons.every(button => { const box = button.getBoundingClientRect(); return box.left >= 0 && box.right <= 360; }), noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
+      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); const nav = dialog.querySelector('nav[aria-label=\"Settings sections\"]'); const buttons = [...nav.querySelectorAll('button')]; return { allSettingsSectionsFit: nav.scrollWidth <= nav.clientWidth && buttons.length === 5 && buttons.every(button => { const box = button.getBoundingClientRect(); return box.left >= 0 && box.right <= 360; }), noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
       "shot": "phone-settings"
     },
     {

@@ -30,6 +30,7 @@ test("a chat cannot stop another chat's command or suppress its completion note"
   });
   log.append("Private output.\n");
   const id = background.adopt({
+    texts: createModelTexts(() => ({})),
     start: {
       toolCallId: "other-call",
       chatId: "other-chat",
@@ -84,6 +85,7 @@ function adopt(commands: BackgroundCommands, chatId: string): AbortController {
     );
   });
   commands.adopt({
+    texts: createModelTexts(() => ({})),
     start: {
       chatId,
       toolCallId: "same-call",

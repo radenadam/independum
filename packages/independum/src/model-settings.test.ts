@@ -11,12 +11,13 @@ import {
 } from "@earendil-works/pi-ai";
 import { shouldCompact } from "@earendil-works/pi-coding-agent";
 import { afterAll, expect, test } from "vitest";
-import type { ChatState, ModelOverrideChange } from "./api-types.ts";
+import type { ChatState, ModelOverrideChange, Settings, SettingsChange } from "./api-types.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
-import { builtInSettings, createSettings, readSettingsChange } from "./create-settings.ts";
+import { createProfileStore } from "./create-profile-store.ts";
 import { applyModelOverrides, modelSettingsOf } from "./model-settings.ts";
+import { builtInSettings, readSettingsChange } from "./read-settings-change.ts";
 
 const folders: string[] = [];
 afterAll(() => {
@@ -52,10 +53,14 @@ async function startNextChat(chats: Chat, chat: OpenChat): Promise<OpenChat> {
   if (nextId === undefined) {
     throw new Error("The next test chat did not start.");
   }
+  const selected = chat.getState().model;
   chat.close();
   const next = await chats.open(nextId);
   if (next === undefined) {
     throw new Error("The next test chat did not open.");
+  }
+  if (selected !== null) {
+    await next.chooseModel(selected.providerId, selected.id);
   }
   return next;
 }
@@ -68,10 +73,12 @@ async function reply(chat: OpenChat, text = "Continue"): Promise<void> {
         resolve();
       }
     });
-    if (!chat.send(text)) {
-      stop();
-      reject(new Error("The test chat refused the message."));
-    }
+    chat.send(text).then((isAccepted) => {
+      if (!isAccepted) {
+        stop();
+        reject(new Error("The test chat refused the message."));
+      }
+    }, reject);
   });
 }
 
@@ -105,7 +112,8 @@ function holdReply() {
 
 test("model overrides reach only requests of their provider and model", async () => {
   const { chat, chats, faux, other, provider } = await setup();
-  await chats.changeSettings(
+  await changeSettings(
+    chats,
     overridesOf(provider, { contextWindow: 240_000, maxOutput: 900, temperature: 0 }),
   );
   const requests: {
@@ -146,7 +154,7 @@ test("model overrides reach only requests of their provider and model", async ()
 
 test("model overrides keep cutoff facts and message times through changes and resets", async () => {
   const { chat, chats, faux, provider } = await setup();
-  await chats.changeSettings({
+  await changeSettings(chats, {
     ...overridesOf(provider, { contextWindow: 240_000, maxOutput: 900, temperature: 0 }),
     knowledgeCutoffs: { [provider]: { first: "2026-04" } },
     disabledFacts: ["facts.chatFolder"],
@@ -162,9 +170,9 @@ test("model overrides keep cutoff facts and message times through changes and re
   }
   faux.setResponses([capture, capture, capture]);
   await reply(chat, "First message");
-  await chats.changeSettings(overridesOf(provider, { maxOutput: 1200 }));
+  await changeSettings(chats, overridesOf(provider, { maxOutput: 1200 }));
   await reply(chat, "Second message");
-  await chats.changeSettings({ modelOverrides: { [provider]: { first: null } } });
+  await changeSettings(chats, { modelOverrides: { [provider]: { first: null } } });
   await reply(chat, "Third message");
   for (const prompt of prompts) {
     expect(prompt).toContain("Model knowledge cutoff: 2026-04.");
@@ -186,12 +194,12 @@ test("model overrides keep cutoff facts and message times through changes and re
     { parts: [{ type: "text", text: "Second message" }] },
     { parts: [{ type: "text", text: "Third message" }] },
   ]);
-  expect(
-    await chats.changeSettings({
+  await expect(
+    changeSettings(chats, {
       disabledFacts: ["facts.unknown"],
       ...overridesOf(provider, { temperature: 1 }),
     }),
-  ).toBe(false);
+  ).rejects.toMatchObject({ status: 422 });
   expect(chat.getAgent().modelSettings?.overrides).toEqual({});
 });
 
@@ -200,7 +208,7 @@ test("the context window changes the share and the reserve threshold", async () 
   faux.setResponses([fauxAssistantMessage("A reply.")]);
   await reply(chat);
   const before = chat.getContext();
-  await chats.changeSettings(overridesOf(provider, { contextWindow: 256_000 }));
+  await changeSettings(chats, overridesOf(provider, { contextWindow: 256_000 }));
   const after = chat.getContext();
   expect(after.contextWindow).toBe(256_000);
   expect(after.contextTokens).toBe(before.contextTokens);
@@ -226,7 +234,7 @@ test("automatic compaction uses the overridden window and token settings", async
   faux.setResponses([fauxAssistantMessage("Older text. ".repeat(1000))]);
   await reply(chat, "Remember this older message.");
   const tokens = Number(chat.getContext().contextTokens);
-  await chats.changeSettings({
+  await changeSettings(chats, {
     ...overridesOf(provider, { contextWindow: tokens + 500 }),
     compaction: { isEnabled: true, reserveTokens: 512, keepRecentTokens: 0 },
   });
@@ -244,7 +252,7 @@ test("automatic compaction uses the overridden window and token settings", async
 
 test("compaction off removes the reserve and prevents automatic compaction", async () => {
   const { chat, chats, faux, provider } = await setup();
-  await chats.changeSettings({
+  await changeSettings(chats, {
     ...overridesOf(provider, { contextWindow: 1 }),
     compaction: { isEnabled: false, reserveTokens: 16_384, keepRecentTokens: 0 },
   });
@@ -258,7 +266,7 @@ test("compaction off removes the reserve and prevents automatic compaction", asy
 
 test("manual compaction works while automatic compaction is off and reports failures", async () => {
   const { chat, chats, faux, provider, models } = await setup();
-  await chats.changeSettings({
+  await changeSettings(chats, {
     ...overridesOf(provider, { maxOutput: 250, temperature: 0.2 }),
     compaction: { isEnabled: false, reserveTokens: 400, keepRecentTokens: 0 },
   });
@@ -282,7 +290,7 @@ test("manual compaction works while automatic compaction is off and reports fail
   expect((await routes.request("/chats/missing/compact", { method: "POST" })).status).toBe(404);
   expect((await routes.request(path, { method: "POST" })).status).toBe(202);
   expect((await routes.request(path, { method: "POST" })).status).toBe(409);
-  expect(chat.send("While compacting")).toBe(false);
+  expect(await chat.send("While compacting")).toBe(false);
   expect((await completed).compactionError).toBeNull();
   expect(chat.getContext().entries.filter((entry) => entry.type === "compaction")).toHaveLength(1);
   expect(summaryOptions).toHaveLength(2);
@@ -290,7 +298,7 @@ test("manual compaction works while automatic compaction is off and reports fail
     expect(options).toMatchObject({ maxTokens: 250, temperature: 0.2 });
   }
   const failed = waitForCompaction(chat);
-  expect(chat.compact()).toBe(true);
+  expect(await chat.compact()).toBe(true);
   expect((await failed).compactionError).toContain("Already compacted");
   expect(chat.getState().isCompacting).toBe(false);
 });
@@ -299,7 +307,7 @@ test("model and compaction settings survive reopening a saved chat after a resta
   const { chat, chats, faux, models, directory, folder, provider } = await setup();
   const overrides = { contextWindow: 200_000, maxOutput: 1500, temperature: 0.4 };
   const compaction = { isEnabled: false, reserveTokens: 600, keepRecentTokens: 300 };
-  await chats.changeSettings({ ...overridesOf(provider, overrides), compaction });
+  await changeSettings(chats, { ...overridesOf(provider, overrides), compaction });
   faux.setResponses([fauxAssistantMessage("Saved.")]);
   await reply(chat);
   const restartedChats = await createChat({ models, directory, folder });
@@ -319,24 +327,26 @@ test("model and compaction settings survive reopening a saved chat after a resta
   ]);
   await reply(restarted);
   expect(temperature).toBe(0.4);
-  const saved = (await createSettings(join(directory, "settings.json"))).get();
+  const saved = await savedSettings(directory);
   expect(saved.modelOverrides).toEqual({ [provider]: { first: overrides } });
   expect(saved.compaction).toEqual(compaction);
 });
 
 test("choosing built-in values removes edits and reset restores the catalog limits", async () => {
   const { chat, chats, faux, provider, directory } = await setup();
-  await chats.changeSettings(
+  await changeSettings(
+    chats,
     overridesOf(provider, { contextWindow: 100_000, maxOutput: 500, temperature: 0.5 }),
   );
-  await chats.changeSettings(
+  await changeSettings(
+    chats,
     overridesOf(provider, { contextWindow: 128_000, maxOutput: 16_384, temperature: null }),
   );
   expect(chat.getAgent().modelSettings?.overrides).toEqual({});
-  await chats.changeSettings(overridesOf(provider, { contextWindow: 100_000 }));
-  await chats.changeSettings({ modelOverrides: { [provider]: { first: null } } });
+  await changeSettings(chats, overridesOf(provider, { contextWindow: 100_000 }));
+  await changeSettings(chats, { modelOverrides: { [provider]: { first: null } } });
   expect(chat.getContext().contextWindow).toBe(128_000);
-  expect((await createSettings(join(directory, "settings.json"))).get().modelOverrides).toEqual({});
+  expect((await savedSettings(directory)).modelOverrides).toEqual({});
   const model = { ...faux.models[0], samplingParams: { temperature: 0.6 } };
   expect(modelSettingsOf(model).builtIn.temperature).toBe(0.6);
   expect(modelSettingsOf(model, { contextWindow: 128_000, temperature: 0.6 }).overrides).toEqual(
@@ -358,12 +368,18 @@ test("invalid overrides and compaction settings are refused whole", async () => 
     { compaction: { isEnabled: true, reserveTokens: 0, keepRecentTokens: 0.5 } },
   ];
   for (const change of invalid) {
-    const response = await routes.request("/settings", {
+    const response = await routes.request("/profiles/user/default/settings", {
       method: "PUT",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "If-Match": chats.profiles.profile(
+          { scope: "user", id: "default" },
+          chats.profiles.projects()[0]?.id ?? "",
+        ).revision,
+      },
       body: JSON.stringify(change),
     });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
   }
   expect(readSettingsChange(overridesOf(provider, { temperature: Number.NaN }))).toBeUndefined();
   expect(
@@ -375,15 +391,17 @@ test("invalid overrides and compaction settings are refused whole", async () => 
 
 test("separate field changes keep each other and persist in order", async () => {
   const { chat, chats, provider, directory } = await setup();
-  await Promise.all([
-    chats.changeSettings(overridesOf(provider, { contextWindow: 180_000 })),
-    chats.changeSettings(overridesOf(provider, { temperature: 0.3 })),
-    chats.changeSettings({ compaction: { isEnabled: false } }),
-    chats.changeSettings({ compaction: { reserveTokens: 0 } }),
-    chats.changeSettings({ tool: { name: "Read", isEnabled: false } }),
-    chats.changeSettings({ tool: { name: "Write", isEnabled: false } }),
-  ]);
-  const saved = (await createSettings(join(directory, "settings.json"))).get();
+  for (const change of [
+    overridesOf(provider, { contextWindow: 180_000 }),
+    overridesOf(provider, { temperature: 0.3 }),
+    { compaction: { isEnabled: false } },
+    { compaction: { reserveTokens: 0 } },
+    { tool: { name: "Read", isEnabled: false } },
+    { tool: { name: "Write", isEnabled: false } },
+  ]) {
+    await changeSettings(chats, change);
+  }
+  const saved = await savedSettings(directory);
   expect(saved.disabledTools).toEqual(["Read", "Write"]);
   expect(saved.modelOverrides).toEqual({
     [provider]: { first: { contextWindow: 180_000, temperature: 0.3 } },
@@ -393,11 +411,11 @@ test("separate field changes keep each other and persist in order", async () => 
     isEnabled: false,
     reserveTokens: 0,
   });
-  await chats.changeSettings(overridesOf(provider, { contextWindow: null }));
+  await changeSettings(chats, overridesOf(provider, { contextWindow: null }));
   expect(chat.getAgent().modelSettings?.overrides).toEqual({ temperature: 0.3 });
 });
 
-test("a change reaches the next request of a chat running beside the open chat", async () => {
+test("a profile edit waits until all turns of a running reply settle", async () => {
   const { chat, chats, faux, provider } = await setup();
   const held = holdReply();
   let received: { contextWindow: number; temperature: number | undefined } | undefined;
@@ -412,20 +430,20 @@ test("a change reaches the next request of a chat running beside the open chat",
   await held.entered;
   const next = await startNextChat(chats, chat);
   await next.chooseModel(provider, "second");
-  await chats.changeSettings(overridesOf(provider, { contextWindow: 300_000, temperature: 0.7 }));
+  await changeSettings(chats, overridesOf(provider, { contextWindow: 300_000, temperature: 0.7 }));
   held.finish(
     fauxAssistantMessage([fauxToolCall("Read", { path: "missing-file-for-settings-test" })], {
       stopReason: "toolUse",
     }),
   );
   await finished;
-  expect(received).toEqual({ contextWindow: 300_000, temperature: 0.7 });
+  expect(received).toEqual({ contextWindow: 128_000, temperature: undefined });
   expect(next.getContext().contextWindow).toBe(128_000);
 });
 
 test("manual compaction stays alive when the user opens another chat", async () => {
   const { chat, chats, faux, models } = await setup();
-  await chats.changeSettings({ compaction: { isEnabled: false, keepRecentTokens: 0 } });
+  await changeSettings(chats, { compaction: { isEnabled: false, keepRecentTokens: 0 } });
   faux.setResponses([
     fauxAssistantMessage("An older turn."),
     fauxAssistantMessage("A newer turn."),
@@ -450,3 +468,37 @@ test("manual compaction stays alive when the user opens another chat", async () 
   held.finish(fauxAssistantMessage("The older conversation."));
   expect((await completed).compactionError).toBeNull();
 });
+
+async function changeSettings(chats: Chat, change: SettingsChange): Promise<boolean> {
+  const projectId = chats.profiles.projects()[0]?.id ?? "";
+  const reference = chats.profiles.user().document?.defaultProfile ?? {
+    scope: "user",
+    id: "default",
+  };
+  if (change.knowledgeCutoffs !== undefined) {
+    const user = chats.profiles.user();
+    await chats.profiles.putUser(
+      { ...user.document, knowledgeCutoffs: change.knowledgeCutoffs },
+      user.revision,
+    );
+  }
+  const { knowledgeCutoffs: _cutoffs, ...profileChange } = change;
+  return chats.changeSettings(
+    reference,
+    projectId,
+    profileChange,
+    chats.profiles.profile(reference, projectId).revision,
+  );
+}
+
+async function savedSettings(directory: string): Promise<Settings> {
+  const store = await createProfileStore(directory, [join(directory, "project")], []);
+  try {
+    return store.preview(
+      store.user().document?.defaultProfile ?? { scope: "user", id: "default" },
+      store.projects()[0]?.id ?? "",
+    ).settings;
+  } finally {
+    store.close();
+  }
+}

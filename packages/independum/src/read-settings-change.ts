@@ -1,8 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { SettingsManager, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import { SettingsManager } from "@earendil-works/pi-coding-agent";
 import type {
   CompactionSettings,
-  EditedText,
   ModelOverrideChange,
   OutputLimits,
   Settings,
@@ -10,13 +8,7 @@ import type {
 } from "./api-types.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
 
-/** The settings of the user, which last in a file across restarts. */
-export interface SettingsStore {
-  get(): Settings;
-  change(change: Partial<Settings> & Pick<SettingsChange, "tool">): Promise<Settings>;
-}
-
-const handBackRange = { min: 5, max: 86_400 };
+export const handBackRange: { min: number; max: number } = { min: 5, max: 86_400 };
 const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 
 /** The settings that Independum starts with, which a reset goes back to. */
@@ -38,58 +30,33 @@ export const builtInSettings: Settings = {
 };
 
 /**
- * Reads the settings of the user from a file, with the built-in value for each setting it lacks,
- * and saves every change there.
+ * Returns recognized editor changes, or undefined when any field is invalid or unknown.
  */
-export async function createSettings(path: string): Promise<SettingsStore> {
-  // Windows editors often start a file with a byte order mark, which JSON does not allow. A file
-  // that is missing or no longer JSON gives the built-in settings.
-  const saved: unknown = await readFile(path, "utf8")
-    .then((text) => JSON.parse(text.replace(/^\uFEFF/, "")))
-    .catch(() => ({}));
-  const change = readSettingsChange(saved, true) ?? {};
-  let settings: Settings = {
-    modelOverrides: savedModelOverrides(change.modelOverrides),
-    compaction: { ...builtInSettings.compaction, ...change.compaction },
-    shell: change.shell ?? builtInSettings.shell,
-    disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
-    disabledFacts: change.disabledFacts ?? builtInSettings.disabledFacts,
-    knowledgeCutoffs: change.knowledgeCutoffs ?? builtInSettings.knowledgeCutoffs,
-    outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
-    handBackSeconds: change.handBackSeconds ?? builtInSettings.handBackSeconds,
-    environment: change.environment ?? builtInSettings.environment,
-    texts: editedTextsOf(saved),
-  };
-  return {
-    get: () => settings,
-    async change(next) {
-      const { tool, ...rest } = next;
-      settings = { ...settings, ...rest };
-      if (tool !== undefined) {
-        const disabled = settings.disabledTools.filter((name) => name !== tool.name);
-        settings = {
-          ...settings,
-          disabledTools: tool.isEnabled ? disabled : [...disabled, tool.name],
-        };
-      }
-      await withFileMutationQueue(path, () =>
-        writeFile(path, `${JSON.stringify(settings, null, 2)}\n`),
-      );
-      return settings;
-    },
-  };
-}
-
-// A file that someone edited by hand keeps its valid settings instead.
-/**
- * Returns the settings that a request or a file asks for, or undefined when a request holds a
- * setting that is not valid.
- */
-export function readSettingsChange(body: unknown, isLenient = false): SettingsChange | undefined {
+export function readSettingsChange(body: unknown): SettingsChange | undefined {
   if (typeof body !== "object" || body === null) {
     return undefined;
   }
   const fields = body as Record<string, unknown>;
+  if (
+    Object.keys(fields).some(
+      (key) =>
+        ![
+          "modelOverrides",
+          "compaction",
+          "shell",
+          "disabledTools",
+          "disabledFacts",
+          "knowledgeCutoffs",
+          "outputLimits",
+          "handBackSeconds",
+          "environment",
+          "texts",
+          "tool",
+        ].includes(key),
+    )
+  ) {
+    return undefined;
+  }
   const change: SettingsChange = {};
   let isValid = true;
   if ("modelOverrides" in fields) {
@@ -203,31 +170,7 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
       change.texts = texts;
     }
   }
-  return isValid || isLenient ? change : undefined;
-}
-
-function savedModelOverrides(
-  changes: SettingsChange["modelOverrides"],
-): Settings["modelOverrides"] {
-  return Object.fromEntries(
-    Object.entries(changes ?? {}).map(([provider, models]) => [
-      provider,
-      Object.fromEntries(
-        Object.entries(models).flatMap(([id, fields]) =>
-          fields === null
-            ? []
-            : [
-                [
-                  id,
-                  Object.fromEntries(
-                    Object.entries(fields).filter(([_key, value]) => value !== null),
-                  ),
-                ],
-              ],
-        ),
-      ),
-    ]),
-  );
+  return isValid ? change : undefined;
 }
 
 function isModelOverrides(value: unknown): value is ModelOverrideChange {
@@ -287,24 +230,6 @@ function recordOf<Value>(
   return entries.every(([key, entry]) => isValid(key, entry))
     ? (Object.fromEntries(entries) as Record<string, Value>)
     : undefined;
-}
-
-// A file edited by hand keeps each edited text that still has both of its parts.
-function editedTextsOf(saved: unknown): Record<string, EditedText> {
-  const texts =
-    typeof saved === "object" && saved !== null ? (saved as Record<string, unknown>).texts : null;
-  if (typeof texts !== "object" || texts === null) {
-    return {};
-  }
-  return Object.fromEntries(
-    Object.entries(texts).filter(
-      (entry): entry is [string, EditedText] =>
-        typeof entry[1] === "object" &&
-        entry[1] !== null &&
-        typeof entry[1].text === "string" &&
-        typeof entry[1].builtIn === "string",
-    ),
-  );
 }
 
 function outputLimitsOf(value: unknown): OutputLimits | undefined {

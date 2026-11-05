@@ -508,6 +508,8 @@ export function WorkingScreen({
         />
       )}
       <SettingsDialog
+        chat={chat}
+        models={models}
         section={settingsSection}
         onSection={setSettingsSection}
         onClose={() => setSettingsSection(undefined)}

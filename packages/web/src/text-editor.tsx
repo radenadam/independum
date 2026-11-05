@@ -88,6 +88,9 @@ export function TextEditor({ text, draft, type, onChange }: TextEditorProps): Re
           </div>
         </div>
       ) : null}
+      {text.hasBaseline === false ? (
+        <p className={styles.changedNote}>No baseline is recorded for this edit.</p>
+      ) : null}
       <textarea
         ref={field}
         id={id}

@@ -1,3 +1,16 @@
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
+
+/** The effort choices accepted by the installed Pi runtime. */
+export const thinkingLevels: ModelThinkingLevel[] = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
+
 /** A sign-in method that a provider offers. */
 export type LoginMethod = "apiKey" | "account";
 
@@ -200,6 +213,7 @@ export interface ChatState {
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
+  configuration?: ChatConfiguration;
   modelSettings: ModelSettingsSummary | null;
   compaction: CompactionSettings;
   builtInCompaction: CompactionSettings;
@@ -264,13 +278,109 @@ export interface TextSummary {
   builtIn: string;
   isEdited: boolean;
   editedFrom: string | null;
+  hasBaseline?: boolean;
   slots: TextSlot[];
 }
 
 /** A model text that the user edited, with the built-in text that the edit started from. */
 export interface EditedText {
   text: string;
-  builtIn: string;
+  builtIn?: string;
+}
+
+/** A profile identified within the user or the exact project folder. */
+export interface ProfileReference {
+  scope: "user" | "project";
+  id: string;
+}
+
+/** A model selection stored without requiring a current login. */
+export interface ModelChoice {
+  providerId: string;
+  modelId: string;
+}
+
+/** The model and effort choices that a chat can override. */
+export interface ChatOverrides {
+  model?: ModelChoice | null;
+  thinkingLevel?: ModelThinkingLevel | null;
+}
+
+/** The complete setup of one profile, with omitted settings following built-in values. */
+export interface ProfileDocument {
+  formatVersion: 1;
+  name: string;
+  settings?: Partial<Omit<Settings, "texts" | "knowledgeCutoffs">> & ChatOverrides;
+}
+
+/** Model text edits with optional baselines for files written by hand. */
+export interface ModelTextDocument {
+  formatVersion: 1;
+  systemPromptBuiltIn?: string;
+  texts?: Record<string, EditedText>;
+}
+
+/** The three configuration files owned by a profile. */
+export interface ProfileBundle {
+  profile: ProfileDocument;
+  systemPrompt: string | null;
+  modelTexts: ModelTextDocument | null;
+}
+
+/** User settings that own the default profile and facts about models. */
+export interface UserSettingsDocument {
+  formatVersion: 1;
+  defaultProfile: ProfileReference;
+  knowledgeCutoffs?: Settings["knowledgeCutoffs"];
+}
+
+/** The default profile for new chats in one project. */
+export interface ProjectSettingsDocument {
+  formatVersion: 1;
+  profile?: ProfileReference;
+}
+
+/** A chat's durable profile selection and explicit choices. */
+export interface ChatSettingsDocument {
+  formatVersion: 1;
+  profile: ProfileReference;
+  overrides?: ChatOverrides;
+}
+
+/** A precise problem in a configuration file. */
+export interface ConfigurationIssue {
+  file: string;
+  pointer: string;
+  message: string;
+}
+
+/** A file resource and the revision required for replacing it. */
+export interface ConfigurationResource<Document> {
+  path: string;
+  revision: string;
+  document: Document | null;
+  issues: ConfigurationIssue[];
+}
+
+/** A profile bundle with its scope, disk revision, and validation issues. */
+export interface ProfileResource extends ConfigurationResource<ProfileBundle> {
+  reference: ProfileReference;
+  projectId: string;
+  usedBy: string[];
+  files?: Record<string, string | null>;
+}
+
+/** The desired and applied setup of a chat. */
+export interface ChatConfiguration {
+  profile: ProfileResource;
+  choices: ConfigurationResource<ChatSettingsDocument>;
+  appliedRevision: string;
+  pendingRevision: string | null;
+  issues: ConfigurationIssue[];
+  model: ModelChoice | null;
+  thinkingLevel: ChatOverrides["thinkingLevel"];
+  sources?: Record<string, { file: string | null; pointer: string; value: unknown }>;
+  userSettings?: ConfigurationResource<UserSettingsDocument>;
 }
 
 /** A tool of the agent, with why it cannot run when it cannot, as the Session place shows it. */
@@ -302,7 +412,7 @@ export interface OutputLimits {
   maxBytes: number;
 }
 
-/** The limits and temperature that the user sets for one model in every chat. */
+/** The limits and temperature of one model in chats using a profile. */
 export interface ModelOverrides {
   contextWindow?: number;
   maxOutput?: number;
@@ -320,14 +430,14 @@ export interface ModelSettingsSummary {
   overrides: ModelOverrides;
 }
 
-/** How Pi compacts every chat, with the room it keeps free and the newest tokens it keeps whole. */
+/** How Pi compacts chats using a profile, with its free room and newest token budget. */
 export interface CompactionSettings {
   isEnabled: boolean;
   reserveTokens: number;
   keepRecentTokens: number;
 }
 
-/** The settings of the user other than logins, which hold for every chat. */
+/** The resolved runtime settings of a profile with user facts about models. */
 export interface Settings {
   modelOverrides: Record<string, Record<string, ModelOverrides>>;
   compaction: CompactionSettings;

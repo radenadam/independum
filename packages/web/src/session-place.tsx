@@ -13,6 +13,7 @@ import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
 import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
 import { CompactionDetail, isCompactionChanged } from "./compaction-detail.tsx";
+import { ConfigurationIssues } from "./configuration-issues.tsx";
 import { ContextParts, type ShownLink } from "./context-parts.tsx";
 import { describeChange } from "./conversation.tsx";
 import { describeThinking } from "./describe-thinking.ts";
@@ -26,6 +27,8 @@ import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { PlaceTrail } from "./place-trail.tsx";
+import { ProfileDetail } from "./profile-detail.tsx";
+import { ProjectProfileSettings } from "./project-profile-settings.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import styles from "./session-place.module.css";
 import { TextDialog } from "./text-dialog.tsx";
@@ -47,7 +50,7 @@ interface SessionPlaceProps {
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "model" | "chat" | "compactionSettings" };
+  link: ShownLink | { kind: "model" | "chat" | "profile" | "compactionSettings" };
   text: string;
 }
 
@@ -132,6 +135,16 @@ export function SessionPlace({
           onClose={isSplit ? () => setPath([]) : undefined}
         />
         <PlaceFrame>
+          {settings.agent?.configuration === undefined ? null : (
+            <PlaceNote>
+              Editing{" "}
+              {settings.agent.configuration.profile.document?.profile.name ??
+                settings.agent.configuration.profile.reference.id}
+              . {settings.agent.configuration.profile.reference.scope} profile.{" "}
+              {settings.agent.configuration.profile.path}. Used by{" "}
+              {settings.agent.configuration.profile.usedBy.length} chats.
+            </PlaceNote>
+          )}
           {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
           <Detail view={view} chat={chat} context={context} models={models} settings={settings} />
         </PlaceFrame>
@@ -174,6 +187,11 @@ export function SessionPlace({
       {settings.agent === undefined || settings.editing === undefined ? null : (
         <TextDialog
           title={settings.editing}
+          target={
+            settings.agent.configuration === undefined
+              ? undefined
+              : `Editing ${settings.agent.configuration.profile.document?.profile.name ?? settings.agent.configuration.profile.reference.id}. ${settings.agent.configuration.profile.reference.scope} profile. ${settings.agent.configuration.profile.path}`
+          }
           texts={settings.textsOf(settings.editing)}
           parameters={
             settings.agent.tools.find((tool) => tool.name === settings.editing)?.parameters
@@ -217,7 +235,22 @@ function Overview({
   return (
     <PlaceFrame>
       {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
+      {settings.agent?.configuration?.pendingRevision == null ? null : (
+        <PlaceNote>Profile changes are pending until Pi settles after queued work.</PlaceNote>
+      )}
+      <ConfigurationIssues issues={settings.agent?.configuration?.issues ?? []} />
       <PlaceBox>
+        <PlaceRow
+          label={
+            settings.agent?.configuration?.profile.document?.profile.name ?? "Profile unavailable"
+          }
+          glance={`${settings.agent?.configuration?.profile.reference.scope ?? "user"} profile`}
+          isBoxed
+          isCurrent={current === "profile"}
+          onOpen={() =>
+            onOpen({ key: "profile", title: "Profile", link: { kind: "profile" }, text: "" })
+          }
+        />
         <PlaceRow
           icon={
             chat.model === null ? undefined : (
@@ -325,6 +358,8 @@ interface DetailProps {
 function Detail({ view, chat, context, models, settings }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
+    case "profile":
+      return <ProfileDetail chat={chat} models={models} settings={settings} />;
     case "systemPrompt":
       return (
         <>
@@ -430,7 +465,20 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
         />
       );
     case "chat":
-      return <ChatDetail folder={chat.folder} context={context} />;
+      return (
+        <>
+          <PlaceSection heading="Project settings">
+            {settings.agent?.configuration === undefined ? null : (
+              <Disclosure label="Project settings">
+                <ProjectProfileSettings
+                  projectId={settings.agent.configuration.profile.projectId}
+                />
+              </Disclosure>
+            )}
+          </PlaceSection>
+          <ChatDetail folder={chat.folder} context={context} />
+        </>
+      );
     case "compactionSettings":
       return <CompactionDetail chat={chat} settings={settings} />;
     case "request": {

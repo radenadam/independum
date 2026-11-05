@@ -83,7 +83,7 @@ export function ModelDetail({ model, settings }: ModelDetailProps): ReactElement
             : undefined
         }
       >
-        <PlaceNote>These settings apply to this model in every chat.</PlaceNote>
+        <PlaceNote>These settings apply to this model in chats using this profile.</PlaceNote>
         {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
         {modelSettings === undefined ? (
           <PlaceNote>Loading the model settings.</PlaceNote>

@@ -1,0 +1,61 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [1440, 1000], "scheme": "light", "go": true },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "run": "({ profilesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default for new chats'), defaultVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default') })",
+      "shot": "profiles"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.trim() === 'New profile')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('label')].find(label => label.innerText === 'Profile id').control"
+    },
+    { "text": "research" },
+    {
+      "clickOn": "[...document.querySelectorAll('label')].find(label => label.innerText === 'Profile name').control"
+    },
+    { "text": "Research" },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.trim() === 'Create profile')",
+      "wait": 1500
+    },
+    {
+      "run": "({ profileCreated: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Editing Research'), targetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('User profile'), sharedToolsVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Tools'), filesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Profile files') })",
+      "shot": "profile-editor"
+    },
+    { "size": [360, 800], "scheme": "light" },
+    {
+      "run": "(() => { document.querySelector('dialog[aria-label=Settings] h3').scrollIntoView({ block: 'start' }); return true; })()",
+      "shot": "profiles-phone-light"
+    },
+    {
+      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, profileTargetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Editing Research') })"
+    },
+    { "scheme": "dark", "shot": "profiles-phone-dark" },
+    { "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')" },
+    { "size": [1440, 1000] },
+    { "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "run": "({ profileRowVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.includes('Default') && button.innerText.includes('user profile')) })",
+      "shot": "session-profile"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "run": "({ chatProfileVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Selected profile'), savedChoiceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('chat-settings') })",
+      "shot": "chat-profile-detail"
+    }
+  ]
+}

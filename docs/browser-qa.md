@@ -33,6 +33,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa session` | The side panel, Session place, its conversation, and a wide panel after window resizing. |
 | `pnpm qa compacted` | A saved compaction, its summary, and keeping the chat end in view when the panel opens. |
 | `pnpm qa settings` | Logins, missing provider logos, and appearance. |
+| `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |
 | `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |
 | `pnpm qa archived` | Archived title tooltips inside Settings and full titles on a 360 pixel touch screen in both themes. |
 

@@ -1,13 +1,21 @@
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
 import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
+import { validateChatSettings } from "./configuration-schema.ts";
 import type { Chat, OpenChat } from "./create-chat.ts";
-import { readSettingsChange } from "./create-settings.ts";
+import {
+  bodyOf,
+  configurationErrorResponse,
+  createProfileRoutes,
+  revisionOf,
+} from "./profile-routes.ts";
 import { streamEvents } from "./stream-events.ts";
 
 /** Creates routes for independent chats and their shared list and reply events. */
 export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
+  routes.onError(configurationErrorResponse);
+  routes.route("/", createProfileRoutes(chat));
   // biome-ignore lint/style/useNamingConvention: Hono names its context variables type.
   const active = new Hono<{ Variables: { chat: OpenChat } }>();
   active.use("*", async (context, next) => {
@@ -61,7 +69,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     if (typeof body.text !== "string" || body.text.trim() === "") {
       return context.json({ error: "A message needs text." }, 400);
     }
-    if (!context.get("chat").send(body.text.trim())) {
+    if (!(await context.get("chat").send(body.text.trim()))) {
       return context.json(
         { error: "The chat needs a model and must be idle to receive a message." },
         409,
@@ -86,7 +94,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   active.put("/thinking", async (context) => {
     const body: { level?: unknown } = await context.req.json().catch(() => ({}));
-    if (typeof body.level !== "string" || !context.get("chat").chooseThinking(body.level)) {
+    if (typeof body.level !== "string" || !(await context.get("chat").chooseThinking(body.level))) {
       return context.json({ error: "This model does not offer that thinking level." }, 400);
     }
     return context.body(null, 204);
@@ -97,17 +105,36 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     return context.body(null, 204);
   });
 
-  active.post("/compact", (context) =>
-    context.get("chat").compact()
+  active.post("/compact", async (context) =>
+    (await context.get("chat").compact())
       ? context.body(null, 202)
       : context.json({ error: "The chat needs a model and must be idle to compact." }, 409),
   );
 
-  routes.put("/settings", async (context) => {
-    const change = readSettingsChange(await context.req.json().catch(() => undefined));
-    return change !== undefined && (await chat.changeSettings(change))
-      ? context.body(null, 204)
-      : context.json({ error: "That is not a valid setting." }, 400);
+  active.get("/settings", async (context) => {
+    await chat.reconcile();
+    return context.json(context.get("chat").getAgent().configuration);
+  });
+  active.put("/settings", async (context) => {
+    const opened = context.get("chat");
+    const state = opened.getState();
+    const current = chat.profiles.choices(state.id);
+    const document = validateChatSettings(await bodyOf(context), current.path);
+    if (
+      current.document?.profile.id !== document.profile.id ||
+      current.document.profile.scope !== document.profile.scope
+    ) {
+      delete document.overrides;
+    }
+    await chat.profiles.putChoices({
+      id: state.id,
+      folder: state.folder,
+      value: document,
+      revision: revisionOf(context),
+      isDurable: state.messages.length > 0,
+    });
+    await chat.reconcile();
+    return context.json(opened.getAgent().configuration);
   });
 
   active.post("/commands/:commandId/background", (context) =>
@@ -123,12 +150,18 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   );
 
   active.post("/new", async (context) => {
-    const body: { folder?: unknown } = await context.req.json().catch(() => ({}));
+    const body: { folder?: unknown; profile?: unknown } = await context.req
+      .json()
+      .catch(() => ({}));
     const folder = typeof body.folder === "string" ? body.folder : undefined;
     if (body.folder !== undefined && folder === undefined) {
       return context.json({ error: "A folder is a path." }, 400);
     }
-    const id = await chat.startNew(context.req.param("id") ?? "", folder);
+    const profile =
+      body.profile === undefined
+        ? undefined
+        : validateChatSettings({ formatVersion: 1, profile: body.profile }, "Request body").profile;
+    const id = await chat.startNew(context.req.param("id") ?? "", folder, profile);
     if (id === undefined) {
       return context.json({ error: "That folder is not a project." }, 400);
     }

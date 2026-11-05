@@ -1,6 +1,6 @@
 # Tool settings
 
-- Status: accepted, and amended by [decision 0033](0033-model-texts.md), which makes tool texts editable, and by [decision 0048](0048-session-place.md), which shows the tool cards in the Session place, and by [decision 0058](0058-address-chats-by-id.md), which returns settings without selecting a chat
+- Status: accepted, and amended by [decision 0033](0033-model-texts.md), which makes tool texts editable, and by [decision 0048](0048-session-place.md), which shows the tool cards in the Session place, and by [decision 0058](0058-address-chats-by-id.md), which returns settings without selecting a chat, with [decision 0061](0061-profiles-and-plain-settings.md) covering tool ownership
 - Date: 2026-10-28
 
 ## Context

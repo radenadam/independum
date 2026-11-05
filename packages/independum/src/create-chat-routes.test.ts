@@ -188,12 +188,7 @@ test("models lists the models of every provider with a login", async () => {
 
 test("an empty chat starts in the start folder and waits for a chosen model", async () => {
   const { state, projects } = await readStart();
-  expect(state).toMatchObject({
-    folder: startFolder,
-    model: null,
-    messages: [],
-    isReplying: false,
-  });
+  expectEmptyChat(state);
   expect(projects).toEqual([{ folder: startFolder, name: basename(startFolder), chats: [] }]);
   expect((await post(chatPath("/messages"), { text: "Hello" })).status).toBe(409);
   expect((await chooseModel("faux", "no-such-model")).status).toBe(400);
@@ -241,6 +236,7 @@ test("a new chat starts empty with the same model and stays out of its project",
 });
 
 test("a chat joins the top of its project with its first message", async () => {
+  await chooseModel("faux", "faux-model");
   faux.setResponses([fauxAssistantMessage("A second reply.")]);
   await sendAndReadReply("A second chat");
   const { state, projects } = await readStart();
@@ -320,6 +316,7 @@ test("a chat that opens while it replies shows its reply so far, and the rest st
 
 test("a chat joins its project as soon as it is sent, before the reply", async () => {
   expect((await startNew()).status).toBe(201);
+  await chooseModel("faux-slow", "slow-model");
   slow.setResponses([fauxAssistantMessage("A reply that takes its time to arrive.")]);
   const events = followEventStream<ChatsEvent>(await routes.request("/chats/events"));
   expect((await post(chatPath("/messages"), { text: "List me at once" })).status).toBe(202);
@@ -452,12 +449,12 @@ test("message times reach requests and never enter the saved chat or its display
 test("fact switches and edits reach the next request and cutoffs follow only their model", async () => {
   await startNew(startFolder);
   await chooseModel("faux", "faux-model");
-  await put("/settings", {
+  await putProfileSettings({
     disabledFacts: ["facts.chatFolder", "facts.messageTime"],
     texts: { "facts.harness": "An edited harness fact." },
     knowledgeCutoffs: { faux: { "faux-model": "2026-04" } },
   });
-  expect((await put("/settings", { disabledFacts: ["facts.unknown"] })).status).toBe(400);
+  expect((await putProfileSettings({ disabledFacts: ["facts.unknown"] })).status).toBe(422);
   const requests: string[] = [];
   faux.setResponses(
     [0, 1, 2, 3].map(() => (context) => {
@@ -475,11 +472,11 @@ test("fact switches and edits reach the next request and cutoffs follow only the
   await sendAndReadReply("See the other model");
   expect(requests[1]).not.toContain("Model knowledge cutoff:");
   await chooseModel("faux", "faux-model");
-  await put("/settings", { disabledFacts: ["facts.knowledgeCutoff"] });
+  await putProfileSettings({ disabledFacts: ["facts.knowledgeCutoff"] });
   await sendAndReadReply("See the disabled cutoff");
   expect(requests[2]).not.toContain("Model knowledge cutoff:");
   expect(requests[2]).toContain("Chat folder:");
-  await put("/settings", {
+  await putProfileSettings({
     disabledFacts: [],
     knowledgeCutoffs: {},
     texts: { "facts.harness": null },
@@ -692,7 +689,7 @@ test("a long command goes on in the background when the user moves it or after a
   expect((await post(chatPath(`/commands/${id}/stop`), {})).status).toBe(204);
   await nextWhere(replyOf("Noted the stop."));
 
-  await put("/settings", { handBackSeconds: 5 });
+  await putProfileSettings({ handBackSeconds: 5 });
   expect((await post(chatPath("/messages"), { text: "Wait again" })).status).toBe(202);
   const handedBack = await nextWhere((event) => event.type === "toolResult");
   expect(handedBack.type === "toolResult" ? handedBack.result.text : "").toMatch(
@@ -701,9 +698,9 @@ test("a long command goes on in the background when the user moves it or after a
   await nextWhere(replyOf("It runs on too."));
   await nextWhere(replyOf("Noted the end."));
   await events.close();
-  await put("/settings", { handBackSeconds: 120 });
+  await putProfileSettings({ handBackSeconds: 120 });
   expect((await post(chatPath("/commands/no-such-command/background"), {})).status).toBe(404);
-  expect((await put("/settings", { handBackSeconds: 2 })).status).toBe(400);
+  expect((await putProfileSettings({ handBackSeconds: 2 })).status).toBe(422);
 }, 30_000);
 
 test("a command runs in the folder that workdir names, and a missing one fails", async () => {
@@ -738,8 +735,8 @@ test("a tool that is turned off never runs, and the output limits change", async
       fauxAssistantMessage("Done."),
     ]),
   );
-  const off = await put("/settings", { tool: { name: "Shell", isEnabled: false } });
-  expect(off.status).toBe(204);
+  const off = await putProfileSettings({ tool: { name: "Shell", isEnabled: false } });
+  expect(off.status).toBe(200);
   expect(
     shellOf((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary)?.isEnabled,
   ).toBe(false);
@@ -749,11 +746,11 @@ test("a tool that is turned off never runs, and the output limits change", async
   expect(blocked?.type === "toolResult" && blocked.result.isError).toBe(true);
   expect(blocked?.type === "toolResult" ? blocked.result.text : "").not.toContain("it ran");
 
-  const on = await put("/settings", {
+  const on = await putProfileSettings({
     tool: { name: "Shell", isEnabled: true },
     outputLimits: { maxLines: 500, maxBytes: 8192 },
   });
-  expect(on.status).toBe(204);
+  expect(on.status).toBe(200);
   expect(
     ((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary).outputLimits,
   ).toEqual({
@@ -764,15 +761,15 @@ test("a tool that is turned off never runs, and the output limits change", async
     (update) => update.type === "toolResult",
   );
   expect(ran?.type === "toolResult" ? ran.result.text : "").toContain("it ran");
-  expect((await put("/settings", { shell: "fish" })).status).toBe(400);
+  expect((await putProfileSettings({ shell: "fish" })).status).toBe(422);
 });
 
 test("variables that the user adds reach commands, and the model reads only their names", async () => {
   expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   // biome-ignore-start lint/style/useNamingConvention: Shells name environment variables in capitals.
-  const added = await put("/settings", { environment: { INDEPENDUM_SECRET: "kept-out" } });
-  expect(added.status).toBe(204);
+  const added = await putProfileSettings({ environment: { INDEPENDUM_SECRET: "kept-out" } });
+  expect(added.status).toBe(200);
   const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.environment).toEqual({ INDEPENDUM_SECRET: "kept-out" });
   // biome-ignore-end lint/style/useNamingConvention: Shells name environment variables in capitals.
@@ -786,16 +783,16 @@ test("variables that the user adds reach commands, and the model reads only thei
     (update) => update.type === "toolResult",
   );
   expect(result?.type === "toolResult" ? result.result.text : "").toContain("kept-out");
-  expect((await put("/settings", { environment: {} })).status).toBe(204);
+  expect((await putProfileSettings({ environment: {} })).status).toBe(200);
   const cleared = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(shellOf(cleared)?.description).not.toContain("INDEPENDUM_SECRET");
-  expect((await put("/settings", { environment: { "NOT A NAME": "x" } })).status).toBe(400);
+  expect((await putProfileSettings({ environment: { "NOT A NAME": "x" } })).status).toBe(422);
 });
 
 test("edited texts reach the model with the next turn, and null brings back the built-in text", async () => {
   expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
-  const edited = await put("/settings", {
+  const edited = await putProfileSettings({
     texts: {
       systemPrompt: "You are a test agent.",
       "shell.description": "Runs {shell} for tests.",
@@ -803,7 +800,7 @@ test("edited texts reach the model with the next turn, and null brings back the 
       "shell.exited": "Done with code {code}.",
     },
   });
-  expect(edited.status).toBe(204);
+  expect(edited.status).toBe(200);
   const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(agent.systemPrompt).toBe("You are a test agent.");
   expect(shellOf(agent)?.description).toMatch(
@@ -833,15 +830,15 @@ test("edited texts reach the model with the next turn, and null brings back the 
     "edited\n\nDone with code 0.",
   );
 
-  const reset = await put("/settings", { texts: { "shell.exited": null } });
-  expect(reset.status).toBe(204);
+  const reset = await putProfileSettings({ texts: { "shell.exited": null } });
+  expect(reset.status).toBe(200);
   expect(
     ((await (await routes.request(chatPath("/agent"))).json()) as AgentSummary).texts.find(
       (text) => text.id === "shell.exited",
     ),
   ).toMatchObject({ text: "Exit code {code} after {time}.", isEdited: false });
-  expect((await put("/settings", { texts: { "no.such.text": "Text." } })).status).toBe(400);
-  await put("/settings", {
+  expect((await putProfileSettings({ texts: { "no.such.text": "Text." } })).status).toBe(422);
+  await putProfileSettings({
     texts: { systemPrompt: null, "shell.description": null, "shell.parameters.command": null },
   });
 });
@@ -1028,6 +1025,38 @@ function put(path: string, body: unknown): Promise<Response> {
   );
 }
 
+async function putProfileSettings(body: Record<string, unknown>): Promise<Response> {
+  const { knowledgeCutoffs, ...profileChange } = body;
+  if (knowledgeCutoffs !== undefined) {
+    const user = (await (
+      await routes.request("/settings")
+    ).json()) as import("./api-types.ts").ConfigurationResource<
+      import("./api-types.ts").UserSettingsDocument
+    >;
+    const response = await routes.request("/settings", {
+      method: "PUT",
+      headers: { ...json, "If-Match": user.revision },
+      body: JSON.stringify({ ...user.document, knowledgeCutoffs }),
+    });
+    if (!response.ok) {
+      return response;
+    }
+  }
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
+  const profile = agent.configuration?.profile;
+  if (profile === undefined) {
+    throw new Error("The chat has no profile.");
+  }
+  return routes.request(
+    `/profiles/${profile.reference.scope}/${profile.reference.id}/settings?projectId=${profile.projectId}`,
+    {
+      method: "PUT",
+      headers: { ...json, "If-Match": profile.revision },
+      body: JSON.stringify(profileChange),
+    },
+  );
+}
+
 async function findChat(id: string | null): Promise<ChatSummary | undefined> {
   const { projects } = await readStart();
   return projects.flatMap((project) => project.chats).find((chat) => chat.id === id);
@@ -1093,7 +1122,7 @@ test("a closed chat can be renamed, and a pin lasts after a restart", async () =
 
 test("choosing the shell that the system has by default saves no choice", async () => {
   const defaultShell = process.platform === "win32" ? "powershell" : "bash";
-  expect((await put("/settings", { shell: defaultShell })).status).toBe(204);
+  expect((await putProfileSettings({ shell: defaultShell })).status).toBe(200);
   const chosen = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
   expect(chosen.chosenShell).toBeNull();
 });
@@ -1118,6 +1147,7 @@ test("two clients follow only their own chat and a message names its destination
   const first = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await first.next();
   await startNew();
+  await chooseModel("faux", "faux-model");
   const second = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await second.next();
   try {
@@ -1217,7 +1247,7 @@ test("archiving a followed chat replaces it only for its followers", async () =>
   ).json()) as ChatState;
   expect(replacement).toMatchObject({
     messages: [],
-    model: { providerId: "faux", id: "faux-model" },
+    model: null,
   });
   expect(replacement.id).not.toBe(otherId);
   expect((await readStart()).state.id).toBe(otherId);
@@ -1242,3 +1272,44 @@ test("unknown chat ids fail without choosing another chat", async () => {
     expect((await put(`/chats/no-such-chat/${part}`, {})).status).toBe(404);
   }
 });
+
+test("a new chat adjusts its carried thinking level when choosing a model that cannot think", async () => {
+  expect((await startNew()).status).toBe(201);
+  expect((await chooseModel("faux", "faux-thinker")).status).toBe(204);
+  expect((await put(chatPath("/thinking"), { level: "high" })).status).toBe(204);
+  const sourceId = chatId;
+  expect((await startNew()).status).toBe(201);
+  expect((await readStart()).state).toMatchObject({
+    model: { providerId: "faux", id: "faux-thinker" },
+    thinking: { level: "high" },
+    messages: [],
+  });
+
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  faux.setResponses([fauxAssistantMessage("The new model replies.")]);
+  expect(textOf((await sendAndReadReply("Use the new model")).reply)).toBe(
+    "The new model replies.",
+  );
+  expect((await readStart()).state).toMatchObject({
+    model: { providerId: "faux", id: "faux-model" },
+    thinking: null,
+  });
+  const agent = (await (await routes.request(chatPath("/agent"))).json()) as AgentSummary;
+  expect(agent.configuration?.choices.document?.overrides).toEqual({
+    model: { providerId: "faux", modelId: "faux-model" },
+    thinkingLevel: "off",
+  });
+  expect(agent.configuration?.issues).toEqual([]);
+  const source = (await (await routes.request(`/chats/${sourceId}`)).json()) as ChatState;
+  expect(source).toMatchObject({
+    model: { providerId: "faux", id: "faux-thinker" },
+    thinking: { level: "high" },
+  });
+});
+
+function expectEmptyChat(state: ChatState): void {
+  expect(state.model).toBeNull();
+  expect(state.messages).toEqual([]);
+  expect(state.folder).toBe(startFolder);
+  expect(state.isReplying).toBe(false);
+}

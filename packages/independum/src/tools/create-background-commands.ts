@@ -16,6 +16,7 @@ interface BackgroundStart {
 
 /** A background command that has ended, with where its output is and its last lines. */
 export interface BackgroundEnded {
+  texts: ModelTexts;
   chatId: string;
   outputPath: string;
   lastLines: string;
@@ -148,6 +149,7 @@ const backgroundTexts = {
  * and the controller that stops it.
  */
 interface Adoption {
+  texts: ModelTexts;
   start: BackgroundStart;
   startedAt: number;
   log: OutputLog;
@@ -199,7 +201,7 @@ export function createBackgroundCommands({
   }
 
   // A background command keeps its file, and its latest lines reach the chat of its call.
-  function adopt({ start, startedAt, log, run, controller }: Adoption): number {
+  function adopt({ start, startedAt, log, run, controller, texts }: Adoption): number {
     const id = nextId;
     nextId += 1;
     let stoppedBy: "user" | "model" | undefined;
@@ -226,6 +228,7 @@ export function createBackgroundCommands({
       .then(async (end) => {
         await log.finish();
         const result: BackgroundEnded = {
+          texts,
           chatId: start.chatId,
           outputPath: start.outputPath,
           lastLines: log.latest().split("\n").slice(-lastLineCount).join("\n"),

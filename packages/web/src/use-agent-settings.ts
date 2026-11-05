@@ -1,6 +1,13 @@
-import type { AgentSummary, ChatState, SettingsChange, TextSummary } from "independum/api-types";
-import { useState } from "react";
+import type {
+  AgentSummary,
+  ChatState,
+  ProfileResource,
+  SettingsChange,
+  TextSummary,
+} from "independum/api-types";
+import { useCallback, useState } from "react";
 import { changeSettings, fetchAgent } from "./chat-api.ts";
+import { fetchProfileAgent } from "./profile-api.ts";
 import { useChatData } from "./use-chat-data.ts";
 
 /** The agent of the open chat, with what changes its settings and its texts. */
@@ -18,8 +25,13 @@ export interface AgentSettings {
 }
 
 /** Loads the agent of the open chat, and changes its settings and its texts. */
-export function useAgentSettings(chat: ChatState): AgentSettings {
-  const { data: loaded, failure: loadFailure } = useChatData(fetchAgent, chat);
+export function useAgentSettings(chat: ChatState, profile?: ProfileResource): AgentSettings {
+  const load = useCallback(
+    (id: string): Promise<AgentSummary> =>
+      profile === undefined ? fetchAgent(id) : fetchProfileAgent(profile),
+    [profile],
+  );
+  const { data: loaded, failure: loadFailure } = useChatData(load, chat);
   // A change answers with the agent as it now is, which holds until the agent loads again.
   const [changed, setChanged] = useState<{
     chatId: string | null;
@@ -33,9 +45,11 @@ export function useAgentSettings(chat: ChatState): AgentSettings {
 
   function save(next: SettingsChange): Promise<void> {
     setFailure(undefined);
-    return changeSettings(chat.id, next).then((updated) =>
-      setChanged({ chatId: chat.id, from: loaded, agent: updated }),
-    );
+    return changeSettings(
+      profile === undefined ? chat.id : undefined,
+      next,
+      agent?.configuration,
+    ).then((updated) => setChanged({ chatId: chat.id, from: loaded, agent: updated }));
   }
 
   function textsOf(group: string): TextSummary[] {
@@ -53,7 +67,9 @@ export function useAgentSettings(chat: ChatState): AgentSettings {
     setEditing,
     save,
     change: (next) => {
-      save(next).catch(() => setFailure("The setting could not be saved. Try again."));
+      save(next).catch((error: unknown) =>
+        setFailure(error instanceof Error ? error.message : "The setting could not be saved."),
+      );
     },
     textsOf,
     isEditedGroup,
