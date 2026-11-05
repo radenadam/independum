@@ -6,6 +6,7 @@ These pages describe the current implementation. Start with the area that change
 - [Message box](message-box.md): sending, model choice, thinking effort, and the context meter.
 - [Replies](replies.md): text, thoughts, steps, groups, notes, and copying.
 - [Side panel](side-panel.md): tabs, Session, its figure and conversation, Commands, and details.
+- [Profiles](profiles.md): plain configuration files, ownership, migration, resolution, and live edits.
 - [Settings](settings.md): logins, browser choices, tool controls, model texts, and texts of Pi.
 - [Tools](tools.md): the shared contract and the six built-in tools.
 - [Server](server.md): chat lifecycle, storage, API routes and payloads, access control, and model input.

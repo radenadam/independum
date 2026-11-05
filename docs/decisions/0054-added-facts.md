@@ -1,6 +1,6 @@
 # Added facts
 
-- Status: accepted
+- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering fact switches
 - Date: 2026-11-05
 
 ## Context

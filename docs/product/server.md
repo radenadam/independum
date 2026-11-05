@@ -12,7 +12,7 @@ Access checks accept only the configured loopback and localhost hosts on the lis
 
 ## Chat lifecycle
 
-One `Chat` instance holds a map of retained runs. Each active chat route acquires a handle for its id and releases it when the request ends. Each event stream has its own subscription to that run. Each run has a Pi session, project folder, chosen-model flag, replying and compaction state, context version, pending note count, running tools, last request, cache warming count, thinking timing maps, and stream subscription. Shared settings and one background command manager serve all runs. Concurrent opens of one saved or empty chat share a pending promise. Empty chats retain their Pi manager, model, and thinking effort in memory because Pi saves no file until the first message. A model choice keeps its starting run while it waits for Pi.
+One `Chat` instance holds a map of retained runs. Each active chat route acquires a handle for its id and releases it when the request ends. Each event stream has its own subscription to that run. Each run has a Pi session, project folder, chosen-model flag, replying and compaction state, context version, pending note count, running tools, last request, cache warming count, thinking timing maps, and stream subscription. Each run has its own applied profile, captured tools, and request settings. One background command manager serves all runs. Concurrent opens of one saved or empty chat share a pending promise. Empty chats retain their Pi manager and profile choices in memory because Pi saves no file until the first message. A model choice keeps its starting run while it waits for Pi.
 
 A run stays alive while a request or follower holds it, while it replies or compacts, while a note is pending, or while it owns a running background command. An idle run with none of these holds unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying or compacting. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
 
@@ -27,7 +27,7 @@ The CLI uses `~/.independum`. Pi's model runtime owns `auth.json` for logins and
 | `sessions` | Pi session files, saved with the first message. Startup selects the newest in the launch folder. |
 | `sessions/archived` | Archived session files, moved with their existing names. |
 | `pinned-chats.json` | Array of pinned ids. Archive and deletion remove a pin. |
-| `settings.json` | Global tool choices, model text edits, model overrides, and compaction settings, loaded at startup and written through Pi's file mutation queue on changes. |
+| Configuration files | User defaults, profiles, and chat choices, as [profiles](profiles.md#files) describes. |
 | `outputs/<chatId>` | Retained cleaned Shell logs named from sanitized tool call ids. Deletion removes this folder. |
 | `requests/<chatId>.json` | The last captured raw provider payload. Deletion removes it. |
 
@@ -58,7 +58,7 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `POST /chats/:id/messages` | `{ text }`, a nonempty string after trimming | 202 with no body. |
 | `PUT /chats/:id/model` | `{ providerId, modelId }`, both strings | Chooses an available model with configured login. Failure is 400. |
 | `PUT /chats/:id/thinking` | `{ level }`, a string offered by the model | Changes thinking effort. Failure is 400. |
-| `POST /chats/:id/new` | Optional `{ folder }`, a string | 201 with `{ id }`, in the source chat's folder or a known project, with the same model. Invalid folder is 400. |
+| `POST /chats/:id/new` | Optional `{ folder }`, a string | 201 with `{ id }`, in the source chat's folder or a known project, with its resolved profile defaults. Invalid folder is 400. |
 | `POST /chats/:id/stop` | None | Aborts the named chat's reply. |
 | `POST /chats/:id/compact` | None | 202 when manual compaction starts. A chat without a model or while replying or compacting is 409. |
 | `POST /chats/:id/commands/:commandId/background` | None | Moves a foreground Shell call by tool call id. Missing call in that chat is 404. |
@@ -69,11 +69,11 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `PUT /chats/:id/pinned` | `{ isPinned }`, a boolean | Changes the pin. |
 | `PUT /chats/:id/archived` | `{ isArchived }`, a boolean | Archives or restores the file. |
 | `DELETE /chats/:id` | None | Removes an archived or unarchived chat and retained files. |
-| `PUT /settings` | `SettingsChange` | 204 with no body. Invalid recognized values or text ids are 400. Read the named chat's agent afterward. |
+| Configuration routes | Explicit resources and conditional saves | See [profiles](profiles.md#api) for their addresses and return codes. |
 
 `ModelSummary` gives provider id and name, model id and name, API, base URL, context window, maximum output, nullable image and request byte limits, prices, price tiers, and cache durations. `AgentSummary` gives system prompt, Pi addition, added facts and knowledge cutoffs, model overrides and compaction settings, tool schemas and availability, shell choices, current and built-in limits and hand-back, model texts, Pi texts, environment values, and suggestions. Environment values are present for the authorized UI even though tool descriptions show only names.
 
-`ContextSummary` gives chat and model ids, window size and use, reserve, token counts and cost, latest assistant usage, message and call counts, dates, complete branch entries, last raw request, detected parts, reconstructed requests and pending changes, warming count, and file paths. `SettingsChange` changes shared tool choices, added facts and knowledge cutoffs, model overrides, compaction, and model texts. Its `tool` field changes one named tool, and its `texts` field patches by id with a string or null for reset. [Tool settings](tools.md#shared-contract) and [text editing](settings.md#tools-and-model-texts) define validation.
+`ContextSummary` gives chat and model ids, window size and use, reserve, token counts and cost, last reply usage, message and call counts, dates, branch entries without file fingerprints, last raw request, detected parts, reconstructed requests and pending changes, warming count, and file paths. `SettingsChange` changes the tool choices, added fact switches, model overrides, compaction, and model texts of an explicitly addressed profile. Knowledge cutoffs belong to user settings. Its `tool` field changes one named tool, and its `texts` field patches by id with a string or null for reset. [Tool settings](tools.md#shared-contract) and [text editing](settings.md#tools-and-model-texts) define validation.
 
 ## Streams
 

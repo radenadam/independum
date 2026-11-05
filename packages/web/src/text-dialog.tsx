@@ -9,6 +9,7 @@ import { TextEditor } from "./text-editor.tsx";
 /** Properties of a text dialog. */
 interface TextDialogProps {
   title: string;
+  target?: string | undefined;
   texts: TextSummary[];
   parameters: unknown;
   onSave: (change: Record<string, string | null>) => Promise<void>;
@@ -30,6 +31,7 @@ const sections: { section: TextSection; heading: string | null }[] = [
  */
 export function TextDialog({
   title,
+  target,
   texts,
   parameters,
   onSave,
@@ -38,6 +40,7 @@ export function TextDialog({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [failure, setFailure] = useState<string | undefined>();
+  const [saveDraft] = useState(() => onSave);
 
   function save(): void {
     const change = Object.fromEntries(
@@ -52,9 +55,9 @@ export function TextDialog({
     }
     setIsSaving(true);
     setFailure(undefined);
-    onSave(change).then(onClose, () => {
+    saveDraft(change).then(onClose, (error: unknown) => {
       setIsSaving(false);
-      setFailure("The texts could not be saved. Try again.");
+      setFailure(error instanceof Error ? error.message : "The texts could not be saved.");
     });
   }
 
@@ -66,6 +69,7 @@ export function TextDialog({
           <IconButton icon="close" label="Close" size="small" tipAlign="end" onClick={onClose} />
         </div>
         <div className={styles.body}>
+          {target === undefined ? null : <p className={styles.intro}>{target}</p>}
           <p className={styles.intro}>
             The model reads these texts exactly as they stand here. A name in braces is a slot, and
             Independum puts its value there when it sends the text.

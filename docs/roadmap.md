@@ -6,8 +6,10 @@ This file lists current work, next work, and questions for the maintainer. A cha
 
 The 0.5 checkpoint of [decision 0057](decisions/0057-versions-and-checkpoints.md): everything Independum promises, with the tools it has today. The maintainer agreed to it, and its parts come in this order, each planned from a design proposal and checked in the running app.
 
-- Every chat addressed by its id in the API, so each browser, phone, and script follows its own chat.
-- Profiles, and every setting as plain files that the UI and a text editor both change.
+- Complete [profiles and plain settings](product/profiles.md): move theme, notification choice, column widths, and figure pinning into a separate plain file for each browser, with conditional import of old browser preferences.
+- Complete profile management: delete only unreferenced profiles, checking user and known project defaults and saved and archived chats.
+- Complete profile editing: show the exact source beside each setting, compare and reapply stale model text drafts, normalize external text edits equal to their built-in value through guarded writes, and show the resolved automatic effort before a profile switch.
+- Complete configuration recovery and events: recover abandoned locks after verifying their writer has stopped, clean staging files left before a journal is prepared, carry explicit resource identities and revisions to browsers, and exercise crashes and simultaneous external saves on every supported system.
 - Control over the context: project instructions such as `AGENTS.md`, skills and slash commands, and a switch for each thing that Pi adds.
 - Hooks, and the contract for add-ons that built-in tools share (decision 0006).
 - Permissions, approvals, and sandboxing, by default allowed inside the project folder and asked for outside it or for the network.
@@ -40,7 +42,6 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
 - Does the harness logic still move into `packages/core`, as decision 0003 plans, and when? It currently stays in `packages/independum`.
 - Should Independum edit the texts that Pi writes, or only show them? See decision 0033.
-- The settings of tools belong to the user, as decision 0031 describes. Do some settings also belong to a project?
 - The end of a background command adds a note that wakes the agent, as decision 0032 describes. What else may add a message to a chat, and what can it see?
 - What does memory mean in Independum?
 - A check of a background command can return while a line is still being printed, such as when it waits until a text appears. That line comes again, whole, with the next check, so the model reads it twice. Should the next check return only what was printed after it instead?

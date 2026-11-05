@@ -1,6 +1,6 @@
 # Address chats by id
 
-- Status: accepted
+- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering new chat defaults
 - Date: 2026-11-05
 
 ## Context

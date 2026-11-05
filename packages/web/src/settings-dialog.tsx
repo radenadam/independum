@@ -1,3 +1,4 @@
+import type { ChatState, ModelSummary } from "independum/api-types";
 import type { ReactElement } from "react";
 import { AppearanceSection } from "./appearance-section.tsx";
 import { ArchivedSection } from "./archived-section.tsx";
@@ -5,10 +6,11 @@ import { IconButton } from "./icon-button.tsx";
 import { LoginsSection } from "./logins-section.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { NotificationsSection } from "./notifications-section.tsx";
+import { ProfilesSection } from "./profiles-section.tsx";
 import styles from "./settings-dialog.module.css";
 
 /** A section of the settings dialog. */
-export type SettingsSection = "logins" | "appearance" | "notifications" | "archived";
+export type SettingsSection = "logins" | "profiles" | "appearance" | "notifications" | "archived";
 
 /** Properties of the settings dialog. */
 interface SettingsDialogProps {
@@ -16,15 +18,24 @@ interface SettingsDialogProps {
   onSection: (section: SettingsSection) => void;
   onClose: () => void;
   onLoginsChanged: () => void;
+  chat?: ChatState | undefined;
+  models?: ModelSummary[] | undefined;
 }
 
 const titles: Record<SettingsSection, string> = {
   logins: "Logins",
+  profiles: "Profiles",
   appearance: "Appearance",
   notifications: "Notifications",
   archived: "Archived chats",
 };
-const sections: SettingsSection[] = ["logins", "appearance", "notifications", "archived"];
+const sections: SettingsSection[] = [
+  "logins",
+  "profiles",
+  "appearance",
+  "notifications",
+  "archived",
+];
 
 /**
  * Draws the settings over the working screen while a section is open, and closes on Escape or a
@@ -35,6 +46,8 @@ export function SettingsDialog({
   onSection,
   onClose,
   onLoginsChanged,
+  chat,
+  models,
 }: SettingsDialogProps): ReactElement {
   return (
     <ModalDialog
@@ -72,6 +85,7 @@ export function SettingsDialog({
               />
             </div>
             {section === "logins" ? <LoginsSection onChanged={onLoginsChanged} /> : null}
+            {section === "profiles" ? <ProfilesSection chat={chat} models={models} /> : null}
             {section === "appearance" ? <AppearanceSection /> : null}
             {section === "notifications" ? <NotificationsSection /> : null}
             {section === "archived" ? <ArchivedSection /> : null}

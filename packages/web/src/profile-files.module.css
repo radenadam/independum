@@ -1,0 +1,11 @@
+.field {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  color: var(--ink);
+  background: var(--code);
+  font: 12px var(--font-mono);
+  resize: vertical;
+}

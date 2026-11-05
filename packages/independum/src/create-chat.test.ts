@@ -234,6 +234,8 @@ test("a model choice stays with its chat when another chat opens before it finis
   chosen.resolve();
   expect(await choosing).toBe(true);
   expect(other.getState().model).toBeNull();
+  original.emit({ type: "agent_settled", aborted: false });
+  await chat.reconcile();
   const originalChat = await openTestChat(chat, original.session.sessionId);
   expect(originalChat.getState().model).toEqual({ providerId: "faux", id: "chosen" });
 });
@@ -264,7 +266,7 @@ test("reconnecting and changing effort restore every part of the reply so far", 
   expect(first.type === "state" ? first.state : undefined).toHaveProperty("reply", expected);
   const changes: ChatEvent[] = [];
   opened.subscribe((event) => changes.push(event));
-  expect(opened.chooseThinking("low")).toBe(true);
+  expect(await opened.chooseThinking("low")).toBe(true);
   expect(changes.find((event) => event.type === "state")).toHaveProperty("state.reply", expected);
   active.setStreaming(undefined);
   expect(opened.getState()).toHaveProperty("reply", []);
@@ -447,6 +449,7 @@ test("shutdown waits for a command that moves to the background while it stops",
 
 test("a background note retains its chat through compaction and delivery", async () => {
   const { chat, opened, commands, start } = await setup();
+  await opened.chooseModel("faux", "chosen");
   const active = sessionAt(-1);
   const idle = Promise.withResolvers<void>();
   const delivered = Promise.withResolvers<void>();

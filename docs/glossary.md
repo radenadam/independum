@@ -25,13 +25,14 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
 | Maintainer | The person who owns the project and answers its open questions. | "the owner" |
 | Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
-| Model override | A context window, maximum output, or temperature set for one provider and model in every chat, in place of its built-in value or none. | "model patch", "custom model" |
+| Model override | A context window, maximum output, or temperature set for one provider and model in chats using a profile, in place of its built-in value or none. | "model patch", "custom model" |
 | Model text | A text that Independum sends to the model, such as the system prompt, an added fact, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Session place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
 | Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |
+| Profile | A complete agent setup for one use case, stored in plain files and selected by a chat. User and project defaults affect new chats. | "preset", "configuration layer" |
 | Project | A folder that chats work in. The sidebar lists every project with its chats. | "workspace", "repo", "directory" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |

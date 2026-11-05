@@ -51,7 +51,9 @@ export function summarizeTexts(
       text: edit?.text ?? text.builtIn,
       builtIn: text.builtIn,
       isEdited: edit !== undefined && edit.text !== text.builtIn,
-      editedFrom: edit !== undefined && edit.builtIn !== text.builtIn ? edit.builtIn : null,
+      ...(edit !== undefined && edit.builtIn === undefined ? { hasBaseline: false } : {}),
+      editedFrom:
+        edit !== undefined && edit.builtIn !== text.builtIn ? (edit.builtIn ?? null) : null,
       slots: Object.entries(text.slots).map(([name, slot]) => ({ name, ...slot })),
     };
   });

@@ -151,16 +151,21 @@ test.each([stopCommand, moveCommandToBackground])(
   },
 );
 
-test("saving shared settings reads the agent of the requesting chat", async () => {
-  const agent = { systemPrompt: "The agent of the first chat." };
-  vi.mocked(requestApi)
-    .mockResolvedValueOnce(new Response(null, { status: 204 }))
-    .mockResolvedValueOnce(Response.json(agent));
-  await expect(changeSettings("first", { compaction: { isEnabled: false } })).resolves.toEqual(
-    agent,
+test("saving profile settings sends the editor revision to its explicit resource", async () => {
+  const agent = { systemPrompt: "The profile prompt." };
+  const configuration = {
+    profile: {
+      reference: { scope: "user", id: "research" },
+      projectId: "project",
+      revision: '"revision"',
+    },
+  } as import("independum/api-types").ChatConfiguration;
+  vi.mocked(requestApi).mockResolvedValueOnce(Response.json(agent));
+  await expect(
+    changeSettings("first", { compaction: { isEnabled: false } }, configuration),
+  ).resolves.toEqual(agent);
+  expect(requestApi).toHaveBeenCalledWith(
+    "/api/profiles/user/research/settings?projectId=project",
+    { method: "PUT", revision: '"revision"', body: { compaction: { isEnabled: false } } },
   );
-  expect(vi.mocked(requestApi).mock.calls).toEqual([
-    ["/api/settings", { method: "PUT", body: { compaction: { isEnabled: false } } }],
-    ["/api/chats/first/agent"],
-  ]);
 });

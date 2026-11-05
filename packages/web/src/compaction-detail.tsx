@@ -12,6 +12,7 @@ import type { AgentSettings } from "./use-agent-settings.ts";
 interface CompactionDetailProps {
   chat: ChatState;
   settings: AgentSettings;
+  isProfileEditor?: boolean;
 }
 
 /** Returns whether the compaction settings differ from their built-in values. */
@@ -26,7 +27,11 @@ export function isCompactionChanged(settings: AgentSettings): boolean {
 }
 
 /** Draws the settings of automatic compaction and the action that compacts the open chat now. */
-export function CompactionDetail({ chat, settings }: CompactionDetailProps): ReactElement {
+export function CompactionDetail({
+  chat,
+  settings,
+  isProfileEditor = false,
+}: CompactionDetailProps): ReactElement {
   const [failure, setFailure] = useState<string | undefined>();
   const { agent } = settings;
   if (agent === undefined) {
@@ -59,8 +64,8 @@ export function CompactionDetail({ chat, settings }: CompactionDetailProps): Rea
         }
       >
         <PlaceNote>
-          Automatic compaction is {current.isEnabled ? "on" : "off"}. These settings apply to every
-          chat. Built-in: {builtIn.isEnabled ? "on" : "off"}.
+          Automatic compaction is {current.isEnabled ? "on" : "off"}. These settings apply to chats
+          using this profile. Built-in: {builtIn.isEnabled ? "on" : "off"}.
         </PlaceNote>
         <NumberSetting
           id="compaction-reserve"
@@ -99,35 +104,37 @@ export function CompactionDetail({ chat, settings }: CompactionDetailProps): Rea
         <PlaceNote>The prompts and messages of compaction are listed under Texts of Pi.</PlaceNote>
         {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
       </PlaceSection>
-      <PlaceSection
-        heading="Compact now"
-        actions={
-          chat.model !== null && !chat.isReplying && !chat.isCompacting ? (
-            <IconButton
-              icon="compact"
-              label="Compact now"
-              onClick={() => {
-                setFailure(undefined);
-                compactChat(chat.id).catch(() =>
-                  setFailure("The chat could not start compaction. Try again."),
-                );
-              }}
-            />
-          ) : undefined
-        }
-      >
-        <PlaceNote>
-          {chat.isCompacting
-            ? "Pi is compacting this chat."
-            : chat.isReplying
-              ? "Wait for the reply to end before compacting."
-              : chat.model === null
-                ? "Choose a model before compacting."
-                : "Summarize older messages of this chat now, even while automatic compaction is off."}
-        </PlaceNote>
-        {chat.compactionError === null ? null : <PlaceNote>{chat.compactionError}</PlaceNote>}
-        {failure === undefined ? null : <PlaceNote>{failure}</PlaceNote>}
-      </PlaceSection>
+      {isProfileEditor ? null : (
+        <PlaceSection
+          heading="Compact now"
+          actions={
+            chat.model !== null && !chat.isReplying && !chat.isCompacting ? (
+              <IconButton
+                icon="compact"
+                label="Compact now"
+                onClick={() => {
+                  setFailure(undefined);
+                  compactChat(chat.id).catch(() =>
+                    setFailure("The chat could not start compaction. Try again."),
+                  );
+                }}
+              />
+            ) : undefined
+          }
+        >
+          <PlaceNote>
+            {chat.isCompacting
+              ? "Pi is compacting this chat."
+              : chat.isReplying
+                ? "Wait for the reply to end before compacting."
+                : chat.model === null
+                  ? "Choose a model before compacting."
+                  : "Summarize older messages of this chat now, even while automatic compaction is off."}
+          </PlaceNote>
+          {chat.compactionError === null ? null : <PlaceNote>{chat.compactionError}</PlaceNote>}
+          {failure === undefined ? null : <PlaceNote>{failure}</PlaceNote>}
+        </PlaceSection>
+      )}
     </>
   );
 }

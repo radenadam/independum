@@ -1,5 +1,6 @@
 import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
   type AgentSession,
   type AgentSessionEvent,
@@ -12,26 +13,31 @@ import {
   type SessionInfo,
   SessionManager,
   SettingsManager,
+  type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import {
   addedFactPrompt,
-  addedFactTexts,
   addMessageTimes,
   messageTimeText,
   summarizeAddedFacts,
 } from "./added-facts.ts";
+import { allTexts, systemPromptText } from "./agent-texts.ts";
 import type {
   AgentSummary,
   ArchivedChatSummary,
   ChatEvent,
   ChatMessage,
+  ChatOverrides,
   ChatState,
   ChatSummary,
   ChatsEvent,
   CommandEnd,
+  ConfigurationIssue,
   ContextSummary,
   MessagePart,
+  ProfileReference,
   ProjectSummary,
+  Settings,
   SettingsChange,
   ShellChoice,
   ShellKind,
@@ -39,38 +45,35 @@ import type {
   ToolResult,
   ToolSummary,
 } from "./api-types.ts";
+import { configurationRevision } from "./configuration-files.ts";
+import { escapePointer } from "./configuration-schema.ts";
+import {
+  createProfileStore,
+  type ProfileStore,
+  type ResolvedProfile,
+} from "./create-profile-store.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
-import { builtInSettings, createSettings } from "./create-settings.ts";
 import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
-import {
-  changeTexts,
-  createModelTexts,
-  defineText,
-  type ModelText,
-  summarizeTexts,
-} from "./model-texts.ts";
+import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
+import { builtInSettings } from "./read-settings-change.ts";
+import { subscribeTo } from "./subscribe-to.ts";
 import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
 import {
   type BackgroundEnded,
-  backgroundTextList,
   createBackgroundCommands,
   describeBackgroundNote,
 } from "./tools/create-background-commands.ts";
-import { checkCommandTextList, createCheckCommandTool } from "./tools/create-check-command-tool.ts";
-import { createEditTool, editTextList } from "./tools/create-edit-tool.ts";
-import { outputTextList } from "./tools/create-output-log.ts";
-import { createReadTool, readTextList } from "./tools/create-read-tool.ts";
-import { createShellTool, shellTextList } from "./tools/create-shell-tool.ts";
-import { createStopCommandTool, stopCommandTextList } from "./tools/create-stop-command-tool.ts";
-import { createWriteTool, writeTextList } from "./tools/create-write-tool.ts";
+import { createCheckCommandTool } from "./tools/create-check-command-tool.ts";
+import { createEditTool } from "./tools/create-edit-tool.ts";
+import { createReadTool } from "./tools/create-read-tool.ts";
+import { createShellTool } from "./tools/create-shell-tool.ts";
+import { createStopCommandTool } from "./tools/create-stop-command-tool.ts";
+import { createWriteTool } from "./tools/create-write-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
 import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
-import { fileTextList } from "./tools/text-file.ts";
-import { fingerprintTextList } from "./tools/version-of.ts";
-import { envelopeText } from "./wrap-note.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -109,6 +112,10 @@ interface ChatRun {
   listeners: Set<(event: ChatEvent) => void>;
   users: number;
   isClosing: boolean;
+  configuration: ResolvedProfile;
+  desired: ResolvedProfile | undefined;
+  rebuilding: Promise<void> | undefined;
+  ownTools: ToolDefinition[];
 }
 
 // Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
@@ -117,31 +124,6 @@ const thinkingTimesType = "independum-thinking-times";
 // The note that wakes the agent when one of its background commands ends.
 const commandEndType = "independum-command-end";
 
-// The harness identity and folder belong to added facts, so their switches control every copy.
-const systemPromptText = defineText({
-  id: "systemPrompt",
-  group: "System prompt",
-  section: "prompt",
-  label: "Every request",
-  builtIn: "You are an agent working on the computer of the user.",
-  slots: {},
-});
-// Every model text. The Session place groups them, and keeps this order within each group.
-const allTexts: ModelText[] = [
-  systemPromptText,
-  ...addedFactTexts,
-  ...readTextList,
-  ...fingerprintTextList,
-  ...fileTextList,
-  ...writeTextList,
-  ...editTextList,
-  ...shellTextList,
-  ...backgroundTextList,
-  ...checkCommandTextList,
-  ...stopCommandTextList,
-  ...outputTextList,
-  envelopeText,
-];
 const shellKinds: ShellKind[] = ["powershell", "bash"];
 // A tool call that the model is still writing reaches the chat at most this often.
 const callUpdateInterval = 80;
@@ -159,10 +141,10 @@ export interface OpenChat {
   getAgent(): AgentSummary;
   getContext(): ContextSummary;
   subscribe(listener: (event: ChatEvent) => void): () => void;
-  send(text: string): boolean;
+  send(text: string): Promise<boolean>;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
-  chooseThinking(level: string): boolean;
-  compact(): boolean;
+  chooseThinking(level: string): Promise<boolean>;
+  compact(): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
   moveToBackground(id: string): boolean;
@@ -173,12 +155,20 @@ export interface OpenChat {
 export interface Chat {
   first(): Promise<string>;
   open(id: string): Promise<OpenChat | undefined>;
-  changeSettings(change: SettingsChange): Promise<boolean>;
+  profiles: ProfileStore;
+  changeSettings(
+    reference: ProfileReference,
+    projectId: string,
+    change: SettingsChange,
+    revision: string | undefined,
+  ): Promise<boolean>;
+  profileAgent(reference: ProfileReference, projectId: string): AgentSummary;
+  reconcile(): Promise<void>;
   getProjects(): Promise<ProjectSummary[]>;
   getReplyingIds(): string[];
   subscribe(listener: (event: ChatsEvent) => void): () => void;
   stopAll(): Promise<void>;
-  startNew(id: string, folder?: string): Promise<string | undefined>;
+  startNew(id: string, folder?: string, profile?: ProfileReference): Promise<string | undefined>;
   rename(id: string, name: string): Promise<boolean>;
   pin(id: string, isPinned: boolean): Promise<boolean>;
   archive(id: string, isArchived: boolean): Promise<boolean>;
@@ -192,9 +182,18 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(folder);
-  const settings = await createSettings(join(directory, "settings.json"));
-  const texts = createModelTexts(() => settings.get().texts);
-  let shell = findShell(settings.get().shell ?? undefined);
+  const existingChats = [...(await savedChats.list()), ...(await savedChats.listArchived())];
+  const profiles = await createProfileStore(
+    directory,
+    [...new Set([startFolder, ...existingChats.map((saved) => toFolder(saved.cwd || folder))])],
+    existingChats.map((saved) => {
+      return {
+        id: saved.id,
+        folder: toFolder(saved.cwd || folder),
+        overrides: chatOverridesOf(SessionManager.open(saved.path, sessionDirectory)),
+      };
+    }),
+  );
   const outputFolder = join(directory, "outputs");
   const savedRequests = createSavedRequests(join(directory, "requests"));
   const commandStops = new Map<string, () => Promise<void>>();
@@ -208,26 +207,29 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     },
     onEnd: noteEnd,
   });
-  // Independum's own tools, which every chat shares. Pi registers its built-in tools too, and they
-  // stay off.
-  const ownTools = [
-    createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
-    createWriteTool(texts),
-    createEditTool(texts),
-    createShellTool({
-      getShell: () => shell,
-      getLimits: () => settings.get().outputLimits,
-      getEnvironment: () => settings.get().environment,
-      getHandBackSeconds: () => settings.get().handBackSeconds,
-      handBacks: commandHandBacks,
-      texts,
-      outputFolder,
-      stops: commandStops,
-      background,
-    }),
-    createCheckCommandTool(background, texts),
-    createStopCommandTool(background, texts),
-  ];
+  function toolsFor(configuration: ResolvedProfile): ToolDefinition[] {
+    const settings = { get: () => configuration.settings };
+    const texts = createModelTexts(() => configuration.settings.texts);
+    const shell = findShell(configuration.settings.shell ?? undefined);
+    return [
+      createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
+      createWriteTool(texts),
+      createEditTool(texts),
+      createShellTool({
+        getShell: () => shell,
+        getLimits: () => settings.get().outputLimits,
+        getEnvironment: () => settings.get().environment,
+        getHandBackSeconds: () => settings.get().handBackSeconds,
+        handBacks: commandHandBacks,
+        texts,
+        outputFolder,
+        stops: commandStops,
+        background,
+      }),
+      createCheckCommandTool(background, texts),
+      createStopCommandTool(background, texts),
+    ];
+  }
   const listeners = new Set<(event: ChatsEvent) => void>();
   const runs = new Map<string, ChatRun>();
   const stoppingChats = new Set<string>();
@@ -239,10 +241,11 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     {
       manager: SessionManager;
       folder: string;
-      model: Model | undefined;
-      thinkingLevel: AgentSession["thinkingLevel"];
     }
   >();
+  profiles.subscribe(() => {
+    reconcile().catch(() => undefined);
+  });
   let firstId: string | undefined;
   let firstOpening: Promise<string> | undefined;
 
@@ -292,6 +295,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   // background command runs.
   function releaseIfIdle(run: ChatRun): void {
     if (
+      run.rebuilding !== undefined ||
       run.users > 0 ||
       run.isClosing ||
       run.listeners.size > 0 ||
@@ -311,8 +315,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       drafts.set(run.session.sessionId, {
         manager: run.session.sessionManager,
         folder: run.folder,
-        model: run.isModelChosen ? run.session.model : undefined,
-        thinkingLevel: run.session.thinkingLevel,
       });
     } else {
       drafts.delete(run.session.sessionId);
@@ -345,7 +347,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     }
     const note = {
       customType: commandEndType,
-      content: describeBackgroundNote(ended, texts),
+      content: describeBackgroundNote(ended, ended.texts),
       display: true,
       details: ended.end,
     };
@@ -386,6 +388,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       !run.isClosing &&
       !stoppingChats.has(run.session.sessionId)
     ) {
+      await reconcileRun(run);
+      if (!run.isModelChosen || configurationIssues(run).length > 0) {
+        run.session.sessionManager.appendCustomMessageEntry(
+          note.customType,
+          note.content,
+          note.display,
+          note.details,
+        );
+        return;
+      }
       await run.session.sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" });
     }
   }
@@ -509,7 +521,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     if (run === undefined) {
       return;
     }
-    const model = run.isModelChosen ? run.session.model : undefined;
     run.isClosing = true;
     stoppingChats.add(saved.id);
     try {
@@ -518,7 +529,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       stoppingChats.delete(saved.id);
     }
     if (run.listeners.size > 0) {
-      const replacement = await openNew(folderOf(saved), model);
+      const replacement = await openNew(folderOf(saved));
       emitFor(run, { type: "removed", replacementId: replacement.session.sessionId });
       releaseIfIdle(replacement);
     }
@@ -583,10 +594,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         run.compactionError = event.errorMessage ?? null;
         refreshContext(run);
         releaseIfIdle(run);
+        setImmediate(() => {
+          reconcileRun(run).catch(() => undefined);
+        });
       } else if (event.type === "agent_start") {
         setReplying(run, true);
       } else if (event.type === "agent_settled") {
         endReply(run, lastReplyOf(run));
+        setImmediate(() => {
+          reconcileRun(run).catch(() => undefined);
+        });
       } else if (event.type === "message_start" && event.message.role === "assistant") {
         run.thinkingStarts.clear();
         run.thinkingTimes.clear();
@@ -631,24 +648,51 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     };
   }
 
-  function openSaved(saved: SessionInfo): Promise<ChatRun> {
-    return openSession(SessionManager.open(saved.path, sessionDirectory), folderOf(saved), true);
+  async function openSaved(saved: SessionInfo): Promise<ChatRun> {
+    const manager = SessionManager.open(saved.path, sessionDirectory);
+    if (profiles.choices(saved.id).revision === configurationRevision([null])) {
+      profiles.keepChoices(saved.id, {
+        ...profiles.newChoices(folderOf(saved)),
+        overrides: chatOverridesOf(manager),
+      });
+      await profiles.saveChoices(saved.id);
+    }
+    return openSession(manager, folderOf(saved));
   }
 
-  function openNew(newFolder: string, model?: Model): Promise<ChatRun> {
-    return openSession(SessionManager.create(newFolder, sessionDirectory), newFolder, false, model);
+  function openNew(
+    newFolder: string,
+    profile?: ProfileReference,
+    source?: ChatRun,
+  ): Promise<ChatRun> {
+    const manager = SessionManager.create(newFolder, sessionDirectory);
+    const choices = profiles.newChoices(newFolder, profile);
+    // A new chat started from another keeps its model and effort while both use one profile, as
+    // decision 0058 says.
+    const isSameProfile =
+      source !== undefined &&
+      source.configuration.choices.document?.profile.scope === choices.profile.scope &&
+      source.configuration.choices.document?.profile.id === choices.profile.id;
+    const model = source?.isModelChosen === true ? source.session.model : undefined;
+    profiles.keepChoices(
+      manager.getSessionId(),
+      isSameProfile && model !== undefined
+        ? {
+            ...choices,
+            overrides: {
+              model: { providerId: model.provider, modelId: model.id },
+              thinkingLevel: source.session.thinkingLevel,
+            },
+          }
+        : choices,
+    );
+    return openSession(manager, newFolder);
   }
 
   async function loadRun(id: string): Promise<ChatRun | undefined> {
     const draft = drafts.get(id);
     if (draft !== undefined) {
-      const model =
-        draft.model === undefined
-          ? undefined
-          : models.getModel(draft.model.provider, draft.model.id);
-      const chosen =
-        model !== undefined && models.hasConfiguredAuth(model.provider) ? model : undefined;
-      return openSession(draft.manager, draft.folder, false, chosen, draft.thinkingLevel);
+      return openSession(draft.manager, draft.folder);
     }
     const saved = await findSaved(id);
     return saved === undefined ? undefined : openSaved(saved);
@@ -680,17 +724,28 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   async function openSession(
     manager: SessionManager,
     sessionFolder: string,
-    isSaved: boolean,
-    model?: Model,
-    thinkingLevel?: AgentSession["thinkingLevel"],
+    previous?: ChatRun,
+    applied?: ResolvedProfile,
   ): Promise<ChatRun> {
+    const configuration = applied ?? profiles.resolve(manager.getSessionId(), sessionFolder);
+    if (applied === undefined) {
+      checkModels(configuration);
+    }
+    const settings = { get: () => configuration.settings };
+    const texts = createModelTexts(() => configuration.settings.texts);
+    const ownTools = toolsFor(configuration);
+    const model = modelFor(configuration.model);
+    const isChosen = model !== undefined && models.hasConfiguredAuth(model.provider);
+    const thinkingLevel = configuration.thinkingLevel ?? "medium";
     // The hidden extension of the chat registers anew whenever Pi loads it, and its handlers find
     // the run of their chat once it exists.
     const hold: { run?: ChatRun; extension?: ExtensionAPI } = {};
     // Without its own settings and an empty addendum, Pi reads its settings from the project and
     // from `~/.independum`, and adds any `APPEND_SYSTEM.md` there to the system prompt, so a file
     // in a project could reach the model unseen.
-    const piSettings = SettingsManager.inMemory({ compaction: piCompactionSettings() });
+    const piSettings = SettingsManager.inMemory({
+      compaction: piCompactionSettings(configuration.settings),
+    });
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionFolder,
       agentDir: directory,
@@ -770,7 +825,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
     });
     const { session } = created;
-    const run: ChatRun = {
+    const run: ChatRun = Object.assign(previous ?? {}, {
       session,
       extension: hold.extension,
       folder: sessionFolder,
@@ -778,26 +833,28 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       // Pi picks a provider default for a new chat without a model, and for a saved chat whose
       // model has lost its login. The user chose neither.
       isModelChosen:
-        session.model !== undefined &&
-        created.modelFallbackMessage === undefined &&
-        (model !== undefined || isSaved),
+        session.model !== undefined && created.modelFallbackMessage === undefined && isChosen,
       isReplying: false,
       isCompacting: false,
       compactionError: null,
-      contextVersion: 0,
-      pendingNotes: 0,
-      lastRequest: savedRequests.read(session.sessionId),
+      contextVersion: previous?.contextVersion ?? 0,
+      pendingNotes: previous?.pendingNotes ?? 0,
+      lastRequest: previous?.lastRequest ?? savedRequests.read(session.sessionId),
       cacheWarmings: 0,
       thinkingStarts: new Map(),
       thinkingTimes: new Map(),
       lastCallUpdate: 0,
       toolRuns: {},
-      listeners: new Set(),
-      users: 0,
+      listeners: previous?.listeners ?? new Set<(event: ChatEvent) => void>(),
+      users: previous?.users ?? 0,
       isClosing: false,
-    };
+      configuration,
+      desired: undefined,
+      rebuilding: previous?.rebuilding,
+      ownTools,
+    });
     hold.run = run;
-    applySessionSettings(session);
+    applySessionSettings(session, configuration.settings);
     const stream = session.agent.streamFunction;
     function streamWithOverrides(
       ...[requestModel, context, options]: Parameters<typeof stream>
@@ -830,11 +887,46 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   // The exact prompt override keeps Pi's folder section out of requests, so its folder fact has
   // the same switch and edit controls as the other facts.
   function getAgent(run: ChatRun): AgentSummary {
+    const agent = summarizeAgent(
+      run.configuration,
+      run.folder,
+      run.isModelChosen ? run.session.model : undefined,
+      run.lastRequest,
+    );
+    if (agent.configuration !== undefined && run.desired !== undefined) {
+      agent.configuration.pendingRevision =
+        run.desired.effectiveRevision === run.configuration.effectiveRevision
+          ? null
+          : run.desired.effectiveRevision;
+      agent.configuration.issues = run.desired.issues;
+    }
+    return agent;
+  }
+
+  function summarizeAgent(
+    configuration: ResolvedProfile,
+    folder: string,
+    selected: Model | undefined,
+    lastRequest: unknown,
+  ): AgentSummary {
+    const settings = { get: () => configuration.settings };
+    const texts = createModelTexts(() => configuration.settings.texts);
+    const ownTools = toolsFor(configuration);
     const prompt = texts.get(systemPromptText);
-    const selected = run.isModelChosen === true ? run.session.model : undefined;
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
+      configuration: {
+        profile: configuration.profile,
+        choices: configuration.choices,
+        model: configuration.model ?? null,
+        thinkingLevel: configuration.thinkingLevel,
+        appliedRevision: configuration.effectiveRevision,
+        pendingRevision: null,
+        issues: configuration.issues,
+        sources: configuration.sources,
+        userSettings: configuration.userSettings,
+      },
       modelSettings:
         model === undefined
           ? null
@@ -845,17 +937,17 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       addedByPi: "",
       addedFacts: summarizeAddedFacts({
         settings: settings.get(),
-        folder: run.folder ?? startFolder,
-        model: run.session.model,
+        folder,
+        model: selected,
       }),
       knowledgeCutoffs: settings.get().knowledgeCutoffs,
-      tools: ownToolInfos(run).map(
+      tools: ownTools.map(
         (tool): ToolSummary => ({
           name: tool.name,
           description: tool.description,
           parameters: tool.parameters,
           isEnabled: !settings.get().disabledTools.includes(tool.name),
-          unavailable: unavailableOf(tool.name),
+          unavailable: unavailableOf(tool.name, configuration.settings),
         }),
       ),
       shells: shellKinds.map(
@@ -872,7 +964,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       handBackSeconds: settings.get().handBackSeconds,
       builtInHandBackSeconds: builtInSettings.handBackSeconds,
       texts: summarizeTexts(allTexts, settings.get().texts),
-      piTexts: summarizePiTexts(run.lastRequest ?? null),
+      piTexts: summarizePiTexts(lastRequest ?? null),
       environment: settings.get().environment,
       environmentSuggestions,
     };
@@ -881,7 +973,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function ownToolInfos(run: ChatRun): ReturnType<AgentSession["getAllTools"]> {
     return run.session
       .getAllTools()
-      .filter((tool) => ownTools.some((own) => own.name === tool.name));
+      .filter((tool) => run.ownTools.some((own) => own.name === tool.name));
   }
 
   // A tool runs only when the user has not turned it off and it can run on this computer.
@@ -889,73 +981,222 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     return ownToolInfos(run)
       .map((tool) => tool.name)
       .filter(
-        (name) => !settings.get().disabledTools.includes(name) && unavailableOf(name) === null,
+        (name) =>
+          !run.configuration.settings.disabledTools.includes(name) &&
+          unavailableOf(name, run.configuration.settings) === null,
       );
   }
 
-  function unavailableOf(toolName: string): string | null {
-    if (toolName !== "Shell" || shell !== undefined) {
+  function unavailableOf(toolName: string, settings: Settings): string | null {
+    if (toolName !== "Shell" || findShell(settings.shell ?? undefined) !== undefined) {
       return null;
     }
-    return missingShellOf(settings.get().shell ?? defaultShellKind());
+    return missingShellOf(settings.shell ?? defaultShellKind());
   }
 
   // A change names model texts by their ids, so one that names a text that does not exist is
   // refused whole. Pi reads the tools again when Independum registers them anew, so a new shell or
   // an edited text reaches the model with the next turn of every chat that runs.
-  async function changeSettings(change: SettingsChange): Promise<boolean> {
-    if (change.disabledFacts?.some((id) => !addedFactTexts.some((text) => text.id === id))) {
+  async function changeSettings(
+    reference: ProfileReference,
+    projectId: string,
+    change: SettingsChange,
+    revision: string | undefined,
+  ): Promise<boolean> {
+    const resource = profiles.profile(reference, projectId);
+    const bundle = resource.document;
+    if (bundle === null) {
       return false;
     }
+    const settings = profiles.preview(reference, projectId).settings;
     const {
       texts: textChange,
       modelOverrides: modelChanges,
       compaction: compactionChange,
+      knowledgeCutoffs,
+      tool,
       ...rest
     } = change;
+    if (knowledgeCutoffs !== undefined) {
+      return false;
+    }
+    if (rest.shell === defaultShellKind()) {
+      rest.shell = null;
+    }
     const modelOverrides =
       modelChanges === undefined
-        ? settings.get().modelOverrides
-        : changeModelOverrides(models, settings.get().modelOverrides, modelChanges);
+        ? settings.modelOverrides
+        : changeModelOverrides(models, settings.modelOverrides, modelChanges);
     const edited =
-      textChange === undefined
-        ? settings.get().texts
-        : changeTexts(allTexts, settings.get().texts, textChange);
+      textChange === undefined ? settings.texts : changeTexts(allTexts, settings.texts, textChange);
     if (edited === undefined || modelOverrides === undefined) {
       return false;
     }
-    // A choice of the shell that the system has by default is no choice, so it is saved as none and
-    // the Shell tool does not count as edited.
-    const shellChange = rest.shell === defaultShellKind() ? { shell: null } : {};
-    const compaction = { ...settings.get().compaction, ...compactionChange };
-    await settings.change({ ...rest, ...shellChange, modelOverrides, compaction, texts: edited });
-    shell = findShell(settings.get().shell ?? undefined);
-    for (const run of runs.values()) {
-      for (const tool of ownTools) {
-        run.extension?.registerTool(tool);
-      }
-      run.session.setActiveToolsByName(activeToolNames(run));
-      applySessionSettings(run.session);
-      refreshContext(run);
-    }
+    const disabledTools =
+      tool === undefined
+        ? (rest.disabledTools ?? settings.disabledTools)
+        : [
+            ...settings.disabledTools.filter((name) => name !== tool.name),
+            ...(tool.isEnabled ? [] : [tool.name]),
+          ];
+    const { systemPrompt, ...texts } = edited;
+    const next = {
+      ...bundle,
+      profile: {
+        ...bundle.profile,
+        settings: {
+          ...bundle.profile.settings,
+          ...rest,
+          disabledTools,
+          modelOverrides,
+          compaction: { ...settings.compaction, ...compactionChange },
+        },
+      },
+      systemPrompt: systemPrompt?.text ?? null,
+      modelTexts: {
+        formatVersion: 1,
+        texts,
+        ...(systemPrompt?.builtIn === undefined
+          ? {}
+          : { systemPromptBuiltIn: systemPrompt.builtIn }),
+      },
+    };
+    await profiles.putProfile(reference, projectId, next, revision);
+    await reconcile();
     return true;
   }
 
-  function piCompactionSettings(): ReturnType<SettingsManager["getCompactionSettings"]> {
-    const { isEnabled, reserveTokens, keepRecentTokens } = settings.get().compaction;
+  function piCompactionSettings(
+    settings: Settings,
+  ): ReturnType<SettingsManager["getCompactionSettings"]> {
+    const { isEnabled, reserveTokens, keepRecentTokens } = settings.compaction;
     return { enabled: isEnabled, reserveTokens, keepRecentTokens };
   }
 
-  function applySessionSettings(session: AgentSession): void {
-    session.settingsManager.applyOverrides({ compaction: piCompactionSettings() });
+  function applySessionSettings(session: AgentSession, settings: Settings): void {
     const selected = session.model;
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     if (model !== undefined) {
       session.agent.state.model = applyModelOverrides(
         model,
-        settings.get().modelOverrides[model.provider]?.[model.id] ?? {},
+        settings.modelOverrides[model.provider]?.[model.id] ?? {},
       );
+    }
+  }
+
+  function configurationIssues(run: ChatRun): ConfigurationIssue[] {
+    return (run.desired ?? run.configuration).issues;
+  }
+
+  function modelFor(choice: ChatOverrides["model"]): Model | undefined {
+    return choice == null ? undefined : models.getModel(choice.providerId, choice.modelId);
+  }
+
+  function checkModels(configuration: ResolvedProfile): void {
+    const choice = configuration.model;
+    const model = modelFor(choice);
+    if (choice != null && (model === undefined || !models.hasConfiguredAuth(choice.providerId))) {
+      const source = configuration.sources.model;
+      configuration.issues.push({
+        file: source?.file ?? configuration.profile.path,
+        pointer: source?.pointer ?? "/settings/model",
+        message:
+          model === undefined
+            ? "This provider and model are not in the Pi catalog."
+            : "The selected provider needs a login.",
+      });
+    }
+    if (
+      model !== undefined &&
+      configuration.thinkingLevel != null &&
+      !getSupportedThinkingLevels(model).includes(configuration.thinkingLevel)
+    ) {
+      const source = configuration.sources.thinkingLevel;
+      configuration.issues.push({
+        file: source?.file ?? configuration.profile.path,
+        pointer: source?.pointer ?? "/settings/thinkingLevel",
+        message: "The selected model does not support this explicit thinking level.",
+      });
+    }
+    for (const [provider, overrides] of Object.entries(configuration.settings.modelOverrides)) {
+      for (const id of Object.keys(overrides)) {
+        if (models.getModel(provider, id) === undefined) {
+          configuration.issues.push({
+            file: join(configuration.profile.path, "profile.json"),
+            pointer: [
+              "",
+              "settings",
+              "modelOverrides",
+              escapePointer(provider),
+              escapePointer(id),
+            ].join("/"),
+            message: "This override names a model that is not in the Pi catalog.",
+          });
+        }
+      }
+    }
+  }
+
+  async function reconcileRun(run: ChatRun): Promise<void> {
+    if (runs.get(run.session.sessionId) !== run || run.isClosing) {
+      return;
+    }
+    if (run.rebuilding !== undefined) {
+      await run.rebuilding;
+      return reconcileRun(run);
+    }
+    const desired = profiles.resolve(run.session.sessionId, run.folder);
+    checkModels(desired);
+    const previous = run.desired ?? run.configuration;
+    const hasChanged =
+      previous.profile.revision !== desired.profile.revision ||
+      previous.choices.revision !== desired.choices.revision ||
+      previous.effectiveRevision !== desired.effectiveRevision ||
+      JSON.stringify(previous.issues) !== JSON.stringify(desired.issues);
+    run.desired = desired;
+    if (
+      desired.issues.length === 0 &&
+      desired.effectiveRevision !== run.configuration.effectiveRevision &&
+      !run.isReplying &&
+      !run.isCompacting &&
+      !run.isClosing
+    ) {
+      const session = run.session;
+      const stopFollowing = run.stopFollowing;
+      run.users += 1;
+      run.rebuilding = (async () => {
+        await openSession(session.sessionManager, run.folder, run, desired);
+        stopFollowing();
+        session.dispose();
+        run.session.sessionManager.appendCustomEntry("independum-profile", {
+          profile: desired.profile.reference,
+          revision: desired.effectiveRevision,
+        });
+      })();
+      try {
+        await run.rebuilding;
+      } finally {
+        run.rebuilding = undefined;
+        run.users -= 1;
+      }
+      await reconcileRun(run);
+      emitFor(run, { type: "state", state: getState(run) });
+    } else if (
+      desired.issues.length === 0 &&
+      desired.effectiveRevision === run.configuration.effectiveRevision
+    ) {
+      run.configuration = desired;
+      run.desired = undefined;
+    }
+    if (hasChanged) {
+      refreshContext(run);
+    }
+  }
+
+  async function reconcile(): Promise<void> {
+    for (const run of runs.values()) {
+      await reconcileRun(run);
     }
   }
 
@@ -969,7 +1210,13 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   }
 
   function canStart(run: ChatRun | undefined): run is ChatRun {
-    return run?.isModelChosen === true && !run.isReplying && !run.isCompacting;
+    return (
+      run?.isModelChosen === true &&
+      !run.isReplying &&
+      !run.isCompacting &&
+      run.rebuilding === undefined &&
+      configurationIssues(run).length === 0
+    );
   }
 
   // Pi counts the tokens and the cost of every saved reply, and estimates how full the context
@@ -1123,7 +1370,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
               {
                 id: "facts.messageTime",
                 label: "Message time",
-                text: messageTimeText(entry.message.timestamp, settings.get()),
+                text: messageTimeText(entry.message.timestamp, {
+                  ...builtInSettings,
+                  texts: Object.fromEntries(
+                    agent.texts.map((text) => [text.id, { text: text.text }]),
+                  ),
+                }),
                 group: "messages" as const,
                 entryId: entry.id,
               },
@@ -1131,6 +1383,23 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           : [],
       ),
     ];
+  }
+
+  async function changeChoices(run: ChatRun, overrides: ChatOverrides): Promise<boolean> {
+    const choices = profiles.choices(run.session.sessionId);
+    if (choices.document === null) {
+      return false;
+    }
+    await profiles.putChoices({
+      id: run.session.sessionId,
+      folder: run.folder,
+      value: { ...choices.document, overrides: { ...choices.document.overrides, ...overrides } },
+      revision: choices.revision,
+      isDurable: run.session.messages.length > 0,
+    });
+    await reconcileRun(run);
+    emitFor(run, { type: "state", state: getState(run) });
+    return true;
   }
 
   function handleOf(run: ChatRun): OpenChat {
@@ -1153,10 +1422,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           releaseIfIdle(run);
         };
       },
-      send(text) {
-        if (run.isClosing || !canStart(run)) {
+      async send(text) {
+        await reconcileRun(run);
+        if (run.isClosing || configurationIssues(run).length > 0 || !canStart(run)) {
           return false;
         }
+        await profiles.saveChoices(run.session.sessionId);
         setReplying(run, true);
         run.session.prompt(text).catch((error: unknown) => {
           const reply: ChatMessage = {
@@ -1182,14 +1453,15 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         ) {
           return false;
         }
-        await run.session.setModel(
-          applyModelOverrides(model, settings.get().modelOverrides[providerId]?.[modelId] ?? {}),
-        );
-        run.isModelChosen = true;
-        emitFor(run, { type: "state", state: getState(run) });
-        return true;
+        const thinkingLevel = profiles.resolve(run.session.sessionId, run.folder).thinkingLevel;
+        return changeChoices(run, {
+          model: { providerId, modelId },
+          ...(thinkingLevel != null && !getSupportedThinkingLevels(model).includes(thinkingLevel)
+            ? { thinkingLevel: clampThinkingLevel(model, thinkingLevel) }
+            : {}),
+        });
       },
-      chooseThinking(level) {
+      async chooseThinking(level) {
         const session = run.session;
         const chosen =
           run.isModelChosen === true && session?.supportsThinking() === true
@@ -1198,11 +1470,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         if (session === undefined || chosen === undefined) {
           return false;
         }
-        session.setThinkingLevel(chosen);
-        emitFor(run, { type: "state", state: getState(run) });
-        return true;
+        return changeChoices(run, { thinkingLevel: chosen });
       },
-      compact() {
+      async compact() {
+        await reconcileRun(run);
         if (run.isClosing || !canStart(run)) {
           return false;
         }
@@ -1245,10 +1516,22 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     },
     getProjects,
     getReplyingIds,
+    profiles,
     changeSettings,
+    reconcile,
+    profileAgent(reference, projectId) {
+      const configuration = profiles.preview(reference, projectId);
+      checkModels(configuration);
+      const model = modelFor(configuration.model);
+      return summarizeAgent(
+        configuration,
+        profiles.projects().find((project) => project.id === projectId)?.folder ?? startFolder,
+        model,
+        null,
+      );
+    },
     subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
+      return subscribeTo(listeners, listener);
     },
     async open(id) {
       const run = await acquire(id);
@@ -1304,6 +1587,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       await savedChats.remove(saved);
       rmSync(join(outputFolder, saved.id), { recursive: true, force: true });
       savedRequests.remove(saved.id);
+      await profiles.removeChoices(saved.id);
       emitProjects();
       return true;
     },
@@ -1323,6 +1607,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       }));
     },
     async stopAll() {
+      profiles.close();
       const running = [...runs.values()];
       for (const run of running) {
         stoppingChats.add(run.session.sessionId);
@@ -1339,7 +1624,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         }
       }
     },
-    async startNew(id, newFolder) {
+    async startNew(id, newFolder, profile) {
       const source = await acquire(id);
       if (source === undefined) {
         return undefined;
@@ -1349,7 +1634,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         if (!(await getProjects()).some((project) => project.folder === target)) {
           return undefined;
         }
-        const run = await openNew(target, source.isModelChosen ? source.session.model : undefined);
+        const run = await openNew(target, profile, source);
         const createdId = run.session.sessionId;
         releaseIfIdle(run);
         return createdId;
@@ -1524,4 +1809,14 @@ function thinkingPartOf(
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The message could not be sent.";
+}
+
+function chatOverridesOf(manager: SessionManager): ChatOverrides {
+  const context = manager.buildSessionContext();
+  return {
+    ...(context.model === null
+      ? {}
+      : { model: { providerId: context.model.provider, modelId: context.model.modelId } }),
+    thinkingLevel: context.thinkingLevel as NonNullable<ChatOverrides["thinkingLevel"]>,
+  };
 }

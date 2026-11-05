@@ -1,6 +1,6 @@
 # Model settings and compaction
 
-- Status: accepted
+- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering model limits
 - Date: 2026-11-05
 
 ## Context
