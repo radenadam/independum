@@ -52,21 +52,22 @@ export async function saveContextResource(
 export function resolveContext(options: ContextScope): ContextRevision {
   const { settings, texts } = options;
   const resources: ContextResource[] = [];
-  const roots = [options.projectRoot, options.userDirectory, options.profileDirectory].map(
-    (path) =>
-      statSync(path, { throwIfNoEntry: false }) === undefined ? resolve(path) : realpathSync(path),
-  );
-  if (!isInside(options.projectRoot, options.folder)) {
+  // A folder can be reached through a link, such as the temporary folder of macOS under /var, so
+  // every path is compared by its real location.
+  const roots = [options.projectRoot, options.userDirectory, options.profileDirectory].map(realOf);
+  const projectRoot = roots[0] ?? realOf(options.projectRoot);
+  const folder = realOf(options.folder);
+  if (!isInside(projectRoot, folder)) {
     throw new Error("The chat folder is outside its registered project.");
   }
-  if (!statSync(options.folder, { throwIfNoEntry: false })?.isDirectory()) {
+  if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error("The chat folder does not exist or is not a directory.");
   }
   const directories: string[] = [];
-  let directory = resolve(options.folder);
+  let directory = folder;
   while (true) {
     directories.unshift(directory);
-    if (relative(resolve(options.projectRoot), directory) === "") {
+    if (relative(projectRoot, directory) === "") {
       break;
     }
     directory = dirname(directory);
@@ -378,6 +379,12 @@ function sourceBody(source: string): string {
 
 function digest(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function realOf(path: string): string {
+  return statSync(path, { throwIfNoEntry: false }) === undefined
+    ? resolve(path)
+    : realpathSync(path);
 }
 
 function isInside(root: string, path: string): boolean {

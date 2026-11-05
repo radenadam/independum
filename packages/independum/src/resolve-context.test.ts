@@ -57,6 +57,19 @@ test("instructions use every configured name from project root through the folde
   expect(captured.renderedInstructions).not.toContain("Outside ancestor.");
 });
 
+test("a project reached through a linked folder reads its instructions", () => {
+  const options = setup();
+  writeFileSync(join(options.projectRoot, "AGENTS.md"), "Linked facts.");
+  const link = join(parent, `link-${Date.now()}`);
+  symlinkSync(options.projectRoot, link, "junction");
+  options.projectRoot = link;
+  options.folder = link;
+  const captured = resolveContext(options);
+  expect(captured.resources.map((resource) => [resource.source, resource.state])).toEqual([
+    ["Linked facts.", "enabled"],
+  ]);
+});
+
 test("byte equality preserves line endings and the first file supplies identical content", () => {
   const options = setup();
   writeFileSync(join(options.projectRoot, "AGENTS.md"), "Same\r\n");
