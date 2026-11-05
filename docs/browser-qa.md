@@ -54,9 +54,9 @@ Each step can contain several fields. Fields run in the order below, followed by
 | `run` | A JavaScript expression. Promises are awaited. The return value is saved. Name checks in an object so the evidence says what each value checks. |
 | `key` | A Chrome DevTools `Input.dispatchKeyEvent` parameter object without `type`. It sends key down and key up. Use `key`, `code`, and `windowsVirtualKeyCode` for Enter. Modifier bits are Alt `1`, Ctrl `2`, Meta `4`, and Shift `8`. |
 | `text` | Text inserted into the focused control. |
-| `clickOn` | An expression returning a DOM element or `[x, y]`. It sends mouse movement, press, and release at its center. |
-| `drag` | `{ "on": "element expression", "by": [xDistance, yDistance] }`. It drags from the center through ten points. |
-| `hoverOn` | An expression returning a DOM element or `[x, y]`. It moves the pointer there. |
+| `clickOn` | An expression returning a DOM element or `[x, y]`. It scrolls an element to the middle of the view, as a user would, and fails when another element covers its center. Then it sends mouse movement, press, and release there. |
+| `drag` | `{ "on": "element expression", "by": [xDistance, yDistance] }`. It scrolls and checks an element like `clickOn`, and drags from its center through ten points. A control whose visible part lets the pointer through, such as the knob of a slider, takes its point as `[x, y]`, because the part underneath receives the drag. |
+| `hoverOn` | An expression returning a DOM element or `[x, y]`. It scrolls and checks an element like `clickOn`, and moves the pointer there. |
 | `wait` | Milliseconds after the actions, from `0` to `60000`. The default is `700`. |
 | `shot` | A lowercase kebab-case name. It saves `<name>.png` after the delay. |
 
