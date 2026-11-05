@@ -6,7 +6,7 @@ import styles from "./effort-slider.module.css";
 /** Properties of an effort slider. */
 interface EffortSliderProps {
   thinking: NonNullable<ChatState["thinking"]>;
-  onChoose: (level: string) => void;
+  onChoose: (level: string) => Promise<void>;
 }
 
 /**
@@ -16,16 +16,16 @@ interface EffortSliderProps {
  */
 export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactElement {
   const input = useRef<HTMLInputElement>(null);
-  const [held, setHeld] = useState<string | undefined>();
+  const [held, setHeld] = useState<{ level: string } | undefined>();
   const [pointed, setPointed] = useState<number | undefined>();
   const [isOnKnob, setIsOnKnob] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   // The knob keeps the level it was let go on until the chat reports that level, so it never jumps
   // back while the choice is on its way.
-  if (held !== undefined && held === thinking.level) {
+  if (held !== undefined && held.level === thinking.level) {
     setHeld(undefined);
   }
-  const level = held ?? thinking.level;
+  const level = held?.level ?? thinking.level;
   const index = Math.max(0, thinking.levels.indexOf(level));
   const last = Math.max(1, thinking.levels.length - 1);
   const ratio = index / last;
@@ -52,7 +52,11 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
     function choose(): void {
       const chosen = thinking.levels[Number(element?.value)];
       if (chosen !== undefined && chosen !== thinking.level) {
-        onChoose(chosen);
+        const selection = { level: chosen };
+        setHeld(selection);
+        onChoose(chosen).catch(() =>
+          setHeld((current) => (current === selection ? undefined : current)),
+        );
       }
     }
     element.addEventListener("change", choose);
@@ -86,7 +90,10 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
           value={index}
           aria-label="Thinking effort"
           aria-valuetext={describeThinking(level)}
-          onChange={(event) => setHeld(thinking.levels[Number(event.target.value)])}
+          onChange={(event) => {
+            const next = thinking.levels[Number(event.target.value)];
+            setHeld(next === undefined ? undefined : { level: next });
+          }}
           onPointerMove={(event) => {
             if (event.pointerType === "mouse") {
               point(event.clientX);

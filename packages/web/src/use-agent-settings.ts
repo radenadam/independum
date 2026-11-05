@@ -19,17 +19,23 @@ export interface AgentSettings {
 
 /** Loads the agent of the open chat, and changes its settings and its texts. */
 export function useAgentSettings(chat: ChatState): AgentSettings {
-  const loaded = useChatData(fetchAgent, chat);
+  const { data: loaded, failure: loadFailure } = useChatData(fetchAgent, chat);
   // A change answers with the agent as it now is, which holds until the agent loads again.
-  const [changed, setChanged] = useState<{ from: AgentSummary | undefined; agent: AgentSummary }>();
+  const [changed, setChanged] = useState<{
+    chatId: string | null;
+    from: AgentSummary | undefined;
+    agent: AgentSummary;
+  }>();
   const [failure, setFailure] = useState<string | undefined>();
-  const agent = changed !== undefined && changed.from === loaded ? changed.agent : loaded;
+  const agent = changed?.chatId === chat.id && changed.from === loaded ? changed.agent : loaded;
   // The group of model texts that is open to edit, such as a tool.
   const [editing, setEditing] = useState<string | undefined>();
 
   function save(next: SettingsChange): Promise<void> {
     setFailure(undefined);
-    return changeSettings(next).then((updated) => setChanged({ from: loaded, agent: updated }));
+    return changeSettings(next).then((updated) =>
+      setChanged({ chatId: chat.id, from: loaded, agent: updated }),
+    );
   }
 
   function textsOf(group: string): TextSummary[] {
@@ -42,7 +48,7 @@ export function useAgentSettings(chat: ChatState): AgentSettings {
 
   return {
     agent,
-    failure,
+    failure: failure ?? loadFailure,
     editing,
     setEditing,
     save,

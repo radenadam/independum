@@ -1,9 +1,3 @@
-.failure {
-  margin: 0;
-  font-size: 13px;
-  color: var(--signal);
-}
-
 .well {
   margin: 0;
   padding: 12px 14px;

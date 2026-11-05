@@ -78,7 +78,7 @@ export function isToolChanged(settings: AgentSettings, name: string): boolean {
 
 /** Draws every tool in a card, and the output limit that applies to all of them. */
 export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
-  const { agent, failure, markOf, isEditedGroup, setEditing, change, builtInTextsOf } = settings;
+  const { agent, markOf, isEditedGroup, setEditing, change, builtInTextsOf } = settings;
   if (agent === undefined) {
     return <PlaceNote>Loading the tools.</PlaceNote>;
   }
@@ -92,7 +92,6 @@ export function ToolsDetail({ settings }: AgentDetailProps): ReactElement {
   return (
     <>
       <PlaceSection heading="Tools" badge="built-in">
-        {failure === undefined ? null : <p className={styles.failure}>{failure}</p>}
         {agent.tools.map((tool) => (
           <ToolCard
             key={tool.name}

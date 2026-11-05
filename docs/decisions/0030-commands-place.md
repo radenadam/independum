@@ -12,6 +12,7 @@ A command of the Shell tool has no timeout unless the model sets one, as decisio
 - The side panel gains the Commands place, which a new tab offers beside Agent and Context. It lists the commands of the open chat: the ones under way on top, and the earlier ones below, newest first.
 - A row shows what the command is for, its first line when that adds something, and its status: a timer while it runs, the time it took, Stopped, Timed out, or the exit code in orange. A click opens the command in the place, with what it ran and printed as its step shows them, and keeps up while it runs, so the chat stays where it was. A Show in chat row there opens its step in the chat, with the group of steps around it, and brings it into view with a short orange glow.
 - A running command has a stop button, in its row and beside the header of its step. It stops that command alone, and the agent goes on with the result "Stopped by the user". The Stop of the message box still ends the whole reply.
+- A failed request to stop a command, move it to the background, or stop the reply shows a notice.
 - While commands run, the row under the message box says how many, such as "1 command running", with the breathing dot of a running step. A click opens the Commands place.
 - The stop button gets its own icon, Stop command, because the Stop icon is a small box made to sit inside the round send button.
 
