@@ -1,6 +1,6 @@
 # TypeScript monorepo on Node.js
 
-- Status: accepted
+- Status: accepted, with the timing of `packages/core` still open in [the roadmap](../roadmap.md#open-questions)
 - Date: 2026-10-24
 
 ## Context
