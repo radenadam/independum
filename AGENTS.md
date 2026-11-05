@@ -17,6 +17,8 @@ Every decision about what the model gets follows these, from the system prompt t
 
 - `packages/independum`: the `independum` command and the local server.
 - `packages/web`: the browser UI.
+- `docs/standard.md`: how the maintainer judges work, and what an agent decides or asks.
+- `docs/design.md`: how Independum looks, and what each look means.
 - `docs/glossary.md`: the names of Independum concepts.
 - `docs/icons.md`: how every icon is drawn.
 - `docs/decisions`: one record per decision, with its reasons.
@@ -36,7 +38,7 @@ Every decision about what the model gets follows these, from the system prompt t
 
 ## Workflow
 
-1. Read `docs/roadmap.md` and the decision records that touch the task.
+1. Read `docs/roadmap.md`, `docs/standard.md`, and the decision records that touch the task. Before work that a user sees, also read `docs/design.md`.
 2. If the task depends on an open question in the roadmap, ask the maintainer first, then record the answer as a decision.
 3. Update `main` with `git switch main` and `git pull`, then create a branch as described in [Commits and pull requests](#commits-and-pull-requests).
 4. Make the change, following the rules below.
@@ -58,7 +60,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 ## Consistency
 
 - Match the existing code. When unsure, find the closest existing example and copy its shape.
-- When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way.
+- When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way. A choice that a user sees for the first time is for the maintainer to make, as `docs/standard.md` describes.
 - Each thing has one way to do it. A change that replaces a pattern migrates every use of the old one, so no half-migration remains.
 - A rule that a tool can check becomes a check in `pnpm check`. See decision 0004.
 - A rule that blocks good work without protecting privacy or security gets changed in the same change, never worked around. When a rule that protects privacy or security blocks the work, tell the maintainer, who weighs it.
