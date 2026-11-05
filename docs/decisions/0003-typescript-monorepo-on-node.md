@@ -1,6 +1,6 @@
 # TypeScript monorepo on Node.js
 
-- Status: accepted, with the timing of `packages/core` still open in [the roadmap](../roadmap.md#open-questions)
+- Status: accepted, with the timing of `packages/core` still open in [the roadmap](../roadmap.md#open-questions), and amended by [decision 0059](0059-node-24.md), which requires Node.js 24.21
 - Date: 2026-10-24
 
 ## Context
