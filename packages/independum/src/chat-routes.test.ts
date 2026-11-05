@@ -271,14 +271,12 @@ test("a chat that opens while it replies shows its reply so far, and the rest st
   while (event.type !== "state" || !event.state.isReplying) {
     event = await events.next();
   }
-  const soFar = await events.next();
+  const soFar = event.state.reply;
   while (event.type !== "replyEnded") {
     event = await events.next();
   }
   await events.close();
-  expect(soFar.type === "replyPart" && soFar.part.type === "text" ? soFar.part.text : "").not.toBe(
-    "",
-  );
+  expect(soFar.some((part) => part.type === "text" && part.text !== "")).toBe(true);
   expect(textOf(event.reply ?? undefined)).toBe(tale);
 });
 
@@ -579,7 +577,7 @@ test("a tool that is turned off never runs, and the output limits change", async
       fauxAssistantMessage("Done."),
     ]),
   );
-  const off = await put("/settings", { disabledTools: ["Shell"] });
+  const off = await put("/settings", { tool: { name: "Shell", isEnabled: false } });
   expect(shellOf((await off.json()) as AgentSummary)?.isEnabled).toBe(false);
   const blocked = (await sendAndReadReply("Run it")).updates.find(
     (update) => update.type === "toolResult",
@@ -588,7 +586,7 @@ test("a tool that is turned off never runs, and the output limits change", async
   expect(blocked?.type === "toolResult" ? blocked.result.text : "").not.toContain("it ran");
 
   const on = await put("/settings", {
-    disabledTools: [],
+    tool: { name: "Shell", isEnabled: true },
     outputLimits: { maxLines: 500, maxBytes: 8192 },
   });
   expect(((await on.json()) as AgentSummary).outputLimits).toEqual({

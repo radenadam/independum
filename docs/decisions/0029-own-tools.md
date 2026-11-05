@@ -1,6 +1,6 @@
 # Own tools
 
-- Status: accepted, and amended by [decision 0035](0035-shells-as-they-are.md), which runs PowerShell 7 or Git Bash on Windows
+- Status: accepted, and amended by [decision 0030](0030-commands-place.md), which lists commands, by [decision 0031](0031-tool-settings.md), which makes output limits configurable, by [decision 0032](0032-background-commands.md), which lets commands outlive a reply, by [decision 0035](0035-shells-as-they-are.md), which runs PowerShell 7 or Git Bash on Windows and preserves the environment, by [decision 0036](0036-options-for-commands.md), which adds user environment settings, and by [decision 0037](0037-hand-back.md), which adds hand-back and a working folder per call
 - Date: 2026-10-28
 
 ## Context

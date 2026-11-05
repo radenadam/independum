@@ -24,7 +24,6 @@ interface ToolCardProps {
   handBackSeconds: number;
   environment: Record<string, string>;
   environmentSuggestions: EnvironmentSuggestion[];
-  disabledTools: string[];
   mark: string | undefined;
   onChange: (change: SettingsChange) => void;
   onEdit: () => void;
@@ -52,7 +51,6 @@ export function ToolCard({
   handBackSeconds,
   environment,
   environmentSuggestions,
-  disabledTools,
   mark,
   onChange,
   onEdit,
@@ -75,13 +73,7 @@ export function ToolCard({
         <ToggleSwitch
           label={`Use ${tool.name}`}
           isOn={tool.isEnabled}
-          onChange={(isOn) =>
-            onChange({
-              disabledTools: isOn
-                ? disabledTools.filter((name) => name !== tool.name)
-                : [...disabledTools, tool.name],
-            })
-          }
+          onChange={(isEnabled) => onChange({ tool: { name: tool.name, isEnabled } })}
         />
       </div>
       {tool.unavailable === null ? null : <p className={styles.unavailable}>{tool.unavailable}</p>}

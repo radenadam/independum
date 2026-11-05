@@ -34,7 +34,8 @@ Ask the maintainer when the related work starts, then record each answer as a de
 - Which places come after Session and Commands in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016, 0030, and 0048.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.
-- Pi compacts a chat by itself when it nears the limit of the context window, with prompts of its own. Does that stay on, and how does the chat show it?
+- Pi compacts a chat by itself when it nears the limit of the context window, with prompts of its own. Does that stay on? Decision 0048 defines how the Session place shows compactions, and decision 0052 defines their summary in the window figure.
+- Does the harness logic still move into `packages/core`, as decision 0003 plans, and when? It currently stays in `packages/independum`.
 - Should Independum edit the texts that Pi writes, or only show them? See decision 0033.
 - The settings of tools belong to the user, as decision 0031 describes. Do some settings also belong to a project?
 - The end of a background command adds a note that wakes the agent, as decision 0032 describes. What else may add a message to a chat, and what can it see?

@@ -1,6 +1,6 @@
 # Web app launched from the terminal
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0035](0035-shells-as-they-are.md), which requires PowerShell 7 or Git Bash for Shell on Windows
 - Date: 2026-10-24
 
 ## Context

@@ -1,6 +1,6 @@
 # Write tool
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which limits retained diffs to text restoration
 - Date: 2026-10-30
 
 ## Context

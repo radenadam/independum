@@ -1,6 +1,6 @@
 # Built-ins and add-ons share one contract
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes the planned contract from shipped support
 - Date: 2026-10-24
 
 ## Context

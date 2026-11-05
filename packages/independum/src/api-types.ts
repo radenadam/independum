@@ -187,6 +187,8 @@ export interface ChatState {
   thinking: { level: string; levels: string[] } | null;
   messages: ChatMessage[];
   isReplying: boolean;
+  reply: MessagePart[];
+  toolRuns: Record<string, { startedAt: number; details: unknown }>;
   backgroundCommands: RunningCommand[];
 }
 
@@ -307,6 +309,7 @@ export interface Settings {
  * text with null.
  */
 export type SettingsChange = Partial<Omit<Settings, "texts">> & {
+  tool?: { name: string; isEnabled: boolean };
   texts?: Record<string, string | null>;
 };
 
