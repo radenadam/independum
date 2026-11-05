@@ -90,7 +90,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
                 name: provider.name,
                 detail:
                   provider.login === null ? methodsOf(provider) : `connected, ${loginOf(provider)}`,
-                logo: <ProviderLogo providerId={provider.id} size={18} keepsSpace />,
+                logo: <ProviderLogo providerId={provider.id} size={18} />,
                 isCurrent: false,
                 onChoose: () => setView({ kind: "provider", providerId: provider.id }),
               })),
@@ -116,7 +116,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
           name: provider.name,
           detail: loginOf(provider),
           tooltip: `${provider.name}, ${loginOf(provider)}`,
-          leading: <ProviderLogo providerId={provider.id} size={20} keepsSpace />,
+          leading: <ProviderLogo providerId={provider.id} size={20} />,
           trailing: (
             <>
               <span className={styles.connected}>connected</span>

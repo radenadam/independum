@@ -40,19 +40,25 @@ export function Popover({
   const point = typeof place === "string" ? undefined : place;
   const [variables, setVariables] = useState<CSSProperties | undefined>();
 
-  // A pop-up beside its button slides along when it would leave its column, and grows up to the room
-  // between its edge and the edge of the window. A pop-up at a point opens below and to the right of
-  // it, and turns back at an edge, as a menu near the edge does. Sizes come from the offset sizes,
-  // which the opening animation does not scale.
+  // A pop-up keeps its opening position while its button changes, such as when an effort label
+  // changes width. Sizes come from the offset sizes, which the opening animation does not scale.
   useLayoutEffect(() => {
     const element = popover.current;
     if (element === null) {
       return;
     }
     if (point === undefined) {
+      const button = element.parentElement?.getBoundingClientRect();
+      if (button === undefined) {
+        return;
+      }
+      const isAbove = place === "above";
+      const room = isAbove ? button.top - 8 : window.innerHeight - button.bottom - 6;
       setVariables({
-        "--shift": `${shiftInColumn(element)}px`,
-        "--room": `${roomOf(element, place === "above")}px`,
+        "--left": `${leftInColumn(element, button)}px`,
+        "--top": `${button.bottom + 6}px`,
+        "--bottom": `${window.innerHeight - button.top + 8}px`,
+        "--room": `${room - edgeGap}px`,
       } as CSSProperties);
       return;
     }
@@ -102,36 +108,14 @@ export function Popover({
   );
 }
 
-// Returns the height that a pop-up beside its button has before it leaves the window: above the
-// button, from its bottom edge up, and below it, from its top edge down.
-function roomOf(element: HTMLElement, isAbove: boolean): number {
-  const button = element.offsetParent;
-  if (!(button instanceof HTMLElement)) {
-    return window.innerHeight;
-  }
-  const top = button.getBoundingClientRect().top + element.offsetTop;
-  return isAbove ? top + element.offsetHeight - edgeGap : window.innerHeight - top - edgeGap;
-}
-
-// Returns how far a pop-up centered on its button slides so that it stays inside the column it
-// opens in, such as the chat, and never spills over the sidebar. A sheet on a phone is fixed to the
-// screen, so it has no button to center on and stays put.
-function shiftInColumn(element: HTMLElement): number {
-  const button = element.offsetParent;
-  if (!(button instanceof HTMLElement)) {
-    return 0;
-  }
+// Returns the left edge of a pop-up centered on its button and kept inside its column.
+function leftInColumn(element: HTMLElement, button: DOMRect): number {
   const column = (
     element.closest("main, aside, nav") ?? document.documentElement
   ).getBoundingClientRect();
-  const box = button.getBoundingClientRect();
-  const left = box.left + box.width / 2 - element.offsetWidth / 2;
-  const right = left + element.offsetWidth;
-  if (left < column.left + edgeGap) {
-    return column.left + edgeGap - left;
-  }
-  if (right > column.right - edgeGap) {
-    return column.right - edgeGap - right;
-  }
-  return 0;
+  const left = button.left + button.width / 2 - element.offsetWidth / 2;
+  return Math.max(
+    column.left + edgeGap,
+    Math.min(left, column.right - edgeGap - element.offsetWidth),
+  );
 }

@@ -17,6 +17,38 @@
     {
       "run": "(() => { const panel = document.querySelector('aside[aria-label=\"Side panel\"]'); const place = panel?.querySelector('[role=tabpanel]')?.innerText ?? ''; return { sessionPlaceOpens: panel?.querySelector('[role=tab][aria-selected=true]')?.innerText.trim() === 'Session', modelVisible: place.includes('Faux typing') && place.includes('Medium effort'), conversationVisible: place.includes('Conversation') && place.includes('You wrote') && place.includes('Thinking effort set to medium') }; })()",
       "shot": "session-conversation"
+    },
+    {
+      "size": [1800, 1000]
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "run": "(() => { const handle = document.querySelector('[role=separator][aria-label=\"Resize the side panel\"]'); handle.focus(); return document.activeElement === handle; })()"
+    },
+    {
+      "key": {
+        "key": "End",
+        "code": "End",
+        "windowsVirtualKeyCode": 35
+      }
+    },
+    {
+      "run": "({ panelReachesChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })"
+    },
+    {
+      "size": [1000, 900]
+    },
+    {
+      "run": "({ resizedChatStaysReadable: document.querySelector(\"main\").getBoundingClientRect().width >= 480, panelFitsBesideChat: document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width <= 520 })",
+      "shot": "resized-panel"
+    },
+    {
+      "size": [1800, 1000]
+    },
+    {
+      "run": "({ panelRestoresChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })"
     }
   ]
 }

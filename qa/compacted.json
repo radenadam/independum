@@ -7,7 +7,14 @@
       "go": true
     },
     {
+      "run": "(() => { const list = document.querySelector('main ol'); const scroller = list.parentElement; scroller.scrollTop = scroller.scrollHeight; return { chatHasOverflow: scroller.scrollHeight > scroller.clientHeight, chatStartsAtEnd: Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) < 1 }; })()"
+    },
+    {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "run": "(() => { const actions = [...document.querySelectorAll('main button[aria-label=\"Copy reply\"]')].at(-1); const scroller = document.querySelector('main ol').parentElement; const jump = document.querySelector('main button[aria-label=\"Jump to the latest message\"]'); return { lastReplyActionsStayInView: actions.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().bottom + 1, noJumpAfterWidthChange: getComputedStyle(jump).visibility === 'hidden' }; })()",
+      "shot": "chat-end-after-panel"
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"

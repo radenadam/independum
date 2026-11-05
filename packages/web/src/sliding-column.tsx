@@ -1,6 +1,6 @@
-import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { ColumnHandle } from "./column-handle.tsx";
-import { type ColumnEdge, readColumnWidth, saveColumnWidth } from "./column-width.ts";
+import { type ColumnEdge, chatWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
 import styles from "./sliding-column.module.css";
 
 /** Properties of a sliding column. */
@@ -25,6 +25,16 @@ export function SlidingColumn({
 }: SlidingColumnProps): ReactElement {
   const [width, setWidth] = useState(() => readColumnWidth(edge));
   const [isResizing, setIsResizing] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const shownWidth = viewportWidth <= 760 ? width : Math.min(width, viewportWidth - chatWidth);
+
+  useEffect(() => {
+    function measure(): void {
+      setViewportWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
 
   const column = (
     <Element
@@ -33,7 +43,7 @@ export function SlidingColumn({
       data-open={isOpen}
       data-resizing={isResizing}
       inert={!isOpen}
-      style={{ "--width": `${width}px` } as CSSProperties}
+      style={{ "--width": `${width}px`, "--chat-width": `${chatWidth}px` } as CSSProperties}
     >
       <div className={styles.inner}>{children}</div>
     </Element>
@@ -44,7 +54,7 @@ export function SlidingColumn({
     <div className={styles.edge}>
       <ColumnHandle
         column={edge}
-        width={width}
+        width={shownWidth}
         onResizing={setIsResizing}
         onResize={(next, isDone) => {
           setWidth(next);

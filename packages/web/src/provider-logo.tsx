@@ -6,7 +6,6 @@ import styles from "./provider-logo.module.css";
 interface ProviderLogoProps {
   providerId: string;
   size: number;
-  keepsSpace?: boolean;
 }
 
 const folder = "/node_modules/@lobehub/icons-static-svg/icons/";
@@ -24,11 +23,7 @@ const logoUrls = new Map<string, string>();
  * Draws the logo of a provider in its brand colors, or in the text color when the logo has one
  * color, and nothing when no logo matches.
  */
-export function ProviderLogo({
-  providerId,
-  size,
-  keepsSpace = false,
-}: ProviderLogoProps): ReactElement | null {
+export function ProviderLogo({ providerId, size }: ProviderLogoProps): ReactElement | null {
   if (!foundLogos.has(providerId)) {
     foundLogos.set(providerId, findProviderLogo(providerId, logoNames));
   }
@@ -51,7 +46,7 @@ export function ProviderLogo({
     );
   }, [name]);
 
-  if (name === undefined && !keepsSpace) {
+  if (name === undefined) {
     return null;
   }
   const variables = {

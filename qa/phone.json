@@ -28,8 +28,70 @@
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
     },
     {
-      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); return { phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
+      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); const nav = dialog.querySelector('nav[aria-label=\"Settings sections\"]'); const buttons = [...nav.querySelectorAll('button')]; return { allSettingsSectionsFit: nav.scrollWidth <= nav.clientWidth && buttons.length === 4 && buttons.every(button => { const box = button.getBoundingClientRect(); return box.left >= 0 && box.right <= 360; }), noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
       "shot": "phone-settings"
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Appearance')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-light-appearance"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Notifications')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-light-notifications"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Archived chats')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-light-archived-chats"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Logins')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-light-logins"
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Appearance')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-dark-appearance"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Notifications')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-dark-notifications"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Archived chats')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-dark-archived-chats"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Logins')"
+    },
+    {
+      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+      "shot": "phone-dark-logins"
     }
   ]
 }

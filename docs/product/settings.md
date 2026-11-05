@@ -4,17 +4,17 @@ Decisions: [0008](../decisions/0008-login-and-first-launch.md), [0011](../decisi
 
 ## Settings dialog
 
-Settings opens over the working screen, with Logins, Appearance, Notifications, and Archived chats. Escape, Close, or a click outside closes it. It fills a phone screen. Tool settings and model texts live in Session details instead of this dialog.
+Settings opens over the working screen, with Logins, Appearance, Notifications, and Archived chats. Escape, Close, or a click outside closes it. It fills a phone screen, where the section choices wrap without horizontal scrolling. Tool settings and model texts live in Session details instead of this dialog.
 
-Logins lists saved logins with Remove and Add a login. Without saved logins it opens the provider list directly. That list contains every provider Pi reports and searches provider names without case. Choosing a provider replaces the list with its account and API key methods when offered, with Back to providers above them. A provider without an available login method says it is configured outside Independum.
+Logins lists saved logins with Remove and Add a login. Without saved logins it opens the provider list directly. That list contains every provider Pi reports and searches provider names without case. A provider without a matching logo has no logo slot, as [decision 0060](../decisions/0060-omit-missing-provider-logos.md) sets out. Choosing a provider replaces the list with its account and API key methods when offered, with Back to providers above them. A provider without an available login method says it is configured outside Independum.
 
-A login runs on the server and streams questions, links, device codes, and notes. Questions can be text, secret, choice, or pasted code. A question withdrawn by Pi disappears. Leaving the flow cancels an unfinished login. The user can answer, replace, or remove a login. Completed and failed states end the flow and offer Done or Try again. Pi saves keys without testing them, so success means saved, and an invalid key can fail on the first model call. The API exposes a login's source, but the UI shows the method and connected state.
+A login runs on the server and streams questions, links, device codes, and notes. Questions can be text, secret, choice, or pasted code. A question withdrawn by Pi disappears. Leaving the flow cancels an unfinished login. The user can answer, replace, or remove a login. Completed and failed states end the flow and offer Done or Try again. Pi saves keys without testing them, so success means saved, and an invalid key can fail on the first model call. The logins list and the providers list show each login's method and source.
 
 First launch offers Get started, which opens Logins, and Just look around, which enters without a login. The browser remembers passing the welcome screen. [Server storage](server.md#storage) describes Pi's login storage and installation id.
 
 Appearance chooses System, Light, or Dark. System follows the computer's theme, and browser local storage remembers the choice. There is no figure style selector. Notifications chooses Off or On for this browser and shows unsupported or denied permission states. [Notification behavior](chats.md#notifications) describes delivery and limits.
 
-Archived chats shows title, project, and last modification date. Unarchive returns a chat to its project without opening it. Delete asks for confirmation and removes its retained files. The list reloads after either operation, including failure. A failed load displays a notice.
+Archived chats shows title, project, and last modification date. Titles and details wrap on touch screens. On a computer, their tooltips stay inside Settings so they appear over the dialog. Unarchive returns a chat to its project without opening it. Delete asks for confirmation and removes its retained files. The list reloads after either operation, including failure. A failed load displays a notice.
 
 ## Tools and model texts
 
@@ -55,6 +55,5 @@ The inventory is copied into `pi-texts.ts` because Pi does not export these text
 
 ## Known differences from the decisions
 
-- Decision 0011 says the provider list shows login provenance. The API returns `source`, but the UI does not display it. See `packages/independum/src/create-login-routes.ts:37` and `packages/web/src/logins-section.tsx:91`.
 - Decision 0033 says every result constituent is editable. Some connecting words, size descriptions, and ranges are fixed code. See `packages/independum/src/tools/create-edit-tool.ts:649`, `packages/independum/src/tools/version-of.ts:218`, and `packages/independum/src/tools/create-write-tool.ts:253`.
 - Decision 0034 promises a check against each whole Pi text. The test checks fixed fragments anywhere in combined Pi code. See `packages/independum/src/pi-texts.test.ts:38` and `packages/independum/src/pi-texts.ts:314`.
