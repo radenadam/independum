@@ -16,13 +16,13 @@ The button shows the provider logo, model name, and current thinking effort when
 
 Search matches model name, model id, and provider name without case. Models group under sticky provider headings. The list has room for three model rows before scrolling. Loading, no matching models, and no available models have separate states. Only the last state offers Add a login, which opens settings. Choosing a model keeps the menu open.
 
-Thinking effort sits below the list when Pi says the selected model supports it. Pi supplies both the allowed levels and the current level. Each stop is one level. Dragging changes a held preview in the menu, and the native range change commits the level. The button keeps the server's current level until that choice reaches the server. A model without thinking support shows no effort control. The controls remain available while a reply runs.
+Thinking effort sits below the list when Pi says the selected model supports it. Pi supplies both the allowed levels and the current level. Each stop is one level. Dragging changes a held preview in the menu, and the native range change commits the level. The button keeps the server's current level until that choice reaches the server. A failed choice reverts the preview and shows a notice. A model without thinking support shows no effort control. The controls remain available while a reply runs.
 
 ## Context meter
 
 The ring shows Pi's estimate of used context against the model's context window. Its tooltip gives the share and token counts, or says the count is not known. Clicking opens Session. It can count the last assistant output too, so it may exceed the last request shown in the [Session figure](side-panel.md#session-figure).
 
-The meter and Session share one fetched context summary. It refreshes when the chat id, provider or model id, replying state, or context version changes. Settings and compaction events change that version. It does not refresh on every model turn or effort change. The window includes the [model override](settings.md#model-settings-and-compaction). Failed refreshes leave the previous data in place.
+The meter and Session share one fetched context summary. It refreshes when the chat id, provider or model id, replying state, or context version changes. Settings and compaction events change that version. It does not refresh on every model turn or effort change. The window includes the [model override](settings.md#model-settings-and-compaction). A refresh clears old data while it loads, and a failure appears in Session. A response from a chat that is no longer open cannot replace the current data.
 
 ## Code
 

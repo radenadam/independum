@@ -1,6 +1,6 @@
 # Working screen
 
-- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the first login into the settings too, by [decision 0030](0030-commands-place.md), which adds Commands, by [decision 0033](0033-model-texts.md), which makes the texts of the agent editable, by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session, and by [decision 0053](0053-documented-behavior-and-limits.md), which replaces sliding titles with tooltips and records draft persistence
+- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the first login into the settings too, by [decision 0030](0030-commands-place.md), which adds Commands, by [decision 0033](0033-model-texts.md), which makes the texts of the agent editable, by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session, and by [decision 0053](0053-documented-behavior-and-limits.md), which replaces sliding titles with tooltips and records draft persistence, and by [decision 0058](0058-address-chats-by-id.md), which keeps the open chat in the URL
 - Date: 2026-10-26
 
 ## Context
@@ -10,7 +10,7 @@ Decision 0014 put the chat list in a margin and kept the Margin style of decisio
 ## Decision
 
 - The working screen is laid out like a chat app. A sidebar on the left holds New chat, a search, the projects with their chats, and Settings. The chat fills the middle. A side panel on the right holds tabs.
-- Every folder with chats is a project. Each chat works in its own folder, so opening a chat from another project moves the agent there. A new chat starts in the project of the open chat, or in a project chosen under the message box. Opening a folder that is not a project yet comes later.
+- Every folder with chats is a project. Each chat works in its own folder. Each client opens its own chat as [decision 0058](0058-address-chats-by-id.md) describes, so opening another project follows its agent in that folder. A new chat starts in the project of the open chat, or in a project chosen under the message box. Opening a folder that is not a project yet comes later.
 - The message box holds a button for the model, which opens a pop-up with a search and the models grouped by provider, and the send and stop button. The chat's folder shows under the message box.
 - A new tab in the side panel lists the places that can open there, and today the only place is Agent. Choosing a place turns the tab into it. The new tab has no search bar, because searching the web belongs to a browser place. Agent shows the model, the folder, the system prompt, what Pi adds, the tools, and the last request, all read-only.
 - Logins and the appearance settings open in a settings dialog over the working screen. The Margin style stays for the welcome screen and the first login.

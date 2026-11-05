@@ -26,7 +26,7 @@ Edits persist with the built-in text they started from. Resetting one text or sa
 
 A part's reset restores its texts and settings. Resetting Shell also enables it, selects the system default shell, restores hand-back, and clears added environment variables. Resetting Output limit restores its bounds and cut-note texts. A part says edited while its values differ from the built-in state. Choosing the system default shell stores no explicit shell choice.
 
-Settings persist through `create-settings.ts`. Missing or invalid JSON uses defaults. A file with a byte order mark loads. Invalid individual values loaded from a file fall back, while an API change with an invalid recognized value is refused whole. Unknown setting keys are ignored. Unknown model text ids refuse a change. A tool toggle changes only its named tool, and saves use Pi's file mutation queue. Changing settings registers tools anew for every retained run and updates active tools. The custom system prompt is supplied before the next agent start. Running tools can already hold a copy of their starting limits or environment.
+Settings persist through `create-settings.ts`. Missing or invalid JSON uses defaults. A file with a byte order mark loads. Invalid individual values loaded from a file fall back, while an API change with an invalid recognized value is refused whole. Unknown setting keys are ignored. Unknown model text ids refuse a change. A tool toggle changes only its named tool, and saves use Pi's file mutation queue. `PUT /api/settings` returns status 204. The browser then reads `/api/chats/:id/agent` for its own chat. Changing settings registers tools anew for every retained run and updates active tools. The custom system prompt is supplied before the next agent start. Running tools can already hold a copy of their starting limits or environment.
 
 ## Model settings and compaction
 
@@ -38,7 +38,7 @@ Overrides persist under `modelOverrides` in `settings.json`. An override equal t
 
 The Compaction detail in Session edits automatic compaction, room kept free, and newest tokens kept whole. Defaults come from Pi, with automatic compaction on. Both token budgets are nonnegative safe integers, including zero. Each field and the whole section can reset. These settings persist beside model overrides and apply to every retained and later session. Pi chooses message or turn boundaries near the newest token budget. Its prompts remain read-only under Texts of Pi.
 
-Compact now runs Pi's manual compaction while the selected chat is idle and has a model, including when automatic compaction is off. It shows progress and Pi's error. A compacting chat refuses a message or model change and stays alive when another chat opens. Background completion notes wait until manual compaction ends before waking the chat. Settings and compaction events refresh the context data.
+Compact now uses `POST /api/chats/:id/compact` to run Pi's manual compaction while the selected chat is idle and has a model, including when automatic compaction is off. It shows progress and Pi's error. A compacting chat refuses a message or model change and stays alive when another chat opens. Background completion notes wait until manual compaction ends before waking the chat. Settings and compaction events refresh the context data.
 
 ## Texts of Pi
 

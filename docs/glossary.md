@@ -19,6 +19,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. The Session place shows all of it. | "session details", "stats", "info" |
 | Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
+| Follower | A client with the event stream of one chat open, which holds that chat's run alive. See [decision 0053](decisions/0058-address-chats-by-id.md). | "current client", "active browser" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |

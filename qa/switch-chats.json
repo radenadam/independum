@@ -9,7 +9,7 @@
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
     },
     {
-      "run": "({ originalChatOpens: document.querySelector('main header').innerText.trim() === 'Explain how Pi saves a chat.' })"
+      "run": "(() => { sessionStorage.setItem('qa.originalChatId', new URL(location.href).searchParams.get('chat')); return { originalChatOpens: document.querySelector('main header').innerText.trim() === 'Explain how Pi saves a chat.', originalChatHasUrl: !!sessionStorage.getItem('qa.originalChatId') }; })()"
     },
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')",
@@ -41,7 +41,25 @@
       "shot": "other-chat"
     },
     {
+      "run": "(async () => { const { requestApi } = await import('/src/request-api.ts'); const originalId = sessionStorage.getItem('qa.originalChatId'); const otherId = new URL(location.href).searchParams.get('chat'); sessionStorage.setItem('qa.otherChatId', otherId); const response = await requestApi('/api/chats/' + encodeURIComponent(originalId)); const original = await response.json(); return { originalReadableById: response.ok && original.id === originalId, otherChatHasOwnUrl: !!otherId && otherId !== originalId, readingAnotherChatKeepsChoice: new URL(location.href).searchParams.get('chat') === otherId && document.querySelector('main header').innerText.trim() === 'Plan the first post.' }; })()"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 100
+    },
+    {
+      "text": "Draft for the other chat.",
+      "wait": 100
+    },
+    {
       "run": "(async () => { const isOriginalReplying = () => [...document.querySelectorAll('nav button')].some(button => button.textContent.startsWith('Explain how Pi saves a chat.') && !!button.querySelector('[style*=\"--position\"]')); for (let tries = 0; tries < 150 && isOriginalReplying(); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { originalReplyEndsInBackground: !isOriginalReplying(), otherChatStaysOpen: document.querySelector('main header').innerText.trim() === 'Plan the first post.' }; })()"
+    },
+    {
+      "run": "(() => { setTimeout(() => location.reload(), 0); return { reloadRequested: true }; })()",
+      "wait": 2500
+    },
+    {
+      "run": "({ reloadKeepsOtherChat: new URL(location.href).searchParams.get('chat') === sessionStorage.getItem('qa.otherChatId') && document.querySelector('main header').innerText.trim() === 'Plan the first post.', reloadKeepsDraft: document.querySelector('textarea[aria-label=Message]')?.value === 'Draft for the other chat.' })"
     },
     {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
@@ -49,6 +67,13 @@
     {
       "run": "(async () => { const shown = () => document.querySelector('main').innerText; const table = () => document.querySelector('main table')?.innerText ?? ''; for (let tries = 0; tries < 50 && !table().includes('Complete'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { originalReplyFinishesInBackground: shown().includes('Keep replying while I switch chats.') && shown().includes('Preview reply complete.') && table().includes('Complete'), originalReplyIsIdle: !document.querySelector('main button[aria-label=Stop]') }; })()",
       "shot": "background-reply"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))"
+    },
+    {
+      "run": "({ switchRestoresOtherChatUrl: new URL(location.href).searchParams.get('chat') === sessionStorage.getItem('qa.otherChatId'), switchRestoresOtherDraft: document.querySelector('textarea[aria-label=Message]')?.value === 'Draft for the other chat.' })",
+      "shot": "restored-draft"
     }
   ]
 }

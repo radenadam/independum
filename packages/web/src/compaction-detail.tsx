@@ -108,7 +108,7 @@ export function CompactionDetail({ chat, settings }: CompactionDetailProps): Rea
               label="Compact now"
               onClick={() => {
                 setFailure(undefined);
-                compactChat().catch(() =>
+                compactChat(chat.id).catch(() =>
                   setFailure("The chat could not start compaction. Try again."),
                 );
               }}

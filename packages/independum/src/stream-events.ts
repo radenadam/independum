@@ -7,27 +7,45 @@ import { streamSSE } from "hono/streaming";
  */
 export function streamEvents<StreamedEvent>(
   context: Context,
-  first: StreamedEvent[],
+  first: StreamedEvent[] | (() => Promise<StreamedEvent[]>),
   subscribe: (listener: (event: StreamedEvent) => void) => () => void,
   isLast: (event: StreamedEvent) => boolean,
 ): Response {
   return streamSSE(context, async (stream) => {
     let writing = Promise.resolve();
-    let unsubscribe: (() => void) | undefined;
-    await new Promise<void>((resolve) => {
-      function send(event: StreamedEvent): void {
-        writing = writing.then(() => stream.writeSSE({ data: JSON.stringify(event) }));
-        if (isLast(event)) {
-          resolve();
-        }
+    let finish = (): void => undefined;
+    const finished = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    function send(event: StreamedEvent): void {
+      writing = writing.then(() => stream.writeSSE({ data: JSON.stringify(event) }));
+      if (isLast(event)) {
+        finish();
       }
-      for (const event of first) {
+    }
+    // A snapshot can read files, so events that arrive while it loads wait behind it.
+    const pending: StreamedEvent[] = [];
+    let isReady = false;
+    const unsubscribe = subscribe((event) => {
+      if (isReady) {
+        send(event);
+      } else {
+        pending.push(event);
+      }
+    });
+    stream.onAbort(finish);
+    try {
+      for (const event of typeof first === "function" ? await first() : first) {
         send(event);
       }
-      unsubscribe = subscribe(send);
-      stream.onAbort(resolve);
-    });
-    unsubscribe?.();
+      isReady = true;
+      for (const event of pending) {
+        send(event);
+      }
+      await finished;
+    } finally {
+      unsubscribe();
+    }
     await writing;
   });
 }

@@ -16,7 +16,7 @@ Use compares Last reply with Whole chat. Rows separate input, output, reasoning,
 
 The context shows the last captured request, or an estimate of the next one before any request is captured. The request parts come from provider-independent text matching. Parts keep their order inside a request key, and groups of keys sort as instructions, tools, and messages. Adjacent tools share a row. Model texts and tool controls open through these rows. See [settings](settings.md#tools-and-model-texts). A Compaction row opens its [settings and manual action](settings.md#model-settings-and-compaction), with an edited mark when its settings differ from the built-in values.
 
-A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
+A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Changing chats clears the detail path and loads the agent and context by the new chat id. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
 
 ## Session figure
 

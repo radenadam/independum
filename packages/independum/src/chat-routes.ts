@@ -1,16 +1,29 @@
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
-import type { ChatEvent, ModelPrices, ModelSummary } from "./api-types.ts";
-import type { Chat } from "./create-chat.ts";
+import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
+import type { Chat, OpenChat } from "./create-chat.ts";
 import { readSettingsChange } from "./create-settings.ts";
 import { streamEvents } from "./stream-events.ts";
 
-/**
- * Creates the routes that list models, show, follow, and drive the chat, show its agent, and open
- * other chats.
- */
+/** Creates routes for independent chats and their shared list and reply events. */
 export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
+  // biome-ignore lint/style/useNamingConvention: Hono names its context variables type.
+  const active = new Hono<{ Variables: { chat: OpenChat } }>();
+  active.use("*", async (context, next) => {
+    const opened = await chat.open(context.req.param("id") ?? "");
+    if (opened === undefined) {
+      return answer(context, false);
+    }
+    context.set("chat", opened);
+    try {
+      await next();
+    } finally {
+      opened.close();
+    }
+    return undefined;
+  });
+  routes.get("/chats/first", async (context) => context.json({ id: await chat.first() }));
 
   routes.get("/models", async (context) => {
     const available = await models.getAvailable();
@@ -21,30 +34,34 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     });
   });
 
-  routes.get("/chat/events", async (context) => {
-    const projects = await chat.getProjects();
-    return streamEvents<ChatEvent>(
+  routes.get("/chats/events", (context) =>
+    streamEvents<ChatsEvent>(
       context,
-      [
-        { type: "state", state: chat.getState() },
-        { type: "projects", projects },
+      async () => [
+        { type: "projects", projects: await chat.getProjects() },
         { type: "replyingChats", ids: chat.getReplyingIds() },
       ],
       chat.subscribe,
       () => false,
-    );
-  });
+    ),
+  );
 
-  routes.get("/chat/agent", (context) => context.json(chat.getAgent()));
+  active.get("/", (context) => context.json(context.get("chat").getState()));
 
-  routes.get("/chat/context", (context) => context.json(chat.getContext()));
+  active.get("/events", (context) =>
+    streamEvents(context, [], context.get("chat").subscribe, (event) => event.type === "removed"),
+  );
 
-  routes.post("/chat/messages", async (context) => {
+  active.get("/agent", (context) => context.json(context.get("chat").getAgent()));
+
+  active.get("/context", (context) => context.json(context.get("chat").getContext()));
+
+  active.post("/messages", async (context) => {
     const body: { text?: unknown } = await context.req.json().catch(() => ({}));
     if (typeof body.text !== "string" || body.text.trim() === "") {
       return context.json({ error: "A message needs text." }, 400);
     }
-    if (!chat.send(body.text.trim())) {
+    if (!context.get("chat").send(body.text.trim())) {
       return context.json(
         { error: "The chat needs a model and must be idle to receive a message." },
         409,
@@ -53,74 +70,69 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     return context.body(null, 202);
   });
 
-  routes.put("/chat/model", async (context) => {
+  active.put("/model", async (context) => {
     const body: { providerId?: unknown; modelId?: unknown } = await context.req
       .json()
       .catch(() => ({}));
     const isChosen =
       typeof body.providerId === "string" &&
       typeof body.modelId === "string" &&
-      (await chat.chooseModel(body.providerId, body.modelId));
+      (await context.get("chat").chooseModel(body.providerId, body.modelId));
     if (!isChosen) {
       return context.json({ error: "That model is not available." }, 400);
     }
     return context.body(null, 204);
   });
 
-  routes.put("/chat/thinking", async (context) => {
+  active.put("/thinking", async (context) => {
     const body: { level?: unknown } = await context.req.json().catch(() => ({}));
-    if (typeof body.level !== "string" || !chat.chooseThinking(body.level)) {
+    if (typeof body.level !== "string" || !context.get("chat").chooseThinking(body.level)) {
       return context.json({ error: "This model does not offer that thinking level." }, 400);
     }
     return context.body(null, 204);
   });
 
-  routes.post("/chat/open", async (context) => {
-    const body: { id?: unknown } = await context.req.json().catch(() => ({}));
-    return answer(context, typeof body.id === "string" && (await chat.open(body.id)));
-  });
-
-  routes.post("/chat/stop", async (context) => {
-    await chat.stop();
+  active.post("/stop", async (context) => {
+    await context.get("chat").stop();
     return context.body(null, 204);
   });
 
-  routes.post("/chat/compact", (context) =>
-    chat.compact()
+  active.post("/compact", (context) =>
+    context.get("chat").compact()
       ? context.body(null, 202)
       : context.json({ error: "The chat needs a model and must be idle to compact." }, 409),
   );
 
   routes.put("/settings", async (context) => {
     const change = readSettingsChange(await context.req.json().catch(() => undefined));
-    const agent = change === undefined ? undefined : await chat.changeSettings(change);
-    return agent === undefined
-      ? context.json({ error: "That is not a valid setting." }, 400)
-      : context.json(agent);
+    return change !== undefined && (await chat.changeSettings(change))
+      ? context.body(null, 204)
+      : context.json({ error: "That is not a valid setting." }, 400);
   });
 
-  routes.post("/chat/commands/:id/background", (context) =>
-    chat.moveToBackground(context.req.param("id"))
+  active.post("/commands/:commandId/background", (context) =>
+    context.get("chat").moveToBackground(context.req.param("commandId"))
       ? context.body(null, 204)
       : context.json({ error: "No command that runs in a reply has that id." }, 404),
   );
 
-  routes.post("/chat/commands/:id/stop", (context) =>
-    chat.stopCommand(context.req.param("id"))
+  active.post("/commands/:commandId/stop", (context) =>
+    context.get("chat").stopCommand(context.req.param("commandId"))
       ? context.body(null, 204)
       : context.json({ error: "No running command has that id." }, 404),
   );
 
-  routes.post("/chat/new", async (context) => {
+  active.post("/new", async (context) => {
     const body: { folder?: unknown } = await context.req.json().catch(() => ({}));
     const folder = typeof body.folder === "string" ? body.folder : undefined;
     if (body.folder !== undefined && folder === undefined) {
       return context.json({ error: "A folder is a path." }, 400);
     }
-    if (!(await chat.startNew(folder))) {
+    const id = await chat.startNew(context.req.param("id") ?? "", folder);
+    if (id === undefined) {
       return context.json({ error: "That folder is not a project." }, 400);
     }
-    return context.body(null, 204);
+    return context.json({ id }, 201);
   });
 
   routes.get("/chats/archived", async (context) =>
@@ -162,13 +174,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     answer(context, await chat.remove(context.req.param("id"))),
   );
 
+  routes.route("/chats/:id", active);
   return routes;
 }
 
 function answer(context: Context, isDone: boolean): Response {
-  return isDone
-    ? context.body(null, 204)
-    : context.json({ error: "No saved chat has that id." }, 404);
+  return isDone ? context.body(null, 204) : context.json({ error: "No chat has that id." }, 404);
 }
 
 function summaryOf(

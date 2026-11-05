@@ -159,7 +159,7 @@ export interface BackgroundCommands {
   adopt(adoption: Adoption): number;
   check(chatId: string, id: number, wait: CheckWait): Promise<CommandCheck | undefined>;
   stopByModel(chatId: string, id: number): Promise<BackgroundEnded | undefined>;
-  stopByUser(toolCallId: string): boolean;
+  stopByUser(chatId: string, toolCallId: string): boolean;
   listRunning(chatId: string): RunningCommand[];
   stopAll(chatId?: string): Promise<void>;
 }
@@ -307,8 +307,10 @@ export function createBackgroundCommands({
       command.stop("model");
       return command.ended;
     },
-    stopByUser(toolCallId) {
-      const command = runningOf().find(([, each]) => each.start.toolCallId === toolCallId)?.[1];
+    stopByUser(chatId, toolCallId) {
+      const command = runningOf(chatId).find(
+        ([, each]) => each.start.toolCallId === toolCallId,
+      )?.[1];
       command?.stop("user");
       return command !== undefined;
     },

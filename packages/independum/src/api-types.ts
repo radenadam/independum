@@ -181,7 +181,7 @@ export interface ChatMessage {
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
-  id: string | null;
+  id: string;
   folder: string;
   model: { providerId: string; id: string } | null;
   thinking: { level: string; levels: string[] } | null;
@@ -498,20 +498,24 @@ export interface ProjectSummary {
   chats: ChatSummary[];
 }
 
-/** One change to the chat or to the projects, as the UI receives it. */
+/** One change to the projects or the chats that reply, as every client receives it. */
+export type ChatsEvent =
+  | { type: "projects"; projects: ProjectSummary[] }
+  | { type: "replyingChats"; ids: string[] }
+  | { type: "replyEnded"; chatId: string; reply: ChatMessage | null };
+
+/** One change to a chat, as its followers receive it. */
 export type ChatEvent =
   | { type: "state"; state: ChatState }
   | {
       type: "contextChanged";
       state: Pick<ChatState, "contextVersion" | "isCompacting" | "compactionError">;
     }
-  | { type: "projects"; projects: ProjectSummary[] }
+  | { type: "removed"; replacementId: string }
   | { type: "message"; message: ChatMessage }
   | { type: "replyDelta"; index: number; partType: "text" | "thinking"; delta: string }
   | { type: "replyPart"; index: number; part: MessagePart }
   | { type: "replying"; isReplying: boolean }
-  | { type: "replyingChats"; ids: string[] }
-  | { type: "replyEnded"; chatId: string; reply: ChatMessage | null }
   | { type: "toolStart"; id: string }
   | { type: "toolProgress"; id: string; details: unknown }
   | { type: "toolResult"; id: string; result: ToolResult }

@@ -7,7 +7,7 @@
       "go": true
     },
     {
-      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { darkPhoneFits: document.documentElement.scrollWidth <= 360, darkThemeApplied: (red + green + blue) / 3 < 64, phoneMessageVisible: document.querySelector('textarea[aria-label=Message]')?.checkVisibility() === true }; })()",
+      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { phoneHasChatUrl: !!new URL(location.href).searchParams.get('chat'), darkPhoneFits: document.documentElement.scrollWidth <= 360, darkThemeApplied: (red + green + blue) / 3 < 64, phoneMessageVisible: document.querySelector('textarea[aria-label=Message]')?.checkVisibility() === true }; })()",
       "shot": "phone-dark"
     },
     {

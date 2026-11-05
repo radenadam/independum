@@ -1,12 +1,12 @@
 # Chats
 
-Decisions: [0013](../decisions/0013-first-chat.md), [0016](../decisions/0016-working-screen.md), [0020](../decisions/0020-managing-chats.md), [0050](../decisions/0050-notifications.md), and [0051](../decisions/0051-chats-run-on-their-own.md). Each chat runs independently, and the sidebar gives access to its saved file.
+Decisions: [0013](../decisions/0013-first-chat.md), [0016](../decisions/0016-working-screen.md), [0020](../decisions/0020-managing-chats.md), [0050](../decisions/0050-notifications.md), [0051](../decisions/0051-chats-run-on-their-own.md), and [0058](../decisions/0058-address-chats-by-id.md). Each chat runs independently, and the sidebar gives access to its saved file.
 
 ## Open chat and runs
 
-The server has one open chat, shared by every browser. Opening a chat, starting one, choosing its model, or stopping its reply acts on that shared selection. Browser tabs do not select chats independently. [Server lifecycle](server.md#chat-lifecycle) describes the run map and release conditions.
+Each browser chooses its own open chat through the `chat` query parameter. Reloading or copying the URL keeps that choice. Opening a chat changes only that client's event stream. Messages, model choices, thinking effort, and stopping address the chat by id. [Server lifecycle](server.md#chat-lifecycle) describes the run map and release conditions.
 
-Startup reopens the newest saved chat in the launch folder, or creates an empty one there. New chat uses the current folder and chosen model. It does not carry the current thinking effort explicitly. An empty chat lets the user choose among known projects. An arbitrary folder cannot be added through the UI. The launch folder is always a project, even without saved chats. Other projects come from the folders of saved chats, ordered by their newest chat.
+A client without a chat id asks for the newest saved chat in the launch folder, or an empty one there. Unknown or archived ids fall back to that first chat. New chat uses the current folder and chosen model. It does not carry the current thinking effort explicitly. An empty chat lets the user choose among known projects. An arbitrary folder cannot be added through the UI. The launch folder is always a project, even without saved chats. Other projects come from the folders of saved chats, ordered by their newest chat.
 
 A new chat enters the sidebar after Pi saves its first message. Its title is its saved name or its first message. A saved chat whose model no longer has a login waits for a new model choice. Opening another chat leaves replies and background commands running. Opening a chat during its reply restores its saved messages and the streaming parts so far, then follows new events. Stop aborts the reply of the open chat.
 
@@ -16,7 +16,7 @@ Pinned chats come first, then the five newest unpinned chats, then projects with
 
 Every replying chat has a waving title. Long titles fade and show their full text in a tooltip. The dots and a right click open Rename, Pin or Unpin, Export as Markdown, Archive, and Delete. Rename saves on Enter or blur, cancels on Escape, and refuses an empty name. Delete asks for confirmation.
 
-Archive removes the pin and moves the session file out of the sidebar. Unarchive in [settings](settings.md#settings-dialog) returns it to its project. Deleting removes the session file, pin, retained output folder, and last request file. Archiving or deleting the open chat opens an empty one in its folder with its chosen model. The operation waits for its reply and background commands to stop before disposing its Pi session and changing the saved file. Commands of other chats keep running. Completion adds no note and starts no turn while the chat closes.
+Archive removes the pin and moves the session file out of the sidebar. Unarchive in [settings](settings.md#settings-dialog) returns it to its project. Deleting removes the session file, pin, retained output folder, and last request file. Archiving or deleting a followed chat sends its followers an empty replacement id in the same folder with the same model. Other clients keep their chats. The operation waits for its reply and background commands to stop before disposing its Pi session and changing the saved file. Commands of other chats keep running. Completion adds no note and starts no turn while the chat closes.
 
 ## Drafts and export
 
@@ -28,7 +28,7 @@ Export downloads Markdown for an unarchived saved chat. It uses the messages in 
 
 Notifications are off until enabled for this browser with browser permission. Each connected UI receives reply completion events for every chat. It notifies when the chat is not open, or when the open chat is hidden or the document lacks focus. A visible focused open chat does not notify.
 
-The notification uses the chat title and the first line of the last assistant message, shortened to at most 140 characters, or the failure text. A message without text says the reply is done. The chat id is the notification tag, so a newer notice replaces the older one. Clicking focuses the window and opens the chat for every browser. There is no service worker, so browsers that require one cannot show notices. Events are not retained for a disconnected browser.
+The notification uses the chat title and the first line of the last assistant message, shortened to at most 140 characters, or the failure text. A message without text says the reply is done. The chat id is the notification tag, so a newer notice replaces the older one. Clicking focuses the window and opens the chat in that browser. There is no service worker, so browsers that require one cannot show notices. Events are not retained for a disconnected browser.
 
 ## Code
 
@@ -38,4 +38,4 @@ The notification uses the chat title and the first line of the last assistant me
 
 ## Known differences from the decisions
 
-- Decision 0016 says long titles slide on hover. They fade and use a tooltip. See `packages/web/src/one-line-title.tsx:38`.
+- None identified beyond the amendments linked above.

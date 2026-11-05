@@ -17,5 +17,5 @@ The Agent place showed both how the agent is set up and the exact request it sen
 
 ## Consequences
 
-- `GET /api/chat/context` serves the place, and `GET /api/chat/agent` no longer carries the last request.
+- `GET /api/chats/:id/context` serves the place, and `GET /api/chats/:id/agent` no longer carries the last request. Decision [0058](0058-address-chats-by-id.md) defines the addresses of chats.
 - The places share a well for code with a copy button and a row that opens, so the raw data looks the same everywhere.

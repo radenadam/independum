@@ -18,6 +18,8 @@ An expression that throws, a protocol error, a missing target, or a returned che
 | `--real-logins` | Loads real logins and model settings through Pi from `~/.independum`. Chats and harness settings stay in the temporary home. Login changes in this preview affect the real Pi login store. |
 | `--port <number>` | Chooses a port. The default is `0`, which asks the operating system for a free port. |
 
+Preview links include the selected chat in the `chat` query parameter. A copied URL or reload follows that id. A client without one requests `GET /api/chats/first`. Chat actions and streams use `/api/chats/:id`, and shared project and reply events use `/api/chats/events`.
+
 The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. Real model calls follow the Real model calls section of `AGENTS.md`.
 
 ## Scenarios
@@ -26,7 +28,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | --- | --- |
 | `pnpm qa welcome` | The welcome screen and looking around without a login. |
 | `pnpm qa message` | Sending a message, thinking, tool steps, and the completed reply. |
-| `pnpm qa switch-chats` | Opening another chat while the original reply finishes in the background. |
+| `pnpm qa switch-chats` | Opening another chat while the original reply finishes in the background, and preserving independent chat ids through the URL and API. |
 | `pnpm qa model-menu` | The model search and changing thinking effort while the menu stays open. |
 | `pnpm qa session` | The side panel, Session place, and its conversation. |
 | `pnpm qa compacted` | A saved compaction and its summary. |
@@ -38,7 +40,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 Pass `--url` to use a preview that already runs and leave it running. Use the whole link printed by `pnpm preview`. That preview needs the fixture expected by the scenario. Without `--url`, QA starts a preview with the scenario's fixture and closes it when it ends. The preview flags in the table also work with `pnpm qa`, and an explicit fixture flag takes precedence over the scenario.
 
 ```sh
-pnpm qa session --url 'http://127.0.0.1:4871/#token=TOKEN'
+pnpm qa session --url 'http://127.0.0.1:4871/?chat=CHAT_ID#token=TOKEN'
 ```
 
 ## Step format

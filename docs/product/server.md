@@ -1,6 +1,6 @@
 # Server
 
-Decisions: [0002](../decisions/0002-build-on-the-pi-sdk.md), [0003](../decisions/0003-typescript-monorepo-on-node.md), [0005](../decisions/0005-phone-access-through-token-auth.md), [0010](../decisions/0010-one-server-for-the-ui-and-the-api.md), [0011](../decisions/0011-logins-run-as-sessions.md), [0012](../decisions/0012-pi-updates-arrive-as-reviewed-pull-requests.md), [0013](../decisions/0013-first-chat.md), [0026](../decisions/0026-context-place.md), [0030](../decisions/0030-commands-place.md), [0031](../decisions/0031-tool-settings.md), [0033](../decisions/0033-model-texts.md), [0034](../decisions/0034-texts-of-pi.md), [0048](../decisions/0048-session-place.md), and [0051](../decisions/0051-chats-run-on-their-own.md). Pi owns the agent loop, providers, and session format.
+Decisions: [0002](../decisions/0002-build-on-the-pi-sdk.md), [0003](../decisions/0003-typescript-monorepo-on-node.md), [0005](../decisions/0005-phone-access-through-token-auth.md), [0010](../decisions/0010-one-server-for-the-ui-and-the-api.md), [0011](../decisions/0011-logins-run-as-sessions.md), [0012](../decisions/0012-pi-updates-arrive-as-reviewed-pull-requests.md), [0013](../decisions/0013-first-chat.md), [0026](../decisions/0026-context-place.md), [0030](../decisions/0030-commands-place.md), [0031](../decisions/0031-tool-settings.md), [0033](../decisions/0033-model-texts.md), [0034](../decisions/0034-texts-of-pi.md), [0048](../decisions/0048-session-place.md), [0051](../decisions/0051-chats-run-on-their-own.md), and [0058](../decisions/0058-address-chats-by-id.md). Pi owns the agent loop, providers, and session format.
 
 ## Startup and access
 
@@ -12,9 +12,9 @@ Access checks accept only the configured loopback and localhost hosts on the lis
 
 ## Chat lifecycle
 
-One `Chat` instance holds a map of retained runs and one shared `current` run. Routes without a chat id always act on that open chat, across every browser. Each run has a Pi session, project folder, chosen-model flag, replying and compaction state, context version, pending note count, running tools, last request, cache warming count, thinking timing maps, and stream subscription. Shared settings and one background command manager serve all runs. Concurrent opens of one saved chat share a pending promise. A model choice keeps its starting run while it waits for Pi.
+One `Chat` instance holds a map of retained runs. Each active chat route acquires a handle for its id and releases it when the request ends. Each event stream has its own subscription to that run. Each run has a Pi session, project folder, chosen-model flag, replying and compaction state, context version, pending note count, running tools, last request, cache warming count, thinking timing maps, and stream subscription. Shared settings and one background command manager serve all runs. Concurrent opens of one saved or empty chat share a pending promise. Empty chats retain their Pi manager, model, and thinking effort in memory because Pi saves no file until the first message. A model choice keeps its starting run while it waits for Pi.
 
-Opening another chat retains a run while it replies, compacts, has a pending note, or owns a running background command. An unopened idle run unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying or compacting. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
+A run stays alive while a request or follower holds it, while it replies or compacts, while a note is pending, or while it owns a running background command. An idle run with none of these holds unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying or compacting. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
 
 Background completion delivers a custom message to a retained run with `triggerTurn: true` and steering delivery. A note waits for manual compaction to finish first and is discarded if its chat stops while it waits. If the run is absent, its unarchived saved session receives the note without starting a run. [Chats](chats.md#sidebar-and-management) describes how archiving and deletion stop a retained run before changing its file. Server shutdown waits for foreground and background commands and Pi replies in every retained run to stop, and suppresses completion notes while they stop.
 
@@ -49,43 +49,45 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `POST /logins/:id/answers` | `{ questionId, value }`, both strings | Answers a waiting question. Missing question or invalid answer is 404. |
 | `DELETE /logins/:id` | None | Cancels if present. |
 | `GET /models` | None | `{ models: ModelSummary[] }` from available Pi models. |
-| `GET /chat/events` | None | Chat event stream. |
-| `GET /chat/agent` | None | `AgentSummary`. |
-| `GET /chat/context` | None | `ContextSummary`. |
-| `POST /chat/messages` | `{ text }`, a nonempty string after trimming | 202 with no body. |
-| `PUT /chat/model` | `{ providerId, modelId }`, both strings | Chooses an available model with configured login. Failure is 400. |
-| `PUT /chat/thinking` | `{ level }`, a string offered by the model | Changes thinking effort. Failure is 400. |
-| `POST /chat/open` | `{ id }`, a string | Opens an unarchived saved chat or retained run. |
-| `POST /chat/new` | Optional `{ folder }`, a string | Starts in a known project. Invalid folder is 400. |
-| `POST /chat/stop` | None | Aborts the open reply. |
-| `POST /chat/compact` | None | 202 when manual compaction starts. A chat without a model or while replying or compacting is 409. |
-| `POST /chat/commands/:id/background` | None | Moves a foreground Shell call by tool call id. Missing call is 404. |
-| `POST /chat/commands/:id/stop` | None | Stops a foreground or background command by tool call id. Missing running call is 404. |
+| `GET /chats/first` | None | `{ id }` for the newest saved chat in the launch folder, or an empty chat there. |
+| `GET /chats/events` | None | Shared projects and reply completion stream. |
+| `GET /chats/:id` | None | `ChatState` of the named active chat. |
+| `GET /chats/:id/events` | None | Events of the named chat. |
+| `GET /chats/:id/agent` | None | `AgentSummary`. |
+| `GET /chats/:id/context` | None | `ContextSummary`. |
+| `POST /chats/:id/messages` | `{ text }`, a nonempty string after trimming | 202 with no body. |
+| `PUT /chats/:id/model` | `{ providerId, modelId }`, both strings | Chooses an available model with configured login. Failure is 400. |
+| `PUT /chats/:id/thinking` | `{ level }`, a string offered by the model | Changes thinking effort. Failure is 400. |
+| `POST /chats/:id/new` | Optional `{ folder }`, a string | 201 with `{ id }`, in the source chat's folder or a known project, with the same model. Invalid folder is 400. |
+| `POST /chats/:id/stop` | None | Aborts the named chat's reply. |
+| `POST /chats/:id/compact` | None | 202 when manual compaction starts. A chat without a model or while replying or compacting is 409. |
+| `POST /chats/:id/commands/:commandId/background` | None | Moves a foreground Shell call by tool call id. Missing call in that chat is 404. |
+| `POST /chats/:id/commands/:commandId/stop` | None | Stops a foreground or background command by tool call id. Missing running call in that chat is 404. |
 | `GET /chats/archived` | None | `{ chats: ArchivedChatSummary[] }`, with folder and project name. |
 | `GET /chats/:id/markdown` | None | Markdown text for an unarchived saved chat. |
 | `PUT /chats/:id/name` | `{ name }`, a nonempty trimmed string | Saves the name. |
 | `PUT /chats/:id/pinned` | `{ isPinned }`, a boolean | Changes the pin. |
 | `PUT /chats/:id/archived` | `{ isArchived }`, a boolean | Archives or restores the file. |
 | `DELETE /chats/:id` | None | Removes an archived or unarchived chat and retained files. |
-| `PUT /settings` | `SettingsChange` | Updated `AgentSummary`. Invalid recognized values or text ids are 400. |
+| `PUT /settings` | `SettingsChange` | 204 with no body. Invalid recognized values or text ids are 400. Read the named chat's agent afterward. |
 
-`ModelSummary` gives provider id and name, model id and name, API, base URL, context window, maximum output, nullable image and request byte limits, prices, price tiers, and cache durations. `AgentSummary` gives system prompt, Pi addition, tool schemas and availability, shell choices, current and built-in limits and hand-back, model texts, Pi texts, environment values, and suggestions. Environment values are present for the authorized UI even though tool descriptions show only names.
+`ModelSummary` gives provider id and name, model id and name, API, base URL, context window, maximum output, nullable image and request byte limits, prices, price tiers, and cache durations. `AgentSummary` gives system prompt, Pi addition, added facts and knowledge cutoffs, model overrides and compaction settings, tool schemas and availability, shell choices, current and built-in limits and hand-back, model texts, Pi texts, environment values, and suggestions. Environment values are present for the authorized UI even though tool descriptions show only names.
 
-`ContextSummary` gives chat and model ids, window size and use, reserve, token counts and cost, latest assistant usage, message and call counts, dates, complete branch entries, last raw request, detected parts, reconstructed requests and pending changes, warming count, and file paths. `SettingsChange` optionally replaces `shell`, `disabledTools`, `outputLimits`, `handBackSeconds`, or `environment`, and patches `texts` by id with a string or null for reset. [Tool settings](tools.md#shared-contract) and [text editing](settings.md#tools-and-model-texts) define validation.
+`ContextSummary` gives chat and model ids, window size and use, reserve, token counts and cost, latest assistant usage, message and call counts, dates, complete branch entries, last raw request, detected parts, reconstructed requests and pending changes, warming count, and file paths. `SettingsChange` changes shared tool choices, added facts and knowledge cutoffs, model overrides, compaction, and model texts. Its `tool` field changes one named tool, and its `texts` field patches by id with a string or null for reset. [Tool settings](tools.md#shared-contract) and [text editing](settings.md#tools-and-model-texts) define validation.
 
 ## Streams
 
 Streams are server-sent events whose `data` is one JSON event, read with fetch so the token header can be sent. They carry no event id or replay cursor. Disconnecting a browser unsubscribes without stopping a chat. The UI retries dropped chat streams after 1.5 seconds and treats 401 as an expired link.
 
-Chat streams begin with `state`, `projects`, and `replyingChats`. State has id, folder, nullable model and thinking choice, messages, replying flag, streaming reply parts, foreground tool start times and latest progress, compaction state and error, context version, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the open run.
+The per-chat stream begins with `state`. The shared stream at `/api/chats/events` begins with `projects` and `replyingChats`, with live events queued behind the initial list. State has id, folder, nullable model and thinking choice, messages, replying flag, streaming reply parts, foreground tool start times and latest progress, compaction state and error, context version, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the named run. A `removed` event ends its stream and carries an empty replacement chat id.
 
-Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `contextChanged` carries context version, compaction state, and compaction error. `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. Reconnecting, switching to a retained run, and changing effort restore the reply so far and running tool progress through state.
+Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `contextChanged` carries context version, compaction state, and compaction error. The shared `ChatsEvent` variant `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. Reconnecting, switching to a retained run, and changing effort restore the reply so far and running tool progress through state.
 
 Login events are `question` with id, kind, message and optional placeholder or choices, `questionClosed` with id, `link` with URL and optional instructions, `deviceCode` with code and URL, `note` with message, `done`, and `failed` with message. The stream closes at done or failed. Finished login sessions stay addressable for five minutes so a fast flow can be followed after it finishes.
 
 ## What reaches the model
 
-An in-memory Pi settings manager and resource loader disable discovered context files, skills, prompt templates, themes, and extensions. The append prompt is empty. Independum supplies its editable system prompt before the agent starts and activates only its enabled, available tools. It does not load project instruction files. Pi can still add its working folder block, provider text, setup changes, tool errors, image notes, compaction text, and other SDK content.
+An in-memory Pi settings manager and resource loader disable discovered context files, skills, prompt templates, themes, and extensions. The append prompt is empty. Independum supplies its editable system prompt before the agent starts and activates only its enabled, available tools. It does not load project instruction files. The exact prompt override replaces Pi's working folder block with the enabled added facts. Pi can still add provider text, setup changes, tool errors, image notes, compaction text, and other SDK content.
 
 The request hook observes Pi's provider payload and does not replace it. Ordinary captured requests update memory and the last request file. Cache warming requests increment a separate count and do not replace that payload. Compaction requests bypass the hook. [Model settings](settings.md#model-settings-and-compaction) apply to catalog copies and request options through Pi's stream function. Notes reach Pi as custom messages with an editable source envelope. Custom timing entries stay saved without entering model messages. Tool content reaches the model, while UI diffs and fingerprints stay in result details.
 

@@ -4,6 +4,7 @@ import {
   fetchContext,
   fetchModels,
   followChat,
+  followChats,
   moveCommandToBackground,
   stopCommand,
   stopReply,
@@ -18,6 +19,7 @@ vi.mock("./chat-api.ts");
 
 beforeEach(() => {
   vi.stubGlobal("window", {
+    location: { href: "http://localhost/?chat=chat" },
     matchMedia: () => ({ matches: false }),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -36,9 +38,10 @@ beforeEach(() => {
     reply: [],
     toolRuns: {},
   };
+  vi.mocked(followChats).mockReturnValue(vi.fn());
   vi.mocked(fetchModels).mockResolvedValue([]);
   vi.mocked(fetchContext).mockImplementation(() => new Promise(() => undefined));
-  vi.mocked(followChat).mockImplementation((onEvent) => {
+  vi.mocked(followChat).mockImplementation((_id, onEvent) => {
     onEvent({ type: "state", state: chat });
     return vi.fn();
   });

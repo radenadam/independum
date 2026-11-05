@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  * or compaction change.
  */
 export function useChatData<Data>(
-  load: () => Promise<Data>,
+  load: (id: string) => Promise<Data>,
   chat: ChatState | undefined,
 ): { data: Data | undefined; failure: string | undefined } {
   const [loaded, setLoaded] = useState<{
@@ -27,7 +27,7 @@ export function useChatData<Data>(
     }
     let isCurrent = true;
     setLoaded({ chatId, data: undefined, failure: undefined });
-    load().then(
+    load(chatId).then(
       (loaded) => {
         if (isCurrent) {
           setLoaded({ chatId, data: loaded, failure: undefined });
