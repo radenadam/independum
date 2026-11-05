@@ -1,23 +1,37 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1280, 900], "go": true },
     {
-      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.includes('Faux typing'))"
+      "size": [1280, 900],
+      "go": true
     },
     {
-      "run": "({ modelSearchVisible: !!document.querySelector('#model-search'), thinkingEffortVisible: !!document.querySelector('input[aria-label=\"Thinking effort\"]') })",
+      "clickOn": "[...document.querySelectorAll('main button[aria-expanded]')].find(button => button.textContent.includes('Faux typing'))"
+    },
+    {
+      "run": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const search = [...(menu?.querySelectorAll('input') ?? [])].find(input => input.labels?.[0]?.textContent === 'Search models'); return { menuOpens: menu?.checkVisibility() === true, modelSearchFocused: !!search && document.activeElement === search, standInModelChosen: menu?.querySelector('button[aria-current=true]')?.textContent.startsWith('Faux typing') === true, thinkingEffortShowsMedium: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'Medium' && menu.innerText.includes('Thinking effort\\nMedium') }; })()",
       "shot": "model-menu"
     },
     {
       "drag": {
-        "on": "document.querySelector('input[aria-label=\"Thinking effort\"]')",
+        "on": "document.querySelector('input[aria-label=\"Thinking effort\"]').nextElementSibling",
         "by": [400, 0]
       }
     },
     {
-      "run": "({ effortChangesToHigh: document.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High', menuStaysOpen: !!document.querySelector('#model-search') })",
+      "run": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const pill = [...document.querySelectorAll('main button[aria-expanded]')].find(button => button.textContent.includes('Faux typing')); return { effortChangesToHigh: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' && menu.innerText.includes('Thinking effort\\nHigh'), messageBoxShowsHigh: pill?.innerText.includes('High') === true, menuStaysOpen: menu?.checkVisibility() === true && pill?.getAttribute('aria-expanded') === 'true' }; })()",
       "shot": "effort"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=dialog] input')].find(input => input.labels?.[0]?.textContent === 'Search models')",
+      "wait": 100
+    },
+    {
+      "text": "no such model"
+    },
+    {
+      "run": "({ searchFindsNothing: document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.innerText.includes('No models match.') === true && !document.querySelector('[role=dialog][aria-label=\"Choose a model\"]').innerText.includes('Faux typing'), effortStaysInMenu: document.querySelector('[role=dialog][aria-label=\"Choose a model\"] input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' })",
+      "shot": "model-search"
     }
   ]
 }

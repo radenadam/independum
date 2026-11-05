@@ -5,6 +5,10 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 
 export type PreviewFixture = "empty" | "chats" | "compacted";
 
+// Each saved message takes a later millisecond than the one before it, because the chat tells its
+// messages apart by their times.
+let lastTime = 0;
+
 /** Creates saved chats through Pi in a new preview home. */
 export async function createPreviewFixture(home: string, fixture: PreviewFixture): Promise<string> {
   const project = join(home, "project");
@@ -67,8 +71,8 @@ function appendTurn(
   answer: string,
   tokens: number,
 ): string {
-  const id = manager.appendMessage({ role: "user", content: question, timestamp: Date.now() });
-  const message = fauxAssistantMessage(answer);
+  const id = manager.appendMessage({ role: "user", content: question, timestamp: nextTime() });
+  const message = fauxAssistantMessage(answer, { timestamp: nextTime() });
   message.model = "faux-typing";
   message.usage = {
     input: 40,
@@ -80,4 +84,9 @@ function appendTurn(
   };
   manager.appendMessage(message);
   return id;
+}
+
+function nextTime(): number {
+  lastTime = Math.max(Date.now(), lastTime + 1);
+  return lastTime;
 }

@@ -121,16 +121,23 @@ export async function connectBrowser(
         }
       } else if (message.method !== undefined) {
         const parameters = message.params;
-        const entry = parameters?.entry as { level?: string } | undefined;
+        const entry = parameters?.entry as { level?: string; url?: string } | undefined;
+        const response = parameters?.response as { status: number; url: string } | undefined;
+        // The browser asks for the favicon by itself because the page names no icon, and the
+        // favicon is open work in the roadmap.
+        const isFavicon = [entry?.url, response?.url].some(
+          (url) => url !== undefined && URL.parse(url)?.pathname === "/favicon.ico",
+        );
         if (
-          message.method === "Runtime.exceptionThrown" ||
-          (message.method === "Runtime.consoleAPICalled" &&
-            ["error", "warning"].includes(String(parameters?.type))) ||
-          (message.method === "Log.entryAdded" &&
-            ["error", "warning"].includes(entry?.level ?? "")) ||
-          message.method === "Network.loadingFailed" ||
-          (message.method === "Network.responseReceived" &&
-            Number((parameters?.response as { status: number } | undefined)?.status) >= 400)
+          !isFavicon &&
+          (message.method === "Runtime.exceptionThrown" ||
+            (message.method === "Runtime.consoleAPICalled" &&
+              ["error", "warning"].includes(String(parameters?.type))) ||
+            (message.method === "Log.entryAdded" &&
+              ["error", "warning"].includes(entry?.level ?? "")) ||
+            // A canceled request is one the page stops on purpose, such as an event stream it closes.
+            (message.method === "Network.loadingFailed" && parameters?.canceled !== true) ||
+            (message.method === "Network.responseReceived" && Number(response?.status) >= 400))
         ) {
           appendFileSync(diagnostics, `${JSON.stringify(message)}\n`);
         }

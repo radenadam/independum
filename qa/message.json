@@ -7,10 +7,13 @@
       "go": true
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=\"New chat\"]')"
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
     },
     {
-      "clickOn": "document.querySelector('textarea')",
+      "run": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' && document.querySelector('main').innerText.includes('What should we work on?') })"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
       "wait": 100
     },
     {
@@ -23,16 +26,23 @@
         "code": "Enter",
         "windowsVirtualKeyCode": 13
       },
-      "wait": 1800
+      "wait": 0
     },
     {
-      "run": "({ replyRuns: !!document.querySelector('button[aria-label=Stop]'), thinkingVisible: document.querySelector('main').textContent.includes('Thinking') || document.querySelector('main').textContent.includes('Thought') })",
-      "shot": "message-steps",
-      "wait": 7000
+      "run": "(async () => { const shown = () => document.querySelector('main').innerText; for (let tries = 0; tries < 100 && !shown().includes('Check the project steps'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { messageSent: shown().includes('Check the preview steps.'), replyRuns: !!document.querySelector('main button[aria-label=Stop]'), thinkingVisible: /Thinking|Thought/.test(shown()), toolStepRuns: shown().includes('Check the project steps') && !shown().includes('Preview reply complete.') }; })()",
+      "wait": 0,
+      "shot": "message-steps"
     },
     {
-      "run": "({ replyComplete: document.querySelector('main').textContent.includes('Preview reply complete.'), toolStepVisible: document.querySelector('main').textContent.includes('Check the project steps'), replyStopped: !document.querySelector('button[aria-label=Stop]') })",
+      "run": "(async () => { const shown = () => document.querySelector('main').innerText; const table = () => document.querySelector('main table')?.innerText ?? ''; for (let tries = 0; tries < 150 && !(table().includes('Complete') && !document.querySelector('main button[aria-label=Stop]')); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyComplete: shown().includes('Preview reply complete.') && shown().includes('The stand-in model thinks, runs a command, and replies.'), replyTableVisible: table().includes('Steps') && table().includes('Complete'), stepsFold: [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === '1 step')?.getAttribute('aria-expanded') === 'false', replyStopped: !document.querySelector('main button[aria-label=Stop]') }; })()",
       "shot": "message-reply"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "run": "(() => { const isShown = button => !!button && !button.closest('[inert]') && button.checkVisibility() && button.getBoundingClientRect().height > 0; const buttons = [...document.querySelectorAll('main button')]; return { thoughtStepVisible: isShown(buttons.find(button => button.textContent.startsWith('Thought for'))), toolStepVisible: isShown(buttons.find(button => button.textContent.includes('Check the project steps'))) }; })()",
+      "shot": "message-tool-step"
     }
   ]
 }

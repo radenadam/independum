@@ -55,7 +55,7 @@ GitHub rejects direct pushes to `main`, so every change goes through a pull requ
 
 ## Browser QA
 
-Check every change a user sees with `pnpm qa <scenario>`. Choose the scenarios in `qa` that cover the change, or add a short JSON scenario for the flow. Inspect its screenshots and named values, and fix every browser error and warning. Check phone layouts at 360 pixels in both themes. The command prints the output folder outside the repository. Keep the evidence there. See `docs/browser-qa.md` for preview flags, the step format, and how to use a preview that already runs. `pnpm check` validates the harness and scenarios without running a browser.
+Check every change a user sees with `pnpm qa <scenario>`. Choose the scenarios in `qa` that cover the change, or add a short JSON scenario for the flow. Inspect its screenshots and named values, and fix every browser error and warning. Check phone layouts at 360 pixels in both themes. A scenario finds what it uses the way a user does, by visible text, role, or accessible name, never by the class names of CSS modules, which carry hashes. The command prints the output folder outside the repository. Keep the evidence there. See `docs/browser-qa.md` for preview flags, the step format, and how to use a preview that already runs. `pnpm check` validates the harness and scenarios without running a browser.
 
 The `qa` folder holds reusable browser scenarios. Harness code lives in `packages/independum/src/qa` and uses the dependencies of that package. Preview fixtures write saved chats through Pi, and real logins load only through Pi with `--real-logins`.
 

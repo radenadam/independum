@@ -1,23 +1,26 @@
 {
   "fixture": "compacted",
   "steps": [
-    { "size": [1440, 1100], "scheme": "dark", "go": true },
-    { "clickOn": "document.querySelector('button[aria-label=\"Show side panel\"]')" },
     {
-      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Session')"
+      "size": [1440, 1100],
+      "scheme": "dark",
+      "go": true
     },
     {
-      "run": "({ compactionRowVisible: [...document.querySelectorAll('button')].some(button => /^Pi compacted the chat/.test(button.textContent.trim())) })",
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "run": "(() => { const rows = [...document.querySelectorAll('aside [role=tabpanel] button')].map(button => button.textContent.trim()); const compaction = rows.findIndex(row => row.startsWith('Pi compacted the chat')); const seventh = rows.findIndex(row => /^7You wrote/.test(row)); const sixth = rows.findIndex(row => /^6You wrote/.test(row)); return { compactionRowVisible: compaction !== -1 && rows[compaction].includes('requests 1 to 4 became a summary'), compactionFollowsTurnSix: seventh !== -1 && sixth !== -1 && seventh < compaction && compaction < sixth, effortChangeVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Thinking effort set to high') }; })()",
       "shot": "compacted-conversation"
     },
     {
-      "hoverOn": "[...document.querySelectorAll('button')].find(button => /^Pi compacted the chat/.test(button.textContent.trim()))"
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
     },
     {
-      "clickOn": "[...document.querySelectorAll('button')].find(button => /^Pi compacted the chat/.test(button.textContent.trim()))"
-    },
-    {
-      "run": "({ compactionSummaryVisible: document.querySelector('[role=tabpanel]').textContent.includes('Ship the plan in six steps.') })",
+      "run": "({ compactionSummaryVisible: ['Compaction', 'Ship the plan in six steps.', 'Steps 1 to 4 are done.'].every(text => document.querySelector('aside [role=tabpanel]').innerText.includes(text)) })",
       "shot": "compaction-summary"
     }
   ]

@@ -1,13 +1,21 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1440, 1000], "go": true },
-    { "clickOn": "document.querySelector('button[aria-label=\"Show side panel\"]')" },
     {
-      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Session')"
+      "size": [1440, 1000],
+      "go": true
     },
     {
-      "run": "({ sessionPlaceVisible: !!document.querySelector('[role=tab][aria-selected=true]'), conversationVisible: document.querySelector('[role=tabpanel]').textContent.includes('Conversation'), modelVisible: document.querySelector('[role=tabpanel]').textContent.includes('Faux typing') })",
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "run": "({ sidePanelOpens: document.querySelector('aside[aria-label=\"Side panel\"]')?.inert === false && document.querySelector('aside[aria-label=\"Side panel\"]').checkVisibility(), newTabOffersSession: document.querySelector('aside [role=tab][aria-selected=true]')?.innerText.trim() === 'New tab' && [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Session') })"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "run": "(() => { const panel = document.querySelector('aside[aria-label=\"Side panel\"]'); const place = panel?.querySelector('[role=tabpanel]')?.innerText ?? ''; return { sessionPlaceOpens: panel?.querySelector('[role=tab][aria-selected=true]')?.innerText.trim() === 'Session', modelVisible: place.includes('Faux typing') && place.includes('Medium effort'), conversationVisible: place.includes('Conversation') && place.includes('You wrote') && place.includes('Thinking effort set to medium') }; })()",
       "shot": "session-conversation"
     }
   ]

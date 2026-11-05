@@ -4,7 +4,7 @@ Run `pnpm qa message` to start a preview, drive a headless browser, and save evi
 
 The command prints a fresh output folder in the system temporary directory. It holds screenshots, `values.jsonl` with each returned value and its step number, `browser.jsonl` with browser errors and warnings, `browser-stderr.txt` with browser process output, and the scenario used. A failure also saves `failure.txt` and, when the page is available, `failure.png`. The browser profile is removed when the command ends. Screenshots and logs stay for review.
 
-An expression that throws, a protocol error, a missing target, or a returned check whose value is `false` fails the scenario. A `run` value can be a boolean or an object with named checks. Any top-level property whose value is `false` fails. Browser errors and warnings also fail the run. Inspect screenshots even when checks pass, because the browser cannot judge visual quality.
+An expression that throws, a protocol error, a missing target, or a returned check whose value is `false` fails the scenario. A `run` value can be a boolean or an object with named checks. Any top-level property whose value is `false` fails. Browser errors and warnings also fail the run, except for two requests. A request that the page cancels on purpose, such as an event stream it closes, is no failure. The browser asks for `/favicon.ico` on its own because the page names no icon yet, and that favicon is open work in `docs/roadmap.md`, so its missing file is no failure either. Inspect screenshots even when checks pass, because the browser cannot judge visual quality.
 
 ## Preview
 
@@ -31,7 +31,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa session` | The side panel, Session place, and its conversation. |
 | `pnpm qa compacted` | A saved compaction and its summary. |
 | `pnpm qa settings` | Logins and appearance. |
-| `pnpm qa phone` | A 360 pixel phone in both themes and its settings. |
+| `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and its settings. |
 
 `pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, or `compacted`.
 

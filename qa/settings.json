@@ -1,17 +1,22 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1280, 900], "go": true },
-    { "clickOn": "document.querySelector('button[aria-label=Settings]')" },
     {
-      "run": "({ settingsOpen: !!document.querySelector('dialog[open]'), loginsVisible: document.querySelector('dialog').textContent.includes('Logins'), standInLoginVisible: document.querySelector('dialog').textContent.includes('faux') })",
+      "size": [1280, 900],
+      "go": true
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const shown = dialog?.innerText ?? ''; return { settingsOpen: dialog?.open === true && dialog.checkVisibility(), loginsVisible: dialog?.querySelector('nav button[aria-current=true]')?.innerText.trim() === 'Logins' && [...dialog.querySelectorAll('h2')].some(heading => heading.innerText.trim() === 'Logins'), standInLoginVisible: /faux/i.test(shown) }; })()",
       "shot": "settings-logins"
     },
     {
-      "clickOn": "[...document.querySelectorAll('dialog button')].find(button => button.textContent.trim() === 'Appearance')"
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Appearance')"
     },
     {
-      "run": "({ appearanceVisible: document.querySelector('dialog').textContent.includes('System follows') })",
+      "run": "({ appearanceVisible: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance' && ['Theme', 'System follows the light or dark setting of this computer.'].every(text => document.querySelector('dialog[aria-label=Settings]').innerText.includes(text)) })",
       "shot": "settings-appearance"
     }
   ]
