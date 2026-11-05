@@ -30,6 +30,7 @@ import { Icon } from "./icon.tsx";
 import { ModelDetail } from "./model-detail.tsx";
 import { modelNameOf } from "./model-name-of.ts";
 import { OneLineTitle } from "./one-line-title.tsx";
+import { PermissionDetail } from "./permission-detail.tsx";
 import { PlaceBox } from "./place-box.tsx";
 import { PlaceFrame, PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
@@ -42,6 +43,7 @@ import { ProviderLogo } from "./provider-logo.tsx";
 import styles from "./session-place.module.css";
 import { TextButton } from "./text-button.tsx";
 import { TextDialog } from "./text-dialog.tsx";
+import { timeFormat } from "./time-format.ts";
 import { countOf, UsageTable } from "./usage-table.tsx";
 import { type AgentSettings, useAgentSettings } from "./use-agent-settings.ts";
 
@@ -62,13 +64,14 @@ interface SessionPlaceProps {
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "model" | "chat" | "profile" | "compactionSettings" | "resources" };
+  link:
+    | ShownLink
+    | { kind: "model" | "chat" | "profile" | "compactionSettings" | "resources" | "permissions" };
   text: string;
 }
 
 // A panel this wide shows the detail beside the overview instead of in its place.
 const splitWidth = 720;
-const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 // Each part opens to its detail, which edits the texts that the model reads where Independum
 // writes them.
@@ -254,6 +257,20 @@ function Overview({
       )}
       <ConfigurationIssues issues={settings.agent?.configuration?.issues ?? []} />
       <PlaceBox>
+        <PlaceRow
+          label="Permissions"
+          glance={settings.agent?.permissions?.mode}
+          isBoxed
+          isCurrent={current === "permissions"}
+          onOpen={() =>
+            onOpen({
+              key: "permissions",
+              title: "Permissions",
+              link: { kind: "permissions" },
+              text: "",
+            })
+          }
+        />
         <PlaceRow
           label={
             settings.agent?.configuration?.profile.document?.profile.name ?? "Profile unavailable"
@@ -539,6 +556,8 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
             ))}
         </>
       );
+    case "permissions":
+      return <PermissionDetail settings={settings} project={chat.folder} />;
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (

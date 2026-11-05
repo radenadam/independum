@@ -2,6 +2,7 @@ import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
 import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
 import { ConfigurationError, validateChatSettings } from "./configuration-schema.ts";
+import type { ApprovalPersistence } from "./create-approvals.ts";
 import type { Chat, OpenChat } from "./create-chat.ts";
 import {
   bodyOf,
@@ -16,6 +17,52 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   const routes = new Hono();
   routes.onError(configurationErrorResponse);
   routes.route("/", createProfileRoutes(chat));
+  routes.get("/approvals", (context) =>
+    context.json({ approvals: chat.approvals.pending(context.req.query("chatId")) }),
+  );
+  routes.post("/approvals/:approvalId", async (context) => {
+    const body = await bodyOf(context);
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      Object.keys(body).some((key) => !["revision", "decision", "persistence"].includes(key)) ||
+      !("revision" in body) ||
+      !("decision" in body) ||
+      !("persistence" in body) ||
+      typeof body.revision !== "string" ||
+      (body.decision !== "allow" && body.decision !== "deny") ||
+      !["once", "chat", "project", "runtime"].includes(String(body.persistence))
+    ) {
+      return context.json(
+        { error: "An approval requires its revision, allow or deny, and a supported lifetime." },
+        400,
+      );
+    }
+    let status: Awaited<ReturnType<typeof chat.approvals.resolve>>;
+    try {
+      status = await chat.approvals.resolve(
+        context.req.param("approvalId"),
+        body.revision,
+        body.decision,
+        body.persistence as ApprovalPersistence,
+      );
+    } catch (error) {
+      return contextFailure(context, error, "The approval could not be saved.", 409);
+    }
+    return context.json(
+      status === 200
+        ? { resolved: true }
+        : {
+            error:
+              status === 404
+                ? "The approval does not exist."
+                : status === 400
+                  ? "This approval does not offer that lifetime."
+                  : "The approval has changed or already has another answer.",
+          },
+      status,
+    );
+  });
   // biome-ignore lint/style/useNamingConvention: Hono names its context variables type.
   const active = new Hono<{ Variables: { chat: OpenChat } }>();
   active.use("*", async (context, next) => {
@@ -61,10 +108,24 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
   );
 
   active.get("/agent", (context) => context.json(context.get("chat").getAgent()));
+  active.delete("/permissions/:approvalId", (context) =>
+    chat.approvals.remove(context.get("chat").getState().id, context.req.param("approvalId"))
+      ? context.body(null, 204)
+      : context.json({ error: "This saved chat approval does not exist." }, 404),
+  );
 
   active.get("/context", (context) => context.json(context.get("chat").getContext()));
 
   active.get("/resources", (context) => context.json(context.get("chat").getResources()));
+  active.post("/resources/:resourceId/approval", (context) => {
+    const opened = context.get("chat");
+    const id = context.req.param("resourceId");
+    if (!opened.getResources().resources.some((resource) => resource.id === id)) {
+      return context.json({ error: "This resource is unknown." }, 404);
+    }
+    opened.requestResourcePermission(id).catch(() => undefined);
+    return context.body(null, 202);
+  });
   active.put("/resources/:resourceId", async (context) => {
     const body = await contextBody(context);
     if (typeof body.fingerprint !== "string" || typeof body.content !== "string") {
@@ -128,6 +189,13 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       return context.json({ error: "A message needs text." }, 400);
     }
     if (
+      body.approvalMode !== undefined &&
+      body.approvalMode !== "browser" &&
+      body.approvalMode !== "headless"
+    ) {
+      return context.json({ error: "Approval mode must be browser or headless." }, 400);
+    }
+    if (
       (body.interpretation !== undefined &&
         body.interpretation !== "literal" &&
         body.interpretation !== "commands") ||
@@ -139,7 +207,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       if (
         !(await context
           .get("chat")
-          .send(body.text, body.interpretation ?? "commands", body.previewId))
+          .send(
+            body.text,
+            body.interpretation ?? "commands",
+            body.previewId,
+            body.approvalMode === "browser",
+          ))
       ) {
         return context.json(
           { error: "The chat needs a model and must be idle to receive a message." },

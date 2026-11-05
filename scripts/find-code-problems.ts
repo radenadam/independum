@@ -15,6 +15,7 @@ export function findCodeProblems(file: string, code: string): string[] {
   const functions = new Set<string>();
   const declarations = new Map<string, Expression>();
   const styles: Expression[] = [];
+  const sandboxOperations = new Set<string>();
 
   function report(node: { start: number }, message: string): void {
     const line = code.slice(0, node.start).split("\n").length;
@@ -84,6 +85,47 @@ export function findCodeProblems(file: string, code: string): string[] {
 
   // biome-ignore-start lint/style/useNamingConvention: Oxc names its syntax visitors.
   new Visitor({
+    ImportDeclaration(node) {
+      const source = node.source.value;
+      if (source.startsWith("@microsoft/mxc-sdk")) {
+        if (source !== "@microsoft/mxc-sdk/v1") {
+          report(node, "Sandbox imports use only the stable MXC V1 API.");
+        }
+        if (
+          !file.endsWith("create-sandbox.ts") &&
+          !file.endsWith(".test.ts") &&
+          node.importKind !== "type"
+        ) {
+          report(node, "Native sandbox access belongs to create-sandbox.ts.");
+        }
+        for (const specifier of node.specifiers) {
+          if (specifier.type !== "ImportSpecifier") {
+            report(node, "Sandbox APIs use named imports so operation options are checked.");
+          } else {
+            const name =
+              specifier.imported.type === "Identifier"
+                ? specifier.imported.name
+                : specifier.imported.value;
+            if (
+              [
+                "spawn",
+                "run",
+                "spawnWithPty",
+                "provisionContainer",
+                "startContainer",
+                "spawnInContainer",
+                "spawnInContainerWithPty",
+                "runInContainer",
+                "stopContainer",
+                "deprovisionContainer",
+              ].includes(name)
+            ) {
+              sandboxOperations.add(specifier.local.name);
+            }
+          }
+        }
+      }
+    },
     VariableDeclarator(node) {
       checkBinding(node.id);
       if (node.init !== null) {
@@ -141,6 +183,17 @@ export function findCodeProblems(file: string, code: string): string[] {
     },
     CallExpression(node) {
       const argument = node.arguments[0];
+      if (node.callee.type === "Identifier" && sandboxOperations.has(node.callee.name)) {
+        const options = node.arguments[1];
+        const telemetry =
+          options === undefined || options.type === "SpreadElement"
+            ? undefined
+            : objectField(options, "telemetry");
+        const enabled = telemetry === undefined ? undefined : objectField(telemetry, "enabled");
+        if (enabled?.type !== "Literal" || enabled.value !== false) {
+          report(node, "Sandbox operations explicitly disable telemetry.");
+        }
+      }
       if (
         isTestCall(node.callee) &&
         argument?.type === "Literal" &&
@@ -216,6 +269,26 @@ export function findCodeProblems(file: string, code: string): string[] {
     }
   }
   return problems;
+}
+
+function objectField(expression: Expression, name: string): Expression | undefined {
+  const object = unwrap(expression);
+  if (
+    object.type !== "ObjectExpression" ||
+    object.properties.some((property) => property.type === "SpreadElement")
+  ) {
+    return undefined;
+  }
+  const property = object.properties.find(
+    (property) =>
+      property.type === "Property" &&
+      (property.key.type === "Identifier"
+        ? property.key.name
+        : property.key.type === "Literal"
+          ? property.key.value
+          : undefined) === name,
+  );
+  return property?.type === "Property" ? property.value : undefined;
 }
 
 function unwrap(expression: Expression): Expression {

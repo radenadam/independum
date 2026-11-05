@@ -11,6 +11,7 @@ import { Disclosure } from "./disclosure.tsx";
 import { MenuList } from "./menu-list.tsx";
 import { ModelDetail } from "./model-detail.tsx";
 import { ModelMenu } from "./model-menu.tsx";
+import { PermissionDetail } from "./permission-detail.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { saveProfile } from "./profile-api.ts";
@@ -86,6 +87,9 @@ export function ProfileEditor({
           />
         </Disclosure>
         <ConfigurationIssues issues={profile.issues} />
+        <Disclosure label="Permissions">
+          <PermissionDetail settings={settings} project={context.folder} />
+        </Disclosure>
         {(failure ?? settings.failure) ? (
           <PlaceNote>{failure ?? settings.failure}</PlaceNote>
         ) : null}

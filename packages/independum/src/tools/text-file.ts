@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { structuredPatch } from "diff";
 import type { FileDiff } from "../api-types.ts";
+import { isMissingFile } from "../is-missing-file.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
 /** A file that a tool found at the path that the model gave. */
@@ -27,6 +28,20 @@ const pathSlot = { meaning: "The file as the model gave it.", example: "src/app.
 // They show with the texts of Read.
 /** The texts that say why a tool cannot open a file, which the user can edit. */
 const fileTexts = {
+  inspectFailed: defineText({
+    id: "file.inspectFailed",
+    group: "Read",
+    section: "result",
+    label: "When the operating system refuses file metadata access",
+    builtIn: "Could not inspect {path}.\n{error}",
+    slots: {
+      path: pathSlot,
+      error: {
+        meaning: "The exact error reported by the operating system.",
+        example: "EACCES: permission denied.",
+      },
+    },
+  }),
   folder: defineText({
     id: "file.folder",
     group: "Read",
@@ -82,7 +97,7 @@ export function pathParameterOf(description: string): ReturnType<typeof Type.Str
  */
 export function findFile(path: string, folder: string, texts: ModelTexts): FoundFile {
   const file = resolve(folder, path);
-  const stats = statOf(file);
+  const stats = statOf(file, path, texts);
   if (stats === undefined) {
     const similar = similarNames(file, path);
     const missing = texts.fill(fileTexts.missing, { path });
@@ -159,7 +174,7 @@ export function lineBreakOf(text: string): "\r\n" | "\n" {
 
 /** Fails with the reason when a path that a tool writes to is a folder. */
 export function checkNotFolder(file: string, path: string, texts: ModelTexts): void {
-  if (statOf(file)?.isDirectory() === true) {
+  if (statOf(file, path, texts)?.isDirectory() === true) {
     throw new Error(texts.fill(fileTexts.folder, { path }));
   }
 }
@@ -202,11 +217,19 @@ function describeSize(bytes: number): string {
   return kilobytes < 1024 ? `${kilobytes.toFixed(1)} KB` : `${(kilobytes / 1024).toFixed(1)} MB`;
 }
 
-function statOf(file: string): Stats | undefined {
+function statOf(file: string, path: string, texts: ModelTexts): Stats | undefined {
   try {
     return statSync(file);
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return undefined;
+    }
+    throw new Error(
+      texts.fill(fileTexts.inspectFailed, {
+        path,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   }
 }
 

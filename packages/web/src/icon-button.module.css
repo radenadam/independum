@@ -12,6 +12,15 @@
   color: var(--ink);
 }
 
+.button[data-labeled] {
+  display: inline-flex;
+  gap: 6px;
+  width: auto;
+  height: auto;
+  min-height: 40px;
+  padding: 6px 10px;
+}
+
 /* A blended button sits in a row or a tab that shows the hover, so it adds no box of its own. */
 .blended:hover {
   background: transparent;

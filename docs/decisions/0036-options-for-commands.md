@@ -9,7 +9,7 @@ Decision 0035 stopped Independum from setting variables such as `PAGER` for ever
 
 ## Decision
 
-- The Shell card in the Agent place has an environment of commands. Every command gets its variables on top of the environment of the user. It starts empty, and Independum sets nothing in it by itself.
+- The Shell card in the Agent place has an environment of commands. Under [decision 0063](0063-permissions-and-enforced-tool-access.md), every command gets these variables after its selected minimal or inherited environment. It starts empty, and Independum sets nothing in it by itself.
 - Suggestions under it add a variable with one click, each with what it changes, such as `GIT_EDITOR=true` or `GCM_INTERACTIVE=never`.
 - The description of Shell names the variables that the user added, without their values, because a value can be secret. That sentence is a model text.
 - When a running command has printed nothing for 30 seconds, its step and its row in the Commands place say so, and the step adds that it may be waiting for input. The model reads nothing about it.

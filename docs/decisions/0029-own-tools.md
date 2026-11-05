@@ -19,7 +19,7 @@ Independum takes a minimal approach, like Pi, so that it keeps up with models th
 - The model gets the output, the exit code, and the time the command took. An exit code other than zero, a timeout, or a stop reaches it as an error.
 - The output that reaches the model stops at 2000 lines or 50 KB, whichever comes first. Past that, the model gets the start and the end, with a note of the lines that are cut and the path of a file that holds all of it in `~/.independum/outputs`. Deleting a chat deletes its outputs. Tokens are not counted, because each provider counts them differently.
 - Each call is a step of the reply, as decision 0027 describes. Its label is the description, or else the command. Its status is a timer, the time the command took, or the exit code in orange. Inside are the command, labeled with its shell, and the output. All the turns that answer one prompt show as one reply.
-- Commands run without asking for approval for now. Permissions and sandboxing are an open question, studied once the tools are done.
+- [Decision 0063](0063-permissions-and-enforced-tool-access.md) replaces execution without approval with profile policy, approvals, and an enforced operating system boundary.
 
 ## Consequences
 

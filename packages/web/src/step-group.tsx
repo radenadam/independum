@@ -7,6 +7,7 @@ import styles from "./step-group.module.css";
 interface StepGroupProps {
   count: number;
   isFollowing: boolean;
+  isAsking: boolean;
   openedAt: number | undefined;
   children: ReactNode;
 }
@@ -18,6 +19,7 @@ interface StepGroupProps {
 export function StepGroup({
   count,
   isFollowing,
+  isAsking,
   openedAt,
   children,
 }: StepGroupProps): ReactElement {
@@ -26,6 +28,7 @@ export function StepGroup({
       leading={<Icon name="steps" size={16} />}
       label={`${count} ${count === 1 ? "step" : "steps"}`}
       isFollowing={isFollowing}
+      isAsking={isAsking}
       openedAt={openedAt}
       hasBody
     >

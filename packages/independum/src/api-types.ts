@@ -1,4 +1,9 @@
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { ApprovalRequest, ChatPermissionApproval } from "./create-approvals.ts";
+import type { SandboxRuntime } from "./create-sandbox.ts";
+import type { PermissionPolicy } from "./permission-policy.ts";
+
+export type { ApprovalRequest };
 
 /** The effort choices accepted by the installed Pi runtime. */
 export const thinkingLevels: ModelThinkingLevel[] = [
@@ -194,6 +199,7 @@ export interface ChatMessage {
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
+  contextApprovals?: ApprovalRequest[];
   id: string;
   folder: string;
   model: { providerId: string; id: string } | null;
@@ -213,11 +219,18 @@ export interface ChatState {
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
+  chatPermissionApprovals?: ChatPermissionApproval[];
+  protectedConfigurationPaths?: string[];
   piSections?: Record<string, string | null>;
   chatId?: string;
   contextSettings?: ContextSettings;
   resources?: ContextRevision;
   lastContext?: ContextRevision | null;
+  permissionProject?: string;
+  sandbox?: SandboxRuntime;
+  fileSandbox?: SandboxRuntime;
+  permissions?: PermissionPolicy;
+  minimalEnvironmentNames?: string[];
   configuration?: ChatConfiguration;
   modelSettings: ModelSettingsSummary | null;
   compaction: CompactionSettings;
@@ -448,6 +461,7 @@ export interface CompactionSettings {
 /** The resolved runtime settings of a profile with user facts about models. */
 export interface Settings {
   context: ContextSettings;
+  permissions: PermissionPolicy;
   modelOverrides: Record<string, Record<string, ModelOverrides>>;
   compaction: CompactionSettings;
   shell: ShellKind | null;
@@ -472,6 +486,7 @@ export interface ContextSettings {
 
 /** A discovered source, including exclusions and the exact bytes captured for a request. */
 export interface ContextResource {
+  permissionScope?: "file" | "tree";
   id: string;
   kind: "instructions" | "skill" | "command";
   scope: "user" | "profile" | "project";

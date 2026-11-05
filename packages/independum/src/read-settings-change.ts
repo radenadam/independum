@@ -7,6 +7,7 @@ import type {
   SettingsChange,
 } from "./api-types.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
+import { builtInPermissions, validatePermissionPolicy } from "./permission-policy.ts";
 import { builtInContext, readContextSettings } from "./read-context-settings.ts";
 
 export const handBackRange: { min: number; max: number } = { min: 5, max: 86_400 };
@@ -15,6 +16,7 @@ const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 /** The settings that Independum starts with, which a reset goes back to. */
 export const builtInSettings: Settings = {
   context: builtInContext,
+  permissions: builtInPermissions,
   modelOverrides: {},
   compaction: {
     isEnabled: piCompaction.enabled,
@@ -55,6 +57,7 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
           "environment",
           "texts",
           "tool",
+          "permissions",
         ].includes(key),
     )
   ) {
@@ -65,6 +68,13 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
   if ("context" in fields) {
     try {
       change.context = readContextSettings(fields.context);
+    } catch {
+      isValid = false;
+    }
+  }
+  if ("permissions" in fields) {
+    try {
+      change.permissions = validatePermissionPolicy(fields.permissions);
     } catch {
       isValid = false;
     }

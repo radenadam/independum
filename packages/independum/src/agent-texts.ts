@@ -1,6 +1,7 @@
 import { addedFactTexts } from "./added-facts.ts";
 import { contextTexts } from "./context-texts.ts";
 import { defineText, type ModelText } from "./model-texts.ts";
+import { permissionTextList } from "./permission-texts.ts";
 import { compactionTexts } from "./summarize-context.ts";
 import { backgroundTextList } from "./tools/create-background-commands.ts";
 import { checkCommandTextList } from "./tools/create-check-command-tool.ts";
@@ -40,4 +41,5 @@ export const allTexts: ModelText[] = [
   ...stopCommandTextList,
   ...outputTextList,
   envelopeText,
+  ...permissionTextList,
 ];

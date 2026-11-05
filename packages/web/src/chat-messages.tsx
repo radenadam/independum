@@ -1,4 +1,10 @@
-import type { ChatMessage, MessagePart, ThinkingPart, ToolCallPart } from "independum/api-types";
+import type {
+  ApprovalRequest,
+  ChatMessage,
+  MessagePart,
+  ThinkingPart,
+  ToolCallPart,
+} from "independum/api-types";
 import {
   type ClipboardEvent,
   type ReactElement,
@@ -7,9 +13,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { ApprovalActions } from "./approval-actions.tsx";
 import styles from "./chat-messages.module.css";
 import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
+import { approvalOf } from "./describe-tool-call.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { MessageTime } from "./message-time.tsx";
@@ -22,6 +30,7 @@ import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
 interface ChatMessagesProps {
+  contextApprovals?: ApprovalRequest[];
   chatId: string | null;
   messages: ChatMessage[];
   reply: MessagePart[];
@@ -40,6 +49,7 @@ const replyTyping: Typing = { charactersPerSecond: 90, isCatchingUp: true };
  * sends to the top, with room below it for the reply.
  */
 export function ChatMessages({
+  contextApprovals,
   chatId,
   messages,
   reply,
@@ -178,48 +188,55 @@ export function ChatMessages({
   return (
     <div ref={scroller} className={styles.scroller}>
       <ol ref={list} className={styles.messages} onCopy={copySelection}>
-        {turns.map((turn, turnIndex) => {
-          if (turn.type === "prompt") {
-            const { message } = turn;
+        {[
+          ...turns.map((turn, turnIndex) => {
+            if (turn.type === "prompt") {
+              const { message } = turn;
+              return (
+                <li
+                  key={`user-${turn.index}`}
+                  className={
+                    turn.index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
+                  }
+                  data-user
+                >
+                  <p className={styles.bubble}>{textOf(message.parts)}</p>
+                  <div className={styles.actions} data-copy="skip">
+                    <span className={styles.when}>
+                      <MessageTime timestamp={message.timestamp} durationMs={null} />
+                    </span>
+                    <CopyButton text={textOf(message.parts)} label="Copy message" tipAlign="end" />
+                  </div>
+                </li>
+              );
+            }
+            if (turn.type === "note") {
+              return (
+                <li key={`note-${turn.index}`}>
+                  <NoteStep message={turn.message} />
+                </li>
+              );
+            }
+            const isCurrent = isReplying && turnIndex === turns.length - 1;
             return (
-              <li
-                key={`user-${turn.index}`}
-                className={
-                  turn.index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
-                }
-                data-user
-              >
-                <p className={styles.bubble}>{textOf(message.parts)}</p>
-                <div className={styles.actions} data-copy="skip">
-                  <span className={styles.when}>
-                    <MessageTime timestamp={message.timestamp} durationMs={null} />
-                  </span>
-                  <CopyButton text={textOf(message.parts)} label="Copy message" tipAlign="end" />
-                </div>
+              <li key={`reply-${turn.index}`} className={styles.reply}>
+                <Reply
+                  messages={turn.messages}
+                  live={isCurrent ? reply : []}
+                  tools={tools}
+                  isLive={isCurrent || turn.index + turn.messages.length > opened.messageCount}
+                  isStreaming={isCurrent}
+                  isLatest={turnIndex === turns.length - 1}
+                />
               </li>
             );
-          }
-          if (turn.type === "note") {
-            return (
-              <li key={`note-${turn.index}`}>
-                <NoteStep message={turn.message} />
-              </li>
-            );
-          }
-          const isCurrent = isReplying && turnIndex === turns.length - 1;
-          return (
-            <li key={`reply-${turn.index}`} className={styles.reply}>
-              <Reply
-                messages={turn.messages}
-                live={isCurrent ? reply : []}
-                tools={tools}
-                isLive={isCurrent || turn.index + turn.messages.length > opened.messageCount}
-                isStreaming={isCurrent}
-                isLatest={turnIndex === turns.length - 1}
-              />
+          }),
+          ...(contextApprovals ?? []).map((approval) => (
+            <li key={approval.id}>
+              <ApprovalActions approval={approval} />
             </li>
-          );
-        })}
+          )),
+        ]}
       </ol>
       <div ref={end} />
       <div ref={spacer} className={styles.spacer} aria-hidden="true" />
@@ -336,6 +353,11 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
             const isShownInside = run.segments.some(
               (segment) => segment.type === "toolCall" && segment.part.id === tools.shown?.id,
             );
+            const isAsking = run.segments.some(
+              (segment) =>
+                segment.type === "toolCall" &&
+                approvalOf(segment.part, tools.runs[segment.part.id]) !== undefined,
+            );
             return run.segments.length === 1 || count === 0 ? (
               run.segments.map(boxOf)
             ) : (
@@ -343,6 +365,7 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
                 key={`group-${run.segments[0]?.key}`}
                 count={count}
                 isFollowing={isStreaming && isLast}
+                isAsking={isAsking}
                 openedAt={isShownInside ? tools.shown?.at : undefined}
               >
                 {run.segments.map(boxOf)}

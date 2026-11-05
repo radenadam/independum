@@ -25,6 +25,8 @@ The model changed files only through Shell. The research found that exact text r
 
 ## Consequences
 
+- [Decision 0063](0063-permissions-and-enforced-tool-access.md) adds authorization and restricted file workers.
+
 - Read and Edit share how a file is found, decoded, and named in a result, so Write can use the same.
 - A miss costs one more call, and in return the model learns what the file really holds. In a test, Haiku sent one tab too many, read which line differed, and got it right on the second call.
 - A column that the model counts itself can land on another copy of the text, which the exact match cannot catch. In a test, Haiku counted the column of the third copy instead of the second, saw it when it read the line again, and fixed it.

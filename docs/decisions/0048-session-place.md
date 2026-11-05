@@ -25,6 +25,8 @@ The Agent place showed every text at full length, so it grew to thousands of pix
 
 ## Consequences
 
+- [Decision 0063](0063-permissions-and-enforced-tool-access.md) adds the Permissions detail.
+
 - [Decision 0055](0055-model-settings-and-compaction.md) adds model settings to the model detail and a Compaction row to the Context section.
 
 - The glossary gains Session, and Agent and Context point to it.

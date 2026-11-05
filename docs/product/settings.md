@@ -18,7 +18,7 @@ Archived chats shows title, project, and last modification date. Titles and deta
 
 ## Tools and model texts
 
-Session's tools detail shows each built-in tool's description, enable switch, unavailability reason, fixed parameter schema, edit action, and reset action. A disabled or unavailable tool is excluded from the active tools. Shell adds shell choice, hand-back time, and environment variables. Output limit is a separate part below the tool cards. [Tools](tools.md#shared-contract) owns the defaults, ranges, and effects of these settings.
+Session's tools detail shows each built-in tool's description, enable switch, unavailability reason, fixed parameter schema, edit action, and reset action. A disabled or unavailable tool is excluded from the active tools. Shell adds shell choice, hand-back time, and environment variables. Session's [Permissions detail](permissions.md) shows policy, runtime acceptance, and environment inheritance. Output limit is a separate part below the tool cards. [Tools](tools.md#shared-contract) owns the defaults, ranges, and effects of these settings.
 
 Each registered model text has an id, group, section, condition label, built-in text, and slots. The text dialog edits a group's texts and saves them together. It shows parameter types, slot insertion at the cursor, example previews, and warnings about missing or unknown slots. Unknown brace names stay literal. Tool names, parameter names, and types are fixed. The system prompt has its own detail and editor. The note envelope is grouped with Shell, and shared file error and fingerprint texts are grouped with Read.
 

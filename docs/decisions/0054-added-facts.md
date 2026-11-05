@@ -19,6 +19,8 @@ The model cannot reliably know its harness, the machine and folder where it work
 
 ## Consequences
 
+- [Decision 0063](0063-permissions-and-enforced-tool-access.md) adds permission facts and their independent switches.
+
 - Settings gain disabled facts and the cutoffs of models. Existing settings start with every fact on and no cutoffs.
 - Pi supplies the request hook, timestamps, exact prompt override, and its version. Independum supplies the formatting and the cutoff setting because Pi has no model cutoff field.
 - Decisions 0033, 0034, and 0048 point here for added facts and the replacement of Pi's automatic folder section. The inventory of Pi texts stays read-only.

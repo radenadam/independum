@@ -18,5 +18,7 @@ A tool that writes a whole file can erase what the model never saw, such as a fi
 
 ## Consequences
 
+- Whole-file replacements follow the permission boundary in [decision 0063](0063-permissions-and-enforced-tool-access.md).
+
 - The model may need one more call to replace a file that it never touched, and in return the call tells it what it is about to replace.
 - A chat that is opened again after a restart still knows what it saw, because the fingerprints live in its results.

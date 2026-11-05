@@ -1,7 +1,8 @@
 import type { ChatMessage, CommandEnd, ToolCallPart } from "independum/api-types";
 import type { ReactElement } from "react";
+import { ApprovalActions } from "./approval-actions.tsx";
 import { commandActionsOf } from "./command-actions.tsx";
-import { statusOfEnd, type ToolRun } from "./describe-tool-call.ts";
+import { approvalOf, statusOfEnd, type ToolRun } from "./describe-tool-call.ts";
 import { Icon } from "./icon.tsx";
 import { StepBox } from "./step-box.tsx";
 import styles from "./tool-call-body.module.css";
@@ -33,20 +34,30 @@ interface ToolStepProps {
 export function ToolStep({ part, tools, isReplying }: ToolStepProps): ReactElement {
   const isUnderWay = part.result === null && isReplying;
   const call = useDescribedCall(part, tools, isReplying);
+  const approval = approvalOf(part, tools.runs[part.id]);
 
   return (
     <StepBox
       leading={<Icon name={toolIconOf(part.name)} size={16} />}
       label={call.label}
       status={call.status}
-      action={commandActionsOf(part.id, call, tools)}
+      action={approval === undefined ? commandActionsOf(part.id, call, tools) : undefined}
       isFollowing={isUnderWay}
+      isAsking={approval !== undefined}
       hasBody={
-        call.input !== "" || call.output !== "" || call.images.length > 0 || call.hunks.length > 0
+        approval !== undefined ||
+        call.input !== "" ||
+        call.output !== "" ||
+        call.images.length > 0 ||
+        call.hunks.length > 0
       }
       shownAt={tools.shown?.id === part.id ? tools.shown.at : undefined}
     >
-      <ToolCallBody call={call} />
+      {approval === undefined ? (
+        <ToolCallBody call={call} />
+      ) : (
+        <ApprovalActions approval={approval} />
+      )}
     </StepBox>
   );
 }

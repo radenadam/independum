@@ -22,6 +22,7 @@ interface StepBoxProps {
   status?: StepStatus | undefined;
   action?: ReactNode;
   isFollowing: boolean;
+  isAsking?: boolean;
   shownAt?: number | undefined;
   openedAt?: number | undefined;
   hasBody: boolean;
@@ -29,8 +30,9 @@ interface StepBoxProps {
 }
 
 // The box stays open while the step is under way and shows its latest lines, and folds once
-// the step ends, unless the user opens or closes it. Asked to show itself, it opens and comes
-// into view.
+// the step ends, unless the user opens or closes it. While it asks the user, such as for an
+// approval, it shows every line, because the user answers what it shows. Asked to show itself, it
+// opens and comes into view.
 /**
  * Draws one step of the agent, such as thinking or a call to a tool, in a box set apart from
  * the reply.
@@ -41,6 +43,7 @@ export function StepBox({
   status,
   action,
   isFollowing,
+  isAsking = false,
   shownAt,
   openedAt,
   hasBody,
@@ -50,7 +53,7 @@ export function StepBox({
   const [isClipped, setIsClipped] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const view = useRef<HTMLDivElement>(null);
-  const isOpen = hasBody && (choice ?? isFollowing);
+  const isOpen = hasBody && (choice ?? (isFollowing || isAsking));
   const header = (
     <>
       {leading}
@@ -122,7 +125,7 @@ export function StepBox({
             <div
               ref={view}
               className={styles.view}
-              data-following={choice === undefined}
+              data-following={choice === undefined && !isAsking}
               data-clipped={isClipped}
             >
               <div>{children}</div>

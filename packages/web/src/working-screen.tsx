@@ -178,7 +178,14 @@ export function WorkingScreen({
           setToolRuns((current) => ({
             ...current,
             [event.id]: {
-              startedAt: current[event.id]?.startedAt ?? Date.now(),
+              startedAt:
+                event.type === "toolProgress" &&
+                typeof event.details === "object" &&
+                event.details !== null &&
+                "permissionExecutionStartedAt" in event.details &&
+                typeof event.details.permissionExecutionStartedAt === "number"
+                  ? event.details.permissionExecutionStartedAt
+                  : (current[event.id]?.startedAt ?? Date.now()),
               details: event.type === "toolProgress" ? event.details : null,
             },
           }));
@@ -455,6 +462,7 @@ export function WorkingScreen({
             </div>
             <div className={styles.messages}>
               <ChatMessages
+                contextApprovals={chat.contextApprovals ?? []}
                 chatId={chat.id}
                 messages={chat.messages}
                 reply={reply}

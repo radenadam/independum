@@ -6,9 +6,13 @@ Decision: [0062](../decisions/0062-project-resources-and-context-controls.md). S
 
 `profile.json` accepts `settings.context`. The complete type and built-in values live in [the context settings](../../packages/independum/src/read-context-settings.ts). Omitted nested fields use those built-in values, and arrays replace them. Invalid fields and unavailable Pi ids block profile application and new work. Existing work keeps its applied profile.
 
+The context editor reads the current saved profile values even while a reply waits for permission and keeps an older applied profile. Instruction names stay literal list entries, including spaces and commas. Refreshing the chat does not replace a saved edit with the running reply's older settings.
+
 Instructions consider every configured basename from the registered project root through the chat folder. The current API registers the exact folder as the root. Discovery never follows tool paths or expands imports. Files with the same filesystem identity or identical bytes contribute once. Different line endings or byte order marks make different byte sequences. Insertion removes only a leading UTF-8 byte order mark. Enabled unreadable instructions prevent provider calls. Disabling a candidate unblocks the request without hiding its diagnostic.
 
-The resource catalog keeps sources that are off, invalid, duplicates, overridden, or waiting for permission. It includes scope, path, reason, aliases, raw byte count, SHA-256 fingerprint, source, metadata, and exact inserted text. User, profile, and project roots follow the order and locations in decision 0062. Configured resource paths belong to the profile and resolve against its folder. Resources outside their allowed roots stay unread because the permission service is not implemented.
+Browser replies request unresolved enabled resources before preparing context. API replies keep headless delivery and leave unresolved resources unread. The resource catalog offers Request read access for an unresolved source, and the chat shows its approval. Replacing a source identity, changing the profile, or changing the chat branch invalidates its grant.
+
+The resource catalog keeps sources that are off, invalid, duplicates, overridden, or waiting for permission. It includes scope, path, reason, aliases, raw byte count, SHA-256 fingerprint, source, metadata, and exact inserted text. User, profile, and project roots follow the order and locations in decision 0062. Configured resource paths belong to the profile and resolve against its folder. Discovery uses the [permission policy and approval store](permissions.md). Resources outside the project remain unread until a matching rule or approval permits their read. Directory discovery requests tree scope before enumeration, and a link target needs its own matching grant.
 
 Containment compares real filesystem locations, including linked folders. A missing path uses its nearest existing parent's real location. Catalog paths and aliases keep the caller's spelling, so saved disabled paths keep matching. A missing chat folder reports that it does not exist before containment is checked.
 
@@ -18,7 +22,7 @@ Session names the profile being edited and the number of chats that use it in on
 
 Instruction filenames and additional skill and command paths use individual list entries, like environment settings. Adding or removing an entry saves the list immediately. Each added value stays whole, including commas and spaces. Instruction filenames keep their listed order. Command substitution details unfold on demand. Resource paths use the copyable path display, and file fingerprints and metadata stay inside File details. A search with no matches says so.
 
-Source editing saves the whole known file after a fingerprint comparison through Pi's mutation queue. A stale source fails and leaves the draft open. The browser preserves the starting line endings and byte order mark. The API accepts exact replacement text. User files have no built-in reset.
+Source editing requires write permission and saves the whole known file after a fingerprint comparison through Pi's mutation queue. A stale source fails and leaves the draft open. The browser preserves the starting line endings and byte order mark. The API accepts exact replacement text. User files have no built-in reset.
 
 ## Commands
 
@@ -55,6 +59,7 @@ All routes have the existing `/api/chats/:id` prefix and access checks.
 | `GET /resources` | Read the effective context revision, catalog, and diagnostics. |
 | `GET /resources/:resourceId` | Read one captured source. |
 | `PUT /resources/:resourceId` | Save exact `content` against its starting `fingerprint`. |
+| `POST /resources/:resourceId/approval` | Request read access for a catalog resource through the existing approval API. |
 | `POST /resources/reload` | Reload profile settings and discovery. |
 | `POST /compose` | Interpret `text` as `literal` or `commands`, returning a captured literal message, preview, or built-in action. |
 | `POST /slash-actions` | Execute the action named by `previewId` without sending a model message. |
@@ -64,7 +69,7 @@ Context settings use the existing conditional profile settings route, with its d
 
 ## Remaining checkpoint work
 
-The [roadmap](../roadmap.md) records external permission integration, nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the upstream Pi additions policy. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
+The [roadmap](../roadmap.md) records nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the upstream Pi additions policy. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
 
 ## Code
 

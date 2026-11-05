@@ -10,6 +10,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Add-on | A planned feature that the user adds to Independum, with the same visibility and controls as a built-in. Its contract remains an open question in `docs/roadmap.md`. | "plugin", "extension", "custom", "module" |
 | Added fact | A fact that Independum adds to a request, with a model text and its own switch, such as the time of a message or the chat folder. | "injection", "environment prompt" |
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
+| Approval | A user's explicit decision that grants requested access once or saves it for the chosen scope within the permission policy. | "confirmation", "trust" |
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
 | Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
@@ -29,6 +30,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Model text | A text that Independum sends to the model, such as the system prompt, an added fact, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Session place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
+| Permission rule | A profile rule that allows, asks for, or denies filesystem or network authority. | "command whitelist", "trust rule" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
 | Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |
@@ -39,6 +41,8 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Reply | The answer to one prompt, which can span several model turns and their tool calls. | "response", "completion" |
 | Request | The data sent to a model for one turn. The Session history reconstructs requests from saved assistant messages, so it is not a complete log of network requests. | "HTTP log", "reply" |
+| Runtime baseline | The installation reads and platform access required to start an isolated tool worker, shown before acceptance. | "implicit tool access" |
+| Sandbox | The operating system boundary that restricts a tool worker and its descendants while they run. | "job", "approval" |
 | Session | Everything a chat runs with: how its agent is set up, its context, and the parts of its last request. Its place in the side panel shows all of it, and each part opens on demand. | "agent place", "context place", "inspector" |
 | Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
 | Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |

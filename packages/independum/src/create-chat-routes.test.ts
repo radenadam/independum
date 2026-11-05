@@ -29,7 +29,9 @@ import type {
 import { createChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { projectIdOf } from "./create-profile-store.ts";
 import { followEventStream } from "./follow-event-stream.ts";
+import { builtInPermissions } from "./permission-policy.ts";
 
 const directory = mkdtempSync(join(tmpdir(), "independum-test-"));
 const startFolder = resolve(mkdtempSync(join(tmpdir(), "independum-start-")));
@@ -59,7 +61,17 @@ await models.setRuntimeApiKey("faux-slow", "test-key");
 const json = { "content-type": "application/json" };
 
 async function createRoutes(folder: string): Promise<Hono> {
-  return createChatRoutes(await createChat({ models, directory, folder }), models);
+  const chat = await createChat({ models, directory, folder });
+  const projectId = projectIdOf(folder);
+  const reference = { scope: "user", id: "default" } as const;
+  // These tests exercise process behavior, and the native sandbox has its own enforcement tests.
+  await chat.changeSettings(
+    reference,
+    projectId,
+    { permissions: { ...builtInPermissions, mode: "unrestricted" } },
+    chat.profiles.profile(reference, projectId).revision,
+  );
+  return createChatRoutes(chat, models);
 }
 
 let routes = await createRoutes(startFolder);

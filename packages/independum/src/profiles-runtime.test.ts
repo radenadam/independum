@@ -1,7 +1,7 @@
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { addedFactTexts } from "./added-facts.ts";
 import type { ProfileBundle, ProfileReference } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
@@ -11,6 +11,157 @@ import { createTestFolder, createTestProject } from "./tools/create-test-folder.
 
 const folder = createTestFolder("profile-runtime");
 let nextId = 0;
+
+test("context controls keep saved literal filenames visible while a reply waits for approval", async () => {
+  const created = await setup();
+  const { chats, chat, faux, reference, projectId } = created;
+  await configureExternalCommand(created);
+  const context = chat.getResources().settings;
+  faux.setResponses([fauxAssistantMessage("Finished.")]);
+  try {
+    expect(await chat.send("Wait for approval", "literal", undefined, true)).toBe(true);
+    await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+    const names = [...context.instructions.names, "NOTES, CONTEXT.md"];
+    await chats.changeSettings(
+      reference,
+      projectId,
+      {
+        context: {
+          ...(chat.getAgent().contextSettings ?? context),
+          instructions: { ...context.instructions, names },
+        },
+      },
+      chats.profiles.profile(reference, projectId).revision,
+    );
+    expect(chat.getAgent().contextSettings?.instructions.names).toEqual(names);
+    expect(chats.profileAgent(reference, projectId).contextSettings?.instructions.names).toEqual(
+      names,
+    );
+    expect(
+      chats.profiles.profile(reference, projectId).document?.profile.settings?.context?.instructions
+        ?.names,
+    ).toEqual(names);
+  } finally {
+    await chats.stopAll();
+  }
+});
+
+test("project approvals survive restart and removing one blocks the next resource read", async () => {
+  const created = await setup();
+  const { chats, chat, reference, projectId, directory, project, models } = created;
+  const source = await configureExternalCommand(created);
+  const resource = chat.getResources().resources.find((entry) => entry.path === source);
+  const waiting = chat.requestResourcePermission(resource?.id ?? "");
+  const approval = chats.approvals.pending()[0];
+  expect(
+    await chats.approvals.resolve(approval?.id ?? "", approval?.revision ?? "", "allow", "project"),
+  ).toBe(200);
+  expect(await waiting).toBe(true);
+  expect(chat.getResources().resources.find((entry) => entry.path === source)?.source).toBe(
+    "External command.",
+  );
+  await chats.stopAll();
+  const restarted = await createChat({ models, directory, folder: project });
+  try {
+    const opened = await restarted.open(await restarted.first());
+    expect(opened?.getResources().resources.find((entry) => entry.path === source)?.source).toBe(
+      "External command.",
+    );
+    const policy = opened?.getAgent().permissions;
+    expect(policy?.savedApprovals).toHaveLength(1);
+    if (policy === undefined) {
+      throw new Error("The profile needs a permission policy.");
+    }
+    await restarted.changeSettings(
+      reference,
+      projectId,
+      { permissions: { ...policy, savedApprovals: [] } },
+      restarted.profiles.profile(reference, projectId).revision,
+    );
+    expect(opened?.getResources().resources.find((entry) => entry.path === source)?.state).toBe(
+      "needsPermission",
+    );
+    opened?.close();
+  } finally {
+    await restarted.stopAll();
+  }
+});
+
+test.each([true, false])(
+  "external context approval precedes the provider and records a decision of %s",
+  async (isAllowed) => {
+    const { chats, chat, faux, reference, projectId, directory } = await setup();
+    const skillDirectory = join(directory, "external", "review");
+    mkdirSync(skillDirectory, { recursive: true });
+    const source = join(skillDirectory, "SKILL.md");
+    writeFileSync(
+      source,
+      "---\nname: review\ndescription: Approved external metadata.\n---\nPrivate skill body.",
+    );
+    const settings = chat.getResources().settings;
+    await chats.changeSettings(
+      reference,
+      projectId,
+      { context: { ...settings, skills: { ...settings.skills, paths: [source] } } },
+      chats.profiles.profile(reference, projectId).revision,
+    );
+    let request = "";
+    faux.setResponses([
+      (...[context]) => {
+        request = JSON.stringify(context);
+        return fauxAssistantMessage("Finished.");
+      },
+    ]);
+    try {
+      expect(await chat.send("Use the available catalog", "literal", undefined, true)).toBe(true);
+      await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+      expect(faux.state.callCount).toBe(0);
+      expect(
+        chat.getResources().resources.find((resource) => resource.path === source)?.source,
+      ).toBe("");
+      const approval = chat.getState().contextApprovals?.[0];
+      expect(approval?.resources).toEqual([
+        { kind: "path", path: source, scope: "file", access: "read" },
+      ]);
+      expect(
+        await chats.approvals.resolve(
+          approval?.id ?? "",
+          approval?.revision ?? "",
+          isAllowed ? "allow" : "deny",
+        ),
+      ).toBe(200);
+      await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+      expect(faux.state.callCount).toBe(1);
+      expect(request.includes("Approved external metadata.")).toBe(isAllowed);
+      expect(request).not.toContain("Private skill body.");
+      expect(chats.approvals.pending()).toHaveLength(0);
+    } finally {
+      await chats.stopAll();
+    }
+  },
+);
+
+test("stopping context preparation cancels external approvals without calling the provider", async () => {
+  const { chats, chat, faux, directory, reference, projectId } = await setup();
+  const commands = join(directory, "external-commands");
+  mkdirSync(commands);
+  const settings = chat.getResources().settings;
+  await chats.changeSettings(
+    reference,
+    projectId,
+    { context: { ...settings, slashCommands: { ...settings.slashCommands, paths: [commands] } } },
+    chats.profiles.profile(reference, projectId).revision,
+  );
+  try {
+    expect(await chat.send("Start", "literal", undefined, true)).toBe(true);
+    await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+    await chat.stop();
+    expect(chats.approvals.pending()).toHaveLength(0);
+    expect(faux.state.callCount).toBe(0);
+  } finally {
+    await chats.stopAll();
+  }
+});
 
 test("resources enter one coherent request and their off switches remove historical copies", async () => {
   const { chats, chat, faux, reference, projectId, project } = await setup();
@@ -477,3 +628,22 @@ test("an empty system file removes the owned preamble and disabled tools from th
   expect(request).toContain('"name":"Write"');
   await chats.stopAll();
 });
+
+async function configureExternalCommand({
+  chats,
+  chat,
+  directory,
+  reference,
+  projectId,
+}: Awaited<ReturnType<typeof setup>>): Promise<string> {
+  const source = join(directory, "outside.md");
+  writeFileSync(source, "External command.");
+  const context = chat.getResources().settings;
+  await chats.changeSettings(
+    reference,
+    projectId,
+    { context: { ...context, slashCommands: { ...context.slashCommands, paths: [source] } } },
+    chats.profiles.profile(reference, projectId).revision,
+  );
+  return source;
+}

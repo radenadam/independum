@@ -5,6 +5,7 @@ import { describeShortcut, type Shortcut } from "./shortcut.ts";
 
 /** Properties of an icon button. */
 interface IconButtonProps {
+  hasVisibleLabel?: boolean;
   icon: IconName;
   label: string;
   onClick: () => void;
@@ -22,7 +23,7 @@ interface IconButtonProps {
 
 const iconSizes = { regular: 18, small: 16, tiny: 14 };
 
-/** Draws a button that shows only an icon, with a tooltip that names it and its shortcut. */
+/** Draws an icon action with a tooltip and an optional visible label. */
 export function IconButton({
   icon,
   label,
@@ -37,6 +38,7 @@ export function IconButton({
   isHighlighted = false,
   isBlended = false,
   isExpanded,
+  hasVisibleLabel = false,
 }: IconButtonProps): ReactElement {
   const classes = [
     styles.button,
@@ -54,11 +56,13 @@ export function IconButton({
       aria-label={label}
       aria-keyshortcuts={keyName}
       aria-expanded={isExpanded}
+      data-labeled={hasVisibleLabel || undefined}
       onClick={onClick}
     >
       <span key={icon} className={styles.glyph}>
         <Icon name={icon} size={iconSizes[size]} />
       </span>
+      {hasVisibleLabel ? <span>{label}</span> : null}
       <span className={`${styles.tip} ${styles[tipSide]} ${styles[tipAlign]}`} aria-hidden="true">
         {label}
         {keyName === undefined ? null : <span className={styles.key}>{keyName}</span>}

@@ -1,10 +1,19 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { join } from "node:path";
+import { commandEnvironment } from "../command-environment.ts";
+import {
+  launchSandbox,
+  type SandboxLaunch,
+  sandboxCommand,
+  sandboxRequest,
+} from "../create-sandbox.ts";
 import type { Shell } from "./find-shell.ts";
 import { openWindowsJob, type WindowsJob } from "./open-windows-job.ts";
 
 /** What to run, where, and what to do with its output as it comes. */
 export interface RunOptions {
+  sandbox?: SandboxLaunch | undefined;
+  environmentMode?: "minimal" | "inherit";
   shell: Shell;
   command: string;
   folder: string;
@@ -19,6 +28,7 @@ export interface RunOptions {
  * user, and whether a program that it started still held its output when the run ended.
  */
 export interface RunEnd {
+  sandboxWarnings?: string[];
   ending: "exited" | "timedOut" | "stopped";
   exitCode: number | null;
   signal: string | null;
@@ -52,20 +62,17 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
   if (signal?.aborted === true) {
     return { ending: "stopped", exitCode: null, signal: null, isOutputOpen: false, durationMs: 0 };
   }
-  const child = spawn(
-    shell.path,
-    shell.kind === "powershell"
-      ? [...powerShellArguments, `${powerShellPrefix}${command}`]
-      : ["-c", command],
-    {
-      cwd: folder,
-      env: { ...process.env, ...environment },
-      stdio: ["ignore", "pipe", "pipe"],
-      // On other systems the shell leads its own process group, so the whole tree can be ended.
-      detached: process.platform !== "win32",
-      windowsHide: true,
-    },
-  );
+  if (options.sandbox !== undefined) {
+    return runIsolated(options, options.sandbox);
+  }
+  const child = spawn(shell.path, shellArguments(shell, command), {
+    cwd: folder,
+    env: commandEnvironment(options.environmentMode ?? "inherit", environment),
+    stdio: ["ignore", "pipe", "pipe"],
+    // On other systems the shell leads its own process group, so the whole tree can be ended.
+    detached: process.platform !== "win32",
+    windowsHide: true,
+  });
   // On Windows a job holds the shell with every program that it starts, even one whose parent has
   // ended, which the tree of parents no longer reaches.
   const job =
@@ -108,6 +115,66 @@ export async function runCommand(options: RunOptions): Promise<RunEnd> {
     isOutputOpen,
     durationMs: Math.round(performance.now() - startedAt),
   };
+}
+
+function shellArguments(shell: Shell, command: string): string[] {
+  return shell.kind === "powershell"
+    ? [...powerShellArguments, `${powerShellPrefix}${command}`]
+    : ["-c", command];
+}
+
+async function runIsolated(options: RunOptions, sandbox: SandboxLaunch): Promise<RunEnd> {
+  const startedAt = performance.now();
+  const request = sandboxRequest(
+    sandbox,
+    sandboxCommand(options.shell.path, shellArguments(options.shell, options.command)),
+    options.folder,
+    commandEnvironment(options.environmentMode ?? "minimal", options.environment),
+  );
+  const process = await launchSandbox(request);
+  let ending: RunEnd["ending"] = "exited";
+  function stop(reason: RunEnd["ending"]): void {
+    ending = reason;
+    process.kill();
+  }
+  function onAbort(): void {
+    stop("stopped");
+  }
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  if (options.signal?.aborted === true) {
+    onAbort();
+  }
+  const timer =
+    options.timeoutMs === undefined
+      ? undefined
+      : setTimeout(() => stop("timedOut"), options.timeoutMs);
+  for (const stream of [process.standardOutput, process.standardError]) {
+    const decoder = new TextDecoder();
+    stream?.on("data", (chunk: Buffer) =>
+      options.onOutput(decoder.decode(chunk, { stream: true })),
+    );
+    stream?.on("end", () => {
+      const tail = decoder.decode();
+      if (tail !== "") {
+        options.onOutput(tail);
+      }
+    });
+  }
+  try {
+    const end = await process.wait();
+    return {
+      ending: end.timedOut ? "timedOut" : ending,
+      exitCode: end.exitCode,
+      signal: null,
+      isOutputOpen: false,
+      durationMs: Math.round(performance.now() - startedAt),
+      sandboxWarnings: [...process.warnings],
+    };
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onAbort);
+    process.dispose();
+  }
 }
 
 /** Returns a duration as the model reads it, such as 3.4 s. */
