@@ -106,7 +106,7 @@ export function ContextParts({
         onOpen={(key) => {
           const part = shown.find((each) => each.key === key);
           const request = requestOfEntry.get(entryOf(part) ?? "");
-          if (part !== undefined && part.group !== "messages") {
+          if (part !== undefined && (part.group !== "messages" || part.link.kind === "addedFact")) {
             open(part);
           } else if (request !== undefined) {
             openRequest(request);
@@ -236,5 +236,9 @@ function kindOf(part: ShownPart): FigureKind {
 
 // A message of the request names the saved entry it came from, which belongs to one request.
 function entryOf(part: ShownPart | undefined): string | undefined {
-  return part?.link.kind === "entry" ? part.link.id : undefined;
+  return part?.link.kind === "entry"
+    ? part.link.id
+    : part?.link.kind === "addedFact"
+      ? part.link.entryId
+      : undefined;
 }

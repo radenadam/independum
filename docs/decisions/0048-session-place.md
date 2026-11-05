@@ -1,6 +1,6 @@
 # Session place
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0052](0052-window-figure.md), which defines the window figure, by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies request storage, detection, and refresh timing, and by [decision 0054](0054-added-facts.md), which adds facts to the request and a cutoff field to the model detail
 - Date: 2026-11-04
 
 ## Context
@@ -18,6 +18,7 @@ The Agent place showed every text at full length, so it grew to thousands of pix
   - Pointing at a part, a request, or the latest compaction lights up its parts in the figure and its row.
 - The overview follows the rules of the tool cards and the settings. A section is a small heading and its content, and never a box of its own. Items of one line that belong together, such as the model and the chat, or the instructions and the tools, share one box with lines between them, like the logins. What opens is a tile, like the Parameters of a tool, and a request carries its number before its text, where a tool card shows its icon. A card is for one of many things of one kind, such as a tool, so the overview has none. The maintainer chose this in the first evaluation, because the card around the context said that it was one whole with nothing on screen to say why, and a long chat with compactions crowded its list of messages, while the request history waited in a view of its own.
 - A part opens its detail, such as the system prompt with its edit actions, or every tool in a card. A narrow panel shows the detail in place of the overview, with a way back to the same spot of the overview. A panel 720 pixels or wider shows it beside the overview, which the user resizes with a handle between them, and a close button closes it, so the overview fills the panel again. The overview and the detail scroll on their own, and a detail opens at its top.
+- Opening another chat closes the detail and clears the previous chat's data. A failed load shows why the context or the agent could not load.
 - A part that the user changed says so with the word edited, never with an icon, because a pencil reads as the action that edits.
 - What runs now, such as a background command or an agent, does not show here. It belongs where the user looks at the chat, such as the sidebar or the message box. Commands keep their own place.
 - The parts come from reading the request as data, so they work for every provider without code for one, as `packages/independum/src/summarize-request.ts` describes.

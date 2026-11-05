@@ -1,5 +1,6 @@
 import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import { AddedFactsDetail } from "./added-facts-detail.tsx";
 import {
   AddedByPiDetail,
   isToolChanged,
@@ -35,6 +36,7 @@ interface SessionPlaceProps {
   chat: ChatState;
   models: ModelSummary[] | undefined;
   context: ContextSummary | undefined;
+  contextFailure: string | undefined;
 }
 
 /**
@@ -58,9 +60,19 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", tim
  * request of its conversation. Each part opens to its detail, which edits the texts that the model
  * reads where Independum writes them.
  */
-export function SessionPlace({ chat, models, context }: SessionPlaceProps): ReactElement {
+export function SessionPlace({
+  chat,
+  models,
+  context,
+  contextFailure,
+}: SessionPlaceProps): ReactElement {
   const settings = useAgentSettings(chat);
   const [path, setPath] = useState<View[]>([]);
+  const [pathChatId, setPathChatId] = useState(chat.id);
+  if (pathChatId !== chat.id) {
+    setPathChatId(chat.id);
+    setPath([]);
+  }
   const frame = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [overviewWidth, setOverviewWidth] = useState(() => readColumnWidth("overview"));
@@ -98,6 +110,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
       chat={chat}
       models={models}
       context={context}
+      contextFailure={contextFailure}
       settings={settings}
       current={path[0]?.key}
       onOpen={(next) => setPath([next])}
@@ -117,6 +130,7 @@ export function SessionPlace({ chat, models, context }: SessionPlaceProps): Reac
           onClose={isSplit ? () => setPath([]) : undefined}
         />
         <PlaceFrame>
+          {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
           <Detail
             view={view}
             folder={chat.folder}
@@ -181,6 +195,7 @@ interface OverviewProps {
   chat: ChatState;
   models: ModelSummary[] | undefined;
   context: ContextSummary | undefined;
+  contextFailure: string | undefined;
   settings: AgentSettings;
   current: string | undefined;
   onOpen: (view: View) => void;
@@ -190,6 +205,7 @@ function Overview({
   chat,
   models,
   context,
+  contextFailure,
   settings,
   current,
   onOpen,
@@ -204,6 +220,7 @@ function Overview({
 
   return (
     <PlaceFrame>
+      {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
       <PlaceBox>
         <PlaceRow
           icon={
@@ -254,7 +271,7 @@ function Overview({
       <PlaceSection heading="Context">
         <PlaceNote>{basisOf(context)}</PlaceNote>
         {context === undefined ? (
-          <PlaceNote>Loading the request.</PlaceNote>
+          <PlaceNote>{contextFailure ?? "Loading the request."}</PlaceNote>
         ) : (
           <ContextParts
             parts={context.requestParts}
@@ -288,7 +305,22 @@ function Detail({ view, folder, context, models, settings }: DetailProps): React
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
-      return <SystemPromptDetail settings={settings} />;
+      return (
+        <>
+          <SystemPromptDetail settings={settings} />
+          <AddedFactsDetail settings={settings} />
+          <PiTextsDetail settings={settings} />
+        </>
+      );
+    case "addedFact":
+      return (
+        <AddedFactsDetail
+          key={`${link.id}:${view.text}`}
+          settings={settings}
+          selectedId={link.id}
+          sentText={view.text}
+        />
+      );
     case "addedByPi":
       return (
         <>
@@ -370,6 +402,7 @@ function Detail({ view, folder, context, models, settings }: DetailProps): React
     case "model":
       return (
         <ModelDetail
+          settings={settings}
           model={models?.find(
             (each) => each.providerId === context?.provider && each.id === context?.model,
           )}
@@ -403,6 +436,12 @@ function Request({ title, request, context, models }: RequestProps): ReactElemen
   const entryOf = (id: string): string =>
     JSON.stringify(context.entries.find((entry) => entry.id === id)?.data ?? null, null, 2);
   const isNewest = context.requests.at(-1)?.id === request.id;
+  function sentOf(id: string): string | undefined {
+    const parts = isNewest
+      ? context.requestParts.filter((part) => part.link.kind === "entry" && part.link.id === id)
+      : [];
+    return parts.length === 0 ? undefined : parts.map((part) => part.text).join("\n");
+  }
   return (
     <>
       <PlaceSection heading={title}>
@@ -417,7 +456,15 @@ function Request({ title, request, context, models }: RequestProps): ReactElemen
         ))}
         {request.inputs.map((input) => (
           <Disclosure key={input.entryId} label={<OneLineTitle text={summaryOf(input)} />}>
-            <CodeWell code={entryOf(input.entryId)} copyLabel="Copy entry" />
+            <CodeWell
+              code={sentOf(input.entryId) ?? entryOf(input.entryId)}
+              copyLabel="Copy input"
+            />
+            {sentOf(input.entryId) === undefined ? null : (
+              <Disclosure label="As Pi saved it">
+                <CodeWell code={entryOf(input.entryId)} copyLabel="Copy entry" />
+              </Disclosure>
+            )}
           </Disclosure>
         ))}
       </PlaceSection>

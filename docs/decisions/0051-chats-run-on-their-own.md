@@ -1,6 +1,6 @@
 # Chats run on their own
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes independent execution from the open chat shared by browsers
 - Date: 2026-11-04
 
 ## Context

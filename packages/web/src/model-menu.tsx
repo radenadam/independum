@@ -12,7 +12,7 @@ interface ModelMenuProps {
   current: ChatState["model"];
   thinking: ChatState["thinking"];
   onChoose: (model: ModelSummary) => void;
-  onChooseThinking: (level: string) => void;
+  onChooseThinking: (level: string) => Promise<void>;
   onManageLogins: () => void;
 }
 

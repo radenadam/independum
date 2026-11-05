@@ -178,17 +178,36 @@ export async function openChat(id: string): Promise<void> {
 
 /** Moves a command of the reply to the background, and the reply goes on while it runs. */
 export async function moveCommandToBackground(id: string): Promise<void> {
-  await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/background`, { method: "POST" });
+  const response = await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/background`, {
+    method: "POST",
+  });
+  if (!response.ok && !hasEnded(response)) {
+    throw new Error("The command could not move to the background.");
+  }
 }
 
 /** Stops one running command, and the reply goes on with what it printed. */
 export async function stopCommand(id: string): Promise<void> {
-  await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/stop`, { method: "POST" });
+  const response = await requestApi(`/api/chat/commands/${encodeURIComponent(id)}/stop`, {
+    method: "POST",
+  });
+  if (!response.ok && !hasEnded(response)) {
+    throw new Error("The command could not be stopped.");
+  }
+}
+
+// A command that ends on its own just before the user stops it or moves it to the background no
+// longer runs, which the server answers with Not Found, so the action needs no notice.
+function hasEnded(response: Response): boolean {
+  return response.status === 404;
 }
 
 /** Stops the reply in progress. */
 export async function stopReply(): Promise<void> {
-  await requestApi("/api/chat/stop", { method: "POST" });
+  const response = await requestApi("/api/chat/stop", { method: "POST" });
+  if (!response.ok) {
+    throw new Error("The reply could not be stopped.");
+  }
 }
 
 /** Starts an empty chat with the same model, in the folder of the open chat or in another project. */

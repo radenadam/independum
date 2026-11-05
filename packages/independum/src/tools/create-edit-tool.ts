@@ -457,9 +457,6 @@ function viewOf(text: string): TextView {
   for (let index = 0; index < parts.length; index += 2) {
     const line = parts[index] ?? "";
     const lineBreak = parts[index + 1];
-    if (index > 0 && line === "" && lineBreak === undefined) {
-      break;
-    }
     lineStarts.push(view.length);
     windowsBreaksBefore.push(windowsBreaks);
     view += line;

@@ -84,7 +84,7 @@ export function WorkingScreen({
   const [replyingIds, setReplyingIds] = useState<string[]>([]);
   const [endedReply, setEndedReply] = useState<EndedReply | undefined>();
   // The context meter and the Session place show the same summary, so it loads once here.
-  const context = useChatData(fetchContext, chat);
+  const { data: context, failure: contextFailure } = useChatData(fetchContext, chat);
 
   const loadModels = useCallback((): void => {
     fetchModels().then(setModels, () => setModels([]));
@@ -102,7 +102,9 @@ export function WorkingScreen({
           setEndedReply({ chatId: event.chatId, reply: event.reply });
         }
         applyEvent(event, setChat);
-        if (event.type === "state" || (event.type === "message" && event.message.role !== "user")) {
+        if (event.type === "state") {
+          setReply(event.state.reply);
+        } else if (event.type === "message" && event.message.role !== "user") {
           setReply([]);
         } else if (event.type === "replyDelta" || event.type === "replyPart") {
           setReply((current) => updateReply(current, event));
@@ -213,17 +215,19 @@ export function WorkingScreen({
     }
   }
 
-  // A command that ends on its own just before the user stops it needs no notice.
   const ends = chat === undefined ? {} : endsOf(chat.messages, toolRuns);
   const tools: ToolCalls = {
     runs: toolRuns,
     ends,
     shown: shownStep,
     onMove: (id) => {
-      moveCommandToBackground(id).catch(() => undefined);
+      change(
+        moveCommandToBackground(id),
+        "The command could not move to the background. Try again.",
+      );
     },
     onStop: (id) => {
-      stopCommand(id).catch(() => undefined);
+      change(stopCommand(id), "The command could not be stopped. Try again.");
     },
   };
   const commands = chat === undefined ? [] : commandsOf(chat.messages, reply);
@@ -265,6 +269,16 @@ export function WorkingScreen({
       await sendMessage(text);
     } catch (error) {
       setNotice("The message was not sent. Try again.");
+      throw error;
+    }
+  }
+
+  async function chooseEffort(level: string): Promise<void> {
+    setNotice(undefined);
+    try {
+      await chooseThinking(level);
+    } catch (error) {
+      setNotice("That thinking level is not available. Choose another one.");
       throw error;
     }
   }
@@ -376,14 +390,10 @@ export function WorkingScreen({
               isEmpty={isEmpty}
               isReplying={chat.isReplying}
               onSend={send}
-              onStop={stopReply}
+              onStop={() => change(stopReply(), "The reply could not be stopped. Try again.")}
               onOpenModels={loadModels}
               onChooseModel={choose}
-              onChooseThinking={(level) => {
-                chooseThinking(level).catch(() =>
-                  setNotice("That thinking level is not available. Choose another one."),
-                );
-              }}
+              onChooseThinking={chooseEffort}
               onChooseFolder={startNew}
               onManageLogins={openLogins}
               onOpenContext={openContext}
@@ -399,6 +409,7 @@ export function WorkingScreen({
           isOpen={isPanelOpen}
           chat={chat}
           context={context}
+          contextFailure={contextFailure}
           commands={commands}
           tools={tools}
           models={models}
@@ -474,15 +485,18 @@ function commandsOf(messages: ChatMessage[], reply: MessagePart[]): ToolCallPart
   );
 }
 
-// The background commands that still run come with the chat, so their steps keep their timers
-// after a reload.
+// The tools and background commands that still run come with the chat, so their steps keep their
+// output and timers after a reload.
 function runsOf(state: ChatState): Record<string, ToolRun> {
-  return Object.fromEntries(
-    state.backgroundCommands.map((command) => [
-      command.toolCallId,
-      { startedAt: command.startedAt, details: command.progress },
-    ]),
-  );
+  return {
+    ...state.toolRuns,
+    ...Object.fromEntries(
+      state.backgroundCommands.map((command) => [
+        command.toolCallId,
+        { startedAt: command.startedAt, details: command.progress },
+      ]),
+    ),
+  };
 }
 
 function withEnd(runs: Record<string, ToolRun>, end: CommandEnd): Record<string, ToolRun> {

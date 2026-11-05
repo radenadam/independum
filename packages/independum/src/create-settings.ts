@@ -1,10 +1,11 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import type { EditedText, OutputLimits, Settings, SettingsChange } from "./api-types.ts";
 
 /** The settings of the user, which last in a file across restarts. */
 export interface SettingsStore {
   get(): Settings;
-  change(change: Partial<Settings>): Promise<Settings>;
+  change(change: Partial<Settings> & Pick<SettingsChange, "tool">): Promise<Settings>;
 }
 
 const lineRange = { min: 10, max: 1_000_000 };
@@ -15,6 +16,8 @@ const handBackRange = { min: 5, max: 86_400 };
 export const builtInSettings: Settings = {
   shell: null,
   disabledTools: [],
+  disabledFacts: [],
+  knowledgeCutoffs: {},
   outputLimits: { maxLines: 2000, maxBytes: 50 * 1024 },
   handBackSeconds: 120,
   environment: {},
@@ -35,6 +38,8 @@ export async function createSettings(path: string): Promise<SettingsStore> {
   let settings: Settings = {
     shell: change.shell ?? builtInSettings.shell,
     disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
+    disabledFacts: change.disabledFacts ?? builtInSettings.disabledFacts,
+    knowledgeCutoffs: change.knowledgeCutoffs ?? builtInSettings.knowledgeCutoffs,
     outputLimits: change.outputLimits ?? builtInSettings.outputLimits,
     handBackSeconds: change.handBackSeconds ?? builtInSettings.handBackSeconds,
     environment: change.environment ?? builtInSettings.environment,
@@ -43,8 +48,18 @@ export async function createSettings(path: string): Promise<SettingsStore> {
   return {
     get: () => settings,
     async change(next) {
-      settings = { ...settings, ...next };
-      await writeFile(path, `${JSON.stringify(settings, null, 2)}\n`);
+      const { tool, ...rest } = next;
+      settings = { ...settings, ...rest };
+      if (tool !== undefined) {
+        const disabled = settings.disabledTools.filter((name) => name !== tool.name);
+        settings = {
+          ...settings,
+          disabledTools: tool.isEnabled ? disabled : [...disabled, tool.name],
+        };
+      }
+      await withFileMutationQueue(path, () =>
+        writeFile(path, `${JSON.stringify(settings, null, 2)}\n`),
+      );
       return settings;
     },
   };
@@ -77,12 +92,50 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
       isValid = false;
     }
   }
+  if ("tool" in fields) {
+    const { tool } = fields;
+    if (
+      typeof tool === "object" &&
+      tool !== null &&
+      "name" in tool &&
+      typeof tool.name === "string" &&
+      "isEnabled" in tool &&
+      typeof tool.isEnabled === "boolean"
+    ) {
+      change.tool = { name: tool.name, isEnabled: tool.isEnabled };
+    } else {
+      isValid = false;
+    }
+  }
   if ("outputLimits" in fields) {
     const limits = outputLimitsOf(fields.outputLimits);
     if (limits === undefined) {
       isValid = false;
     } else {
       change.outputLimits = limits;
+    }
+  }
+  if ("disabledFacts" in fields) {
+    const { disabledFacts } = fields;
+    if (Array.isArray(disabledFacts) && disabledFacts.every((id) => typeof id === "string")) {
+      change.disabledFacts = disabledFacts;
+    } else {
+      isValid = false;
+    }
+  }
+  if ("knowledgeCutoffs" in fields) {
+    const providers = recordOf(
+      fields.knowledgeCutoffs,
+      (_provider, models): models is Record<string, string> =>
+        recordOf(
+          models,
+          (_model, cutoff): cutoff is string => typeof cutoff === "string" && cutoff.length > 0,
+        ) !== undefined,
+    );
+    if (providers === undefined) {
+      isValid = false;
+    } else {
+      change.knowledgeCutoffs = providers;
     }
   }
   if ("handBackSeconds" in fields) {

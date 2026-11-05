@@ -187,6 +187,8 @@ export interface ChatState {
   thinking: { level: string; levels: string[] } | null;
   messages: ChatMessage[];
   isReplying: boolean;
+  reply: MessagePart[];
+  toolRuns: Record<string, { startedAt: number; details: unknown }>;
   backgroundCommands: RunningCommand[];
 }
 
@@ -197,6 +199,8 @@ export interface ChatState {
 export interface AgentSummary {
   systemPrompt: string;
   addedByPi: string;
+  addedFacts: AddedFactSummary[];
+  knowledgeCutoffs: Record<string, Record<string, string>>;
   tools: ToolSummary[];
   shells: ShellChoice[];
   chosenShell: ShellKind | null;
@@ -296,6 +300,8 @@ export interface OutputLimits {
 export interface Settings {
   shell: ShellKind | null;
   disabledTools: string[];
+  disabledFacts: string[];
+  knowledgeCutoffs: Record<string, Record<string, string>>;
   outputLimits: OutputLimits;
   handBackSeconds: number;
   environment: Record<string, string>;
@@ -307,6 +313,7 @@ export interface Settings {
  * text with null.
  */
 export type SettingsChange = Partial<Omit<Settings, "texts">> & {
+  tool?: { name: string; isEnabled: boolean };
   texts?: Record<string, string | null>;
 };
 
@@ -325,10 +332,19 @@ export type PartSource = "you" | "model" | "tool" | "independum" | "pi" | "other
 /** What a part of a request is, so the place that shows it can open what it came from. */
 export type PartLink =
   | { kind: "systemPrompt" | "addedByPi" | "effort" }
+  | { kind: "addedFact"; id: string; entryId?: string }
   | { kind: "piText"; id: string }
   | { kind: "tool"; name: string }
   | { kind: "entry"; id: string }
   | { kind: "other" };
+
+/** A fact that Independum adds to a request, with its text and switch. */
+export interface AddedFactSummary {
+  id: string;
+  label: string;
+  text: string | null;
+  isEnabled: boolean;
+}
 
 /** A group of the parts of a request, in the order a model reads them. */
 export type RequestGroup = "instructions" | "tools" | "messages";

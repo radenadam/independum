@@ -226,8 +226,11 @@ async function readExisting(
   let bytes: Buffer;
   try {
     bytes = await readFile(file);
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
   }
   return { bytes, decoded: decodeBytes(bytes) };
 }

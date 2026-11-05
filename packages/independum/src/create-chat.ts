@@ -13,6 +13,13 @@ import {
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import {
+  addedFactPrompt,
+  addedFactTexts,
+  addMessageTimes,
+  messageTimeText,
+  summarizeAddedFacts,
+} from "./added-facts.ts";
 import type {
   AgentSummary,
   ArchivedChatSummary,
@@ -92,6 +99,7 @@ interface ChatRun {
   thinkingStarts: Map<number, number>;
   thinkingTimes: Map<number, number>;
   lastCallUpdate: number;
+  toolRuns: ChatState["toolRuns"];
 }
 
 // Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
@@ -100,20 +108,19 @@ const thinkingTimesType = "independum-thinking-times";
 // The note that wakes the agent when one of its background commands ends.
 const commandEndType = "independum-command-end";
 
-// The prompt says only where the agent is and where it works, and leaves how to work to the model
-// and the descriptions of its tools.
+// The harness identity and folder belong to added facts, so their switches control every copy.
 const systemPromptText = defineText({
   id: "systemPrompt",
   group: "System prompt",
   section: "prompt",
   label: "Every request",
-  builtIn:
-    "You are the agent in Independum, an agent harness, and you work on the computer of the user, in the project folder below.",
+  builtIn: "You are an agent working on the computer of the user.",
   slots: {},
 });
 // Every model text. The Session place groups them, and keeps this order within each group.
 const allTexts: ModelText[] = [
   systemPromptText,
+  ...addedFactTexts,
   ...readTextList,
   ...fingerprintTextList,
   ...fileTextList,
@@ -211,6 +218,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // goes on with its reply and its background commands. The open chat is one of the runs.
   const runs = new Map<string, ChatRun>();
   const stoppingChats = new Set<string>();
+  const pendingOpens = new Map<string, Promise<boolean>>();
   let current: ChatRun | undefined;
 
   function emit(event: ChatEvent): void {
@@ -230,6 +238,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     const session = current?.session;
     const model = current?.isModelChosen === true ? session?.model : undefined;
     const savedTimes = readThinkingTimes(current);
+    const streaming =
+      current?.isReplying === true ? session?.agent.state.streamingMessage : undefined;
     return {
       id: session?.sessionId ?? null,
       folder: current?.folder ?? startFolder,
@@ -241,6 +251,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
       messages: chatMessagesOf(session?.messages ?? [], savedTimes),
       isReplying: current?.isReplying ?? false,
+      reply:
+        streaming?.role === "assistant" && current !== undefined
+          ? partsOf(streaming.content, timesOf(current, streaming))
+          : [],
+      toolRuns: { ...current?.toolRuns },
       backgroundCommands: session === undefined ? [] : background.listRunning(session.sessionId),
     };
   }
@@ -374,28 +389,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     }
   }
 
-  // A chat that opens in the middle of a reply shows the reply so far, part by part at its place in
-  // the message, before the rest streams in.
-  function showReplySoFar(run: ChatRun): void {
-    const message = run.isReplying ? run.session.agent.state.streamingMessage : undefined;
-    if (message?.role !== "assistant") {
-      return;
-    }
-    for (const [index, block] of message.content.entries()) {
-      const part: MessagePart | undefined =
-        block.type === "text"
-          ? { type: "text", text: block.text }
-          : block.type === "thinking"
-            ? thinkingPartOf(block, run.thinkingTimes.get(index) ?? null)
-            : block.type === "toolCall"
-              ? toolCallPartOf(block)
-              : undefined;
-      if (part !== undefined) {
-        emit({ type: "replyPart", index, part });
-      }
-    }
-  }
-
   function timesOf(run: ChatRun, message: AgentMessage): (number | null)[] {
     return message.role === "assistant"
       ? message.content.map((_, index) => run.thinkingTimes.get(index) ?? null)
@@ -525,13 +518,21 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       } else if (event.type === "turn_end") {
         saveThinkingTimes(run, event.message);
       } else if (event.type === "tool_execution_start") {
+        run.toolRuns[event.toolCallId] = { startedAt: Date.now(), details: null };
         emitFor(run, { type: "toolStart", id: event.toolCallId });
       } else if (event.type === "tool_execution_update") {
+        const details = event.partialResult?.details ?? null;
+        run.toolRuns[event.toolCallId] = {
+          startedAt: run.toolRuns[event.toolCallId]?.startedAt ?? Date.now(),
+          details,
+        };
         emitFor(run, {
           type: "toolProgress",
           id: event.toolCallId,
-          details: event.partialResult?.details ?? null,
+          details,
         });
+      } else if (event.type === "tool_execution_end") {
+        delete run.toolRuns[event.toolCallId];
       } else if (event.type === "message_end" && event.message.role === "toolResult") {
         emitFor(run, {
           type: "toolResult",
@@ -557,6 +558,15 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     return openSession(SessionManager.open(saved.path, sessionDirectory), folderOf(saved), true);
   }
 
+  async function loadSaved(id: string): Promise<boolean> {
+    const saved = await findSaved(id);
+    if (saved === undefined) {
+      return false;
+    }
+    await openSaved(saved);
+    return true;
+  }
+
   function openNew(newFolder: string, model?: Model): Promise<void> {
     return openSession(SessionManager.create(newFolder, sessionDirectory), newFolder, false, model);
   }
@@ -569,7 +579,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       releaseIfIdle(left);
     }
     emit({ type: "state", state: getState() });
-    showReplySoFar(run);
     emitProjects();
   }
 
@@ -616,9 +625,22 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
             for (const tool of ownTools) {
               pi.registerTool(tool);
             }
-            pi.on("before_agent_start", (event) => {
+            pi.on("before_agent_start", (event, context) => {
               event.systemPromptOptions.customPrompt = texts.get(systemPromptText);
+              const facts = addedFactPrompt({
+                settings: settings.get(),
+                folder: sessionFolder,
+                model: context.model,
+              });
+              return {
+                systemPrompt: [texts.get(systemPromptText), facts]
+                  .filter((text) => text !== "")
+                  .join("\n\n"),
+              };
             });
+            pi.on("context", (event) => ({
+              messages: addMessageTimes(event.messages, settings.get()),
+            }));
             pi.on("cache_warming_decision", (event) => {
               isWarming = event.action === "warm";
             });
@@ -668,6 +690,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       thinkingStarts: new Map(),
       thinkingTimes: new Map(),
       lastCallUpdate: 0,
+      toolRuns: {},
     };
     hold.run = run;
     session.setActiveToolsByName(activeToolNames(run));
@@ -676,16 +699,19 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     showRun(run);
   }
 
-  // Pi builds the system prompt from Independum's prompt and then adds its own sections, such as
-  // the folder, so everything after Independum's prompt is what Pi adds. Until the next turn, Pi
-  // may still start from the prompt that the chat opened with.
+  // The exact prompt override keeps Pi's folder section out of requests, so its folder fact has
+  // the same switch and edit controls as the other facts.
   function getAgent(): AgentSummary {
     const prompt = texts.get(systemPromptText);
-    const fullPrompt = current?.session.systemPrompt ?? prompt;
-    const start = [prompt, systemPromptText.builtIn].find((each) => fullPrompt.startsWith(each));
     return {
       systemPrompt: prompt,
-      addedByPi: start === undefined ? fullPrompt : fullPrompt.slice(start.length).trim(),
+      addedByPi: "",
+      addedFacts: summarizeAddedFacts({
+        settings: settings.get(),
+        folder: current?.folder ?? startFolder,
+        model: current?.session.model,
+      }),
+      knowledgeCutoffs: settings.get().knowledgeCutoffs,
       tools: ownToolInfos(current).map(
         (tool): ToolSummary => ({
           name: tool.name,
@@ -741,6 +767,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // refused whole. Pi reads the tools again when Independum registers them anew, so a new shell or
   // an edited text reaches the model with the next turn of every chat that runs.
   async function changeSettings(change: SettingsChange): Promise<AgentSummary | undefined> {
+    if (change.disabledFacts?.some((id) => !addedFactTexts.some((text) => text.id === id))) {
+      return undefined;
+    }
     const { texts: textChange, ...rest } = change;
     const edited =
       textChange === undefined
@@ -834,6 +863,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           : summarizeRequest(lastRequest, {
               systemPrompt: agent.systemPrompt,
               addedByPi: agent.addedByPi,
+              addedFacts: knownFacts(agent, branch),
               tools: agent.tools,
               entries: branch.flatMap((entry) =>
                 entry.type === "message" || entry.type === "custom_message"
@@ -868,6 +898,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     return {
       systemPrompt: agent.systemPrompt,
       addedByPi: agent.addedByPi,
+      addedFacts: knownFacts(agent, branch).filter((fact) =>
+        agent.addedFacts.some((each) => each.id === fact.id && each.isEnabled),
+      ),
       tools: agent.tools.filter((tool) => tool.isEnabled),
       entries: messages.map((message, index) => ({
         id:
@@ -876,6 +909,36 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         message,
       })),
     };
+  }
+
+  function knownFacts(
+    agent: AgentSummary,
+    branch: SessionEntry[],
+  ): NonNullable<KnownTexts["addedFacts"]> {
+    return [
+      ...agent.addedFacts
+        .filter((fact) => fact.id !== "facts.messageTime" && fact.text !== null)
+        .map((fact) => ({
+          id: fact.id,
+          label: fact.label,
+          text: fact.text ?? "",
+          group: "instructions" as const,
+        })),
+      ...branch.flatMap((entry) =>
+        entry.type === "message" &&
+        (entry.message.role === "user" || entry.message.role === "toolResult")
+          ? [
+              {
+                id: "facts.messageTime",
+                label: "Message time",
+                text: messageTimeText(entry.message.timestamp, settings.get()),
+                group: "messages" as const,
+                entryId: entry.id,
+              },
+            ]
+          : [],
+      ),
+    ];
   }
 
   const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
@@ -913,17 +976,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       return true;
     },
     async chooseModel(providerId, modelId) {
+      const run = current;
       const model = models.getModel(providerId, modelId);
-      if (
-        current === undefined ||
-        model === undefined ||
-        !models.hasConfiguredAuth(model.provider)
-      ) {
+      if (run === undefined || model === undefined || !models.hasConfiguredAuth(model.provider)) {
         return false;
       }
-      await current.session.setModel(model);
-      current.isModelChosen = true;
-      emit({ type: "state", state: getState() });
+      await run.session.setModel(model);
+      run.isModelChosen = true;
+      emitFor(run, { type: "state", state: getState() });
       return true;
     },
     chooseThinking(level) {
@@ -1016,12 +1076,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         showRun(run);
         return true;
       }
-      const saved = await findSaved(id);
-      if (saved === undefined) {
-        return false;
+      let pending = pendingOpens.get(id);
+      if (pending === undefined) {
+        pending = loadSaved(id);
+        pendingOpens.set(id, pending);
       }
-      await openSaved(saved);
-      return true;
+      try {
+        return await pending;
+      } finally {
+        pendingOpens.delete(id);
+      }
     },
     async stop() {
       await current?.session.abort();

@@ -17,7 +17,10 @@ Every decision about what the model gets follows these, from the system prompt t
 
 - `packages/independum`: the `independum` command and the local server.
 - `packages/web`: the browser UI.
+- `docs/standard.md`: how the maintainer judges work, and what an agent decides or asks.
+- `docs/design.md`: how Independum looks, and what each look means.
 - `docs/glossary.md`: the names of Independum concepts.
+- `docs/product`: what each product area does today, with its code and limits.
 - `docs/icons.md`: how every icon is drawn.
 - `docs/decisions`: one record per decision, with its reasons.
 - `docs/roadmap.md`: current work, next work, and open questions.
@@ -36,14 +39,15 @@ Every decision about what the model gets follows these, from the system prompt t
 
 ## Workflow
 
-1. Read `docs/roadmap.md` and the decision records that touch the task.
+1. Read `docs/roadmap.md`, `docs/standard.md`, and the decision records that touch the task. Before work that a user sees, also read `docs/design.md`.
 2. If the task depends on an open question in the roadmap, ask the maintainer first, then record the answer as a decision.
 3. Update `main` with `git switch main` and `git pull`, then create a branch as described in [Commits and pull requests](#commits-and-pull-requests).
-4. Make the change, following the rules below.
-5. Leave nothing behind, as described in [No leftovers](#no-leftovers).
-6. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
-7. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
-8. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
+4. Before changing an area, read its page in `docs/product`. Update the page in the same change when the change makes it wrong.
+5. Make the change, following the rules below.
+6. Leave nothing behind, as described in [No leftovers](#no-leftovers).
+7. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
+8. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
+9. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
 
 GitHub rejects direct pushes to `main`, so every change goes through a pull request.
 
@@ -58,7 +62,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 ## Consistency
 
 - Match the existing code. When unsure, find the closest existing example and copy its shape.
-- When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way.
+- When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way. A choice that a user sees for the first time is for the maintainer to make, as `docs/standard.md` describes.
 - Each thing has one way to do it. A change that replaces a pattern migrates every use of the old one, so no half-migration remains.
 - A rule that a tool can check becomes a check in `pnpm check`. See decision 0004.
 - A rule that blocks good work without protecting privacy or security gets changed in the same change, never worked around. When a rule that protects privacy or security blocks the work, tell the maintainer, who weighs it.
@@ -81,9 +85,9 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 - Files and folders are kebab-case, including React components, for example `chat-panel.tsx`.
 - A file that exports one function or component is named after it. For example, `run-check.ts` exports `runCheck`.
-- Types, interfaces, classes, and React components are PascalCase. Everything else is camelCase, constants included.
+- Types, interfaces, classes, and React components are PascalCase. Everything else is camelCase, constants included. Fixed names in external APIs and the model-facing parameters of Edit, `old_string`, `new_string`, and `replace_all`, keep their required spelling.
 - Acronyms are words, for example `httpServer` and `HtmlView`.
-- Use full words, such as `context`, `request`, `response`, `error`, and `message`. The only abbreviations are `id`, `url`, `api`, `ui`, and `html`.
+- Use full words, such as `context`, `request`, `response`, `error`, and `message`. The only abbreviations are `id`, `url`, `api`, `ui`, and `html`. Unit suffixes such as `Ms` in `timeoutMs` and `workdir` in Shell are exceptions because they name the unit or a fixed tool parameter.
 - Booleans read as yes-or-no questions, for example `isEnabled` and `hasTools`.
 - Names for Independum concepts come from `docs/glossary.md`. A change that introduces a concept adds it there.
 - Vague names such as `utils`, `helpers`, `common`, `shared`, `misc`, and `lib` are not allowed. Name things after what they hold.
@@ -114,7 +118,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 ## Security
 
-- Every API route sits under `/api/`, where the server requires the access token and accepts requests only from its own address and origin. See decision 0005.
+- Every API route sits under `/api/`, where the server requires the access token and its own address, and rejects an origin other than its own when the request supplies one. See decision 0005.
 - The server listens on `127.0.0.1` only until network access and phone pairing exist.
 - Never read, print, copy, or edit `~/.independum/auth.json`, `~/.independum/models.json`, or any `.env` file. They hold credentials, and their contents must stay out of every conversation.
 - Read chats in `~/.independum/sessions` whenever the work needs them, and test with real models through the app, which saves its chats there like any other. Never change a chat file by hand, because Pi owns its format.
@@ -150,6 +154,7 @@ To review a Pi update with the maintainer:
 - What applies to every tool, such as output that is cut, stays out of the descriptions, because the harness says so in the result when it happens.
 - A setting or a model text counts as edited only while its value differs from its built-in value, like a hash that stays the same while the content does. Choosing the built-in value again saves no edit.
 - Every text that a tool sends to the model is a model text: its description, the descriptions of its parameters, and what its results and notes say under each condition. The user can then edit it and reset it from the day the tool ships. See decision 0033.
+- Every fact that Independum adds to a request has its own switch and model text. A model's knowledge cutoff comes only from the value that the user sets for that provider and model. See decision 0054.
 
 ## UI
 
@@ -167,8 +172,8 @@ To review a Pi update with the maintainer:
 - Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`.
 - The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
 - The focus ring reaches 5 pixels outside a control. A container that clips keeps that much room inside its edges, or a control too small for the ring shows its focus another way, such as the color it takes when pointed at.
-- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration.
-- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion.
+- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration. Selected, active, and error text and the thinking mark may use `--signal`, and text on a filled signal button uses `--on-signal`.
+- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion. JavaScript motion checks `prefersReducedMotion()` instead of a media query.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
 - A class that composes a class of another file never sets a property that the other sets, because the page can load the other file after it, and then the other wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
 - `pnpm check` enforces the token, motion, and composes rules through `scripts/check-styles.ts`.
@@ -179,7 +184,7 @@ To review a Pi update with the maintainer:
 - A comment explains what the code cannot: why a choice was made, an outside constraint, or a trap.
 - A comment is one or more complete sentences in plain present tense and neutral voice. It starts with a capital letter, ends with a period, and never uses "we", "you", or "I".
 - Comments go on their own line, above the code they explain.
-- Line comments use `//`. Block comments are only for doc comments.
+- Line comments use `//`. Block comments are only for doc comments. Stylesheets use block comments because CSS has no line comments.
 - A doc comment is one sentence. It starts with a verb for a function and a noun phrase for a type. Doc comments have no tags such as `@param`, because types already document parameters and return values.
 - Never write commented-out code, change history such as "Changed X to Y", restatements of the code, or decorative separators.
 - `pnpm check` enforces the format, and `scripts/check-comments.ts` holds the exact rules.

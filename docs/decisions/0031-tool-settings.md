@@ -1,6 +1,6 @@
 # Tool settings
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which shows the tool cards in the Session place
+- Status: accepted, and amended by [decision 0033](0033-model-texts.md), which makes tool texts editable, and by [decision 0048](0048-session-place.md), which shows the tool cards in the Session place
 - Date: 2026-10-28
 
 ## Context
@@ -18,5 +18,6 @@ The Shell tool needed a choice of shell and a limit on the output that reaches t
 ## Consequences
 
 - `PUT /api/settings` changes settings and answers with the agent as it now is, and `GET /api/chat/agent` describes the tools, the shells, and the limits.
+- A tool switch changes only its named tool, so overlapping requests keep each choice. Settings saves run in the file queue, so an older save never overwrites a newer one.
 - The appearance settings and the choice of shell share `ChoiceGroup`.
 - Whether some settings also belong to a project stays open in the roadmap.

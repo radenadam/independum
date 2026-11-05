@@ -1,6 +1,6 @@
 # Background commands
 
-- Status: accepted, and amended by [decision 0038](0038-background-start-check.md), which returns a background call after two seconds
+- Status: accepted, and amended by [decision 0038](0038-background-start-check.md), which returns a background call after two seconds, by [decision 0039](0039-check-command.md), which suppresses a completion note while a check waits, by [decision 0040](0040-note-envelope.md), which wraps notes with their source, and by [decision 0051](0051-chats-run-on-their-own.md), which wakes chats that are not open
 - Date: 2026-10-28
 
 ## Context

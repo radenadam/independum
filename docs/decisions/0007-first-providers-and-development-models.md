@@ -1,6 +1,6 @@
 # First providers and development models
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0008](0008-login-and-first-launch.md) and [decision 0011](0011-logins-run-as-sessions.md), which offer every provider that Pi supports
 - Date: 2026-10-24
 
 ## Context

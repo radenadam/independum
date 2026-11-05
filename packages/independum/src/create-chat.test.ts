@@ -1,29 +1,31 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall } from "@earendil-works/pi-ai";
 import {
   type AgentSession,
+  type AgentSessionEvent,
   createAgentSession,
+  DefaultResourceLoader,
   type ModelRuntime,
+  type SessionInfo,
+  SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { ChatEvent } from "./api-types.ts";
+import { createChatRoutes } from "./chat-routes.ts";
 import { createChat } from "./create-chat.ts";
 import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
+import { followEventStream } from "./follow-event-stream.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 import { type RunEnd, type RunOptions, runCommand } from "./tools/run-command.ts";
 
 vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
-  class DefaultResourceLoader {
-    async reload(): Promise<void> {}
-  }
-  return {
-    ...(await importOriginal<typeof import("@earendil-works/pi-coding-agent")>()),
-    createAgentSession: vi.fn(),
-    // biome-ignore lint/style/useNamingConvention: Pi exports this class in PascalCase.
-    DefaultResourceLoader,
-  };
+  const original = await importOriginal<typeof import("@earendil-works/pi-coding-agent")>();
+  return { ...original, createAgentSession: vi.fn() };
 });
+
 vi.mock("./create-saved-chats.ts", () => ({ createSavedChats: vi.fn() }));
 vi.mock("./tools/create-shell-tool.ts", async (importOriginal) => {
   const original = await importOriginal<typeof import("./tools/create-shell-tool.ts")>();
@@ -38,7 +40,26 @@ vi.mock("./tools/run-command.ts", async (importOriginal) => ({
   runCommand: vi.fn(),
 }));
 
-const folder = createTestFolder("chat-lifetimes");
+interface SessionDouble {
+  session: AgentSession;
+  emit(event: AgentSessionEvent): void;
+  setStreaming(message: AgentSession["agent"]["state"]["streamingMessage"]): void;
+}
+
+const cwd = process.cwd();
+const folder = createTestFolder("chat");
+const directory = join(folder, "state");
+const model = { provider: "faux", id: "chosen" };
+const models = {
+  getModel: () => model,
+  hasConfiguredAuth: () => true,
+} as unknown as ModelRuntime;
+let sessions: SessionDouble[];
+let saved: SessionInfo[];
+let managers: Map<string, SessionManager>;
+let savedChats: SavedChats;
+let calls: Map<string, Promise<unknown>[]>;
+
 const stopped: RunEnd = {
   ending: "stopped",
   exitCode: null,
@@ -47,9 +68,77 @@ const stopped: RunEnd = {
   durationMs: 10,
 };
 
-async function setup() {
-  const saved: Awaited<ReturnType<SavedChats["list"]>> = [];
-  const savedChats: SavedChats = {
+function createSession(manager: SessionManager): SessionDouble {
+  const listeners = new Set<(event: AgentSessionEvent) => void>();
+  const state: { streamingMessage: AgentSession["agent"]["state"]["streamingMessage"] } = {
+    streamingMessage: undefined,
+  };
+  const session = {
+    sessionId: manager.getSessionId(),
+    sessionManager: manager,
+    model,
+    messages: [],
+    agent: { state },
+    thinkingLevel: "off",
+    supportsThinking: () => true,
+    getAvailableThinkingLevels: () => ["off", "low"],
+    setThinkingLevel: vi.fn(),
+    setModel: vi.fn().mockResolvedValue(undefined),
+    setActiveToolsByName: vi.fn(),
+    getAllTools: () => [],
+    abort: vi.fn(async () => {
+      await Promise.all(calls.get(manager.getSessionId()) ?? []);
+    }),
+    sendCustomMessage: vi.fn(async () => undefined),
+    dispose: vi.fn(),
+    subscribe(listener: (event: AgentSessionEvent) => void) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  } as unknown as AgentSession;
+  return {
+    session,
+    emit(event) {
+      for (const listener of listeners) {
+        listener(event);
+      }
+    },
+    setStreaming(message) {
+      state.streamingMessage = message;
+    },
+  };
+}
+
+function savedChat(manager: SessionManager = SessionManager.inMemory(cwd)): SessionInfo {
+  const info: SessionInfo = {
+    id: manager.getSessionId(),
+    path: join(directory, `${manager.getSessionId()}.jsonl`),
+    cwd,
+    created: new Date(),
+    modified: new Date(),
+    firstMessage: "A saved chat",
+    allMessagesText: "A saved chat",
+    messageCount: 1,
+  };
+  saved.push(info);
+  managers.set(info.path, manager);
+  return info;
+}
+
+function sessionAt(index: number): SessionDouble {
+  const session = sessions.at(index);
+  if (session === undefined) {
+    throw new Error("The session does not exist.");
+  }
+  return session;
+}
+
+beforeEach(() => {
+  sessions = [];
+  saved = [];
+  managers = new Map();
+  calls = new Map();
+  savedChats = {
     list: async () => saved,
     listArchived: async () => [],
     isPinned: () => false,
@@ -59,58 +148,164 @@ async function setup() {
     remove: vi.fn(async () => undefined),
   };
   vi.mocked(createSavedChats).mockResolvedValue(savedChats);
-  const sessions: AgentSession[] = [];
-  const calls = new Map<string, Promise<unknown>[]>();
-  vi.mocked(createAgentSession).mockImplementation(async (options) => {
-    const manager = options?.sessionManager;
+  vi.spyOn(DefaultResourceLoader.prototype, "reload").mockResolvedValue(undefined);
+  vi.spyOn(SessionManager, "create").mockImplementation(() => SessionManager.inMemory(cwd));
+  vi.spyOn(SessionManager, "open").mockImplementation((path) => {
+    const manager = managers.get(path);
     if (manager === undefined) {
-      throw new Error("The session manager is missing.");
+      throw new Error("The saved session does not exist.");
     }
-    const session = {
-      sessionId: manager.getSessionId(),
-      sessionManager: manager,
-      messages: [],
-      getAllTools: () => [],
-      setActiveToolsByName: () => undefined,
-      subscribe: () => () => undefined,
-      abort: vi.fn(async () => {
-        await Promise.all(calls.get(manager.getSessionId()) ?? []);
-      }),
-      dispose: vi.fn(),
-      sendCustomMessage: vi.fn(async () => undefined),
-    } as unknown as AgentSession;
-    sessions.push(session);
-    saved.push({
-      id: session.sessionId,
-      path: manager.getSessionFile() ?? "",
-      cwd: folder,
-      created: new Date(),
-      modified: new Date(),
-      messageCount: 1,
-      firstMessage: "A chat.",
-      allMessagesText: "A chat.",
-    });
-    return { session } as Awaited<ReturnType<typeof createAgentSession>>;
+    return manager;
   });
+  vi.mocked(createAgentSession)
+    .mockReset()
+    .mockImplementation(async (options) => {
+      const double = createSession(options?.sessionManager ?? SessionManager.inMemory(cwd));
+      sessions.push(double);
+      return { session: double.session } as Awaited<ReturnType<typeof createAgentSession>>;
+    });
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+test("concurrent opens share one saved session and keep its reply tracked", async () => {
+  const chat = await createChat({ models, directory, cwd });
+  const info = savedChat();
+  const loading = Promise.withResolvers<void>();
+  const loaded = Promise.withResolvers<void>();
+  vi.mocked(DefaultResourceLoader.prototype.reload).mockImplementationOnce(() => {
+    loading.resolve();
+    return loaded.promise;
+  });
+  const first = chat.open(info.id);
+  const second = chat.open(info.id);
+  await loading.promise;
+  loaded.resolve();
+  expect(await Promise.all([first, second])).toEqual([true, true]);
+  const active = sessionAt(-1);
+  active.emit({ type: "agent_start" });
+  expect(chat.getReplyingIds()).toEqual([info.id]);
+  expect(createAgentSession).toHaveBeenCalledTimes(2);
+  expect(active.session.dispose).not.toHaveBeenCalled();
+});
+
+test("a failed saved open can be retried", async () => {
+  const chat = await createChat({ models, directory, cwd });
+  const info = savedChat();
+  vi.mocked(createAgentSession).mockRejectedValueOnce(new Error("The session cannot load."));
+  await expect(chat.open(info.id)).rejects.toThrow("The session cannot load.");
+  expect(await chat.open(info.id)).toBe(true);
+  expect(chat.getState().id).toBe(info.id);
+});
+
+test("a model choice stays with its chat when another chat opens before it finishes", async () => {
+  const chat = await createChat({ models, directory, cwd });
+  const original = sessionAt(0);
+  original.emit({ type: "agent_start" });
+  const chosen = Promise.withResolvers<void>();
+  vi.mocked(original.session.setModel).mockReturnValueOnce(chosen.promise);
+  const choosing = chat.chooseModel("faux", "chosen");
+  expect(await chat.startNew()).toBe(true);
+  chosen.resolve();
+  expect(await choosing).toBe(true);
+  expect(chat.getState().model).toBeNull();
+  expect(await chat.open(original.session.sessionId)).toBe(true);
+  expect(chat.getState().model).toEqual({ providerId: "faux", id: "chosen" });
+});
+
+test("reconnecting and changing effort restore every part of the reply so far", async () => {
+  const chat = await createChat({ models, directory, cwd });
+  await chat.chooseModel("faux", "chosen");
+  const active = sessionAt(0);
+  active.emit({ type: "agent_start" });
+  active.setStreaming(
+    fauxAssistantMessage([
+      fauxThinking("The thought so far."),
+      fauxText("The reply so far."),
+      fauxToolCall("Shell", { command: "echo hello" }, { id: "call" }),
+    ]),
+  );
+  const events = followEventStream<ChatEvent>(
+    await createChatRoutes(chat, models).request("/chat/events"),
+  );
+  const first = await events.next();
+  await events.close();
+  const expected = [
+    { type: "thinking", text: "The thought so far.", isRedacted: false, durationMs: null },
+    { type: "text", text: "The reply so far." },
+    { type: "toolCall", id: "call", name: "Shell", input: { command: "echo hello" }, result: null },
+  ];
+  expect(first.type === "state" ? first.state : undefined).toHaveProperty("reply", expected);
+  const changes: ChatEvent[] = [];
+  chat.subscribe((event) => changes.push(event));
+  expect(chat.chooseThinking("low")).toBe(true);
+  expect(changes.find((event) => event.type === "state")).toHaveProperty("state.reply", expected);
+  active.setStreaming(undefined);
+  expect(chat.getState()).toHaveProperty("reply", []);
+});
+
+test("a foreground tool keeps its start and latest progress while its chat is closed", async () => {
+  const chat = await createChat({ models, directory, cwd });
+  const active = sessionAt(0);
+  active.emit({ type: "agent_start" });
+  active.emit({ type: "tool_execution_start", toolCallId: "call", toolName: "Shell", args: {} });
+  const started = chat.getState();
+  expect(started).toHaveProperty("toolRuns.call", {
+    startedAt: expect.any(Number),
+    details: null,
+  });
+  expect(await chat.startNew()).toBe(true);
+  expect(chat.getState()).toHaveProperty("toolRuns", {});
+  expect(await chat.open(active.session.sessionId)).toBe(true);
+  expect(chat.getState().toolRuns).toEqual(started.toolRuns);
+  expect(await chat.startNew()).toBe(true);
+  const progress = { shell: "Test shell", output: "Ready", lastOutputAt: Date.now() };
+  active.emit({
+    type: "tool_execution_update",
+    toolCallId: "call",
+    toolName: "Shell",
+    args: {},
+    partialResult: { content: [], details: progress },
+  });
+  expect(await chat.open(active.session.sessionId)).toBe(true);
+  expect(chat.getState()).toHaveProperty("toolRuns.call", {
+    ...started.toolRuns.call,
+    details: progress,
+  });
+  active.emit({
+    type: "tool_execution_end",
+    toolCallId: "call",
+    toolName: "Shell",
+    result: { content: [], details: {} },
+    isError: false,
+  });
+  expect(chat.getState()).toHaveProperty("toolRuns", {});
+  expect(started.toolRuns.call?.details).toBeNull();
+});
+
+async function setup() {
   const commands: { options: RunOptions; finish: () => void }[] = [];
   vi.mocked(runCommand).mockImplementation((options) => {
     const running = Promise.withResolvers<RunEnd>();
     commands.push({ options, finish: () => running.resolve(stopped) });
     return running.promise;
   });
-  const chat = await createChat({
-    models: {} as ModelRuntime,
-    directory: join(folder, randomUUID()),
-    cwd: folder,
-  });
+  const chat = await createChat({ models, directory: join(folder, randomUUID()), cwd });
   const tool = vi.mocked(createShellTool).mock.results.at(-1)?.value as ToolDefinition;
   function start(id: string): ReturnType<ToolDefinition["execute"]> {
+    const chatId = chat.getState().id as string;
+    const active = sessions.find((double) => double.session.sessionId === chatId);
+    if (active === undefined) {
+      throw new Error("The command session does not exist.");
+    }
+    if (!saved.some((info) => info.id === chatId)) {
+      savedChat(active.session.sessionManager);
+    }
     const context = {
-      cwd: folder,
-      sessionManager: { getSessionId: () => chat.getState().id },
+      cwd,
+      sessionManager: { getSessionId: () => chatId },
     } as unknown as Parameters<ToolDefinition["execute"]>[4];
     const running = tool.execute(id, { command: "long command" }, undefined, undefined, context);
-    const chatId = chat.getState().id as string;
     calls.set(chatId, [...(calls.get(chatId) ?? []), running]);
     return running;
   }
@@ -146,7 +341,7 @@ test.each([
       expect(savedChats.remove).not.toHaveBeenCalled();
       commands[0]?.finish();
       expect(await leaving).toBe(true);
-      expect(sessions[0]?.sendCustomMessage).not.toHaveBeenCalled();
+      expect(sessions[0]?.session.sendCustomMessage).not.toHaveBeenCalled();
       await chat.open(otherId);
       expect(chat.getState().backgroundCommands).toHaveLength(1);
     } finally {
@@ -179,8 +374,8 @@ test("shutdown stops foreground and background commands across chats and waits f
     await foreground;
     await stopping;
     for (const session of sessions) {
-      expect(session.abort).toHaveBeenCalled();
-      expect(session.sendCustomMessage).not.toHaveBeenCalled();
+      expect(session.session.abort).toHaveBeenCalled();
+      expect(session.session.sendCustomMessage).not.toHaveBeenCalled();
     }
   } finally {
     for (const command of commands) {
