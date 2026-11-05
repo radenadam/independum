@@ -339,7 +339,12 @@ function openWindow(limits: OutputLimits, firstLine: number): OutputWindow {
       }
       const only = end[0];
       if (end.length === 1 && only !== undefined && endSize > endBytes) {
-        end[0] = only.slice(-endBytes);
+        const bytes = Buffer.from(only);
+        let offset = Math.max(0, bytes.length - endBytes + 1);
+        while (offset < bytes.length && ((bytes[offset] ?? 0) & 0xc0) === 0x80) {
+          offset += 1;
+        }
+        end[0] = bytes.subarray(offset).toString("utf8");
         endSize = Buffer.byteLength(end[0]) + 1;
         isEndPartial = true;
       }

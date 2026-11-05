@@ -985,10 +985,28 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       }
     }
     const branch = session.sessionManager.getBranch() ?? [];
-    const replies = branch.flatMap((entry) =>
-      entry.type === "message" && entry.message.role === "assistant" ? [entry.message.usage] : [],
-    );
-    const lastReply = replies.at(-1);
+    let lastUse: ContextSummary["lastUse"] = null;
+    for (const entry of branch.toReversed()) {
+      if (entry.type === "message" && entry.message.role === "assistant") {
+        const { usage } = entry.message;
+        lastUse ??= {
+          tokens: { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 },
+          cost: 0,
+        };
+        lastUse.tokens.input += usage.input;
+        lastUse.tokens.output += usage.output;
+        lastUse.tokens.reasoning += usage.reasoning ?? 0;
+        lastUse.tokens.cacheRead += usage.cacheRead;
+        lastUse.tokens.cacheWrite += usage.cacheWrite;
+        lastUse.cost += usage.cost.total;
+      } else if (
+        lastUse !== null &&
+        (entry.type === "custom_message" ||
+          (entry.type === "message" && entry.message.role === "user"))
+      ) {
+        break;
+      }
+    }
     const agent = getAgent(run);
     return {
       chatId: session.sessionId ?? null,
@@ -1008,19 +1026,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         cacheWrite: stats.tokens.cacheWrite ?? 0,
       },
       cost: stats.cost ?? 0,
-      lastUse:
-        lastReply === undefined
-          ? null
-          : {
-              tokens: {
-                input: lastReply.input,
-                output: lastReply.output,
-                reasoning: lastReply.reasoning ?? 0,
-                cacheRead: lastReply.cacheRead,
-                cacheWrite: lastReply.cacheWrite,
-              },
-              cost: lastReply.cost.total,
-            },
+      lastUse,
       userMessages: stats.userMessages ?? 0,
       assistantMessages: stats.assistantMessages ?? 0,
       toolCalls: stats.toolCalls ?? 0,
@@ -1031,7 +1037,13 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         type: entry.type,
         role: entry.type === "message" ? entry.message.role : null,
         timestamp: entry.timestamp,
-        data: entry,
+        data:
+          entry.type === "message" && entry.message.role === "toolResult"
+            ? {
+                ...entry,
+                message: { ...entry.message, details: withoutFingerprint(entry.message.details) },
+              }
+            : entry,
       })),
       lastRequest,
       requestParts:

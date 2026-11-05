@@ -352,7 +352,7 @@ export type SettingsChange = Partial<Omit<Settings, "texts" | "modelOverrides" |
   texts?: Record<string, string | null>;
 };
 
-/** One entry of the open chat as Pi saves it, as the Session place lists it. */
+/** One saved entry of the open chat as the Session place lists it, without file fingerprints. */
 export interface ContextEntry {
   id: string;
   type: string;
@@ -441,7 +441,7 @@ export interface RequestSummary {
   isSummarized: boolean;
 }
 
-/** The tokens of one request or of a whole chat. */
+/** The tokens of a request, a reply, or a whole chat. */
 export interface TokenCounts {
   input: number;
   output: number;

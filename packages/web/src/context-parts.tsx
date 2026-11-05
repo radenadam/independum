@@ -75,6 +75,10 @@ export function ContextParts({
   const [pointed, setPointed] = useState<Pointed | undefined>();
   const shown = shownPartsOf(parts, changedTools, isSystemPromptEdited);
   const setup = shown.filter((part) => part.group !== "messages");
+  const latestCompaction = [
+    ...requests.flatMap((request) => request.changes),
+    ...pendingChanges,
+  ].findLast((change) => change.kind === "compaction");
   // The provider counts the whole request exactly, so each part shows its share of that count,
   // estimated from its length.
   const estimated = shown.reduce((sum, part) => sum + part.tokens, 0);
@@ -108,7 +112,12 @@ export function ContextParts({
         onOpen={(key) => {
           const part = shown.find((each) => each.key === key);
           const request = requestOfEntry.get(entryOf(part) ?? "");
-          if (part !== undefined && (part.group !== "messages" || part.link.kind === "addedFact")) {
+          if (part !== undefined && kindOf(part) === "summary" && latestCompaction !== undefined) {
+            openCompaction(latestCompaction);
+          } else if (
+            part !== undefined &&
+            (part.group !== "messages" || part.link.kind === "addedFact")
+          ) {
             open(part);
           } else if (request !== undefined) {
             openRequest(request);
@@ -145,6 +154,7 @@ export function ContextParts({
           requests={requests}
           pendingChanges={pendingChanges}
           models={models}
+          latestCompactionId={latestCompaction?.entryId}
           litRequest={litRequest}
           isSummaryLit={pointed?.kind === "summary"}
           current={current}

@@ -88,7 +88,8 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
               choices: shown.map((provider) => ({
                 key: provider.id,
                 name: provider.name,
-                detail: provider.login === null ? methodsOf(provider) : "connected",
+                detail:
+                  provider.login === null ? methodsOf(provider) : `connected, ${loginOf(provider)}`,
                 logo: <ProviderLogo providerId={provider.id} size={18} keepsSpace />,
                 isCurrent: false,
                 onChoose: () => setView({ kind: "provider", providerId: provider.id }),
@@ -105,17 +106,16 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
   return (
     <div className={styles.section}>
       <p className={styles.note}>
-        Independum reaches models through these logins. Pi keeps them on this machine, in
+        Independum reaches models through these logins. Pi keeps saved logins on this machine, in
         ~/.independum.
       </p>
       <BoxedList
+        hasLongNames
         entries={logins.map((provider) => ({
           key: provider.id,
           name: provider.name,
-          detail:
-            provider.login?.method === "account"
-              ? (provider.account?.label ?? "Account")
-              : "API key",
+          detail: loginOf(provider),
+          tooltip: `${provider.name}, ${loginOf(provider)}`,
           leading: <ProviderLogo providerId={provider.id} size={20} keepsSpace />,
           trailing: (
             <>
@@ -133,6 +133,13 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
       <TextButton icon="add" label="Add a login" onClick={() => setView({ kind: "providers" })} />
     </div>
   );
+}
+
+function loginOf(provider: ProviderSummary): string {
+  const method =
+    provider.login?.method === "account" ? (provider.account?.label ?? "Account") : "API key";
+  const source = provider.login?.source;
+  return source === undefined || source === null ? method : `${method}, ${source}`;
 }
 
 function methodsOf(provider: ProviderSummary): string {
