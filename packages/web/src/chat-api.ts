@@ -210,6 +210,14 @@ export async function stopReply(): Promise<void> {
   }
 }
 
+/** Starts compaction of the open chat through Pi. */
+export async function compactChat(): Promise<void> {
+  const response = await requestApi("/api/chat/compact", { method: "POST" });
+  if (!response.ok) {
+    throw new Error("The chat could not start compaction.");
+  }
+}
+
 /** Starts an empty chat with the same model, in the folder of the open chat or in another project. */
 export async function startNewChat(folder?: string): Promise<void> {
   const response = await requestApi("/api/chat/new", {

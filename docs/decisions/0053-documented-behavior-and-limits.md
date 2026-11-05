@@ -1,6 +1,6 @@
 # Documented behavior and limits
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0055](0055-model-settings-and-compaction.md), which adds model and compaction controls and refreshes context when settings or compaction change
 - Date: 2026-11-05
 
 ## Context

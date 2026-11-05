@@ -189,6 +189,9 @@ export interface ChatState {
   isReplying: boolean;
   reply: MessagePart[];
   toolRuns: Record<string, { startedAt: number; details: unknown }>;
+  isCompacting: boolean;
+  compactionError: string | null;
+  contextVersion: number;
   backgroundCommands: RunningCommand[];
 }
 
@@ -197,6 +200,9 @@ export interface ChatState {
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
+  modelSettings: ModelSettingsSummary | null;
+  compaction: CompactionSettings;
+  builtInCompaction: CompactionSettings;
   systemPrompt: string;
   addedByPi: string;
   addedFacts: AddedFactSummary[];
@@ -296,8 +302,35 @@ export interface OutputLimits {
   maxBytes: number;
 }
 
+/** The limits and temperature that the user sets for one model in every chat. */
+export interface ModelOverrides {
+  contextWindow?: number;
+  maxOutput?: number;
+  temperature?: number;
+}
+
+/** Changes to the overrides of one model, with null resetting one field. */
+export type ModelOverrideChange = Partial<Record<keyof ModelOverrides, number | null>>;
+
+/** The settings of one model, with the values that Pi knows before any edit. */
+export interface ModelSettingsSummary {
+  providerId: string;
+  modelId: string;
+  builtIn: { contextWindow: number; maxOutput: number; temperature: number | null };
+  overrides: ModelOverrides;
+}
+
+/** How Pi compacts every chat, with the room it keeps free and the newest tokens it keeps whole. */
+export interface CompactionSettings {
+  isEnabled: boolean;
+  reserveTokens: number;
+  keepRecentTokens: number;
+}
+
 /** The settings of the user other than logins, which hold for every chat. */
 export interface Settings {
+  modelOverrides: Record<string, Record<string, ModelOverrides>>;
+  compaction: CompactionSettings;
   shell: ShellKind | null;
   disabledTools: string[];
   disabledFacts: string[];
@@ -312,8 +345,10 @@ export interface Settings {
  * A change to the settings. Each model text in it gets a new text, or goes back to its built-in
  * text with null.
  */
-export type SettingsChange = Partial<Omit<Settings, "texts">> & {
+export type SettingsChange = Partial<Omit<Settings, "texts" | "modelOverrides" | "compaction">> & {
   tool?: { name: string; isEnabled: boolean };
+  modelOverrides?: Record<string, Record<string, ModelOverrideChange | null>>;
+  compaction?: Partial<CompactionSettings>;
   texts?: Record<string, string | null>;
 };
 
@@ -466,6 +501,10 @@ export interface ProjectSummary {
 /** One change to the chat or to the projects, as the UI receives it. */
 export type ChatEvent =
   | { type: "state"; state: ChatState }
+  | {
+      type: "contextChanged";
+      state: Pick<ChatState, "contextVersion" | "isCompacting" | "compactionError">;
+    }
   | { type: "projects"; projects: ProjectSummary[] }
   | { type: "message"; message: ChatMessage }
   | { type: "replyDelta"; index: number; partType: "text" | "thinking"; delta: string }

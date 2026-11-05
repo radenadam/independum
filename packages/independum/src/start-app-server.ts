@@ -56,7 +56,7 @@ export async function startAppServer(options: {
     return { url: `http://127.0.0.1:${address.port}/#token=${token}`, close };
 
     async function close(): Promise<void> {
-      chat.stopAll();
+      await chat.stopAll();
       await vite.close();
       httpServer.closeAllConnections();
       await new Promise<void>((resolve, reject) => {

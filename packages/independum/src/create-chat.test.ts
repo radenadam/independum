@@ -9,6 +9,7 @@ import {
   type ModelRuntime,
   type SessionInfo,
   SessionManager,
+  SettingsManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -68,7 +69,7 @@ const stopped: RunEnd = {
   durationMs: 10,
 };
 
-function createSession(manager: SessionManager): SessionDouble {
+function createSession(manager: SessionManager, settingsManager: SettingsManager): SessionDouble {
   const listeners = new Set<(event: AgentSessionEvent) => void>();
   const state: { streamingMessage: AgentSession["agent"]["state"]["streamingMessage"] } = {
     streamingMessage: undefined,
@@ -76,6 +77,7 @@ function createSession(manager: SessionManager): SessionDouble {
   const session = {
     sessionId: manager.getSessionId(),
     sessionManager: manager,
+    settingsManager,
     model,
     messages: [],
     agent: { state },
@@ -90,6 +92,7 @@ function createSession(manager: SessionManager): SessionDouble {
       await Promise.all(calls.get(manager.getSessionId()) ?? []);
     }),
     sendCustomMessage: vi.fn(async () => undefined),
+    waitForIdle: vi.fn(async () => undefined),
     dispose: vi.fn(),
     subscribe(listener: (event: AgentSessionEvent) => void) {
       listeners.add(listener);
@@ -160,7 +163,10 @@ beforeEach(() => {
   vi.mocked(createAgentSession)
     .mockReset()
     .mockImplementation(async (options) => {
-      const double = createSession(options?.sessionManager ?? SessionManager.inMemory(cwd));
+      const double = createSession(
+        options?.sessionManager ?? SessionManager.inMemory(cwd),
+        options?.settingsManager ?? SettingsManager.inMemory(),
+      );
       sessions.push(double);
       return { session: double.session } as Awaited<ReturnType<typeof createAgentSession>>;
     });
@@ -404,3 +410,71 @@ test("shutdown waits for a command that moves to the background while it stops",
     await stopping;
   }
 });
+
+test("a background note retains its chat through compaction and delivery", async () => {
+  const { chat, commands, start } = await setup();
+  const active = sessionAt(0);
+  const idle = Promise.withResolvers<void>();
+  const delivered = Promise.withResolvers<void>();
+  vi.mocked(active.session.waitForIdle).mockReturnValueOnce(idle.promise);
+  vi.mocked(active.session.sendCustomMessage).mockReturnValueOnce(delivered.promise);
+  const running = start("pending-note");
+  chat.moveToBackground("pending-note");
+  await running;
+  active.emit({ type: "compaction_start", reason: "manual" });
+  await chat.startNew();
+  try {
+    commands[0]?.finish();
+    await expect.poll(() => vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1);
+    expect(active.session.sendCustomMessage).not.toHaveBeenCalled();
+    active.emit({
+      type: "compaction_end",
+      reason: "manual",
+      result: undefined,
+      aborted: false,
+      willRetry: false,
+    });
+    expect(active.session.dispose).not.toHaveBeenCalled();
+    idle.resolve();
+    await expect.poll(() => vi.mocked(active.session.sendCustomMessage).mock.calls.length).toBe(1);
+    expect(active.session.dispose).not.toHaveBeenCalled();
+    delivered.resolve();
+    await expect.poll(() => vi.mocked(active.session.dispose).mock.calls.length).toBe(1);
+  } finally {
+    idle.resolve();
+    delivered.resolve();
+    await chat.stopAll();
+  }
+});
+
+test.each(["archive", "delete", "shutdown"])(
+  "%s discards a background note waiting for manual compaction",
+  async (action) => {
+    const { chat, commands, start } = await setup();
+    const active = sessionAt(0);
+    const idle = Promise.withResolvers<void>();
+    vi.mocked(active.session.waitForIdle).mockReturnValueOnce(idle.promise);
+    const running = start("stopping-note");
+    chat.moveToBackground("stopping-note");
+    await running;
+    active.emit({ type: "compaction_start", reason: "manual" });
+    try {
+      commands[0]?.finish();
+      await expect.poll(() => vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1);
+      vi.mocked(active.session.abort).mockImplementationOnce(async () => {
+        idle.resolve();
+        await idle.promise;
+      });
+      const id = active.session.sessionId;
+      if (action === "shutdown") {
+        await chat.stopAll();
+      } else {
+        expect(await (action === "archive" ? chat.archive(id, true) : chat.remove(id))).toBe(true);
+      }
+      expect(active.session.sendCustomMessage).not.toHaveBeenCalled();
+    } finally {
+      idle.resolve();
+      await chat.stopAll();
+    }
+  },
+);

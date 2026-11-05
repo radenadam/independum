@@ -6,7 +6,7 @@ import type {
   RequestPart,
   RequestSummary,
 } from "independum/api-types";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import type { BadgeProps } from "./badge.tsx";
 import styles from "./context-parts.module.css";
 import { type CompactionChange, Conversation, type ConversationPoint } from "./conversation.tsx";
@@ -34,6 +34,7 @@ interface ShownPart {
 
 /** Properties of the parts of the context. */
 interface ContextPartsProps {
+  compactionRow: ReactNode;
   parts: RequestPart[];
   total: number | undefined;
   windowSize: number | null;
@@ -58,6 +59,7 @@ const numberFormat = new Intl.NumberFormat();
  * latest compaction lights up its parts in the figure and its row under it.
  */
 export function ContextParts({
+  compactionRow,
   parts,
   total,
   windowSize,
@@ -136,6 +138,7 @@ export function ContextParts({
           </PlaceBox>
         </div>
       )}
+      {compactionRow}
       <div className={styles.group}>
         <p className={styles.heading}>Conversation</p>
         <Conversation

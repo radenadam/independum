@@ -35,3 +35,25 @@ test("a late result from another chat cannot replace the current data", async ()
   await Promise.resolve();
   expect(view.render().data).toBe("Context of B");
 });
+
+test("settings and compaction refresh data without accepting an older request", async () => {
+  const pending = Promise.withResolvers<string>();
+  let chat = { id: "a", isReplying: false, model: null, contextVersion: 0 } as ChatState;
+  const load = vi
+    .fn<() => Promise<string>>()
+    .mockResolvedValueOnce("Original context")
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValueOnce("Compacted context");
+  const view = renderHook(() => useChatData(load, chat));
+  view.render();
+  await vi.waitFor(() => expect(view.render().data).toBe("Original context"));
+  chat = { ...chat, contextVersion: 1 };
+  expect(view.render().data).toBeUndefined();
+  chat = { ...chat, contextVersion: 2 };
+  view.render();
+  await vi.waitFor(() => expect(view.render().data).toBe("Compacted context"));
+  pending.resolve("Context before compaction");
+  await Promise.resolve();
+  expect(view.render().data).toBe("Compacted context");
+  expect(load).toHaveBeenCalledTimes(3);
+});

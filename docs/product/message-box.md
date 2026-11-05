@@ -22,7 +22,7 @@ Thinking effort sits below the list when Pi says the selected model supports it.
 
 The ring shows Pi's estimate of used context against the model's context window. Its tooltip gives the share and token counts, or says the count is not known. Clicking opens Session. It can count the last assistant output too, so it may exceed the last request shown in the [Session figure](side-panel.md#session-figure).
 
-The meter and Session share one fetched context summary. It refreshes when the chat id, model id, or replying state changes. It does not refresh on every model turn, effort change, or compaction event. Failed refreshes leave the previous data in place.
+The meter and Session share one fetched context summary. It refreshes when the chat id, provider or model id, replying state, or context version changes. Settings and compaction events change that version. It does not refresh on every model turn or effort change. The window includes the [model override](settings.md#model-settings-and-compaction). Failed refreshes leave the previous data in place.
 
 ## Code
 

@@ -1,7 +1,8 @@
-import type { ModelPrices, ModelSummary } from "independum/api-types";
+import type { ModelOverrides, ModelPrices, ModelSummary } from "independum/api-types";
 import type { ReactElement } from "react";
 import { type FactRow, FactTable } from "./fact-table.tsx";
 import { KnowledgeCutoffField } from "./knowledge-cutoff-field.tsx";
+import { NumberSetting } from "./number-setting.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { countOf, tokenRows } from "./usage-table.tsx";
@@ -37,6 +38,19 @@ export function ModelDetail({ model, settings }: ModelDetailProps): ReactElement
     return <PlaceNote>No model chosen yet.</PlaceNote>;
   }
   const tiers = model.priceTiers.toSorted((first, second) => first.inputAbove - second.inputAbove);
+  const selected = settings.agent?.modelSettings;
+  const modelSettings =
+    selected?.providerId === model.providerId && selected.modelId === model.id
+      ? selected
+      : undefined;
+  function change(key: keyof ModelOverrides, value: number | null): void {
+    if (modelSettings === undefined) {
+      return;
+    }
+    settings.change({
+      modelOverrides: { [modelSettings.providerId]: { [modelSettings.modelId]: { [key]: value } } },
+    });
+  }
   const [firstTier] = tiers;
   const cacheRows: FactRow[] = [
     ...(model.cacheSeconds.short === null
@@ -61,14 +75,62 @@ export function ModelDetail({ model, settings }: ModelDetailProps): ReactElement
           ]}
         />
       </PlaceSection>
-      <PlaceSection heading="Limits">
-        <FactTable columns={[""]} rows={limitRowsOf(model)} />
+      <PlaceSection
+        heading="Settings"
+        mark={
+          modelSettings !== undefined && Object.keys(modelSettings.overrides).length > 0
+            ? "edited"
+            : undefined
+        }
+      >
+        <PlaceNote>These settings apply to this model in every chat.</PlaceNote>
+        {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
+        {modelSettings === undefined ? (
+          <PlaceNote>Loading the model settings.</PlaceNote>
+        ) : (
+          <>
+            <NumberSetting
+              id="model-context-window"
+              label="Context window in tokens"
+              value={modelSettings.overrides.contextWindow ?? modelSettings.builtIn.contextWindow}
+              builtIn={modelSettings.builtIn.contextWindow}
+              onChange={(value) => change("contextWindow", value)}
+            />
+            <NumberSetting
+              id="model-max-output"
+              label="Maximum output tokens of a reply"
+              value={modelSettings.overrides.maxOutput ?? modelSettings.builtIn.maxOutput}
+              builtIn={modelSettings.builtIn.maxOutput}
+              onChange={(value) => change("maxOutput", value)}
+            />
+            <NumberSetting
+              id="model-temperature"
+              label="Temperature"
+              value={modelSettings.overrides.temperature ?? modelSettings.builtIn.temperature}
+              builtIn={modelSettings.builtIn.temperature}
+              minimum={0}
+              isDecimal
+              onChange={(value) => change("temperature", value)}
+            />
+            <PlaceNote>
+              Pi passes temperature where the provider and thinking mode accept it. Pi does not list
+              which models accept it or their ranges. With none set, the provider chooses its
+              default.
+            </PlaceNote>
+            <PlaceNote>
+              Pi may lower the output limit to fit the remaining context window.
+            </PlaceNote>
+          </>
+        )}
       </PlaceSection>
       <KnowledgeCutoffField
         key={`${model.providerId}:${model.id}`}
         model={model}
         settings={settings}
       />
+      <PlaceSection heading="Limits">
+        <FactTable columns={[""]} rows={limitRowsOf(model)} />
+      </PlaceSection>
       <PlaceSection heading="Prices">
         <PlaceNote>
           In US dollars for a million tokens.
@@ -119,8 +181,6 @@ function limitRowsOf(model: ModelSummary): FactRow[] {
     resized?.bytes == null ? null : sizeOf(resized.bytes),
   ].filter((part) => part !== null);
   return [
-    { name: "Context window", values: [`${numberFormat.format(model.contextWindow)} tokens`] },
-    { name: "Output of a reply", values: [`Up to ${numberFormat.format(model.maxOutput)} tokens`] },
     {
       name: "Images",
       values: [

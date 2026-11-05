@@ -250,7 +250,7 @@ export const piTexts: PiText[] = [
     id: "summarySystemPrompt",
     group: "Compaction",
     condition:
-      "When the context of a chat nears the context window of its model, less 16,384 tokens, or overflows it. Pi asks the same model for a summary with this system prompt. That request does not show in the Session place.",
+      "When the user compacts a chat now, or automatic compaction is on and the context exceeds the model window minus the configured room kept free, or overflows it. Pi asks the same model for a summary with this system prompt. That request does not show in the Session place.",
     text: "You are a context summarization assistant. Your task is to read a conversation between a user and an AI assistant, then produce a structured summary following the exact format specified.\n\nDo NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.",
     slots: {},
   },
@@ -294,12 +294,50 @@ export const piTexts: PiText[] = [
     slots: {},
   },
   {
+    id: "turnRequest",
+    group: "Compaction",
+    condition: "The message of a summary request for the earlier part of a split turn.",
+    text: "# Conversation\n{conversation}\n\n# Instructions\n{prompt}",
+    slots: {
+      conversation: "The earlier messages of the turn, written as the older conversation above.",
+      prompt: "The prompt for the earlier part of a split turn below.",
+    },
+  },
+  {
     id: "turnPrompt",
     group: "Compaction",
     condition:
-      "The prompt for a second summary when compaction falls in the middle of a reply. Pi writes it after the messages as # Conversation, then # Instructions.",
+      "The prompt for the earlier part of a split turn, which can require a second summary request.",
     text: "The messages above are earlier context from an ongoing conversation. Later messages are stored separately and do not need to be reconstructed.\n\nCreate a concise checkpoint of the user's request and the progress shown above. This checkpoint will be placed before the later messages so the conversation can continue with the necessary context.\n\n## Original Request\n[What did the user ask for?]\n\n## Progress So Far\n- [Key decisions and work completed in these messages]\n\n## Context Needed to Continue\n- [Information from these messages needed to understand the later work]\n\nOnly summarize information explicitly present above. Do not infer or recreate later messages.",
     slots: {},
+  },
+  {
+    id: "splitSummary",
+    group: "Compaction",
+    condition: "Between the history summary and the summary of the earlier part of a split turn.",
+    text: "---\n\n**Turn Context (split turn):**",
+    slots: {},
+  },
+  {
+    id: "emptyHistory",
+    group: "Compaction",
+    condition: "Before the split turn summary when there is no older history or previous summary.",
+    text: "No prior history.",
+    slots: {},
+  },
+  {
+    id: "summaryReadFiles",
+    group: "Compaction",
+    condition: "After the summary when Pi records files that were read but not changed.",
+    text: "<read-files>\n{files}\n</read-files>",
+    slots: { files: "The paths that Pi records, one per line." },
+  },
+  {
+    id: "summaryModifiedFiles",
+    group: "Compaction",
+    condition: "After the summary when Pi records files that were written or edited.",
+    text: "<modified-files>\n{files}\n</modified-files>",
+    slots: { files: "The paths that Pi records, one per line." },
   },
   {
     id: "compacted",

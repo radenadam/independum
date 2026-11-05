@@ -20,5 +20,5 @@ The maintainer requires that the user can see every text that Pi writes for the 
 ## Consequences
 
 - A review of a Pi update learns from `pnpm check` which listed text changed, and updates the copy in `packages/independum/src/pi-texts.ts`.
-- Compaction requests do not pass through the hook that Independum reads, so they do not show in the Context place, and the list says so. How compaction works in Independum stays an open question in the roadmap.
+- Compaction requests do not pass through the hook that Independum reads, so they do not show in the Session place, and the list says so. [Decision 0055](0055-model-settings-and-compaction.md) gives compaction its controls and keeps these texts read-only.
 - In tests, the last request of Haiku marked the placeholder tool, and the last request of Luna after an edited tool text marked the update of the tools.

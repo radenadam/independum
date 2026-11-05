@@ -1,0 +1,15 @@
+.setting {
+  display: grid;
+  gap: 6px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field > :first-child {
+  flex: 1;
+  min-width: 0;
+}

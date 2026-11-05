@@ -41,6 +41,7 @@ import type {
 import { createSavedChats } from "./create-saved-chats.ts";
 import { builtInSettings, createSettings } from "./create-settings.ts";
 import { listRequests } from "./list-requests.ts";
+import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import {
   changeTexts,
   createModelTexts,
@@ -93,6 +94,10 @@ interface ChatRun {
   stopFollowing: () => void;
   isModelChosen: boolean;
   isReplying: boolean;
+  isCompacting: boolean;
+  compactionError: string | null;
+  contextVersion: number;
+  pendingNotes: number;
   lastRequest: unknown;
   cacheWarmings: number;
   // The thinking of the reply in progress, by the place of each part in the message.
@@ -159,6 +164,7 @@ export interface Chat {
   send(text: string): boolean;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   chooseThinking(level: string): boolean;
+  compact(): boolean;
   open(id: string): Promise<boolean>;
   stop(): Promise<void>;
   stopCommand(id: string): boolean;
@@ -256,6 +262,9 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           ? partsOf(streaming.content, timesOf(current, streaming))
           : [],
       toolRuns: { ...current?.toolRuns },
+      isCompacting: current?.isCompacting ?? false,
+      compactionError: current?.compactionError ?? null,
+      contextVersion: current?.contextVersion ?? 0,
       backgroundCommands: session === undefined ? [] : background.listRunning(session.sessionId),
     };
   }
@@ -270,6 +279,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (
       run === current ||
       run.isReplying ||
+      run.isCompacting ||
+      run.pendingNotes > 0 ||
       stoppingChats.has(run.session.sessionId) ||
       background.listRunning(run.session.sessionId).length > 0
     ) {
@@ -305,9 +316,13 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       details: ended.end,
     };
     if (run !== undefined) {
-      run.session
-        .sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" })
-        .catch(() => undefined);
+      run.pendingNotes += 1;
+      deliverNote(run, note)
+        .catch(() => undefined)
+        .finally(() => {
+          run.pendingNotes -= 1;
+          releaseIfIdle(run);
+        });
     } else {
       findSaved(ended.chatId).then(
         (saved) => {
@@ -322,6 +337,18 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         },
         () => undefined,
       );
+    }
+  }
+
+  async function deliverNote(
+    run: ChatRun,
+    note: Parameters<AgentSession["sendCustomMessage"]>[0],
+  ): Promise<void> {
+    if (run.isCompacting && !run.isReplying) {
+      await run.session.waitForIdle();
+    }
+    if (runs.get(run.session.sessionId) === run && !stoppingChats.has(run.session.sessionId)) {
+      await run.session.sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" });
     }
   }
 
@@ -506,7 +533,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // follow both.
   function followRun(run: ChatRun): (event: AgentSessionEvent) => void {
     return (event) => {
-      if (event.type === "agent_start") {
+      if (event.type === "compaction_start") {
+        run.isCompacting = true;
+        run.compactionError = null;
+        refreshContext(run);
+      } else if (event.type === "compaction_end") {
+        run.isCompacting = false;
+        run.compactionError = event.errorMessage ?? null;
+        refreshContext(run);
+        releaseIfIdle(run);
+      } else if (event.type === "agent_start") {
         setReplying(run, true);
       } else if (event.type === "agent_settled") {
         endReply(run, lastReplyOf(run));
@@ -594,7 +630,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     // Without its own settings and an empty addendum, Pi reads its settings from the project and
     // from `~/.independum`, and adds any `APPEND_SYSTEM.md` there to the system prompt, so a file
     // in a project could reach the model unseen.
-    const piSettings = SettingsManager.inMemory();
+    const piSettings = SettingsManager.inMemory({ compaction: piCompactionSettings() });
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionFolder,
       agentDir: directory,
@@ -685,6 +721,10 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         created.modelFallbackMessage === undefined &&
         (model !== undefined || isSaved),
       isReplying: false,
+      isCompacting: false,
+      compactionError: null,
+      contextVersion: 0,
+      pendingNotes: 0,
       lastRequest: savedRequests.read(session.sessionId),
       cacheWarmings: 0,
       thinkingStarts: new Map(),
@@ -693,6 +733,27 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       toolRuns: {},
     };
     hold.run = run;
+    applySessionSettings(session);
+    const stream = session.agent.streamFunction;
+    session.agent.streamFunction = (requestModel, context, options) => {
+      const overrides =
+        settings.get().modelOverrides[requestModel.provider]?.[requestModel.id] ?? {};
+      return stream(applyModelOverrides(requestModel, overrides), context, {
+        ...options,
+        ...(overrides.maxOutput === undefined
+          ? {}
+          : {
+              maxTokens: Math.min(options?.maxTokens ?? overrides.maxOutput, overrides.maxOutput),
+            }),
+        // Pi merges sampling parameters after named options, so a catalog temperature must change too.
+        ...(overrides.temperature === undefined
+          ? {}
+          : {
+              temperature: overrides.temperature,
+              samplingParams: { ...options?.samplingParams, temperature: overrides.temperature },
+            }),
+      });
+    };
     session.setActiveToolsByName(activeToolNames(run));
     run.stopFollowing = session.subscribe(followRun(run));
     runs.set(session.sessionId, run);
@@ -703,7 +764,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // the same switch and edit controls as the other facts.
   function getAgent(): AgentSummary {
     const prompt = texts.get(systemPromptText);
+    const selected = current?.isModelChosen === true ? current.session.model : undefined;
+    const model =
+      selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
+      modelSettings:
+        model === undefined
+          ? null
+          : modelSettingsOf(model, settings.get().modelOverrides[model.provider]?.[model.id]),
+      compaction: settings.get().compaction,
+      builtInCompaction: builtInSettings.compaction,
       systemPrompt: prompt,
       addedByPi: "",
       addedFacts: summarizeAddedFacts({
@@ -770,26 +840,69 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     if (change.disabledFacts?.some((id) => !addedFactTexts.some((text) => text.id === id))) {
       return undefined;
     }
-    const { texts: textChange, ...rest } = change;
+    const {
+      texts: textChange,
+      modelOverrides: modelChanges,
+      compaction: compactionChange,
+      ...rest
+    } = change;
+    const modelOverrides =
+      modelChanges === undefined
+        ? settings.get().modelOverrides
+        : changeModelOverrides(models, settings.get().modelOverrides, modelChanges);
     const edited =
       textChange === undefined
         ? settings.get().texts
         : changeTexts(allTexts, settings.get().texts, textChange);
-    if (edited === undefined) {
+    if (edited === undefined || modelOverrides === undefined) {
       return undefined;
     }
     // A choice of the shell that the system has by default is no choice, so it is saved as none and
     // the Shell tool does not count as edited.
     const shellChange = rest.shell === defaultShellKind() ? { shell: null } : {};
-    await settings.change({ ...rest, ...shellChange, texts: edited });
+    const compaction = { ...settings.get().compaction, ...compactionChange };
+    await settings.change({ ...rest, ...shellChange, modelOverrides, compaction, texts: edited });
     shell = findShell(settings.get().shell ?? undefined);
     for (const run of runs.values()) {
       for (const tool of ownTools) {
         run.extension?.registerTool(tool);
       }
       run.session.setActiveToolsByName(activeToolNames(run));
+      applySessionSettings(run.session);
+      refreshContext(run);
     }
     return getAgent();
+  }
+
+  function piCompactionSettings(): ReturnType<SettingsManager["getCompactionSettings"]> {
+    const { isEnabled, reserveTokens, keepRecentTokens } = settings.get().compaction;
+    return { enabled: isEnabled, reserveTokens, keepRecentTokens };
+  }
+
+  function applySessionSettings(session: AgentSession): void {
+    session.settingsManager.applyOverrides({ compaction: piCompactionSettings() });
+    const selected = session.model;
+    const model =
+      selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
+    if (model !== undefined) {
+      session.agent.state.model = applyModelOverrides(
+        model,
+        settings.get().modelOverrides[model.provider]?.[model.id] ?? {},
+      );
+    }
+  }
+
+  function refreshContext(run: ChatRun): void {
+    run.contextVersion += 1;
+    const { contextVersion, isCompacting, compactionError } = run;
+    emitFor(run, {
+      type: "contextChanged",
+      state: { contextVersion, isCompacting, compactionError },
+    });
+  }
+
+  function canStart(run: ChatRun | undefined): run is ChatRun {
+    return run?.isModelChosen === true && !run.isReplying && !run.isCompacting;
   }
 
   // Pi counts the tokens and the cost of every saved reply, and estimates how full the context
@@ -957,7 +1070,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     },
     send(text) {
       const run = current;
-      if (run === undefined || !run.isModelChosen || run.isReplying) {
+      if (!canStart(run)) {
         return false;
       }
       setReplying(run, true);
@@ -981,7 +1094,12 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       if (run === undefined || model === undefined || !models.hasConfiguredAuth(model.provider)) {
         return false;
       }
-      await run.session.setModel(model);
+      if (run.isCompacting) {
+        return false;
+      }
+      await run.session.setModel(
+        applyModelOverrides(model, settings.get().modelOverrides[providerId]?.[modelId] ?? {}),
+      );
       run.isModelChosen = true;
       emitFor(run, { type: "state", state: getState() });
       return true;
@@ -997,6 +1115,17 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       }
       session.setThinkingLevel(chosen);
       emit({ type: "state", state: getState() });
+      return true;
+    },
+    compact() {
+      const run = current;
+      if (!canStart(run)) {
+        return false;
+      }
+      run.isCompacting = true;
+      run.compactionError = null;
+      refreshContext(run);
+      run.session.compact().catch(() => undefined);
       return true;
     },
     async rename(id, name) {
