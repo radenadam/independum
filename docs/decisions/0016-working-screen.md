@@ -1,6 +1,6 @@
 # Working screen
 
-- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the first login into the settings too, and by [decision 0033](0033-model-texts.md), which makes the texts of the agent editable
+- Status: accepted, and amended by [decision 0017](0017-logins-in-settings.md), which moves the first login into the settings too, by [decision 0030](0030-commands-place.md), which adds Commands, by [decision 0033](0033-model-texts.md), which makes the texts of the agent editable, by [decision 0048](0048-session-place.md), which replaces Agent and Context with Session, and by [decision 0053](0053-documented-behavior-and-limits.md), which replaces sliding titles with tooltips and records draft persistence
 - Date: 2026-10-26
 
 ## Context

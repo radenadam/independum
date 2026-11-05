@@ -1,6 +1,6 @@
 # Shells as they are
 
-- Status: accepted, and amended by [decision 0041](0041-windows-jobs.md), which ends on Stop the programs that a command leaves behind on Windows, and amended by [decision 0048](0048-session-place.md), which shows the shells in the Session place
+- Status: accepted, and amended by [decision 0036](0036-options-for-commands.md), which lets the user add environment variables, by [decision 0041](0041-windows-jobs.md), which ends on Stop the programs that a command leaves behind on Windows, and by [decision 0048](0048-session-place.md), which shows the shells in the Session place
 - Date: 2026-10-29
 
 ## Context

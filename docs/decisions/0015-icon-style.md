@@ -1,6 +1,6 @@
 # Icon style
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0024](0024-icon-motion.md), which splits moving shapes, and by [decision 0053](0053-documented-behavior-and-limits.md), which records exceptions in the icon specification
 - Date: 2026-10-26
 
 ## Context
