@@ -1,9 +1,12 @@
 import { mkdirSync, readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { createModelTexts } from "../model-texts.ts";
 import { createTestChat } from "./create-test-chat.ts";
 import { createWriteTool } from "./create-write-tool.ts";
+
+vi.mock("node:fs/promises", { spy: true });
 
 const chat = createTestChat("write");
 const { folder } = chat;
@@ -39,6 +42,21 @@ test("replacing a file that the chat has not seen fails once, and the same call 
     details: { isNew: false, added: 1, removed: 3 },
   });
   expect(readFileSync(path, "utf8")).toBe("new\n");
+});
+
+test("a read error preserves an existing file and does not count as seeing it", async () => {
+  const path = place("unreadable.txt", "keep this\n");
+  vi.mocked(readFile).mockRejectedValueOnce(
+    Object.assign(new Error("Access denied."), { code: "EACCES" }),
+  );
+  expect(await write("unreadable.txt", "replacement\n")).toMatchObject({
+    text: "Access denied.",
+    isError: true,
+  });
+  expect(readFileSync(path, "utf8")).toBe("keep this\n");
+  expect((await write("unreadable.txt", "replacement\n")).text).toContain(
+    "this chat has not seen it",
+  );
 });
 
 test("a file read before is replaced at once, with its line breaks, mark, and encoding", async () => {

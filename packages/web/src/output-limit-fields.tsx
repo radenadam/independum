@@ -1,5 +1,5 @@
 import type { OutputLimits } from "independum/api-types";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useEffectEvent, useState } from "react";
 import styles from "./output-limit-fields.module.css";
 import { PlaceNote } from "./place-frame.tsx";
 import { TextField } from "./text-field.tsx";
@@ -31,14 +31,15 @@ export function OutputLimitFields({ limits, onChange }: OutputLimitFieldsProps):
   const maxBytes = Number(kilobytes) * 1024;
   const isValid = isWithin(maxLines, lineRange) && isWithin(Number(kilobytes), kilobyteRange);
   const isChanged = maxLines !== limits.maxLines || maxBytes !== limits.maxBytes;
+  const save = useEffectEvent(onChange);
 
   useEffect(() => {
     if (!isValid || !isChanged) {
       return;
     }
-    const timer = setTimeout(() => onChange({ maxLines, maxBytes }), saveDelay);
+    const timer = setTimeout(() => save({ maxLines, maxBytes }), saveDelay);
     return () => clearTimeout(timer);
-  }, [isValid, isChanged, maxLines, maxBytes, onChange]);
+  }, [isValid, isChanged, maxLines, maxBytes]);
 
   return (
     <>

@@ -92,6 +92,7 @@ interface ChatRun {
   thinkingStarts: Map<number, number>;
   thinkingTimes: Map<number, number>;
   lastCallUpdate: number;
+  toolRuns: ChatState["toolRuns"];
 }
 
 // Pi keeps no time for thinking, so Independum saves it in a custom entry, which Pi keeps in the
@@ -210,6 +211,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
   // Every chat runs on its own, like an agent in a tab of a terminal, so a chat that the user leaves
   // goes on with its reply and its background commands. The open chat is one of the runs.
   const runs = new Map<string, ChatRun>();
+  const pendingOpens = new Map<string, Promise<boolean>>();
   let current: ChatRun | undefined;
 
   function emit(event: ChatEvent): void {
@@ -229,6 +231,8 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     const session = current?.session;
     const model = current?.isModelChosen === true ? session?.model : undefined;
     const savedTimes = readThinkingTimes(current);
+    const streaming =
+      current?.isReplying === true ? session?.agent.state.streamingMessage : undefined;
     return {
       id: session?.sessionId ?? null,
       folder: current?.folder ?? startFolder,
@@ -240,6 +244,11 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
       messages: chatMessagesOf(session?.messages ?? [], savedTimes),
       isReplying: current?.isReplying ?? false,
+      reply:
+        streaming?.role === "assistant" && current !== undefined
+          ? partsOf(streaming.content, timesOf(current, streaming))
+          : [],
+      toolRuns: { ...current?.toolRuns },
       backgroundCommands: session === undefined ? [] : background.listRunning(session.sessionId),
     };
   }
@@ -369,28 +378,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     }
   }
 
-  // A chat that opens in the middle of a reply shows the reply so far, part by part at its place in
-  // the message, before the rest streams in.
-  function showReplySoFar(run: ChatRun): void {
-    const message = run.isReplying ? run.session.agent.state.streamingMessage : undefined;
-    if (message?.role !== "assistant") {
-      return;
-    }
-    for (const [index, block] of message.content.entries()) {
-      const part: MessagePart | undefined =
-        block.type === "text"
-          ? { type: "text", text: block.text }
-          : block.type === "thinking"
-            ? thinkingPartOf(block, run.thinkingTimes.get(index) ?? null)
-            : block.type === "toolCall"
-              ? toolCallPartOf(block)
-              : undefined;
-      if (part !== undefined) {
-        emit({ type: "replyPart", index, part });
-      }
-    }
-  }
-
   function timesOf(run: ChatRun, message: AgentMessage): (number | null)[] {
     return message.role === "assistant"
       ? message.content.map((_, index) => run.thinkingTimes.get(index) ?? null)
@@ -514,13 +501,21 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       } else if (event.type === "turn_end") {
         saveThinkingTimes(run, event.message);
       } else if (event.type === "tool_execution_start") {
+        run.toolRuns[event.toolCallId] = { startedAt: Date.now(), details: null };
         emitFor(run, { type: "toolStart", id: event.toolCallId });
       } else if (event.type === "tool_execution_update") {
+        const details = event.partialResult?.details ?? null;
+        run.toolRuns[event.toolCallId] = {
+          startedAt: run.toolRuns[event.toolCallId]?.startedAt ?? Date.now(),
+          details,
+        };
         emitFor(run, {
           type: "toolProgress",
           id: event.toolCallId,
-          details: event.partialResult?.details ?? null,
+          details,
         });
+      } else if (event.type === "tool_execution_end") {
+        delete run.toolRuns[event.toolCallId];
       } else if (event.type === "message_end" && event.message.role === "toolResult") {
         emitFor(run, {
           type: "toolResult",
@@ -546,6 +541,15 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
     return openSession(SessionManager.open(saved.path, sessionDirectory), folderOf(saved), true);
   }
 
+  async function loadSaved(id: string): Promise<boolean> {
+    const saved = await findSaved(id);
+    if (saved === undefined) {
+      return false;
+    }
+    await openSaved(saved);
+    return true;
+  }
+
   function openNew(newFolder: string, model?: Model): Promise<void> {
     return openSession(SessionManager.create(newFolder, sessionDirectory), newFolder, false, model);
   }
@@ -558,7 +562,6 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       releaseIfIdle(left);
     }
     emit({ type: "state", state: getState() });
-    showReplySoFar(run);
     emitProjects();
   }
 
@@ -657,6 +660,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       thinkingStarts: new Map(),
       thinkingTimes: new Map(),
       lastCallUpdate: 0,
+      toolRuns: {},
     };
     hold.run = run;
     session.setActiveToolsByName(activeToolNames(run));
@@ -902,17 +906,14 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
       return true;
     },
     async chooseModel(providerId, modelId) {
+      const run = current;
       const model = models.getModel(providerId, modelId);
-      if (
-        current === undefined ||
-        model === undefined ||
-        !models.hasConfiguredAuth(model.provider)
-      ) {
+      if (run === undefined || model === undefined || !models.hasConfiguredAuth(model.provider)) {
         return false;
       }
-      await current.session.setModel(model);
-      current.isModelChosen = true;
-      emit({ type: "state", state: getState() });
+      await run.session.setModel(model);
+      run.isModelChosen = true;
+      emitFor(run, { type: "state", state: getState() });
       return true;
     },
     chooseThinking(level) {
@@ -1005,12 +1006,16 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
         showRun(run);
         return true;
       }
-      const saved = await findSaved(id);
-      if (saved === undefined) {
-        return false;
+      let pending = pendingOpens.get(id);
+      if (pending === undefined) {
+        pending = loadSaved(id);
+        pendingOpens.set(id, pending);
       }
-      await openSaved(saved);
-      return true;
+      try {
+        return await pending;
+      } finally {
+        pendingOpens.delete(id);
+      }
     },
     async stop() {
       await current?.session.abort();

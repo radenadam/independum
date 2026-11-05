@@ -1,6 +1,6 @@
 # Phone access through token auth
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies requests without an origin
 - Date: 2026-10-24
 
 ## Context
