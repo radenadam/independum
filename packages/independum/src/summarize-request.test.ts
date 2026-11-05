@@ -254,3 +254,19 @@ test("a thinking level among the messages reads as the effort that Pi sends, but
     "instructions pi Thinking effort",
   ]);
 });
+
+test("the next request after a compaction holds the summary of pi in place of the older messages", () => {
+  const parts = describeNextRequest({
+    ...known,
+    entries: [
+      {
+        id: "context-0",
+        message: { role: "compactionSummary", summary: "We read the notes.", tokensBefore: 900 },
+      },
+    ],
+  }).filter((part) => part.group === "messages");
+  expect(parts).toMatchObject([
+    { source: "pi", label: "Added by Pi", link: { kind: "piText", id: "compacted" } },
+  ]);
+  expect(parts[0]?.text).toContain("We read the notes.");
+});

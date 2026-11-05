@@ -839,7 +839,7 @@ export async function createChat({ models, directory, cwd }: ChatOptions): Promi
               ),
             }),
       isNextRequest: lastRequest === null,
-      requests: listRequests(branch),
+      ...listRequests(branch),
       files: {
         chat: session?.sessionFile ?? null,
         toolOutput: session === undefined ? null : join(outputFolder, session.sessionId),

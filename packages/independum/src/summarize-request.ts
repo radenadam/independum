@@ -1,5 +1,5 @@
 import type { PartLink, PartSource, RequestGroup, RequestPart } from "./api-types.ts";
-import { findPiTexts } from "./pi-texts.ts";
+import { findPiTexts, piTexts } from "./pi-texts.ts";
 import { stringsOf } from "./strings-of.ts";
 
 /** The texts that Independum knows it sends, so the parts of a request can say what they are. */
@@ -127,20 +127,50 @@ export function describeNextRequest(known: KnownTexts): RequestPart[] {
       group: "tools",
     }),
   );
-  const messages = known.entries.flatMap(messageOf).map(
-    (message): RequestPart => ({
-      ...partOf({
-        section: "next",
-        source: message.source,
-        label: message.label,
-        link: { kind: "entry", id: message.id },
-        content: [...message.texts, ...message.ids].join("\n"),
-        preview: message.preview,
-      }),
-      group: "messages",
-    }),
+  const messages = known.entries.flatMap(
+    (entry): RequestPart[] =>
+      summaryPartOf(entry.message) ??
+      messageOf(entry).map((message) => ({
+        ...partOf({
+          section: "next",
+          source: message.source,
+          label: message.label,
+          link: { kind: "entry", id: message.id },
+          content: [...message.texts, ...message.ids].join("\n"),
+          preview: message.preview,
+        }),
+        group: "messages",
+      })),
   );
   return [...instructions, ...tools, ...messages];
+}
+
+// After a compaction, Pi sends its summary in place of the older messages, in the words of its text
+// named compacted, as a request that went out shows it.
+function summaryPartOf(message: unknown): RequestPart[] | undefined {
+  if (
+    typeof message !== "object" ||
+    message === null ||
+    !("role" in message) ||
+    message.role !== "compactionSummary" ||
+    !("summary" in message) ||
+    typeof message.summary !== "string"
+  ) {
+    return undefined;
+  }
+  const template = piTexts.find((text) => text.id === "compacted")?.text ?? "{summary}";
+  return [
+    {
+      ...partOf({
+        section: "next",
+        source: "pi",
+        label: "Added by Pi",
+        link: { kind: "piText", id: "compacted" },
+        content: template.replace("{summary}", message.summary),
+      }),
+      group: "messages",
+    },
+  ];
 }
 
 /** Returns who wrote a saved message, what kind of message it is, and the start of its text. */

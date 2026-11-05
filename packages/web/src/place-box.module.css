@@ -1,0 +1,7 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--well);
+}

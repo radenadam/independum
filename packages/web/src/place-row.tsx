@@ -18,6 +18,10 @@ interface PlaceRowProps {
   amount?: string;
   isCurrent?: boolean;
   isLit?: boolean;
+  // A row in a `PlaceBox` lies flat on it, with a line between it and the row above.
+  isBoxed?: boolean;
+  // A faded row names something that the model no longer reads as it was, such as a summarized request.
+  isFaded?: boolean;
   onOpen: () => void;
   onPoint?: (isPointed: boolean) => void;
 }
@@ -38,6 +42,8 @@ export function PlaceRow({
   amount,
   isCurrent = false,
   isLit = false,
+  isBoxed = false,
+  isFaded = false,
   onOpen,
   onPoint,
 }: PlaceRowProps): ReactElement {
@@ -47,6 +53,8 @@ export function PlaceRow({
       className={styles.row}
       aria-current={isCurrent ? "true" : undefined}
       data-lit={isLit}
+      data-boxed={isBoxed}
+      data-faded={isFaded}
       onClick={onOpen}
       onPointerEnter={() => onPoint?.(true)}
       onPointerLeave={() => onPoint?.(false)}

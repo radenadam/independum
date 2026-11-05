@@ -115,21 +115,21 @@ export function WindowFigure({
       <div className={styles.legend}>
         {amounts.map((amount) => (
           <span key={amount.kind} className={styles.key}>
-            <span className={styles.swatch} data-kind={amount.kind} />
+            <KindSwatch kind={amount.kind} />
             {amount.name}
             <span className={styles.amount}>~{numberFormat.format(Math.round(amount.tokens))}</span>
           </span>
         ))}
         {hasWindow ? (
           <span className={styles.key}>
-            <span className={styles.swatch} data-kind="free" />
+            <KindSwatch kind="free" />
             Free
             <span className={styles.amount}>~{numberFormat.format(Math.round(free))}</span>
           </span>
         ) : null}
         {kept > 0 ? (
           <span className={styles.key}>
-            <span className={styles.swatch} data-kind="kept" />
+            <KindSwatch kind="kept" />
             Kept free by Pi
             <span className={styles.amount}>{numberFormat.format(kept)}</span>
           </span>
@@ -137,6 +137,11 @@ export function WindowFigure({
       </div>
     </div>
   );
+}
+
+/** Draws the small square of color that a kind of part, or a kind of room, takes in the figure. */
+export function KindSwatch({ kind }: { kind: FigureSquare["kind"] }): ReactElement {
+  return <span className={styles.swatch} data-kind={kind} />;
 }
 
 /**

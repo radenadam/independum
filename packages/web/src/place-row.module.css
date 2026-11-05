@@ -9,6 +9,34 @@
   text-align: left;
 }
 
+/*
+  A row in a box lies flat on it, so only a line parts it from the row above, and only its pointed,
+  lit, or current state fills it. Its corners follow the box at its ends.
+*/
+.row[data-boxed="true"] {
+  border-radius: 0;
+}
+
+.row[data-boxed="true"]:not(:hover, [data-lit="true"], [aria-current="true"]) {
+  background: transparent;
+}
+
+.row[data-boxed="true"]:first-child {
+  border-radius: 11px 11px 0 0;
+}
+
+.row[data-boxed="true"]:last-child {
+  border-radius: 0 0 11px 11px;
+}
+
+.row[data-boxed="true"]:only-child {
+  border-radius: 11px;
+}
+
+.row[data-boxed="true"] + .row[data-boxed="true"] {
+  border-top: 1px solid var(--line);
+}
+
 .row[data-lit="true"] {
   background: var(--raised);
 }
@@ -37,6 +65,10 @@
   display: flex;
   flex-direction: column;
   color: var(--ink);
+}
+
+.row[data-faded="true"] .text {
+  color: var(--muted);
 }
 
 /* The second line, when a row has one, says more about it, such as when a request went out. */
