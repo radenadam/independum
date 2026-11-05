@@ -59,6 +59,7 @@ This is the specification for every icon in Independum. Follow it for each new i
 | Archive | A box under a lid, with a slot. |
 | Delete | A bin under its lid, with a handle and two lines. |
 | Context | A thick ring around a dot, which fills in orange from its top as the context window of the chat fills. |
+| Compact | Two horizontal lines with two chevrons that point toward the middle, to summarize older messages of a chat. |
 | Shell | A box with a prompt that points right and a cursor beside it. |
 | Stop command | The box of Shell struck through from its lower left to its upper right, with a gap where the line crosses the box and the cursor, on a running command, which stops that command alone. |
 | Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
@@ -110,6 +111,7 @@ Decision 0024 records why icons move and where the line falls.
 | Archive | The lid lifts. |
 | Delete | The lid lifts and tilts. |
 | Context | The orange part of the ring turns a little. |
+| Compact | The lines and chevrons squeeze toward the middle. |
 | Shell | The prompt tips up around its open side and the cursor tips up around its right end, as if they nod, and both settle back. |
 | Stop command | The line pulls back toward its upper end and strikes down again. |
 | Background | The arrow nudges toward the box behind. |

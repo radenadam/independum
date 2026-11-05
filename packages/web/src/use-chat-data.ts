@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 
 /**
  * Returns data about the open chat that loads from the server once the chat is known, and loads
- * again when another chat opens, another model takes over, or a reply starts or ends.
+ * again when another chat opens, another model takes over, a reply starts or ends, or its settings
+ * or compaction change.
  */
 export function useChatData<Data>(
   load: () => Promise<Data>,
@@ -19,7 +20,7 @@ export function useChatData<Data>(
   const providerId = chat?.model?.providerId;
 
   // A request goes out with every reply, so its data loads again when a reply starts or ends.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: The reply state triggers a reload.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reply state and context version trigger a reload.
   useEffect(() => {
     if (chatId === undefined) {
       return;
@@ -45,7 +46,7 @@ export function useChatData<Data>(
     return () => {
       isCurrent = false;
     };
-  }, [chatId, chat?.isReplying, modelId, providerId, load]);
+  }, [chatId, chat?.isReplying, modelId, providerId, chat?.contextVersion, load]);
 
   return {
     data: loaded?.chatId === chatId ? loaded?.data : undefined,

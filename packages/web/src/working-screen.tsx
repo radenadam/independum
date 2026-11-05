@@ -556,6 +556,8 @@ function applyEvent(
 ): void {
   if (event.type === "state") {
     setChat(() => event.state);
+  } else if (event.type === "contextChanged") {
+    setChat((current) => current && { ...current, ...event.state });
   } else if (event.type === "message") {
     setChat((current) => current && { ...current, messages: [...current.messages, event.message] });
   } else if (event.type === "replying") {

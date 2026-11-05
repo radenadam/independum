@@ -9,7 +9,7 @@ interface TextFieldProps {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  kind?: "text" | "secret" | "search" | "number";
+  kind?: "text" | "secret" | "search" | "number" | "decimal";
   placeholder?: string;
   isFocusedFirst?: boolean;
 }
@@ -47,8 +47,10 @@ export function TextField({
           ref={field}
           id={id}
           className={styles.input}
-          type={kind === "secret" ? "password" : kind === "number" ? "text" : kind}
-          inputMode={kind === "number" ? "numeric" : undefined}
+          type={
+            kind === "secret" ? "password" : kind === "number" || kind === "decimal" ? "text" : kind
+          }
+          inputMode={kind === "number" ? "numeric" : kind === "decimal" ? "decimal" : undefined}
           value={value}
           placeholder={placeholder ?? (isSearch ? label : undefined)}
           autoComplete="off"

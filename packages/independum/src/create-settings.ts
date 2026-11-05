@@ -1,6 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
-import type { EditedText, OutputLimits, Settings, SettingsChange } from "./api-types.ts";
+import { SettingsManager, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import type {
+  CompactionSettings,
+  EditedText,
+  ModelOverrideChange,
+  OutputLimits,
+  Settings,
+  SettingsChange,
+} from "./api-types.ts";
 
 /** The settings of the user, which last in a file across restarts. */
 export interface SettingsStore {
@@ -11,9 +18,16 @@ export interface SettingsStore {
 const lineRange = { min: 10, max: 1_000_000 };
 const byteRange = { min: 1024, max: 100 * 1024 * 1024 };
 const handBackRange = { min: 5, max: 86_400 };
+const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 
 /** The settings that Independum starts with, which a reset goes back to. */
 export const builtInSettings: Settings = {
+  modelOverrides: {},
+  compaction: {
+    isEnabled: piCompaction.enabled,
+    reserveTokens: piCompaction.reserveTokens,
+    keepRecentTokens: piCompaction.keepRecentTokens,
+  },
   shell: null,
   disabledTools: [],
   disabledFacts: [],
@@ -36,6 +50,8 @@ export async function createSettings(path: string): Promise<SettingsStore> {
     .catch(() => ({}));
   const change = readSettingsChange(saved, true) ?? {};
   let settings: Settings = {
+    modelOverrides: savedModelOverrides(change.modelOverrides),
+    compaction: { ...builtInSettings.compaction, ...change.compaction },
     shell: change.shell ?? builtInSettings.shell,
     disabledTools: change.disabledTools ?? builtInSettings.disabledTools,
     disabledFacts: change.disabledFacts ?? builtInSettings.disabledFacts,
@@ -76,6 +92,30 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
   const fields = body as Record<string, unknown>;
   const change: SettingsChange = {};
   let isValid = true;
+  if ("modelOverrides" in fields) {
+    const overrides = recordOf(
+      fields.modelOverrides,
+      (_provider, entry): entry is Record<string, ModelOverrideChange | null> =>
+        recordOf(
+          entry,
+          (_model, value): value is ModelOverrideChange | null =>
+            value === null || isModelOverrides(value),
+        ) !== undefined,
+    );
+    if (overrides === undefined) {
+      isValid = false;
+    } else {
+      change.modelOverrides = overrides;
+    }
+  }
+  if ("compaction" in fields) {
+    const compaction = compactionOf(fields.compaction);
+    if (compaction === undefined) {
+      isValid = false;
+    } else {
+      change.compaction = compaction;
+    }
+  }
   if ("shell" in fields) {
     const { shell } = fields;
     if (shell === null || shell === "bash" || shell === "powershell") {
@@ -164,6 +204,60 @@ export function readSettingsChange(body: unknown, isLenient = false): SettingsCh
     }
   }
   return isValid || isLenient ? change : undefined;
+}
+
+function savedModelOverrides(
+  changes: SettingsChange["modelOverrides"],
+): Settings["modelOverrides"] {
+  return Object.fromEntries(
+    Object.entries(changes ?? {}).map(([provider, models]) => [
+      provider,
+      Object.fromEntries(
+        Object.entries(models).flatMap(([id, fields]) =>
+          fields === null
+            ? []
+            : [
+                [
+                  id,
+                  Object.fromEntries(
+                    Object.entries(fields).filter(([_key, value]) => value !== null),
+                  ),
+                ],
+              ],
+        ),
+      ),
+    ]),
+  );
+}
+
+function isModelOverrides(value: unknown): value is ModelOverrideChange {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  return Object.entries(value).every(([key, entry]) =>
+    (key === "temperature" || key === "contextWindow" || key === "maxOutput") && entry === null
+      ? true
+      : key === "temperature"
+        ? typeof entry === "number" && Number.isFinite(entry) && entry >= 0
+        : (key === "contextWindow" || key === "maxOutput") &&
+          Number.isSafeInteger(entry) &&
+          Number(entry) > 0,
+  );
+}
+
+function compactionOf(value: unknown): Partial<CompactionSettings> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  return Object.entries(value).every(([key, entry]) =>
+    key === "isEnabled"
+      ? typeof entry === "boolean"
+      : (key === "reserveTokens" || key === "keepRecentTokens") &&
+        Number.isSafeInteger(entry) &&
+        Number(entry) >= 0,
+  )
+    ? (value as Partial<CompactionSettings>)
+    : undefined;
 }
 
 // A name of a variable starts with a letter or an underscore, as every shell accepts.

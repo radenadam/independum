@@ -37,7 +37,8 @@ export type IconName =
   | "write"
   | "steps"
   | "editFile"
-  | "session";
+  | "session"
+  | "compact";
 
 // Returns the class names of a part that moves when its button is pointed at, as `docs/icons.md`
 // describes under Motion. The second class sets how that part moves.
@@ -51,6 +52,7 @@ function moves(part: string | undefined): string {
 const page = "M10 21H7l-2-2V5l2-2h7l4 4v4";
 
 const drawings: Record<IconName, ReactElement> = {
+  compact: <path className={moves(styles.squeeze)} d="M4 4h16M4 20h16M8 8l4 4 4-4M8 16l4-4 4 4" />,
   sidebar: (
     <>
       <path d="M5 4h14l2 2v12l-2 2H5l-2-2V6z" />

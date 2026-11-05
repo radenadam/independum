@@ -12,6 +12,7 @@ import { ChatDetail } from "./chat-detail.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
 import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts";
+import { CompactionDetail, isCompactionChanged } from "./compaction-detail.tsx";
 import { ContextParts, type ShownLink } from "./context-parts.tsx";
 import { describeChange } from "./conversation.tsx";
 import { describeThinking } from "./describe-thinking.ts";
@@ -46,7 +47,7 @@ interface SessionPlaceProps {
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "model" } | { kind: "chat" };
+  link: ShownLink | { kind: "model" | "chat" | "compactionSettings" };
   text: string;
 }
 
@@ -131,13 +132,7 @@ export function SessionPlace({
         />
         <PlaceFrame>
           {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
-          <Detail
-            view={view}
-            folder={chat.folder}
-            context={context}
-            models={models}
-            settings={settings}
-          />
+          <Detail view={view} chat={chat} context={context} models={models} settings={settings} />
         </PlaceFrame>
       </div>
     );
@@ -274,6 +269,30 @@ function Overview({
           <PlaceNote>{contextFailure ?? "Loading the request."}</PlaceNote>
         ) : (
           <ContextParts
+            compactionRow={
+              <PlaceRow
+                label="Compaction"
+                glance={
+                  settings.agent === undefined
+                    ? undefined
+                    : settings.agent.compaction.isEnabled
+                      ? "On"
+                      : "Off"
+                }
+                badge={
+                  isCompactionChanged(settings) ? { label: "edited", tone: "quiet" } : undefined
+                }
+                isCurrent={current === "compactionSettings"}
+                onOpen={() =>
+                  onOpen({
+                    key: "compactionSettings",
+                    title: "Compaction",
+                    link: { kind: "compactionSettings" },
+                    text: "",
+                  })
+                }
+              />
+            }
             parts={context.requestParts}
             total={total}
             windowSize={context.contextWindow}
@@ -295,13 +314,13 @@ function Overview({
 /** Properties of a detail of a session. */
 interface DetailProps {
   view: View;
-  folder: string;
+  chat: ChatState;
   context: ContextSummary | undefined;
   models: ModelSummary[] | undefined;
   settings: AgentSettings;
 }
 
-function Detail({ view, folder, context, models, settings }: DetailProps): ReactElement {
+function Detail({ view, chat, context, models, settings }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
     case "systemPrompt":
@@ -404,12 +423,14 @@ function Detail({ view, folder, context, models, settings }: DetailProps): React
         <ModelDetail
           settings={settings}
           model={models?.find(
-            (each) => each.providerId === context?.provider && each.id === context?.model,
+            (each) => each.providerId === chat.model?.providerId && each.id === chat.model.id,
           )}
         />
       );
     case "chat":
-      return <ChatDetail folder={folder} context={context} />;
+      return <ChatDetail folder={chat.folder} context={context} />;
+    case "compactionSettings":
+      return <CompactionDetail chat={chat} settings={settings} />;
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (

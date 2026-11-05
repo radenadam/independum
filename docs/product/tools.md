@@ -80,7 +80,7 @@ Without wait, it returns at once. A wait ends on time, command completion, reply
 
 Source: [create-stop-command-tool.ts](../../packages/independum/src/tools/create-stop-command-tool.ts) and the background manager linked under Shell.
 
-The required parameter is integer `id` of at least one. It aborts that running background command and waits for its end. Unknown or already ended ids fail. The lookup uses the server-wide numeric id without checking the calling chat. Its result gives completion status, retained output path, and last twenty lines. Details hold the command end. It suppresses the separate completion note. Settings are its enable switch and model texts.
+The required parameter is integer `id` of at least one. It aborts that running background command and waits for its end. Unknown or already ended ids fail. The command must belong to the calling chat, as with CheckCommand. Its result gives completion status, retained output path, and last twenty lines. Details hold the command end. It suppresses the separate completion note. Settings are its enable switch and model texts.
 
 ## Known differences from the decisions
 

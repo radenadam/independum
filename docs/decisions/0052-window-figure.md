@@ -17,5 +17,7 @@ The Session place showed how full the context window is as a thin bar of its own
 
 ## Consequences
 
+- [Decision 0055](0055-model-settings-and-compaction.md) adds controls for the context window and compaction reserve that the figure uses.
+
 - The Session place no longer has a section of its own for the context window. The message box keeps its meter of the whole context, which counts the last reply too, so it can read a little higher than the figure.
 - Decision 0048 points here for the figure.

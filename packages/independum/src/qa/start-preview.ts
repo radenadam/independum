@@ -62,7 +62,7 @@ export async function startPreview(options: {
     const chat = await createChat({ models, directory, cwd: project });
     stop = stopChat;
     async function stopChat(): Promise<void> {
-      chat.stopAll();
+      await chat.stopAll();
     }
     const server = await startAppServer({
       chat,

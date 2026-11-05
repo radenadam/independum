@@ -13,16 +13,7 @@ afterAll(() => rmSync(folder, { recursive: true, force: true }));
 test("settings start from their defaults and keep each change across a restart", async () => {
   const path = join(folder, "settings.json");
   const settings = await createSettings(path);
-  expect(settings.get()).toEqual({
-    shell: null,
-    disabledTools: [],
-    disabledFacts: [],
-    knowledgeCutoffs: {},
-    outputLimits: { maxLines: 2000, maxBytes: 51200 },
-    handBackSeconds: 120,
-    environment: {},
-    texts: {},
-  });
+  expect(settings.get()).toEqual(builtInSettings);
   const texts = { "shell.description": { text: "Runs it.", builtIn: "Runs a command." } };
   const next = {
     shell: "bash" as const,
@@ -30,6 +21,8 @@ test("settings start from their defaults and keep each change across a restart",
     texts,
     disabledFacts: ["facts.pi"],
     knowledgeCutoffs: { provider: { model: "2026-04" } },
+    modelOverrides: { provider: { model: { contextWindow: 200_000, temperature: 0.4 } } },
+    compaction: { isEnabled: false, reserveTokens: 600, keepRecentTokens: 300 },
   };
   await settings.change(next);
   expect((await createSettings(path)).get()).toMatchObject(next);

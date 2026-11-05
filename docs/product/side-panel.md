@@ -10,17 +10,17 @@ The side panel starts at 420 pixels and resizes between 340 and 960 pixels. The 
 
 ## Session overview and details
 
-Session shows the open chat's model and thinking effort, project folder name and chat id, token use and cost, and context. The model detail gives Pi's provider, API and base URL, input and output limits, image limits, prices and price tiers per million tokens, and prompt cache duration. The chat detail gives its full folder, id, dates, and session, output, and last request paths. These paths are text to inspect and copy.
+Session shows the open chat's model and thinking effort, project folder name and chat id, token use and cost, and context. The model detail gives Pi's provider, API and base URL, input and output limits, image limits, prices and price tiers per million tokens, and prompt cache duration. It also edits [model settings](settings.md#model-settings-and-compaction). The chat detail gives its full folder, id, dates, and session, output, and last request paths. These paths are text to inspect and copy.
 
 Use compares Last reply with Whole chat. Rows separate input, output, reasoning, cache reads, cache writes, and cost. Last reply actually uses the latest assistant message, which is one turn. The counts below it also count assistant messages as replies. Cost and counts come from Pi, with reasoning summed separately by Independum.
 
-The context shows the last captured request, or an estimate of the next one before any request is captured. The request parts come from provider-independent text matching. Parts keep their order inside a request key, and groups of keys sort as instructions, tools, and messages. Adjacent tools share a row. Model texts and tool controls open through these rows. See [settings](settings.md#tools-and-model-texts).
+The context shows the last captured request, or an estimate of the next one before any request is captured. The request parts come from provider-independent text matching. Parts keep their order inside a request key, and groups of keys sort as instructions, tools, and messages. Adjacent tools share a row. Model texts and tool controls open through these rows. See [settings](settings.md#tools-and-model-texts). A Compaction row opens its [settings and manual action](settings.md#model-settings-and-compaction), with an edited mark when its settings differ from the built-in values.
 
 A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
 
 ## Session figure
 
-A thin bar represents the whole context window. A funnel expands its used share into a full width bar of request parts. Instructions, tools, compaction summary, and messages have separate colors. The legend gives estimated tokens by kind, free room, and Pi's compaction reserve. Unknown window size leaves the parts and token count visible without the whole window track.
+A thin bar represents the whole context window, including its override. A funnel expands its used share into a full width bar of request parts. Instructions, tools, compaction summary, and messages have separate colors. The legend gives estimated tokens by kind, free room, and Pi's configured compaction reserve. Turning automatic compaction off removes the reserve. Unknown window size leaves the parts and token count visible without the whole window track.
 
 Parts start with a length estimate. After a reply, their shares scale to the latest model turn's input and cache token count. These are estimates of individual parts, not provider token counts for each one. The figure represents request input. The [message box meter](message-box.md#context-meter) can include the last assistant output too.
 

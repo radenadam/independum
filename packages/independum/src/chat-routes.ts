@@ -46,7 +46,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     }
     if (!chat.send(body.text.trim())) {
       return context.json(
-        { error: "The chat needs a model and takes no message while it replies." },
+        { error: "The chat needs a model and must be idle to receive a message." },
         409,
       );
     }
@@ -84,6 +84,12 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
     await chat.stop();
     return context.body(null, 204);
   });
+
+  routes.post("/chat/compact", (context) =>
+    chat.compact()
+      ? context.body(null, 202)
+      : context.json({ error: "The chat needs a model and must be idle to compact." }, 409),
+  );
 
   routes.put("/settings", async (context) => {
     const change = readSettingsChange(await context.req.json().catch(() => undefined));

@@ -4,19 +4,19 @@ Decisions: [0002](../decisions/0002-build-on-the-pi-sdk.md), [0003](../decisions
 
 ## Startup and access
 
-`cli.ts` starts one Node HTTP server at `127.0.0.1:4870`. Requests beginning with `/api/` go through Hono, and other requests go to Vite in middleware mode. Built static UI serving is not implemented. `dev.ts` watches server source and restarts after changed modification times, with a 100 millisecond delay. A development launch supplies one token across those restarts.
+`cli.ts` uses `start-app-server.ts` to start one Node HTTP server at `127.0.0.1:4870`. Preview uses the same startup with an isolated home and a configurable port. Requests beginning with `/api/` go through Hono, and other requests go to Vite in middleware mode. Closing the server waits for every chat to stop before closing Vite and HTTP connections. Built static UI serving is not implemented. `dev.ts` watches server source and restarts after changed modification times, with a 100 millisecond delay. A development launch supplies one token across those restarts. [Browser QA](../browser-qa.md) describes preview and browser scenarios.
 
 The token comes from the development launcher or is randomly created. The CLI removes it from the environment before constructing chats and tools. It prints a link with the token in its fragment. The browser saves that token in local storage and removes the fragment from browser history. Every API call, including health and event streams, requires `Authorization: Bearer <token>`.
 
-Access checks accept only the configured loopback and localhost hosts on port 4870. A supplied Origin must match one of their HTTP origins. An absent Origin is accepted. A wrong host or origin returns 403, and a missing or wrong token returns 401. Token comparison uses equal-length buffers and timing-safe equality. Network binding and phone pairing are absent.
+Access checks accept only the configured loopback and localhost hosts on the listening port. A supplied Origin must match one of their HTTP origins. An absent Origin is accepted. A wrong host or origin returns 403, and a missing or wrong token returns 401. Token comparison uses equal-length buffers and timing-safe equality. Network binding and phone pairing are absent.
 
 ## Chat lifecycle
 
-One `Chat` instance holds a map of retained runs and one shared `current` run. Routes without a chat id always act on that open chat, across every browser. Each run has a Pi session, project folder, chosen-model flag, replying state, last request, cache warming count, thinking timing maps, and stream subscription. Shared settings and one background command manager serve all runs.
+One `Chat` instance holds a map of retained runs and one shared `current` run. Routes without a chat id always act on that open chat, across every browser. Each run has a Pi session, project folder, chosen-model flag, replying and compaction state, context version, pending note count, running tools, last request, cache warming count, thinking timing maps, and stream subscription. Shared settings and one background command manager serve all runs. Concurrent opens of one saved chat share a pending promise. A model choice keeps its starting run while it waits for Pi.
 
-Opening another chat retains a run while it replies or owns a running background command. An unopened idle run unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
+Opening another chat retains a run while it replies, compacts, has a pending note, or owns a running background command. An unopened idle run unsubscribes, disposes its Pi session, and leaves the map. Reopening it reads its session file. Sending is refused without a chosen model or while replying or compacting. A send begins asynchronously and returns acceptance before model completion. Pi settlement emits reply completion and releases idle unopened runs. Prompt failures also emit an assistant error and completion.
 
-Background completion delivers a custom message to a retained run with `triggerTurn: true` and steering delivery. If the run is absent, its unarchived saved session receives the note without starting a run. [Chats](chats.md#sidebar-and-management) describes how archiving and deletion stop a retained run before changing its file. Server shutdown waits for foreground and background commands and Pi replies in every retained run to stop, and suppresses completion notes while they stop.
+Background completion delivers a custom message to a retained run with `triggerTurn: true` and steering delivery. A note waits for manual compaction to finish first and is discarded if its chat stops while it waits. If the run is absent, its unarchived saved session receives the note without starting a run. [Chats](chats.md#sidebar-and-management) describes how archiving and deletion stop a retained run before changing its file. Server shutdown waits for foreground and background commands and Pi replies in every retained run to stop, and suppresses completion notes while they stop.
 
 ## Storage
 
@@ -27,7 +27,7 @@ The CLI uses `~/.independum`. Pi's model runtime owns `auth.json` for logins and
 | `sessions` | Pi session files, saved with the first message. Startup selects the newest in the launch folder. |
 | `sessions/archived` | Archived session files, moved with their existing names. |
 | `pinned-chats.json` | Array of pinned ids. Archive and deletion remove a pin. |
-| `settings.json` | Global tool choices and model text edits, loaded at startup and written on changes. |
+| `settings.json` | Global tool choices, model text edits, model overrides, and compaction settings, loaded at startup and written through Pi's file mutation queue on changes. |
 | `outputs/<chatId>` | Retained cleaned Shell logs named from sanitized tool call ids. Deletion removes this folder. |
 | `requests/<chatId>.json` | The last captured raw provider payload. Deletion removes it. |
 
@@ -58,6 +58,7 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `POST /chat/open` | `{ id }`, a string | Opens an unarchived saved chat or retained run. |
 | `POST /chat/new` | Optional `{ folder }`, a string | Starts in a known project. Invalid folder is 400. |
 | `POST /chat/stop` | None | Aborts the open reply. |
+| `POST /chat/compact` | None | 202 when manual compaction starts. A chat without a model or while replying or compacting is 409. |
 | `POST /chat/commands/:id/background` | None | Moves a foreground Shell call by tool call id. Missing call is 404. |
 | `POST /chat/commands/:id/stop` | None | Stops a foreground or background command by tool call id. Missing running call is 404. |
 | `GET /chats/archived` | None | `{ chats: ArchivedChatSummary[] }`, with folder and project name. |
@@ -76,9 +77,9 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 
 Streams are server-sent events whose `data` is one JSON event, read with fetch so the token header can be sent. They carry no event id or replay cursor. Disconnecting a browser unsubscribes without stopping a chat. The UI retries dropped chat streams after 1.5 seconds and treats 401 as an expired link.
 
-Chat streams begin with `state`, `projects`, and `replyingChats`. State has id, folder, nullable model and thinking choice, messages, replying flag, streaming reply parts, foreground tool start times and latest progress, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the open run.
+Chat streams begin with `state`, `projects`, and `replyingChats`. State has id, folder, nullable model and thinking choice, messages, replying flag, streaming reply parts, foreground tool start times and latest progress, compaction state and error, context version, and running background commands. Projects contain folders and saved chat summaries. Replying ids and `replyEnded` events cover every run. Detailed events cover only the open run.
 
-Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. Reconnecting, switching to a retained run, and changing effort restore the reply so far through state.
+Other `ChatEvent` variants carry `message`, `replyDelta` with index, part type and text delta, `replyPart` with index and complete part, `replying` with its flag, `toolStart` with call id, `toolProgress` with id and details, `toolResult` with id and result, and `commandEnd` with completion data. `contextChanged` carries context version, compaction state, and compaction error. `replyEnded` has chat id and nullable last assistant message. Tool argument deltas are throttled to at most one per 80 milliseconds. Reconnecting, switching to a retained run, and changing effort restore the reply so far and running tool progress through state.
 
 Login events are `question` with id, kind, message and optional placeholder or choices, `questionClosed` with id, `link` with URL and optional instructions, `deviceCode` with code and URL, `note` with message, `done`, and `failed` with message. The stream closes at done or failed. Finished login sessions stay addressable for five minutes so a fast flow can be followed after it finishes.
 
@@ -86,7 +87,7 @@ Login events are `question` with id, kind, message and optional placeholder or c
 
 An in-memory Pi settings manager and resource loader disable discovered context files, skills, prompt templates, themes, and extensions. The append prompt is empty. Independum supplies its editable system prompt before the agent starts and activates only its enabled, available tools. It does not load project instruction files. Pi can still add its working folder block, provider text, setup changes, tool errors, image notes, compaction text, and other SDK content.
 
-The request hook observes Pi's provider payload and does not replace it. Ordinary captured requests update memory and the last request file. Cache warming requests increment a separate count and do not replace that payload. Compaction requests bypass the hook. Notes reach Pi as custom messages with an editable source envelope. Custom timing entries stay saved without entering model messages. Tool content reaches the model, while UI diffs and fingerprints stay in result details.
+The request hook observes Pi's provider payload and does not replace it. Ordinary captured requests update memory and the last request file. Cache warming requests increment a separate count and do not replace that payload. Compaction requests bypass the hook. [Model settings](settings.md#model-settings-and-compaction) apply to catalog copies and request options through Pi's stream function. Notes reach Pi as custom messages with an editable source envelope. Custom timing entries stay saved without entering model messages. Tool content reaches the model, while UI diffs and fingerprints stay in result details.
 
 `summarize-request.ts` walks request values and matches known prompts, tools, messages, and Pi texts without provider branches. It estimates tokens from text length, ignores unmatched fragments shorter than 40 characters, and drops sections with no known source. Text keys shorter than eight characters match only a whole request text. The parts view is an approximation. The raw payload is the captured request without that filtering. `list-requests.ts` reconstructs history from saved assistant messages and changes, so retries and requests without such messages have no independent row.
 
