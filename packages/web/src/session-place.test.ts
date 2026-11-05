@@ -18,6 +18,8 @@ test("switching chats closes a session detail that holds text from the previous 
     messages: [],
     isReplying: false,
     backgroundCommands: [],
+    reply: [],
+    toolRuns: {},
   } as ChatState;
   const view = renderHook(() =>
     SessionPlace({ chat, models: undefined, context: undefined, contextFailure: undefined }),

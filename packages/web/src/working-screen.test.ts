@@ -30,6 +30,8 @@ beforeEach(() => {
     messages: [],
     isReplying: true,
     backgroundCommands: [],
+    reply: [],
+    toolRuns: {},
   };
   vi.mocked(fetchModels).mockResolvedValue([]);
   vi.mocked(fetchContext).mockImplementation(() => new Promise(() => undefined));
