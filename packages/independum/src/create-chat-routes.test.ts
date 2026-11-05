@@ -515,6 +515,36 @@ test("the context shows the model, the counts, the saved entries, and the last r
   expect(roles.slice(-2)).toEqual(["user", "assistant"]);
 });
 
+test("last reply use includes every turn after the last prompt and excludes earlier replies", async () => {
+  expect((await startNew()).status).toBe(201);
+  expect((await chooseModel("faux", "faux-model")).status).toBe(204);
+  const empty = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  expect(empty.lastUse).toBeNull();
+  faux.setResponses([fauxAssistantMessage("An earlier reply.")]);
+  await sendAndReadReply("Reply once");
+  const before = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  const path = join(startFolder, "reply-use.txt");
+  writeFileSync(path, "A file for the next reply.");
+  faux.setResponses([
+    callTool("Read", { path }),
+    callTool("Read", { path }),
+    fauxAssistantMessage("Read it twice."),
+  ]);
+  await sendAndReadReply("Read the file twice");
+  const after = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  expect(after.assistantMessages - before.assistantMessages).toBe(3);
+  expect(after.lastUse).toEqual({
+    tokens: {
+      input: after.tokens.input - before.tokens.input,
+      output: after.tokens.output - before.tokens.output,
+      reasoning: after.tokens.reasoning - before.tokens.reasoning,
+      cacheRead: after.tokens.cacheRead - before.tokens.cacheRead,
+      cacheWrite: after.tokens.cacheWrite - before.tokens.cacheWrite,
+    },
+    cost: after.cost - before.cost,
+  });
+});
+
 test("a model that thinks offers its thinking levels, and the chat keeps the chosen one", async () => {
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   expect((await readStart()).state.thinking).toBeNull();
@@ -977,6 +1007,13 @@ test("a chat opened again still knows which version of a file it saw", async () 
   expect(result?.type === "toolResult" ? result.result.details : null).not.toHaveProperty(
     "fingerprint",
   );
+  const context = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  const results = context.entries.filter((entry) => entry.role === "toolResult");
+  expect(results).toHaveLength(2);
+  for (const entry of results) {
+    expect(entry.data).toMatchObject({ message: { details: { kind: "text", lineCount: 3 } } });
+    expect(entry.data).not.toHaveProperty("message.details.fingerprint");
+  }
 });
 
 async function expectNothingInBackground(): Promise<void> {

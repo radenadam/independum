@@ -257,9 +257,10 @@ function Overview({
               { name: "Whole chat", use: { tokens: context.tokens, cost: context.cost } },
             ]}
           />
+          <PlaceNote>Last reply includes every turn that answers one prompt.</PlaceNote>
           <PlaceNote>
             {countOf(context.userMessages, "message", "messages")} from you,{" "}
-            {countOf(context.assistantMessages, "reply", "replies")},{" "}
+            {countOf(context.assistantMessages, "model turn", "model turns")},{" "}
             {countOf(context.toolCalls, "tool call", "tool calls")}
           </PlaceNote>
         </PlaceSection>
@@ -497,7 +498,7 @@ function Request({ title, request, context, models }: RequestProps): ReactElemen
         </Disclosure>
       </PlaceSection>
       <PlaceSection heading="Use">
-        <UsageTable columns={[{ name: "This reply", use: request }]} />
+        <UsageTable columns={[{ name: "This turn", use: request }]} />
       </PlaceSection>
       {isNewest && context.lastRequest !== null ? (
         <PlaceSection heading="Exact request">

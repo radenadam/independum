@@ -77,3 +77,28 @@ test("terminal colors and redrawn progress lines read as plain text", async () =
   log.append("100%\ndone");
   expect((await log.finish()).text).toBe("passed\n100%\ndone");
 });
+
+test.each(["x", "\u00e9", "\u4e2d", "\u{1f600}"])(
+  "long output keeps a tail within its byte budget with whole characters for %s",
+  async (character) => {
+    const path = join(folder, `bytes-${character.codePointAt(0)}.log`);
+    const log = createOutputLog(path, {
+      ...options,
+      limits: { maxLines: 10, maxBytes: 100 },
+    });
+    const start = "123456789\n123456789\n";
+    const line = `${character.repeat(100)}!`;
+    log.append(`${start}${line}`);
+    const output = await log.finish();
+    const tail = `${character.repeat(Math.floor(78 / Buffer.byteLength(character)))}!`;
+    expect(output.isCut).toBe(true);
+    expect(output.text.split("\n")).toEqual([
+      "123456789",
+      "123456789",
+      `[The start of line 3 of 3 is cut here. The whole output is in ${path}]`,
+      tail,
+    ]);
+    expect(Buffer.byteLength(start + tail)).toBeLessThan(100);
+    expect(readFileSync(path, "utf8")).toBe(`${start}${line}\n`);
+  },
+);

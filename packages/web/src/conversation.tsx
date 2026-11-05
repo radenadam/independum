@@ -18,6 +18,7 @@ interface ConversationProps {
   requests: RequestSummary[];
   pendingChanges: RequestChange[];
   models: ModelSummary[] | undefined;
+  latestCompactionId: string | undefined;
   litRequest: string | undefined;
   isSummaryLit: boolean;
   current: string | undefined;
@@ -41,6 +42,7 @@ export function Conversation({
   requests,
   pendingChanges,
   models,
+  latestCompactionId,
   litRequest,
   isSummaryLit,
   current,
@@ -52,9 +54,6 @@ export function Conversation({
   if (requests.length === 0 && pendingChanges.length === 0) {
     return <PlaceNote>No request yet. Each reply of the model adds one.</PlaceNote>;
   }
-  const latestCompaction = [...requests.flatMap((request) => request.changes), ...pendingChanges]
-    .filter(isCompaction)
-    .at(-1)?.entryId;
   const firstShown = requests.length - newestShown;
   const rows: ReactNode[] = [...changeRows(pendingChanges, "pending")];
   let stretch: number[] = [];
@@ -157,13 +156,13 @@ export function Conversation({
           icon={<KindSwatch kind="summary" />}
           label="Pi compacted the chat"
           glance={`${timeFormat.format(new Date(change.timestamp))}, ${describeCompaction(change).toLowerCase()}, from ${numberFormat.format(change.tokensBefore)} tokens`}
-          isFaded={change.entryId !== latestCompaction}
+          isFaded={change.entryId !== latestCompactionId}
           isCurrent={current === `compaction-${change.entryId}`}
-          isLit={isSummaryLit && change.entryId === latestCompaction}
+          isLit={isSummaryLit && change.entryId === latestCompactionId}
           onOpen={() => onOpenCompaction(change)}
           onPoint={(isPointed) =>
             onPoint(
-              isPointed && change.entryId === latestCompaction ? { kind: "summary" } : undefined,
+              isPointed && change.entryId === latestCompactionId ? { kind: "summary" } : undefined,
             )
           }
         />
