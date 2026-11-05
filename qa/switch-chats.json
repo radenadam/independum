@@ -1,0 +1,54 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 900],
+      "go": true
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
+    },
+    {
+      "run": "({ originalChatOpens: document.querySelector('main header').innerText.trim() === 'Explain how Pi saves a chat.' })"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 100
+    },
+    {
+      "text": "Keep replying while I switch chats.",
+      "wait": 100
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      },
+      "wait": 0
+    },
+    {
+      "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyStartsBeforeSwitch: !!document.querySelector('main button[aria-label=Stop]') }; })()",
+      "wait": 0
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))",
+      "wait": 0
+    },
+    {
+      "run": "(async () => { const shown = () => document.querySelector('main').innerText; for (let tries = 0; tries < 50 && !shown().includes('Explain why the site exists'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); const originalRows = [...document.querySelectorAll('nav button')].filter(button => button.textContent.startsWith('Explain how Pi saves a chat.')); return { otherChatOpens: document.querySelector('main header').innerText.trim() === 'Plan the first post.' && shown().includes('Explain why the site exists'), otherChatIsIdle: !document.querySelector('main button[aria-label=Stop]'), sidebarShowsOriginalReplying: originalRows.length > 0 && originalRows.every(button => !!button.querySelector('[style*=\"--position\"]')) }; })()",
+      "wait": 0,
+      "shot": "other-chat"
+    },
+    {
+      "run": "(async () => { const isOriginalReplying = () => [...document.querySelectorAll('nav button')].some(button => button.textContent.startsWith('Explain how Pi saves a chat.') && !!button.querySelector('[style*=\"--position\"]')); for (let tries = 0; tries < 150 && isOriginalReplying(); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { originalReplyEndsInBackground: !isOriginalReplying(), otherChatStaysOpen: document.querySelector('main header').innerText.trim() === 'Plan the first post.' }; })()"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
+    },
+    {
+      "run": "(async () => { const shown = () => document.querySelector('main').innerText; const table = () => document.querySelector('main table')?.innerText ?? ''; for (let tries = 0; tries < 50 && !table().includes('Complete'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { originalReplyFinishesInBackground: shown().includes('Keep replying while I switch chats.') && shown().includes('Preview reply complete.') && table().includes('Complete'), originalReplyIsIdle: !document.querySelector('main button[aria-label=Stop]') }; })()",
+      "shot": "background-reply"
+    }
+  ]
+}

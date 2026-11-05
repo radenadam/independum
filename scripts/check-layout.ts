@@ -20,6 +20,8 @@ const rootEntries = new Set([
   "packages",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
+  // The browser scenarios live here so both people and agents can run them by name.
+  "qa",
   "scripts",
   "tsconfig.base.json",
   "tsconfig.json",

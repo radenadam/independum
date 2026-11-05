@@ -1,0 +1,17 @@
+{
+  "fixture": "empty",
+  "steps": [
+    { "size": [1280, 900], "scheme": "dark", "go": true },
+    {
+      "run": "(async () => { const commands = () => [...document.querySelectorAll('main button')].filter(button => ['Get started', 'Just look around'].some(label => button.textContent.includes(label))); const isShown = element => { for (let node = element; node; node = node.parentElement) if (getComputedStyle(node).opacity !== '1') return false; return element.checkVisibility(); }; for (let tries = 0; tries < 100 && !(commands().length === 2 && commands().every(isShown)); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { welcomeGreeting: document.querySelector('h1')?.innerText === 'Hello.', welcomeLinesTyped: document.querySelector('main').innerText.includes('Every part of it is text you can read and change.'), welcomeActionsAppear: commands().length === 2 && commands().every(isShown) }; })()",
+      "shot": "welcome"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.includes('Just look around'))"
+    },
+    {
+      "run": "({ lookAroundOpensChat: document.querySelector('main h1')?.checkVisibility({ opacityProperty: true }) === true && document.querySelector('main h1').innerText === 'What should we work on?' && !!document.querySelector('textarea[aria-label=Message]'), noModelYet: [...document.querySelectorAll('main button')].some(button => button.innerText.trim() === 'Choose a model') })",
+      "shot": "look-around"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [360, 800],
+      "scheme": "dark",
+      "go": true
+    },
+    {
+      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { darkPhoneFits: document.documentElement.scrollWidth <= 360, darkThemeApplied: (red + green + blue) / 3 < 64, phoneMessageVisible: document.querySelector('textarea[aria-label=Message]')?.checkVisibility() === true }; })()",
+      "shot": "phone-dark"
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { lightPhoneFits: document.documentElement.scrollWidth <= 360, lightThemeApplied: matchMedia('(prefers-color-scheme: light)').matches && !document.documentElement.dataset.theme && (red + green + blue) / 3 > 192 }; })()",
+      "shot": "phone-light"
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')"
+    },
+    {
+      "run": "({ phoneSidebarOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().left >= 0 && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().right <= 360, phoneSidebarFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone-sidebar"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); return { phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
+      "shot": "phone-settings"
+    }
+  ]
+}

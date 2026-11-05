@@ -33,6 +33,8 @@ Every decision about what the model gets follows these, from the system prompt t
 | --- | --- |
 | `pnpm install` | Installs dependencies and the pre-commit hook. |
 | `pnpm dev` | Runs the server and the UI with live reload. |
+| `pnpm preview` | Runs the app with a stand-in model in a fresh temporary home. |
+| `pnpm qa <scenario>` | Checks the running app in a headless browser and saves evidence outside the repository. |
 | `pnpm format` | Fixes formatting and safe lint issues. |
 | `pnpm check` | Runs every check. The pre-commit hook and CI run the same command. |
 | `pnpm test` | Runs the tests. |
@@ -50,6 +52,12 @@ Every decision about what the model gets follows these, from the system prompt t
 9. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
 
 GitHub rejects direct pushes to `main`, so every change goes through a pull request.
+
+## Browser QA
+
+Check every change a user sees with `pnpm qa <scenario>`. Choose the scenarios in `qa` that cover the change, or add a short JSON scenario for the flow. Inspect its screenshots and named values, and fix every browser error and warning. Check phone layouts at 360 pixels in both themes. A scenario finds what it uses the way a user does, by visible text, role, or accessible name, never by the class names of CSS modules, which carry hashes. The command prints the output folder outside the repository. Keep the evidence there. See `docs/browser-qa.md` for preview flags, the step format, and how to use a preview that already runs. `pnpm check` validates the harness and scenarios without running a browser.
+
+The `qa` folder holds reusable browser scenarios. Harness code lives in `packages/independum/src/qa` and uses the dependencies of that package. Preview fixtures write saved chats through Pi, and real logins load only through Pi with `--real-logins`.
 
 ## Evaluation
 

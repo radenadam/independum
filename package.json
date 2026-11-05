@@ -8,6 +8,8 @@
   "scripts": {
     "prepare": "simple-git-hooks",
     "dev": "pnpm --filter independum run dev",
+    "preview": "pnpm --filter independum run preview",
+    "qa": "pnpm --filter independum run qa",
     "format": "biome check --write && markdownlint-cli2 --fix",
     "check": "pnpm run check:biome && pnpm run check:markdown && pnpm run check:docs && pnpm run check:characters && pnpm run check:layout && pnpm run check:comments && pnpm run check:styles && pnpm run check:markup && pnpm run check:release-age && pnpm run check:types && pnpm run check:unused && pnpm run check:duplicates && pnpm run test",
     "check:biome": "biome check --error-on-warnings",
