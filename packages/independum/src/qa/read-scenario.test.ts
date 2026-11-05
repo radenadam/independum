@@ -7,7 +7,7 @@ import { readScenario } from "./read-scenario.ts";
 test("every core scenario has a fixture and named checks", async () => {
   const directory = join(import.meta.dirname, "..", "..", "..", "..", "qa");
   const names = (await readdir(directory)).filter((name) => name.endsWith(".json"));
-  expect(names).toHaveLength(10);
+  expect(names).toHaveLength(11);
   for (const name of names) {
     const scenario = await readScenario(join(directory, name));
     expect(scenario.steps.some((step) => step.run?.startsWith("({"))).toBe(true);

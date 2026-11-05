@@ -4,6 +4,8 @@ import type {
   ChatConfiguration,
   ChatEvent,
   ChatsEvent,
+  ComposePreview,
+  ContextRevision,
   ContextSummary,
   ModelSummary,
   SettingsChange,
@@ -146,11 +148,33 @@ function followEvents<Event>(
 }
 
 /** Sends a message to the chat. */
-export async function sendMessage(id: string, text: string): Promise<void> {
-  const response = await requestApi(chatPath(id, "/messages"), { body: { text } });
+export async function sendMessage(id: string, text: string, previewId?: string): Promise<void> {
+  const response = await requestApi(chatPath(id, "/messages"), {
+    body: { text, ...(previewId === undefined ? {} : { previewId }) },
+  });
   if (!response.ok) {
     throw new Error("The message was not sent.");
   }
+}
+
+/** Captures a literal message, expanded command, or built-in action before submission. */
+export async function composeMessage(id: string, text: string): Promise<ComposePreview> {
+  return readResponse(
+    await requestApi(chatPath(id, "/compose"), { body: { text, interpretation: "commands" } }),
+  );
+}
+
+/** Returns the current command and skill catalog without running either. */
+export async function fetchResources(id: string): Promise<ContextRevision> {
+  return readResponse(await requestApi(chatPath(id, "/resources")));
+}
+
+/** Executes a captured built-in command addressed to one chat. */
+export async function runSlashAction(
+  id: string,
+  previewId: string,
+): Promise<{ action: string; arguments: string; chatId?: string }> {
+  return readResponse(await requestApi(chatPath(id, "/slash-actions"), { body: { previewId } }));
 }
 
 /** Chooses the model that the chat uses from now on. */

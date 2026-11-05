@@ -43,6 +43,8 @@ export function listRequests(branch: SessionEntry[]): RequestList {
         tokensBefore: entry.tokensBefore,
         summarizedRequests: requests.filter((request) => isBefore(request.id, firstKept)).length,
       });
+    } else if (entry.type === "custom" && entry.customType === "independum-context") {
+      isSetupRecorded = true;
     } else if (entry.type === "custom_message") {
       const described = describeMessage({ role: "custom", content: entry.content });
       inputs.push({ ...described, entryId: entry.id });

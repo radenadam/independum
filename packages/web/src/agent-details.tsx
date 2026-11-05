@@ -6,6 +6,7 @@ import { OutputLimitFields } from "./output-limit-fields.tsx";
 import { PiTextList } from "./pi-text-list.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
+import { ToggleSwitch } from "./toggle-switch.tsx";
 import { ToolCard } from "./tool-card.tsx";
 import type { AgentSettings } from "./use-agent-settings.ts";
 
@@ -33,6 +34,17 @@ export function SystemPromptDetail({ settings }: AgentDetailProps): ReactElement
       }
     >
       <p className={styles.well}>{agent?.systemPrompt}</p>
+      {agent?.contextSettings === undefined ? null : (
+        <ToggleSwitch
+          label="Send base prompt"
+          isOn={agent.contextSettings.isBasePromptEnabled}
+          onChange={(isBasePromptEnabled) => {
+            if (agent.contextSettings !== undefined) {
+              change({ context: { ...agent.contextSettings, isBasePromptEnabled } });
+            }
+          }}
+        />
+      )}
     </PlaceSection>
   );
 }
@@ -50,11 +62,11 @@ export function AddedByPiDetail({ settings }: AgentDetailProps): ReactElement {
 /** Draws every text that Pi can send, marked when it was in the last request. */
 export function PiTextsDetail({ settings }: AgentDetailProps): ReactElement {
   return (
-    <PlaceSection heading="Texts of Pi" badge="read-only">
+    <PlaceSection heading="Pi context" badge="read-only">
       <PlaceNote>
         Pi sends each of these when its condition holds, and the mark shows the ones in the last
-        request of this chat. Pi has more texts for features that Independum does not use, such as
-        skills and branch summaries.
+        request of this chat. Context controls lists the switches that public Pi APIs support. Each
+        remaining text states its unavailable control and source.
       </PlaceNote>
       {settings.agent === undefined ? null : <PiTextList texts={settings.agent.piTexts} />}
     </PlaceSection>

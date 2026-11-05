@@ -1,6 +1,6 @@
 # Documented behavior and limits
 
-- Status: accepted, and amended by [decision 0055](0055-model-settings-and-compaction.md), which adds model and compaction controls and refreshes context when settings or compaction change, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own open chat
+- Status: accepted, and amended by [decision 0055](0055-model-settings-and-compaction.md), which adds model and compaction controls and refreshes context when settings or compaction change, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own open chat, extended by [decision 0062](0062-project-resources-and-context-controls.md) for explicit context preparation and captured request revisions
 - Date: 2026-11-05
 
 ## Context

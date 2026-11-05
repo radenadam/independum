@@ -55,7 +55,7 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `GET /chats/:id/events` | None | Events of the named chat. |
 | `GET /chats/:id/agent` | None | `AgentSummary`. |
 | `GET /chats/:id/context` | None | `ContextSummary`. |
-| `POST /chats/:id/messages` | `{ text }`, a nonempty string after trimming | 202 with no body. |
+| `POST /chats/:id/messages` | Exact `text`, optional `interpretation` and `previewId`, as [context controls](context.md#api) describes | 202 with no body. |
 | `PUT /chats/:id/model` | `{ providerId, modelId }`, both strings | Chooses an available model with configured login. Failure is 400. |
 | `PUT /chats/:id/thinking` | `{ level }`, a string offered by the model | Changes thinking effort. Failure is 400. |
 | `POST /chats/:id/new` | Optional `{ folder }`, a string | 201 with `{ id }`, in the source chat's folder or a known project, with its resolved profile defaults. Invalid folder is 400. |
@@ -87,9 +87,9 @@ Login events are `question` with id, kind, message and optional placeholder or c
 
 ## What reaches the model
 
-An in-memory Pi settings manager and resource loader disable discovered context files, skills, prompt templates, themes, and extensions. The append prompt is empty. Independum supplies its editable system prompt before the agent starts and activates only its enabled, available tools. It does not load project instruction files. The exact prompt override replaces Pi's working folder block with the enabled added facts. Pi can still add provider text, setup changes, tool errors, image notes, compaction text, and other SDK content.
+An in-memory Pi settings manager and resource loader disable discovered context files, skills, prompt templates, themes, and extensions. The append prompt is empty. Independum supplies its editable system prompt before the agent starts and activates only its enabled, available tools. The [context pipeline](context.md#requests-and-pi) supplies separately controlled base prompt, facts, project instructions, and skill metadata. Typed projection controls supported Pi additions. Pi can still add provider text, setup changes, tool errors, image notes, compaction text, and other SDK content.
 
-The request hook observes Pi's provider payload and does not replace it. Ordinary captured requests update memory and the last request file. Cache warming requests increment a separate count and do not replace that payload. Compaction requests bypass the hook. [Model settings](settings.md#model-settings-and-compaction) apply to catalog copies and request options through Pi's stream function. Notes reach Pi as custom messages with an editable source envelope. Custom timing entries stay saved without entering model messages. Tool content reaches the model, while UI diffs and fingerprints stay in result details.
+The request hook observes Pi's final provider payload after typed context projection and does not replace it. Ordinary captured requests update memory and the last request file. Cache warming requests increment a separate count and do not replace that payload. Replacement compaction uses its own request callback and [separate capture](context.md#compaction). [Model settings](settings.md#model-settings-and-compaction) apply to catalog copies and request options through Pi's stream function. Notes reach Pi as custom messages with an editable source envelope. Custom timing entries stay saved without entering model messages. Tool content reaches the model, while UI diffs and fingerprints stay in result details.
 
 `summarize-request.ts` walks request values and matches known prompts, tools, messages, and Pi texts without provider branches. It estimates tokens from text length, ignores unmatched fragments shorter than 40 characters, and drops sections with no known source. Text keys shorter than eight characters match only a whole request text. The parts view is an approximation. The raw payload is the captured request without that filtering. `list-requests.ts` reconstructs history from saved assistant messages and changes, so retries and requests without such messages have no independent row.
 
@@ -103,5 +103,5 @@ The request hook observes Pi's provider payload and does not replace it. Ordinar
 
 - Decision 0010 describes requests from the server's own origin only. Access checks also accept requests without an Origin header when the host and token pass. See `packages/independum/src/create-server.ts:24`.
 - Decision 0003 places harness logic in a planned `packages/core`. It remains in `packages/independum/src/create-chat.ts:170`, used directly from `packages/independum/src/cli.ts:27`.
-- Decision 0002 says Pi additions become controllable or are removed. The hook keeps Pi's payload unchanged, and the Pi text inventory is read-only, as decision 0033 permits. See `packages/independum/src/create-chat.ts:614` and `packages/web/src/pi-text-list.tsx:29`.
+- [Context controls](context.md#remaining-checkpoint-work) lists the remaining Pi additions that have no public omission API. These stay unavailable with their source and reason.
 - Other current differences belong to [chats](chats.md#known-differences-from-the-decisions), [Session](side-panel.md#known-differences-from-the-decisions), [settings](settings.md#known-differences-from-the-decisions), and [tools](tools.md#known-differences-from-the-decisions).

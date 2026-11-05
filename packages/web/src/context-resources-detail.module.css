@@ -1,0 +1,39 @@
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.switchRow + .switchRow {
+  border-top: 1px solid var(--line);
+}
+
+.switchLabel {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resourceLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+
+.resourceLabel code {
+  font: 13px var(--font-mono);
+}
+
+.resourceState {
+  color: var(--muted);
+  font-size: 12px;
+}

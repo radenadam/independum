@@ -16,6 +16,8 @@ Use compares Last reply with Whole chat. Rows separate input, output, reasoning,
 
 The context shows the last captured request, or an estimate of the next one before any request is captured. The request parts come from provider-independent text matching. Parts keep their order inside a request key, and groups of keys sort as instructions, tools, and messages. Adjacent tools share a row. Model texts and tool controls open through these rows. See [settings](settings.md#tools-and-model-texts). A Compaction row opens its [settings and manual action](settings.md#model-settings-and-compaction), with an edited mark when its settings differ from the built-in values.
 
+Context controls opens the [resource catalog, source editors, and Pi switches](context.md). Captured resources remain separate from pending discovery.
+
 A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Changing chats clears the detail path and loads the agent and context by the new chat id. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
 
 ## Session figure
@@ -32,7 +34,7 @@ The conversation is reconstructed from the current session branch, with one row 
 
 Model and effort changes and Pi's setup records appear below the request they lead to. Only the final changed value before a request appears. Pending changes wait above the newest row. Compactions show which earlier requests became a summary, and open the saved summary. Summarized requests fade, and messages that Pi keeps whole remain unfaded. Only the latest compaction links its hover to the summary in the figure.
 
-Request details show new inputs, the assistant message, token use, and cost. Only the newest row offers the captured exact request and the count of cache warmings since the run opened. Compaction requests bypass this capture. Matching can omit unknown sections and short unmatched text, so the exact request is the full payload view. [Server model input](server.md#what-reaches-the-model) describes capture and matching limits. Session uses the [same refresh triggers](message-box.md#context-meter) as the meter.
+Request details show new inputs, the assistant message, token use, and cost. Only the newest row offers the captured exact request and the count of cache warmings since the run opened. Summary requests have their own capture in the [Compaction detail](context.md#compaction). Matching can omit unknown sections and short unmatched text, so the exact request is the full payload view. [Server model input](server.md#what-reaches-the-model) describes capture and matching limits. Session uses the [same refresh triggers](message-box.md#context-meter) as the meter.
 
 ## Commands
 

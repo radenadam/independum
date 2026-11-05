@@ -11,6 +11,7 @@ import type {
 } from "./api-types.ts";
 import { thinkingLevels } from "./api-types.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
+import { readContextSettings } from "./read-context-settings.ts";
 import { handBackRange, readSettingsChange } from "./read-settings-change.ts";
 
 /** A configuration failure with the file and location that need repair. */
@@ -283,6 +284,7 @@ export function validateLegacySettings(value: unknown, file: string): Record<str
 
 function validateRuntimeSettings(value: unknown, file: string, pointer = "/settings"): void {
   const fields = objectOf(value, file, pointer, [
+    "context",
     "model",
     "thinkingLevel",
     "modelOverrides",
@@ -295,6 +297,20 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
     "environment",
   ]);
   validateChoices(fields, file, pointer);
+  if (fields.context !== undefined) {
+    try {
+      readContextSettings(fields.context);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "/context: Invalid context settings.";
+      const boundary = message.indexOf(": ");
+      throw new ConfigurationError(
+        message.slice(boundary + 2),
+        file,
+        `${pointer}${message.slice(0, boundary)}`,
+      );
+    }
+  }
   validateRuntimeFields(fields, file, pointer);
   const { model: _model, thinkingLevel: _thinkingLevel, ...runtime } = fields;
   for (const [key, entry] of Object.entries(runtime)) {

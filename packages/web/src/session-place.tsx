@@ -1,5 +1,12 @@
 import type { ChatState, ContextSummary, ModelSummary, RequestSummary } from "independum/api-types";
-import { type CSSProperties, type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactElement,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AddedFactsDetail } from "./added-facts-detail.tsx";
 import {
   AddedByPiDetail,
@@ -15,6 +22,7 @@ import { detailWidth, readColumnWidth, saveColumnWidth } from "./column-width.ts
 import { CompactionDetail, isCompactionChanged } from "./compaction-detail.tsx";
 import { ConfigurationIssues } from "./configuration-issues.tsx";
 import { ContextParts, type ShownLink } from "./context-parts.tsx";
+import { ContextResourcesDetail } from "./context-resources-detail.tsx";
 import { describeChange } from "./conversation.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { Disclosure } from "./disclosure.tsx";
@@ -28,15 +36,19 @@ import { PlaceRow } from "./place-row.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { PlaceTrail } from "./place-trail.tsx";
 import { ProfileDetail } from "./profile-detail.tsx";
+import { ProfileEditingNote } from "./profile-editing-note.tsx";
 import { ProjectProfileSettings } from "./project-profile-settings.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import styles from "./session-place.module.css";
+import { TextButton } from "./text-button.tsx";
 import { TextDialog } from "./text-dialog.tsx";
 import { countOf, UsageTable } from "./usage-table.tsx";
 import { type AgentSettings, useAgentSettings } from "./use-agent-settings.ts";
 
 /** Properties of the Session place. */
 interface SessionPlaceProps {
+  requestedDetail?: "resources" | undefined;
+  requestedAt?: number | undefined;
   chat: ChatState;
   models: ModelSummary[] | undefined;
   context: ContextSummary | undefined;
@@ -50,7 +62,7 @@ interface SessionPlaceProps {
 interface View {
   key: string;
   title: string;
-  link: ShownLink | { kind: "model" | "chat" | "profile" | "compactionSettings" };
+  link: ShownLink | { kind: "model" | "chat" | "profile" | "compactionSettings" | "resources" };
   text: string;
 }
 
@@ -66,6 +78,8 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", tim
  * every request of its conversation.
  */
 export function SessionPlace({
+  requestedDetail,
+  requestedAt,
   chat,
   models,
   context,
@@ -73,6 +87,13 @@ export function SessionPlace({
 }: SessionPlaceProps): ReactElement {
   const settings = useAgentSettings(chat);
   const [path, setPath] = useState<View[]>([]);
+  useEffect(() => {
+    if (requestedDetail === "resources" && requestedAt !== undefined) {
+      setPath([
+        { key: "resources", title: "Context controls", link: { kind: "resources" }, text: "" },
+      ]);
+    }
+  }, [requestedDetail, requestedAt]);
   const [pathChatId, setPathChatId] = useState(chat.id);
   if (pathChatId !== chat.id) {
     setPathChatId(chat.id);
@@ -136,14 +157,7 @@ export function SessionPlace({
         />
         <PlaceFrame>
           {settings.agent?.configuration === undefined ? null : (
-            <PlaceNote>
-              Editing{" "}
-              {settings.agent.configuration.profile.document?.profile.name ??
-                settings.agent.configuration.profile.reference.id}
-              . {settings.agent.configuration.profile.reference.scope} profile.{" "}
-              {settings.agent.configuration.profile.path}. Used by{" "}
-              {settings.agent.configuration.profile.usedBy.length} chats.
-            </PlaceNote>
+            <ProfileEditingNote profile={settings.agent.configuration.profile} />
           )}
           {settings.failure === undefined ? null : <PlaceNote>{settings.failure}</PlaceNote>}
           <Detail view={view} chat={chat} context={context} models={models} settings={settings} />
@@ -299,6 +313,19 @@ function Overview({
         </PlaceSection>
       )}
       <PlaceSection heading="Context">
+        <PlaceRow
+          label="Context controls"
+          glance="Instructions, skills, slash commands, and Pi"
+          isCurrent={current === "resources"}
+          onOpen={() =>
+            onOpen({
+              key: "resources",
+              title: "Context controls",
+              link: { kind: "resources" },
+              text: "",
+            })
+          }
+        />
         <PlaceNote>{basisOf(context)}</PlaceNote>
         {context === undefined ? (
           <PlaceNote>{contextFailure ?? "Loading the request."}</PlaceNote>
@@ -358,6 +385,8 @@ interface DetailProps {
 function Detail({ view, chat, context, models, settings }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
+    case "resources":
+      return <ContextResourcesDetail settings={settings} />;
     case "profile":
       return <ProfileDetail chat={chat} models={models} settings={settings} />;
     case "systemPrompt":
@@ -369,6 +398,9 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
         </>
       );
     case "addedFact":
+      if (link.id.startsWith("context.")) {
+        return <ContextResourcesDetail settings={settings} />;
+      }
       return (
         <AddedFactsDetail
           key={`${link.id}:${view.text}`}
@@ -480,7 +512,33 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
         </>
       );
     case "compactionSettings":
-      return <CompactionDetail chat={chat} settings={settings} />;
+      return (
+        <>
+          <CompactionDetail chat={chat} settings={settings} />
+          <TextButton
+            label="Edit compaction texts"
+            onClick={() => settings.setEditing("Compaction")}
+          />
+          {context?.entries
+            .filter(
+              (entry) =>
+                entry.type === "custom" &&
+                typeof entry.data === "object" &&
+                entry.data !== null &&
+                "customType" in entry.data &&
+                entry.data.customType === "independum-compaction-request",
+            )
+            .slice(-10)
+            .map((entry) => (
+              <Disclosure key={entry.id} label={`Summary request ${entry.timestamp}`}>
+                <CodeWell
+                  code={JSON.stringify(entry.data, null, 2)}
+                  copyLabel="Copy summary request"
+                />
+              </Disclosure>
+            ))}
+        </>
+      );
     case "request": {
       const request = context?.requests.find((each) => each.id === link.id);
       return request === undefined || context === undefined ? (

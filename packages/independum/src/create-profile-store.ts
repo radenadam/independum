@@ -34,6 +34,7 @@ import {
   validateProjectSettings,
   validateUserSettings,
 } from "./configuration-schema.ts";
+import { readContextSettings } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { subscribeTo } from "./subscribe-to.ts";
 
@@ -394,6 +395,7 @@ export async function createProfileStore(
       ...builtInSettings.compaction,
       ...document?.profile.settings?.compaction,
     };
+    settings.context = readContextSettings(document?.profile.settings?.context ?? {});
     if (document?.systemPrompt !== null && document?.systemPrompt !== undefined) {
       settings.texts.systemPrompt = {
         text: document.systemPrompt,

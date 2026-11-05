@@ -1,18 +1,30 @@
-import type { ChatState, ContextSummary, ModelSummary, ProjectSummary } from "independum/api-types";
+import type {
+  ChatState,
+  ComposePreview,
+  ContextRevision,
+  ContextSummary,
+  ModelSummary,
+  ProjectSummary,
+} from "independum/api-types";
+import { builtInSlashCommands } from "independum/read-context-settings";
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
+import { composeMessage, fetchResources, runSlashAction } from "./chat-api.ts";
 import { readDraft, saveDraft } from "./chat-draft.ts";
+import { CommandPreview } from "./command-preview.tsx";
 import { ContextMeter } from "./context-meter.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { FolderMenu } from "./folder-menu.tsx";
 import { hasKeyboard } from "./has-keyboard.ts";
 import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
+import { MenuList } from "./menu-list.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { StatusLabel } from "./status-label.tsx";
+import { TextField } from "./text-field.tsx";
 import { useTooltip } from "./use-tooltip.tsx";
 
 /** A menu that opens from the message box. */
@@ -29,7 +41,8 @@ interface MessageBoxProps {
   projects: ProjectSummary[];
   isEmpty: boolean;
   isReplying: boolean;
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string, previewId?: string) => Promise<void>;
+  onSlashAction: (action: string, argumentsText: string, newChatId?: string) => void;
   onStop: () => void;
   onOpenModels: () => void;
   onChooseModel: (model: ModelSummary) => void;
@@ -56,6 +69,7 @@ export function MessageBox({
   isEmpty,
   isReplying,
   onSend,
+  onSlashAction,
   onStop,
   onOpenModels,
   onChooseModel,
@@ -67,9 +81,18 @@ export function MessageBox({
   onOpenCommands,
 }: MessageBoxProps): ReactElement {
   const [draft, setDraft] = useState(() => ({ chatId, text: readDraft(chatId) }));
+  const [preview, setPreview] = useState<ComposePreview | undefined>();
+  const [catalog, setCatalog] = useState<ContextRevision | undefined>();
+  const [commandFailure, setCommandFailure] = useState<string | undefined>();
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // Each chat keeps its own draft, so opening another chat swaps the text in the field.
   if (draft.chatId !== chatId) {
     setDraft({ chatId, text: readDraft(chatId) });
+    setPreview(undefined);
+    setIsCommandMenuOpen(false);
+    setCatalog(undefined);
+    setCommandFailure(undefined);
   }
   const [menu, setMenu] = useState<Menu | undefined>();
   const modelTip = useTooltip(
@@ -91,6 +114,23 @@ export function MessageBox({
       field.current?.focus();
     }
   }, [chatId]);
+  useEffect(() => {
+    if (chatId === null || (context !== undefined && context.chatId !== chatId)) {
+      return;
+    }
+    let isCurrent = true;
+    fetchResources(chatId).then(
+      (resources) => {
+        if (isCurrent) {
+          setCatalog(resources);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      isCurrent = false;
+    };
+  }, [chatId, context]);
 
   function toggleMenu(next: Menu): void {
     if (next === "model" && menu !== "model") {
@@ -104,20 +144,60 @@ export function MessageBox({
     saveDraft(chatId, text);
   }
 
-  function submit(): void {
-    const text = draft.text.trim();
-    if (model === null) {
-      toggleMenu("model");
+  async function submit(): Promise<void> {
+    const text = draft.text;
+    if (isSubmitting || chatId === null) {
       return;
     }
-    if (!isReady) {
-      return;
+    setCommandFailure(undefined);
+    setIsSubmitting(true);
+    try {
+      const composed = preview?.chatId === chatId ? preview : await composeMessage(chatId, text);
+      if (composed.kind === "action") {
+        const result = await runSlashAction(chatId, composed.id);
+        if (result.action === "help") {
+          setIsCommandMenuOpen(true);
+        }
+        if (
+          (result.action === "model" && result.arguments === "") ||
+          (result.action === "thinking" && result.arguments === "")
+        ) {
+          toggleMenu("model");
+        }
+        onSlashAction(result.action, result.arguments, result.chatId);
+        changeDraft("");
+        setPreview(undefined);
+        return;
+      }
+      if (composed.kind === "preview" && preview === undefined) {
+        setPreview(composed);
+        changeDraft(composed.text);
+        setIsCommandMenuOpen(false);
+        return;
+      }
+      if (model === null) {
+        toggleMenu("model");
+        return;
+      }
+      if (!isReady) {
+        return;
+      }
+      changeDraft("");
+      await onSend(preview === undefined ? composed.text : text, composed.id).catch(
+        (error: unknown) => {
+          saveDraft(chatId, text);
+          setDraft((current) => (current.chatId === chatId ? { chatId, text } : current));
+          throw error;
+        },
+      );
+      setPreview(undefined);
+    } catch (error) {
+      setCommandFailure(
+        error instanceof Error ? error.message : "The command cannot be submitted.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-    changeDraft("");
-    onSend(text).catch(() => {
-      saveDraft(chatId, text);
-      setDraft((current) => (current.chatId === chatId ? { chatId, text } : current));
-    });
   }
 
   function onFieldKey(event: KeyboardEvent<HTMLTextAreaElement>): void {
@@ -138,6 +218,88 @@ export function MessageBox({
   return (
     <div className={styles.area}>
       <div className={styles.frame}>
+        {preview?.chatId !== chatId ? null : (
+          <CommandPreview
+            preview={preview}
+            isEdited={preview.text !== draft.text}
+            onRestore={() => {
+              changeDraft(preview.invocation);
+              setPreview(undefined);
+            }}
+          />
+        )}
+        {commandFailure === undefined ? null : (
+          <p className={styles.commandNotice}>{commandFailure}</p>
+        )}
+        {isCommandMenuOpen && catalog?.settings.slashCommands.isEnabled ? (
+          <Popover
+            label="Slash commands"
+            place={isEmpty ? "below" : "above"}
+            onClose={() => setIsCommandMenuOpen(false)}
+          >
+            <TextField
+              id="slash-command-search"
+              label="Search slash commands"
+              kind="search"
+              value={draft.text}
+              onChange={changeDraft}
+              isFocusedFirst
+            />
+            <MenuList
+              layout="stacked"
+              emptyNote="No matching commands."
+              groups={[
+                {
+                  key: "commands",
+                  choices: [
+                    ...builtInSlashCommands.map((command) => ({
+                      name: `/${command.name}`,
+                      detail: `${command.argumentHint} ${command.description} Independum`,
+                    })),
+                    ...catalog.resources
+                      .filter(
+                        (resource) =>
+                          resource.state === "enabled" && resource.kind !== "instructions",
+                      )
+                      .map((resource) => ({
+                        name: `/${resource.kind === "skill" ? "skill:" : ""}${resource.name}`,
+                        detail: `${typeof resource.metadata["argument-hint"] === "string" ? resource.metadata["argument-hint"] : ""} ${resource.description} ${resource.scope}`,
+                      })),
+                  ]
+                    .filter((choice) =>
+                      `${choice.name} ${choice.detail}`
+                        .toLowerCase()
+                        .includes(
+                          (draft.text.split(/\s/)[0] ?? "").replace(/^\//, "").toLowerCase(),
+                        ),
+                    )
+                    .map((choice) => ({
+                      ...choice,
+                      key: choice.name,
+                      isCurrent: false,
+                      onChoose: () => {
+                        changeDraft(choice.name);
+                        setPreview(undefined);
+                        setIsCommandMenuOpen(false);
+                        composeMessage(chatId ?? "", choice.name).then(
+                          (composed) => {
+                            if (composed.kind === "preview") {
+                              setPreview(composed);
+                              changeDraft(composed.text);
+                            }
+                          },
+                          (error: unknown) =>
+                            setCommandFailure(
+                              error instanceof Error ? error.message : "The command cannot expand.",
+                            ),
+                        );
+                      },
+                    })),
+                },
+              ]}
+            />
+          </Popover>
+        ) : null}
         <div className={styles.box}>
           <textarea
             ref={field}
@@ -146,7 +308,14 @@ export function MessageBox({
             rows={2}
             placeholder="Write a message"
             value={draft.text}
-            onChange={(event) => changeDraft(event.target.value)}
+            onChange={(event) => {
+              changeDraft(event.target.value);
+              setIsCommandMenuOpen(
+                preview === undefined &&
+                  event.target.value.startsWith("/") &&
+                  !event.target.value.startsWith("//"),
+              );
+            }}
             onKeyDown={onFieldKey}
           />
           <div className={styles.tools}>

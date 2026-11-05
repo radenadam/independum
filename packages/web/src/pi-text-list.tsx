@@ -4,6 +4,7 @@ import { Badge } from "./badge.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { Disclosure } from "./disclosure.tsx";
 import styles from "./pi-text-list.module.css";
+import { PlaceNote } from "./place-frame.tsx";
 import { SlotList } from "./slot-list.tsx";
 
 /** Properties of the list of the texts of Pi. */
@@ -36,6 +37,11 @@ export function PiTextList({ texts }: PiTextListProps): ReactElement {
                 }
               >
                 <CodeWell code={text.text} copyLabel="Copy the text" />
+                {text.limitation === undefined ? null : (
+                  <PlaceNote>
+                    {text.limitation} Source: {text.source}.
+                  </PlaceNote>
+                )}
                 {text.slots.length === 0 ? null : <SlotList slots={text.slots} />}
               </Disclosure>
             ))}

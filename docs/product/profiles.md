@@ -16,11 +16,11 @@ Decision: [0061](../decisions/0061-profiles-and-plain-settings.md). A profile is
 
 A reference contains `scope`, either `user` or `project`, and `id`. Equal ids in different scopes are distinct. Ids use lowercase kebab-case, start with a letter, contain at most 64 ASCII characters, and cannot name Windows devices. The project is the exact chat folder from Pi. No ancestor search or Git root substitution occurs.
 
-Profile settings permit `model`, `thinkingLevel`, `shell`, `disabledTools`, `disabledFacts`, `outputLimits`, `handBackSeconds`, `environment`, `modelOverrides`, and `compaction`. The model is null or an object with `providerId` and `modelId`. Effort is null or a Pi thinking level. Null requests automatic effort. Missing settings use their built-in values. [Tools](tools.md#shared-contract) and [model settings](settings.md#model-settings-and-compaction) define the ranges. Knowledge cutoffs and logins never enter profile settings.
+Profile settings permit `model`, `thinkingLevel`, `shell`, `disabledTools`, `disabledFacts`, `outputLimits`, `handBackSeconds`, `environment`, `modelOverrides`, `compaction`, and [context controls](context.md). The model is null or an object with `providerId` and `modelId`. Effort is null or a Pi thinking level. Null requests automatic effort. Missing settings use their built-in values. [Tools](tools.md#shared-contract) and [model settings](settings.md#model-settings-and-compaction) define the ranges. Knowledge cutoffs and logins never enter profile settings.
 
 Chat overrides use the same model and effort shapes. An absent override follows the profile. An explicit model null leaves the chat without a selected model. Empty chats save their choices with the first accepted prompt.
 
-JSON accepts a leading byte order mark but rejects comments, duplicate keys, unknown fields, trailing commas, and unsupported versions. Diagnostics identify a file and JSON pointer. `SYSTEM.md` preserves line endings and its final newline, and its body is never interpreted as a file path. No arbitrary resource or code inside a profile is loaded.
+JSON accepts a leading byte order mark but rejects comments, duplicate keys, unknown fields, trailing commas, and unsupported versions. Diagnostics identify a file and JSON pointer. `SYSTEM.md` preserves line endings and its final newline, and its body is never interpreted as a file path. Only the explicit skills, commands, and resource paths of [context controls](context.md) are loaded. No profile code is executed.
 
 ## Editors and application
 

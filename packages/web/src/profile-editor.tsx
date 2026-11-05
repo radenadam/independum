@@ -6,6 +6,7 @@ import { SystemPromptDetail, ToolsDetail } from "./agent-details.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { CompactionDetail } from "./compaction-detail.tsx";
 import { ConfigurationIssues } from "./configuration-issues.tsx";
+import { ContextResourcesDetail } from "./context-resources-detail.tsx";
 import { Disclosure } from "./disclosure.tsx";
 import { MenuList } from "./menu-list.tsx";
 import { ModelDetail } from "./model-detail.tsx";
@@ -13,6 +14,7 @@ import { ModelMenu } from "./model-menu.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
 import { saveProfile } from "./profile-api.ts";
+import { ProfileEditingNote } from "./profile-editing-note.tsx";
 import { ProfileFiles } from "./profile-files.tsx";
 import { TextButton } from "./text-button.tsx";
 import { TextDialog } from "./text-dialog.tsx";
@@ -75,12 +77,8 @@ export function ProfileEditor({
 
   return (
     <>
-      <PlaceSection heading={`Editing ${profile.document?.profile.name ?? profile.reference.id}`}>
-        <PlaceNote>
-          {profile.reference.scope === "user" ? "User profile" : "Project profile"}. Used by{" "}
-          {profile.usedBy.length} chats.
-        </PlaceNote>
-        <CodeWell code={profile.path} copyLabel="Copy profile folder" />
+      <PlaceSection heading="Profile">
+        <ProfileEditingNote profile={profile} />
         <Disclosure label="Effective values and sources">
           <CodeWell
             code={JSON.stringify(settings.agent?.configuration?.sources ?? {}, null, 2)}
@@ -178,6 +176,7 @@ export function ProfileEditor({
           <SystemPromptDetail settings={settings} />
           <ToolsDetail settings={settings} />
           <AddedFactsDetail settings={settings} />
+          <ContextResourcesDetail settings={settings} />
           <ModelDetail
             settings={settings}
             model={models?.find(

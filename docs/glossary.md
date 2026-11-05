@@ -34,6 +34,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |
 | Profile | A complete agent setup for one use case, stored in plain files and selected by a chat. User and project defaults affect new chats. | "preset", "configuration layer" |
 | Project | A folder that chats work in. The sidebar lists every project with its chats. | "workspace", "repo", "directory" |
+| Project instructions | Literal instruction files discovered from the registered project root through the chat folder, with configurable names and exact source capture. | "automatic imports", "rules file" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Reply | The answer to one prompt, which can span several model turns and their tool calls. | "response", "completion" |
@@ -42,6 +43,8 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
 | Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |
 | Sidebar | The column at the left of the working screen, with New chat, the search, the projects, and Settings. | "margin", "nav", "menu" |
+| Skill | A named folder with a `SKILL.md`, advertised through metadata or explicitly expanded into a user message after preview. Supporting files remain ordinary files for Read. | "tool", "extension" |
+| Slash command | A leading command that invokes an existing UI action or previews a prompt command or skill before submission. | "terminal command", "script" |
 | Slot | A name in braces in a model text, such as `{id}`, where Independum puts a value when it sends the text. | "placeholder", "variable", "token" |
 | Step | One thing the agent does on its way to a reply, such as calling a tool. Each step sits in a box of its own, apart from the reply. | "action", "activity", "trace" |
 | Step group | The steps and thoughts between two texts of a reply, drawn as one box that folds them into one line and counts the steps. | "tool group", "activity block" |

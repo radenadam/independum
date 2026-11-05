@@ -8,6 +8,7 @@ import { TextEditor } from "./text-editor.tsx";
 
 /** Properties of a text dialog. */
 interface TextDialogProps {
+  isSource?: boolean;
   title: string;
   target?: string | undefined;
   texts: TextSummary[];
@@ -30,6 +31,7 @@ const sections: { section: TextSection; heading: string | null }[] = [
  * them, and saves the ones that changed together.
  */
 export function TextDialog({
+  isSource = false,
   title,
   target,
   texts,
@@ -46,7 +48,9 @@ export function TextDialog({
     const change = Object.fromEntries(
       texts.flatMap((text): [string, string | null][] => {
         const draft = drafts[text.id];
-        return draft === undefined ? [] : [[text.id, draft === text.builtIn ? null : draft]];
+        return draft === undefined
+          ? []
+          : [[text.id, !isSource && draft === text.builtIn ? null : draft]];
       }),
     );
     if (Object.keys(change).length === 0) {
@@ -71,8 +75,9 @@ export function TextDialog({
         <div className={styles.body}>
           {target === undefined ? null : <p className={styles.intro}>{target}</p>}
           <p className={styles.intro}>
-            The model reads these texts exactly as they stand here. A name in braces is a slot, and
-            Independum puts its value there when it sends the text.
+            {isSource
+              ? "Save the whole source file. The editor preserves its original line endings and byte order mark."
+              : "The model reads these texts exactly as they stand here. A name in braces is a slot, and Independum puts its value there when it sends the text."}
           </p>
           {sections.map(({ section, heading }) => {
             const own = texts.filter((text) => text.section === section);
@@ -81,6 +86,7 @@ export function TextDialog({
                 {heading === null ? null : <h3 className={styles.heading}>{heading}</h3>}
                 {own.map((text) => (
                   <TextEditor
+                    isSource={isSource}
                     key={text.id}
                     text={text}
                     draft={drafts[text.id] ?? text.text}

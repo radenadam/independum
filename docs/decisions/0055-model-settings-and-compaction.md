@@ -1,6 +1,6 @@
 # Model settings and compaction
 
-- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering model limits
+- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering model limits, extended by [decision 0062](0062-project-resources-and-context-controls.md) for owned summarization texts and one captured summary request
 - Date: 2026-11-05
 
 ## Context

@@ -28,7 +28,7 @@
       "wait": 1500
     },
     {
-      "run": "({ profileCreated: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Editing Research'), targetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('User profile'), sharedToolsVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Tools'), filesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Profile files') })",
+      "run": "({ profileCreated: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile'), targetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('user profile used by 0 chats.'), sharedToolsVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Tools'), filesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Profile files') })",
       "shot": "profile-editor"
     },
     { "size": [360, 800], "scheme": "light" },
@@ -37,7 +37,7 @@
       "shot": "profiles-phone-light"
     },
     {
-      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, profileTargetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Editing Research') })"
+      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, profileTargetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile') })"
     },
     { "scheme": "dark", "shot": "profiles-phone-dark" },
     { "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')" },
