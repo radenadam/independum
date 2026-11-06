@@ -71,6 +71,7 @@ export async function summarizeContext(
   selected: NonNullable<ReturnType<ModelRuntime["getModel"]>>,
   settings: Settings,
   capture: (request: SummaryRequest) => void,
+  transformPayload?: (payload: unknown) => Promise<unknown>,
 ): Promise<CompactionResult> {
   const texts = createModelTexts(() => settings.texts);
   const disabled = settings.context.pi.disabled;
@@ -174,8 +175,11 @@ export async function summarizeContext(
         signal: event.signal,
         maxTokens: model.maxTokens,
         ...(temperature === undefined ? {} : { temperature }),
-        onPayload: (payload) => {
-          request.payload = payload;
+        onPayload: async (payload) => {
+          const accepted =
+            transformPayload === undefined ? payload : await transformPayload(payload);
+          request.payload = accepted;
+          return accepted;
         },
       },
     );

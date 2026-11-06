@@ -115,6 +115,39 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       : context.json({ error: "This saved chat approval does not exist." }, 404),
   );
 
+  active.get("/hooks", (context) => context.json(context.get("chat").getHooks()));
+  active.get("/hooks/invocations", (context) => {
+    const records = context.get("chat").getHooks().invocations;
+    return context.json({ invocations: records });
+  });
+  active.get("/hooks/invocations/:invocationId", (context) => {
+    const record = context
+      .get("chat")
+      .getHooks()
+      .invocations.find((record) => record.id === context.req.param("invocationId"));
+    return record === undefined
+      ? context.json({ error: "This hook invocation does not exist." }, 404)
+      : context.json(record);
+  });
+  active.post("/hooks/invocations/:invocationId/stop", (context) =>
+    answer(context, context.get("chat").stopHook(context.req.param("invocationId"))),
+  );
+  active.post("/hooks/reload", (context) => {
+    const opened = context.get("chat");
+    if (revisionOf(context) === undefined) {
+      return context.json({ error: "Reload requires the hook revision in If-Match." }, 428);
+    }
+    if (revisionOf(context) !== opened.getHooks().revision) {
+      return context.json({ error: "The hook configuration changed." }, 412);
+    }
+    try {
+      opened.reloadHooks();
+      return context.json(opened.getHooks());
+    } catch (error) {
+      return contextFailure(context, error, "The hooks cannot reload.", 409);
+    }
+  });
+
   active.get("/context", (context) => context.json(context.get("chat").getContext()));
 
   active.get("/resources", (context) => context.json(context.get("chat").getResources()));

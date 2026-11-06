@@ -7,7 +7,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Term | Meaning | Avoid |
 | --- | --- | --- |
 | Access token | The secret that lets a browser use the Independum server. It is new on every launch. | "password", "API key", "session key" |
-| Add-on | A planned feature that the user adds to Independum, with the same visibility and controls as a built-in. Its contract remains an open question in `docs/roadmap.md`. | "plugin", "extension", "custom", "module" |
+| Add-on | A feature that the user adds to Independum, with the same visibility and controls as a built-in. Decision 0065 records the approved contract direction and its first script hook slice. | "plugin", "extension", "custom", "module" |
 | Added fact | A fact that Independum adds to a request, with a model text and its own switch, such as the time of a message or the chat folder. | "injection", "environment prompt" |
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
 | Approval | A user's explicit decision that grants requested access once or saves it for the chosen scope within the permission policy. | "confirmation", "trust" |
@@ -22,6 +22,8 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
 | Follower | A client with the event stream of one chat open, which holds that chat's run alive. See [decision 0053](decisions/0058-address-chats-by-id.md). | "current client", "active browser" |
+| Hook | A configured script that observes or transforms a named event, with visible order, limits, failure policy, and invocation evidence. | "callback", "trigger" |
+| Hook invocation | One run of a hook with its captured input, output, accepted effect, and execution status. | "hook call", "hook log" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
 | Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
 | Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |

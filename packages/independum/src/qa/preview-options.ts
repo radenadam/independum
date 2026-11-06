@@ -24,8 +24,13 @@ export function previewOptions(
     },
   });
   const fixture = values.fixture;
-  if (fixture !== "empty" && fixture !== "chats" && fixture !== "compacted") {
-    throw new Error("The fixture must be empty, chats, or compacted.");
+  if (
+    fixture !== "empty" &&
+    fixture !== "chats" &&
+    fixture !== "compacted" &&
+    fixture !== "hooks"
+  ) {
+    throw new Error("The fixture must be empty, chats, compacted, or hooks.");
   }
   const port = Number(values.port);
   if (!/^\d+$/.test(values.port) || !Number.isInteger(port) || port < 0 || port > 65535) {

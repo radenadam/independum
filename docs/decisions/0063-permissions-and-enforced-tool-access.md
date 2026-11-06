@@ -1,6 +1,6 @@
 # Permissions and enforced tool access
 
-- Status: accepted, amended by [decision 0067](0067-read-everywhere-and-write-inside-the-project.md), with remaining implementation work in `docs/roadmap.md`
+- Status: accepted, amended by [decision 0067](0067-read-everywhere-and-write-inside-the-project.md) and for isolated hook execution by [decision 0065](0065-script-hooks-and-the-add-on-contract.md), with remaining implementation work in `docs/roadmap.md`
 - Date: 2026-11-06
 
 ## Context

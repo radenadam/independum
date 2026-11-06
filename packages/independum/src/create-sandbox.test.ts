@@ -178,31 +178,45 @@ test("native nested readonly configuration permits reads and rejects writes insi
   expect(readFileSync(join(project, "allowed.txt"), "utf8")).toBe("allowed");
 }, 30_000);
 
-test("linux compiles nested readonly configuration without denied mounts", () => {
-  const { project } = createTestProject(root, true);
+test("read requests preserve project writes and explicit readonly protection", () => {
+  const { project, directory } = createTestProject(root, true);
   const configuration = join(project, ".independum");
+  const nested = join(project, "nested");
+  const outside = join(directory, "outside.txt");
+  const state = join(directory, "state");
   mkdirSync(configuration);
-  const runtime = sandboxRuntime(process.execPath, "minimal", Object.keys(environment));
+  mkdirSync(nested);
+  mkdirSync(state);
+  writeFileSync(outside, "outside sentinel");
+  const runtime = sandboxRuntime(process.execPath, "minimal", []);
   const request = sandboxRequest(
     {
       runtime: { ...runtime, backend: "bubblewrap", unavailable: null },
       paths: [
         { kind: "path", path: project, scope: "tree", access: "write" },
+        { kind: "path", path: project, scope: "tree", access: "read" },
+        { kind: "path", path: nested, scope: "tree", access: "read" },
         { kind: "path", path: configuration, scope: "tree", access: "write" },
+        { kind: "path", path: configuration, scope: "tree", access: "read" },
+        { kind: "path", path: outside, scope: "file", access: "write" },
+        { kind: "path", path: outside, scope: "file", access: "read" },
+        { kind: "path", path: directory, scope: "tree", access: "read" },
       ],
       readonlyPaths: [canonicalPermissionPath(configuration, project)],
-      deniedPaths: [],
+      deniedPaths: [state],
       network: false,
     },
     "never executed",
     project,
     environment,
   );
-  expect(request.filesystem?.readwritePaths).toEqual([project]);
-  expect(request.filesystem?.readonlyPaths).toContain(
+  expect(request.filesystem?.readwritePaths).toEqual([project, outside]);
+  expect(request.filesystem?.readonlyPaths).toEqual([
+    ...runtime.readonlyPaths,
     canonicalPermissionPath(configuration, project),
-  );
-  expect(request.filesystem?.deniedPaths).toEqual([]);
+    directory,
+  ]);
+  expect(request.filesystem?.deniedPaths).toEqual([state]);
 });
 
 test("sandbox runtime grants system roots for reading without writable outside paths", () => {

@@ -42,6 +42,8 @@ Prompt and tool update controls project current state into the leading system me
 
 Each provider call uses an immutable context revision. Changed revisions are saved as `independum-context` custom Pi entries. They never enter model messages. Session distinguishes pending discovery from the last captured revision. Request history marks revision changes as setup changes. The raw last request retains its existing best effort storage and matching limits.
 
+[Script hooks](hooks.md) extend these Pi boundaries after owned context projection. Final provider hooks also transform the owned summary request. A stopping hook failure prevents sending a provider request even when Pi catches its handler error.
+
 ## Compaction
 
 The existing automatic compaction switch and budgets remain. The additional Compaction permission in Pi context cancels manual, threshold, and overflow compaction and removes the automatic reserve. It does not undo saved summaries.

@@ -26,6 +26,7 @@ import { ContextResourcesDetail } from "./context-resources-detail.tsx";
 import { describeChange } from "./conversation.tsx";
 import { describeThinking } from "./describe-thinking.ts";
 import { Disclosure } from "./disclosure.tsx";
+import { HooksDetail } from "./hooks-detail.tsx";
 import { Icon } from "./icon.tsx";
 import { ModelDetail } from "./model-detail.tsx";
 import { modelNameOf } from "./model-name-of.ts";
@@ -66,7 +67,16 @@ interface View {
   title: string;
   link:
     | ShownLink
-    | { kind: "model" | "chat" | "profile" | "compactionSettings" | "resources" | "permissions" };
+    | {
+        kind:
+          | "model"
+          | "chat"
+          | "profile"
+          | "compactionSettings"
+          | "resources"
+          | "permissions"
+          | "hooks";
+      };
   text: string;
 }
 
@@ -258,6 +268,13 @@ function Overview({
       <ConfigurationIssues issues={settings.agent?.configuration?.issues ?? []} />
       <PlaceBox>
         <PlaceRow
+          label="Hooks"
+          glance={`${(settings.agent?.hooks?.hooks.length ?? 0) - (settings.agent?.hooks?.disabledHooks.length ?? 0)} enabled of ${settings.agent?.hooks?.hooks.length ?? 0} configured`}
+          isBoxed
+          isCurrent={current === "hooks"}
+          onOpen={() => onOpen({ key: "hooks", title: "Hooks", link: { kind: "hooks" }, text: "" })}
+        />
+        <PlaceRow
           label="Permissions"
           glance={settings.agent?.permissions?.mode}
           isBoxed
@@ -402,6 +419,8 @@ interface DetailProps {
 function Detail({ view, chat, context, models, settings }: DetailProps): ReactElement {
   const { link } = view;
   switch (link.kind) {
+    case "hooks":
+      return <HooksDetail settings={settings} />;
     case "resources":
       return <ContextResourcesDetail settings={settings} />;
     case "profile":

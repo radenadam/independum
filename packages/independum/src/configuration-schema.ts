@@ -10,6 +10,7 @@ import type {
   UserSettingsDocument,
 } from "./api-types.ts";
 import { thinkingLevels } from "./api-types.ts";
+import { hookModelTexts, validateHookConfiguration } from "./hook-contract.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
 import { validatePermissionPolicy } from "./permission-policy.ts";
 import { readContextSettings } from "./read-context-settings.ts";
@@ -235,7 +236,15 @@ export function validateProfileBundle(value: unknown, folder: string): ProfileBu
       const texts = objectOf(document.texts, textFile, "/texts");
       for (const [id, entry] of Object.entries(texts)) {
         const pointer = `/texts/${escapePointer(id)}`;
-        if (id === "systemPrompt" || !allTexts.some((text) => text.id === id)) {
+        if (
+          id === "systemPrompt" ||
+          ![
+            ...allTexts,
+            ...hookModelTexts(
+              (profile.settings as ProfileBundle["profile"]["settings"])?.hooks ?? [],
+            ),
+          ].some((text) => text.id === id)
+        ) {
           throw new ConfigurationError(
             "This model text id is not registered here. The base prompt belongs in SYSTEM.md.",
             textFile,
@@ -304,6 +313,9 @@ export function validateLegacySettings(value: unknown, file: string): Record<str
 function validateRuntimeSettings(value: unknown, file: string, pointer = "/settings"): void {
   const fields = objectOf(value, file, pointer, [
     "context",
+    "hooks",
+    "disabledHooks",
+    "hookOrder",
     "model",
     "thinkingLevel",
     "modelOverrides",
@@ -317,6 +329,19 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
     "permissions",
   ]);
   validateChoices(fields, file, pointer);
+  try {
+    validateHookConfiguration({
+      hooks: (fields.hooks ?? []) as never,
+      disabledHooks: (fields.disabledHooks ?? []) as never,
+      hookOrder: (fields.hookOrder ?? {}) as never,
+    });
+  } catch (error) {
+    throw new ConfigurationError(
+      error instanceof Error ? error.message : "Invalid hook configuration.",
+      file,
+      `${pointer}/hooks`,
+    );
+  }
   if (fields.context !== undefined) {
     try {
       readContextSettings(fields.context);

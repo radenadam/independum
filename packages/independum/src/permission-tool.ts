@@ -51,6 +51,8 @@ const workerTextIds = new Set(
 
 /** Dependencies captured by the tools of one applied profile. */
 export interface PermissionToolsOptions {
+  beforeExecute?: (chatId: string) => void;
+  scriptExecutable?: string;
   policy?: (chatId: string, folder: string) => PermissionPolicy;
   saveApproval?: (approval: PermissionApprovalSave) => Promise<PermissionPolicy>;
   settings: Settings;
@@ -74,6 +76,7 @@ export function permissionTool(
   return {
     ...tool,
     async execute(id, parameters, signal, onUpdate, context) {
+      const isCommand = tool.name === "Shell" || options.scriptExecutable !== undefined;
       const input = structuredClone(
         validateToolArguments(tool, {
           type: "toolCall",
@@ -84,6 +87,7 @@ export function permissionTool(
       ) as Record<string, unknown>;
       const settings = options.settings;
       const chatId = context.sessionManager.getSessionId();
+      options.beforeExecute?.(chatId);
       const policy = options.policy?.(chatId, context.cwd) ?? settings.permissions;
       if (options.currentRevision(chatId, context.cwd) !== options.revision) {
         throw new Error(
@@ -97,9 +101,12 @@ export function permissionTool(
           options.texts.fill(permissionTexts.rule, { reason: `${tool.name} is disabled.` }),
         );
       }
+      if (options.scriptExecutable !== undefined && policy.mode !== "project") {
+        throw new Error("Script hooks require project permission mode.");
+      }
       if (
         policy.mode === "unrestricted" ||
-        !["Shell", "Read", "Write", "Edit"].includes(tool.name)
+        (!isCommand && !["Read", "Write", "Edit"].includes(tool.name))
       ) {
         return tool.execute(id, input, signal, onUpdate, context);
       }
@@ -120,13 +127,13 @@ export function permissionTool(
             }),
           );
         }
-        if (tool.name === "Shell") {
+        if (isCommand) {
           mkdirSync(join(project, ".independum"), { recursive: true });
         }
         const protectedPaths = [join(project, ".independum")];
         let resources: PermissionResource[];
         try {
-          resources = requestedResources(tool.name, input, project);
+          resources = requestedResources(isCommand ? "Shell" : tool.name, input, project);
         } catch (error) {
           throw new Error(
             options.texts.fill(permissionTexts.resource, {
@@ -134,14 +141,15 @@ export function permissionTool(
             }),
           );
         }
-        const environment =
-          tool.name === "Shell"
-            ? commandEnvironment(policy.environment, settings.environment)
-            : commandEnvironment("minimal", {});
+        const environment = isCommand
+          ? commandEnvironment(policy.environment, settings.environment)
+          : commandEnvironment("minimal", {});
         function currentRuntime(): ReturnType<typeof sandboxRuntime> {
           return sandboxRuntime(
-            tool.name === "Shell" ? (options.shell?.path ?? process.execPath) : process.execPath,
-            tool.name === "Shell" ? policy.environment : "minimal",
+            isCommand
+              ? (options.scriptExecutable ?? options.shell?.path ?? process.execPath)
+              : process.execPath,
+            isCommand ? policy.environment : "minimal",
             Object.keys(environment),
           );
         }
@@ -175,39 +183,37 @@ export function permissionTool(
         const paths = resources.filter(
           (resource): resource is PathAccess => resource.kind === "path",
         );
-        const baseline: PathAccess[] =
-          tool.name === "Shell"
-            ? [{ kind: "path", path: project, scope: "tree", access: "write" }]
-            : [];
-        const readonlyPaths =
-          tool.name === "Shell"
-            ? [
-                ...new Set(
-                  protectedPaths.flatMap((protectedPath) =>
-                    [...baseline, ...paths]
-                      .filter(
-                        (grant) =>
-                          grant.access === "write" &&
-                          (containsPermissionPath(grant.path, protectedPath) ||
-                            containsPermissionPath(protectedPath, grant.path)),
-                      )
-                      .map((grant) =>
-                        containsPermissionPath(grant.path, protectedPath)
-                          ? protectedPath
-                          : grant.path,
-                      )
-                      .filter(
-                        (intersection) =>
-                          !paths.some(
-                            (grant) =>
-                              grant.access === "write" &&
-                              containsPermissionPath(grant.path, intersection),
-                          ),
-                      ),
-                  ),
+        const baseline: PathAccess[] = isCommand
+          ? [{ kind: "path", path: project, scope: "tree", access: "write" }]
+          : [];
+        const readonlyPaths = isCommand
+          ? [
+              ...new Set(
+                protectedPaths.flatMap((protectedPath) =>
+                  [...baseline, ...paths]
+                    .filter(
+                      (grant) =>
+                        grant.access === "write" &&
+                        (containsPermissionPath(grant.path, protectedPath) ||
+                          containsPermissionPath(protectedPath, grant.path)),
+                    )
+                    .map((grant) =>
+                      containsPermissionPath(grant.path, protectedPath)
+                        ? protectedPath
+                        : grant.path,
+                    )
+                    .filter(
+                      (intersection) =>
+                        !paths.some(
+                          (grant) =>
+                            grant.access === "write" &&
+                            containsPermissionPath(grant.path, intersection),
+                        ),
+                    ),
                 ),
-              ]
-            : [];
+              ),
+            ]
+          : [];
         const launch: SandboxLaunch = {
           runtime,
           paths: [...baseline, ...paths].map((resource) => ({
@@ -219,10 +225,9 @@ export function permissionTool(
           network: resources.some((resource) => resource.kind === "network"),
         };
         applyRuleExclusions(launch, options, policy, project, paths);
-        const folder =
-          tool.name === "Shell"
-            ? resolve(project, typeof input.workdir === "string" ? input.workdir : ".")
-            : project;
+        const folder = isCommand
+          ? resolve(project, typeof input.workdir === "string" ? input.workdir : ".")
+          : project;
         try {
           sandboxRequest(
             launch,
@@ -276,7 +281,9 @@ export function permissionTool(
               JSON.stringify(options.approvals.saved(chatId)) === chatApprovalState &&
               canonicalPermissionPath(context.cwd, context.cwd) === location &&
               JSON.stringify(resources) ===
-                JSON.stringify(requestedResources(tool.name, input, project)) &&
+                JSON.stringify(
+                  requestedResources(isCommand ? "Shell" : tool.name, input, project),
+                ) &&
               JSON.stringify(identities) === JSON.stringify(currentIdentities()) &&
               permissionBranch(context.sessionManager) === branch &&
               runtime.runtimeHash === currentRuntime().runtimeHash
@@ -372,40 +379,40 @@ export function permissionTool(
             isError: true,
           };
         }
+        options.beforeExecute?.(chatId);
         const startedAt = Date.now();
         onUpdate?.({ content: [], details: { permissionExecutionStartedAt: startedAt } });
         options.launches.set(id, launch);
         try {
-          const result =
-            tool.name === "Shell"
-              ? await tool.execute(id, input, signal, onUpdate, context)
-              : await fileWorker(
-                  {
-                    name: tool.name,
-                    id,
-                    input,
-                    folder: project,
-                    settings: {
-                      texts: Object.fromEntries(
-                        Object.entries(settings.texts).filter(([id]) => workerTextIds.has(id)),
-                      ),
-                      outputLimits: settings.outputLimits,
-                    },
-                    branch: fingerprintBranch(context),
-                    model:
-                      context.model === undefined
-                        ? undefined
-                        : {
-                            input: context.model.input,
-                            ...(context.model.inputLimits === undefined
-                              ? {}
-                              : { inputLimits: context.model.inputLimits }),
-                          },
+          const result = isCommand
+            ? await tool.execute(id, input, signal, onUpdate, context)
+            : await fileWorker(
+                {
+                  name: tool.name,
+                  id,
+                  input,
+                  folder: project,
+                  settings: {
+                    texts: Object.fromEntries(
+                      Object.entries(settings.texts).filter(([id]) => workerTextIds.has(id)),
+                    ),
+                    outputLimits: settings.outputLimits,
                   },
-                  launch,
-                  environment,
-                  signal,
-                );
+                  branch: fingerprintBranch(context),
+                  model:
+                    context.model === undefined
+                      ? undefined
+                      : {
+                          input: context.model.input,
+                          ...(context.model.inputLimits === undefined
+                            ? {}
+                            : { inputLimits: context.model.inputLimits }),
+                        },
+                },
+                launch,
+                environment,
+                signal,
+              );
           return {
             ...result,
             details: {
@@ -426,7 +433,7 @@ export function permissionTool(
           options.launches.delete(id);
         }
       }
-      return tool.name === "Shell"
+      return isCommand
         ? execute()
         : withFileMutationQueue(canonicalPermissionPath(String(input.path), context.cwd), execute);
     },

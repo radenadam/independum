@@ -2,8 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { createProfileStore } from "../create-profile-store.ts";
 
-export type PreviewFixture = "empty" | "chats" | "compacted";
+export type PreviewFixture = "empty" | "chats" | "compacted" | "hooks";
 
 /** Creates saved chats through Pi in a new preview home. */
 export async function createPreviewFixture(home: string, fixture: PreviewFixture): Promise<string> {
@@ -14,7 +15,56 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
   if (fixture === "empty") {
     return project;
   }
-  if (fixture === "chats") {
+  if (fixture === "chats" || fixture === "hooks") {
+    if (fixture === "hooks") {
+      const profileFolder = join(project, ".independum", "profiles", "hooks");
+      await mkdir(profileFolder, { recursive: true });
+      await writeFile(
+        join(profileFolder, "observe.ts"),
+        'for await (const chunk of process.stdin) { void chunk; }\nprocess.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));\n',
+      );
+      await writeFile(
+        join(profileFolder, "profile.json"),
+        JSON.stringify(
+          {
+            formatVersion: 1,
+            name: "Hook workflows",
+            settings: {
+              hooks: [
+                {
+                  id: "observeRequest",
+                  event: "before_provider_request",
+                  mode: "observe",
+                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+                },
+                {
+                  id: "guardCommands",
+                  event: "tool_call",
+                  mode: "transform",
+                  match: { toolNames: ["Shell"] },
+                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+                  texts: {
+                    blocked: {
+                      label: "When the workflow blocks a command",
+                      builtIn: "The workflow blocks this command.",
+                      slots: {},
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        ),
+      );
+      await writeFile(
+        join(project, ".independum", "settings.json"),
+        JSON.stringify({ formatVersion: 1, profile: { scope: "project", id: "hooks" } }, null, 2),
+      );
+      const profiles = await createProfileStore(join(home, ".independum"), [project], []);
+      profiles.close();
+    }
     const skills = join(project, ".agents", "skills", "review");
     const commands = join(project, ".independum", "commands");
     await mkdir(skills, { recursive: true });

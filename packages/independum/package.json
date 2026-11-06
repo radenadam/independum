@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "exports": {
+    "./hook-contract": "./src/hook-contract.ts",
     "./api-types": "./src/api-types.ts",
     "./read-context-settings": "./src/read-context-settings.ts",
     "./output-limit-ranges": "./src/output-limit-ranges.ts",

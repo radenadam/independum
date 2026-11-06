@@ -1,6 +1,7 @@
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ApprovalRequest, ChatPermissionApproval } from "./create-approvals.ts";
 import type { SandboxRuntime } from "./create-sandbox.ts";
+import type { HookConfiguration, HookSummary } from "./hook-contract.ts";
 import type { PermissionPolicy } from "./permission-policy.ts";
 
 export type { ApprovalRequest };
@@ -204,6 +205,7 @@ export interface ChatState {
   pending: PendingInputsState;
   leafId: string | null;
   whileReplying: InputDelivery;
+  hookInvocations?: { id: string; hookId: string; startedAt: string }[];
   contextApprovals?: ApprovalRequest[];
   id: string;
   folder: string;
@@ -225,6 +227,7 @@ export interface ChatState {
  */
 export interface AgentSummary {
   deniedPaths?: string[];
+  hooks?: HookSummary;
   chatPermissionApprovals?: ChatPermissionApproval[];
   protectedConfigurationPaths?: string[];
   piSections?: Record<string, string | null>;
@@ -499,7 +502,7 @@ export interface CompactionSettings {
 }
 
 /** The resolved runtime settings of a profile with user facts about models. */
-export interface Settings {
+export interface Settings extends HookConfiguration {
   context: ContextSettings;
   permissions: PermissionPolicy;
   modelOverrides: Record<string, Record<string, ModelOverrides>>;
