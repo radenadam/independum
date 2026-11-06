@@ -6,7 +6,7 @@ import { join } from "node:path";
 export interface SavedRequests {
   pathOf: (chatId: string) => string;
   read: (chatId: string) => unknown;
-  save: (chatId: string, request: unknown) => void;
+  save: (chatId: string, request: unknown) => Promise<void>;
   remove: (chatId: string) => void;
 }
 
@@ -30,8 +30,8 @@ export function createSavedRequests(folder: string): SavedRequests {
     },
     // A request that is not saved only means that the chat shows its next request when it opens
     // again, so a failed write stays quiet.
-    save(chatId, request) {
-      mkdir(folder, { recursive: true })
+    async save(chatId, request) {
+      await mkdir(folder, { recursive: true })
         .then(() => writeFile(fileOf(chatId), JSON.stringify(request)))
         .catch(() => undefined);
     },

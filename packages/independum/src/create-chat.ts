@@ -1550,7 +1550,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 run.cacheWarmings += 1;
               } else {
                 run.lastRequest = payload;
-                savedRequests.save(run.session.sessionId, payload);
+                await savedRequests.save(run.session.sessionId, payload);
               }
               refreshContext(run);
               return payload;

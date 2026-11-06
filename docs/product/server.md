@@ -33,7 +33,7 @@ The CLI uses `~/.independum`. Pi's model runtime owns `auth.json` for logins and
 | `requests/<chatId>.json` | The last captured raw provider payload. Deletion removes it. |
 | Headless records | Private server discovery and durable operation references, as [headless storage](headless.md#storage-and-api) describes. |
 
-The request save is asynchronous and overwrites the same file. Save errors are silent, and reads of missing or invalid data return null. It is best effort, not an ordered request archive. Archive moves only the session file and leaves retained output and request files in place. Background command ids, controls, ended command records, warming counts, and stream subscribers live only in memory. A restart does not resume processes. Thinking durations are custom entries in the Pi session. [Browser choices](settings.md) and [drafts](chats.md#drafts-and-export) use browser storage.
+The request save is asynchronous and overwrites the same file. Capture awaits the save attempt before the provider call continues, so a reply cannot finish and release its chat before that write ends. Save errors are silent, and reads of missing or invalid data return null. It is best effort, not an ordered request archive. Archive moves only the session file and leaves retained output and request files in place. Background command ids, controls, ended command records, warming counts, and stream subscribers live only in memory. A restart does not resume processes. Thinking durations are custom entries in the Pi session. [Browser choices](settings.md) and [drafts](chats.md#drafts-and-export) use browser storage.
 
 ## Routes and payloads
 

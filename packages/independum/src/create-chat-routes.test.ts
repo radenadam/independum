@@ -28,6 +28,7 @@ import type {
   ContextSummary,
   ModelSummary,
   ProjectSummary,
+  ShellDetails,
 } from "./api-types.ts";
 import { createChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
@@ -146,12 +147,10 @@ function chooseModel(providerId: string, modelId: string): Promise<Response> {
   );
 }
 
-const updateTypes = ["replyDelta", "replyPart", "toolStart", "toolProgress", "toolResult"];
-
-// The reply comes back once the chat stops replying, so whatever Independum saves after the
-// reply is saved too.
+// The settled event follows every turn of the reply, including its tool calls.
 async function sendAndReadReply(
   text: string,
+  isComplete: (updates: ChatEvent[]) => boolean = () => true,
 ): Promise<{ updates: ChatEvent[]; reply: ChatMessage }> {
   const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
   await events.next();
@@ -159,11 +158,15 @@ async function sendAndReadReply(
   const updates: ChatEvent[] = [];
   let reply: ChatMessage | undefined;
   for (let event = await events.next(); ; event = await events.next()) {
-    if (updateTypes.includes(event.type)) {
-      updates.push(event);
-    } else if (event.type === "message" && event.message.role === "assistant") {
+    updates.push(event);
+    if (event.type === "message" && event.message.role === "assistant") {
       reply = event.message;
-    } else if (event.type === "replying" && !event.isReplying && reply !== undefined) {
+    } else if (
+      event.type === "replying" &&
+      !event.isReplying &&
+      reply !== undefined &&
+      isComplete(updates)
+    ) {
       await events.close();
       return { updates, reply };
     }
@@ -521,15 +524,18 @@ test("the context shows the model, the counts, the saved entries, and the last r
   expect(before.model).toBe("faux-model");
   expect(before.userMessages).toBe(0);
   expect(before.lastRequest).toBeNull();
+  let savedBeforeReply: unknown;
   faux.setResponses([
     async (_context, options, _state, model) => {
       await options?.onPayload?.({ sent: "the exact request" }, model);
+      savedBeforeReply = JSON.parse(readFileSync(before.files.savedRequest ?? "", "utf8"));
       return fauxAssistantMessage("Sent.");
     },
   ]);
   await sendAndReadReply("Show the request");
   const after = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
   expect(after.lastRequest).toEqual({ sent: "the exact request" });
+  expect(savedBeforeReply).toEqual(after.lastRequest);
   expect(after.userMessages).toBe(1);
   expect(after.assistantMessages).toBe(1);
   expect(after.contextWindow).toBeGreaterThan(0);
@@ -891,6 +897,9 @@ test("a background command runs on, and its end wakes the agent with a note", as
     seen.push(event);
     event = await events.next();
   }
+  while (event.type !== "replying" || event.isReplying) {
+    event = await events.next();
+  }
   await events.close();
   const started = seen.find((each) => each.type === "toolResult");
   expect(started?.type === "toolResult" ? started.result.text : "").toMatch(
@@ -910,22 +919,57 @@ test("a background command runs on, and its end wakes the agent with a note", as
   expect(noteText).toMatch(/started\n<\/independum>$/);
 });
 
-test("a background command that ends before its call returns gives its whole result", async () => {
+test("a quick background command reports its result before the call returns or in a note", async () => {
   expect((await startNew()).status).toBe(201);
   expect((await chooseModel("faux", "faux-model")).status).toBe(204);
   const quick = "echo quick; exit 3";
   faux.setResponses([
     callTool("Shell", { command: quick, background: true }),
     fauxAssistantMessage("It failed."),
+    fauxAssistantMessage("It failed."),
   ]);
-  const { updates, reply } = await sendAndReadReply("Start it");
+  const { updates, reply } = await sendAndReadReply("Start it", (updates) => {
+    const result = updates.find((update) => update.type === "toolResult");
+    const details = result?.type === "toolResult" ? (result.result.details as ShellDetails) : null;
+    if (details?.ending !== "background") {
+      return true;
+    }
+    const noteIndex = updates.findIndex(
+      (event) => event.type === "message" && event.message.role === "note",
+    );
+    return (
+      noteIndex !== -1 &&
+      updates
+        .slice(noteIndex + 1)
+        .some((event) => event.type === "message" && event.message.role === "assistant")
+    );
+  });
   expect(textOf(reply)).toBe("It failed.");
   const result = updates.find((update) => update.type === "toolResult");
-  expect(result?.type === "toolResult" ? result.result : undefined).toMatchObject({
-    isError: true,
-    text: expect.stringMatching(/^quick\n\nExit code 3 after /),
-  });
-  await expectNothingInBackground();
+  const details = result?.type === "toolResult" ? (result.result.details as ShellDetails) : null;
+  if (details?.ending === "background") {
+    expect(updates).toContainEqual({
+      type: "commandEnd",
+      end: expect.objectContaining({
+        id: details.backgroundId,
+        toolCallId: result?.id,
+        ending: "exited",
+        exitCode: 3,
+        isStoppedByUser: false,
+      }),
+    });
+    const note = updates.find((event) => event.type === "message" && event.message.role === "note");
+    expect(note?.type === "message" ? textOf(note.message) : "").toMatch(
+      /ended with exit code 3 after [\s\S]*quick\n<\/independum>$/,
+    );
+    expect((await readStart()).state.backgroundCommands).toEqual([]);
+  } else {
+    expect(result?.type === "toolResult" ? result.result : undefined).toMatchObject({
+      isError: true,
+      text: expect.stringMatching(/^quick\n\nExit code 3 after /),
+    });
+    await expectNothingInBackground();
+  }
 });
 
 test("stopcommand stops a background command, and no note follows", async () => {
@@ -941,6 +985,20 @@ test("stopcommand stops a background command, and no note follows", async () => 
   ]);
   const { updates, reply } = await sendAndReadReply("Start it and stop it");
   expect(textOf(reply)).toBe("Stopped it.");
+  const started = updates.find((event) => event.type === "toolResult");
+  const details = started?.type === "toolResult" ? (started.result.details as ShellDetails) : null;
+  expect(updates).toContainEqual({
+    type: "commandEnd",
+    end: expect.objectContaining({
+      id: details?.backgroundId,
+      toolCallId: started?.id,
+      ending: "stopped",
+      isStoppedByUser: false,
+    }),
+  });
+  expect(updates.some((event) => event.type === "message" && event.message.role === "note")).toBe(
+    false,
+  );
   const results = updates.flatMap((update) =>
     update.type === "toolResult" ? [update.result.text] : [],
   );
