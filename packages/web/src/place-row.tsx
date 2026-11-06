@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { Badge, type BadgeProps } from "./badge.tsx";
+import disclosureStyles from "./disclosure.module.css";
 import { Icon } from "./icon.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
 import styles from "./place-row.module.css";
@@ -50,7 +51,7 @@ export function PlaceRow({
   return (
     <button
       type="button"
-      className={styles.row}
+      className={`${disclosureStyles.toggle} ${styles.row}`}
       aria-current={isCurrent ? "true" : undefined}
       data-lit={isLit}
       data-boxed={isBoxed}

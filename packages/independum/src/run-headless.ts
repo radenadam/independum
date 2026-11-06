@@ -7,6 +7,7 @@ import { connectHeadless } from "./connect-headless.ts";
 import type { OperationView } from "./create-operations.ts";
 import { HeadlessError } from "./headless-types.ts";
 import { operationExitCode } from "./operation-exit-code.ts";
+import { runPhonePairing } from "./run-phone-pairing.ts";
 
 /** IO and lifecycle dependencies of the command line client. */
 export interface HeadlessClientOptions {
@@ -17,6 +18,7 @@ export interface HeadlessClientOptions {
   request?: typeof fetch;
   launch?: () => void;
   serve?: () => Promise<void>;
+  confirmPairing?: (code: string, signal: AbortSignal) => Promise<boolean>;
   stdin(): Promise<string>;
   stdout(text: string): void;
   stderr(text: string): void;
@@ -154,17 +156,20 @@ export async function runHeadless(
             ? "Usage: independum wait OPERATION_ID [--on-question fail|wait]\n"
             : command === "server"
               ? "Usage: independum server start [--foreground] | status | stop [--force]\n"
-              : "Usage: independum prompt | wait | server [--format text|jsonl] [--start auto|never] [--timeout-ms N] [--fields NAME,...] [--request-id ID] [--server URL --access-token-stdin]\n",
+              : command === "phone"
+                ? "Usage: independum phone pair [--timeout-ms N]. Requires an interactive terminal and enabled phone access.\n"
+                : "Usage: independum prompt | wait | server | phone [--format text|jsonl] [--start auto|never] [--timeout-ms N] [--fields NAME,...] [--request-id ID] [--server URL --access-token-stdin]\n",
       );
       return 0;
     }
     if (
       command !== "prompt" &&
       command !== "wait" &&
+      !(command === "phone" && positionals[1] === "pair") &&
       !(command === "server" && ["start", "status", "stop"].includes(serverAction ?? ""))
     ) {
       throw new HeadlessError(
-        "This command is not available. Use prompt, wait, or server.",
+        "This command is not available. Use prompt, wait, server, or phone pair.",
         "unsupportedCommand",
         2,
       );
@@ -194,6 +199,20 @@ export async function runHeadless(
       throw new HeadlessError("A flag does not apply to this command.", "invalidCommand", 2);
     }
     const fields = stringValue("fields")?.split(",");
+    if (
+      command === "phone" &&
+      (positionals.length !== 2 ||
+        format !== "text" ||
+        fields !== undefined ||
+        values["access-token-stdin"] ||
+        options.confirmPairing === undefined)
+    ) {
+      throw new HeadlessError(
+        "Phone pairing requires an interactive terminal with text output and no stdin token or field selection.",
+        "invalidCommand",
+        2,
+      );
+    }
     if (
       fields?.some(
         (field) => !(command === "server" ? serverFields : operationFields).includes(field),
@@ -311,7 +330,10 @@ export async function runHeadless(
     const connection = await connectHeadless({
       directory: options.directory,
       folder: options.folder,
-      start: serverAction === "status" || serverAction === "stop" ? "never" : start,
+      start:
+        command === "phone" || serverAction === "status" || serverAction === "stop"
+          ? "never"
+          : start,
       signal,
       ...(stringValue("server") === undefined ? {} : { server: stringValue("server") as string }),
       ...(token === undefined ? {} : { token }),
@@ -320,18 +342,23 @@ export async function runHeadless(
     });
     sensitiveToken = connection.accessToken;
     const request = options.request ?? fetch;
-    async function call(path: string, body?: unknown): Promise<unknown> {
+    async function call(
+      path: string,
+      body?: unknown,
+      method?: string,
+      requestSignal = signal,
+    ): Promise<unknown> {
       let response: Response;
       try {
         response = await request(new URL(path, connection.url), {
-          method: body === undefined ? "GET" : "POST",
+          method: method ?? (body === undefined ? "GET" : "POST"),
           headers: {
             authorization: `Bearer ${connection.accessToken}`,
             ...(body === undefined ? {} : { "content-type": "application/json" }),
           },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
           redirect: "error",
-          signal,
+          signal: requestSignal,
         });
       } catch {
         throw new HeadlessError(
@@ -404,6 +431,14 @@ export async function runHeadless(
           : await call("/api/health");
       output({ ...(data as Record<string, unknown>), url: connection.url }, "completed");
       return 0;
+    }
+    if (command === "phone" && options.confirmPairing !== undefined) {
+      return await runPhonePairing({
+        call,
+        confirm: options.confirmPairing,
+        stdout: writeOutput,
+        signal,
+      });
     }
     let result: OperationView;
     if (command === "prompt") {

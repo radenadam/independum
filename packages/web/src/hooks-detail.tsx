@@ -10,6 +10,7 @@ import { PlaceSection } from "./place-section.tsx";
 import { requestApi } from "./request-api.ts";
 import { TextButton } from "./text-button.tsx";
 import { ToggleSwitch } from "./toggle-switch.tsx";
+import toolStyles from "./tool-card.module.css";
 import type { AgentSettings } from "./use-agent-settings.ts";
 
 /** Shows ordered script hooks, their switches, and exact invocation evidence. */
@@ -74,9 +75,9 @@ export function HooksDetail({ settings }: { settings: AgentSettings }): ReactEle
           .filter((record) => record.hookId === hook.id)
           .reverse();
         return (
-          <div key={hook.id} className={styles.card}>
-            <div className={styles.head}>
-              <span className={styles.name}>{hook.id}</span>
+          <div key={hook.id} className={toolStyles.card}>
+            <div className={`${toolStyles.head} ${styles.head}`}>
+              <span className={`${toolStyles.name} ${styles.name}`}>{hook.id}</span>
               <ToggleSwitch
                 label={`Use ${hook.id}`}
                 isOn={!summary.disabledHooks.includes(hook.id)}
@@ -111,8 +112,8 @@ export function HooksDetail({ settings }: { settings: AgentSettings }): ReactEle
                 { name: "Last invocation", values: [invocations[0]?.status ?? "Never run"] },
               ]}
             />
-            <div className={styles.setting}>
-              <span className={styles.settingLabel}>When this hook fails</span>
+            <div className={toolStyles.setting}>
+              <span className={toolStyles.settingLabel}>When this hook fails</span>
               <ChoiceGroup
                 label="When this hook fails"
                 current={hook.onError ?? (hook.mode === "observe" ? "continue" : "stop")}

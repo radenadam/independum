@@ -1324,7 +1324,11 @@ test("archiving a followed chat replaces it only for its followers", async () =>
   await startNew();
   const otherId = chatId;
   expect((await put(`/chats/${archivedId}/archived`, { isArchived: true })).status).toBe(204);
-  const removed = await events.next();
+  let removed = await events.next();
+  // Archiving stops the chat first, which can send its state before the chat is removed.
+  while (removed.type === "state") {
+    removed = await events.next();
+  }
   await events.close();
   expect(removed.type).toBe("removed");
   if (removed.type !== "removed") {

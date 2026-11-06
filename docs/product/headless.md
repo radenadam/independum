@@ -2,6 +2,8 @@
 
 Decision: [0066](../decisions/0066-headless-mode.md). Headless commands use the same local server and Pi chats as the browser. They open no browser and accept no terminal answers. This first stage implements prompts, waiting, and server lifecycle. The remaining checkpoint work is in [the roadmap](../roadmap.md).
 
+[Phone access](server.md#phone-listener) uses a separate listener and separate persistent credentials under decision 0070. A phone credential cannot discover the private local server token, stop the server, or administer pairing. The explicit interactive `phone pair` command can show a short-lived invitation. Headless phone configuration controls remain checkpoint work. Ordinary command output never includes a pairing invitation or phone credential.
+
 ## Commands
 
 The source entry point is `node packages/independum/src/cli.ts`. The installed command name is `independum` when packaging ships. Running without a subcommand keeps the development browser link behavior.
@@ -14,6 +16,7 @@ independum wait OPERATION_ID
 independum server start
 independum server status
 independum server stop --force
+independum phone pair
 ```
 
 | Command | Behavior |
@@ -26,8 +29,11 @@ independum server stop --force
 | `server start --foreground` | Start without a browser and keep the server in this process. Accept no other flags. |
 | `server status` | Read authenticated identity, version, protocol, and origin. Never start a server. |
 | `server stop [--force]` | Stop an idle server. Active replies, compaction, pending submissions, and background commands require force. Never start a server. |
+| `phone pair` | Require an interactive local terminal and enabled phone access. Show a one-use QR code and address, wait for a phone request, and approve only after the user types its matching code. Never start a server. |
 
 Only known projects are accepted, as in the browser. An empty chat id remains provisional until durable input acceptance or Pi saves its first message. A new chat uses its resolved profile model and effort. Existing chat prompts keep that chat's profile and overrides.
+
+`phone pair` uses the local control credential and the same two-minute invitation and approval service as Settings. Its ANSI character QR code has a white quiet zone and black modules regardless of terminal colors. Widen the terminal if its rows wrap. The command accepts only text output, with no field selection or token from stdin. Redirected input or output fails before creating an invitation. An unmatched code cancels pairing, and interruption attempts cancellation with a separate bounded request. Cancellation carries the invitation id so another client's replacement stays valid. The terminal never claims an invitation or receives a phone receipt or credential.
 
 ## Flags
 

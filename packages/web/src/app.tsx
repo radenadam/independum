@@ -4,7 +4,8 @@ import styles from "./app.module.css";
 import { hasBeenGreeted, rememberGreeting } from "./first-launch.ts";
 import { Greeting } from "./greeting.tsx";
 import { fetchProviders } from "./login-api.ts";
-import { readAccessToken } from "./read-access-token.ts";
+import { PhonePairing } from "./phone-pairing.tsx";
+import { isPhoneBrowser, readAccessToken, readPairingInvitation } from "./read-access-token.ts";
 import { requestApi } from "./request-api.ts";
 import { TopBar } from "./top-bar.tsx";
 import { WelcomeScreen } from "./welcome-screen.tsx";
@@ -39,6 +40,7 @@ const connectionProblems: Record<"needsLink" | "expiredLink" | "unreachable", Co
 };
 
 export function App(): ReactElement {
+  const [invitation] = useState(readPairingInvitation);
   const [connection, setConnection] = useState<Connection>("checking");
   const [screen, setScreen] = useState<Screen | undefined>();
   const [startsWithLogins, setStartsWithLogins] = useState(false);
@@ -46,12 +48,16 @@ export function App(): ReactElement {
   // A user who has a login or has seen the greeting goes straight to the working screen.
   const chooseScreen = useCallback((): void => {
     fetchProviders().then(
-      (loaded) => setScreen(hasLogin(loaded) || hasBeenGreeted() ? "working" : "welcome"),
+      (loaded) =>
+        setScreen(hasLogin(loaded) || hasBeenGreeted() || isPhoneBrowser() ? "working" : "welcome"),
       () => setConnection("unreachable"),
     );
   }, []);
 
   useEffect(() => {
+    if (invitation !== undefined) {
+      return;
+    }
     if (readAccessToken() === undefined) {
       setConnection("needsLink");
       return;
@@ -66,7 +72,7 @@ export function App(): ReactElement {
       },
       () => setConnection("unreachable"),
     );
-  }, [chooseScreen]);
+  }, [chooseScreen, invitation]);
 
   const expireLink = useCallback((): void => setConnection("expiredLink"), []);
 
@@ -74,6 +80,10 @@ export function App(): ReactElement {
     rememberGreeting();
     setStartsWithLogins(isLoggingIn);
     setScreen("working");
+  }
+
+  if (invitation !== undefined) {
+    return <PhonePairing invitation={invitation} />;
   }
 
   if (connection === "connected" && screen === "working") {
@@ -91,8 +101,20 @@ export function App(): ReactElement {
         <>
           <TopBar location={connectionProblems[connection].location} />
           <Greeting
-            title={connectionProblems[connection].title}
-            lines={[connectionProblems[connection].line]}
+            title={
+              isPhoneBrowser()
+                ? connection === "unreachable"
+                  ? "Cannot connect."
+                  : "This browser needs pairing."
+                : connectionProblems[connection].title
+            }
+            lines={[
+              isPhoneBrowser()
+                ? connection === "unreachable"
+                  ? "Check that Independum is running on the computer and phone access is enabled."
+                  : "Open a new pairing link from Phone access in Settings on the computer."
+                : connectionProblems[connection].line,
+            ]}
           />
         </>
       ) : screen === undefined ? null : (
@@ -108,8 +130,7 @@ export function App(): ReactElement {
   );
 }
 
-// A 401 means the server does not know this token. Either Independum started again since the
-// link was printed, or the link was copied only in part.
+// A 401 means the browser credential is absent, expired, or revoked.
 function connectionFor(response: Response): Connection {
   if (response.ok) {
     return "connected";

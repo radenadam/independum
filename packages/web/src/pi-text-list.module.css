@@ -9,13 +9,8 @@
   margin-top: 6px;
 }
 
-.group {
-  composes: setting from "./tool-card.module.css";
-}
-
 /* A group names itself with a heading, which a browser draws bold unless told otherwise. */
 .heading {
-  composes: settingLabel from "./tool-card.module.css";
   margin: 0;
   font-weight: 400;
 }

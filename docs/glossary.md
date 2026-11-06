@@ -37,7 +37,9 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
 | Operation | A waitable period of automatic agent work through Pi settlement, with durable submission and final entry references. | "turn", "task", "job" |
+| Paired browser | A browser approved on the computer through a matching comparison code, with its own persistent and revocable phone credential. Its name is a client-supplied label. | "trusted phone", "user account", "hardware identity" |
 | Permission rule | A profile rule that allows, asks for, or denies filesystem or network authority. | "command whitelist", "trust rule" |
+| Phone access | An opt-in private HTTPS listener that serves paired browsers separately from local control. | "remote control", "public server" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
 | Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |

@@ -43,6 +43,7 @@ import { ProfileEditingNote } from "./profile-editing-note.tsx";
 import { ProjectProfileSettings } from "./project-profile-settings.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import styles from "./session-place.module.css";
+import columnStyles from "./sliding-column.module.css";
 import { TextButton } from "./text-button.tsx";
 import { TextDialog } from "./text-dialog.tsx";
 import { timeFormat } from "./time-format.ts";
@@ -200,7 +201,7 @@ export function SessionPlace({
         </div>
       ) : null}
       {isSplit ? (
-        <div className={styles.edge}>
+        <div className={columnStyles.edge}>
           <ColumnHandle
             column="overview"
             width={shownOverviewWidth}

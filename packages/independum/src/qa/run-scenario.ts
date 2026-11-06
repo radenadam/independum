@@ -10,14 +10,41 @@ export async function runScenario(
   url: string,
   steps: QaStep[],
   directory: string,
+  createClient?: (name: string) => Promise<BrowserConnection>,
 ): Promise<void> {
-  const { send } = browser;
+  let { send } = browser;
+  const clients = new Map<string, BrowserConnection>([["owner", browser]]);
   await send("Browser.grantPermissions", {
     permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
     origin: new URL(url).origin,
   });
   for (const [index, step] of steps.entries()) {
     try {
+      if (step.client !== undefined) {
+        const client = clients.get(step.client);
+        if (client === undefined) {
+          throw new Error("The scenario client is not open.");
+        }
+        send = client.send;
+      }
+      if (step.openClient !== undefined) {
+        const targetUrl = await evaluate(step.openClient.url);
+        if (
+          typeof targetUrl !== "string" ||
+          URL.parse(targetUrl) === null ||
+          createClient === undefined
+        ) {
+          throw new Error("Opening a client requires a URL and an isolated browser factory.");
+        }
+        let client = clients.get(step.openClient.name);
+        if (client === undefined) {
+          client = await createClient(step.openClient.name);
+          clients.set(step.openClient.name, client);
+        }
+        send = client.send;
+        await send("Page.navigate", { url: targetUrl });
+        await setTimeout(2500);
+      }
       if (step.size !== undefined) {
         await send("Emulation.setDeviceMetricsOverride", {
           width: step.size[0],

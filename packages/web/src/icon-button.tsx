@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { Icon, type IconName } from "./icon.tsx";
 import styles from "./icon-button.module.css";
 import { describeShortcut, type Shortcut } from "./shortcut.ts";
+import tooltipStyles from "./use-tooltip.module.css";
 
 /** Properties of an icon button. */
 interface IconButtonProps {
@@ -63,7 +64,10 @@ export function IconButton({
         <Icon name={icon} size={iconSizes[size]} />
       </span>
       {hasVisibleLabel ? <span>{label}</span> : null}
-      <span className={`${styles.tip} ${styles[tipSide]} ${styles[tipAlign]}`} aria-hidden="true">
+      <span
+        className={`${tooltipStyles.tooltip} ${styles.tip} ${styles[tipSide]} ${styles[tipAlign]}`}
+        aria-hidden="true"
+      >
         {label}
         {keyName === undefined ? null : <span className={styles.key}>{keyName}</span>}
       </span>

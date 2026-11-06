@@ -5,6 +5,7 @@ import { Icon } from "./icon.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { ModelMenu } from "./model-menu.tsx";
+import placeStyles from "./place-frame.module.css";
 import { Popover } from "./popover.tsx";
 import styles from "./reply-actions.module.css";
 import { RowButton } from "./row-button.tsx";
@@ -96,7 +97,7 @@ export function ReplyActions({
           note="Uses current agent settings."
         >
           {chat.branchBlockedReason == null ? null : (
-            <p className={styles.note}>{chat.branchBlockedReason}</p>
+            <p className={`${placeStyles.note} ${styles.note}`}>{chat.branchBlockedReason}</p>
           )}
           <RowButton
             label="Retry"
@@ -123,12 +124,12 @@ export function ReplyActions({
           <h2>Retry with another model or effort</h2>
           <IconButton icon="close" label="Cancel retry" onClick={() => setMenu(undefined)} />
         </div>
-        <p className={styles.note}>Uses current agent settings.</p>
+        <p className={`${placeStyles.note} ${styles.note}`}>Uses current agent settings.</p>
         {chat.branchBlockedReason == null ? null : (
-          <p className={styles.note}>{chat.branchBlockedReason}</p>
+          <p className={`${placeStyles.note} ${styles.note}`}>{chat.branchBlockedReason}</p>
         )}
         {failure === undefined ? null : (
-          <p className={styles.note} role="status">
+          <p className={`${placeStyles.note} ${styles.note}`} role="status">
             {failure}
           </p>
         )}

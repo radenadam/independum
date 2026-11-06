@@ -1,0 +1,74 @@
+.pairing {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.select {
+  width: 100%;
+  padding: 10px;
+  background: var(--well);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.pairing {
+  padding: 24px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.link {
+  min-width: 0;
+  color: var(--ink);
+  font: 12px / 1.6 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.invitation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.qr {
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .dialog {
+    max-height: 100dvh;
+  }
+}
+
+.invitation .link {
+  flex: 1 1 180px;
+}

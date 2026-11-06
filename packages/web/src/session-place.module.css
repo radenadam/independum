@@ -20,10 +20,6 @@
   border-right: 1px solid var(--line);
 }
 
-.edge {
-  composes: edge from "./sliding-column.module.css";
-}
-
 .detail {
   flex: 1;
   min-width: 0;

@@ -1,0 +1,18 @@
+.dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans);
+}
+
+.heading {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}

@@ -16,15 +16,18 @@ import { createChat } from "../create-chat.ts";
 import { createModelRuntime } from "../create-model-runtime.ts";
 import { startAppServer } from "../start-app-server.ts";
 import { createPreviewFixture, type PreviewFixture } from "./create-preview-fixture.ts";
+import { startPreviewPhoneRoute } from "./start-preview-phone-route.ts";
 
 /** Starts an isolated app with a stand-in model and optional real logins through Pi. */
 export async function startPreview(options: {
   fixture: PreviewFixture;
   port: number;
   hasRealLogins: boolean;
-}): Promise<{ url: string; home: string; close: () => Promise<void> }> {
+  hasPhoneRoute?: boolean;
+}): Promise<{ url: string; home: string; close: () => Promise<void>; certificatePin?: string }> {
   const home = await mkdtemp(join(tmpdir(), "independum-preview-"));
   let stop: (() => Promise<void>) | undefined;
+  let phoneRoute: Awaited<ReturnType<typeof startPreviewPhoneRoute>> | undefined;
   try {
     const directory = join(home, ".independum");
     const project = await createPreviewFixture(home, options.fixture);
@@ -89,7 +92,15 @@ export async function startPreview(options: {
     stop = server.close;
     const url = new URL(server.url);
     url.searchParams.set("chat", await chat.first());
-    return { url: url.href, home, close };
+    if (options.hasPhoneRoute) {
+      phoneRoute = await startPreviewPhoneRoute(url.href);
+    }
+    return {
+      url: url.href,
+      home,
+      close,
+      ...(phoneRoute === undefined ? {} : { certificatePin: phoneRoute.certificatePin }),
+    };
   } catch (error) {
     await close();
     throw error;
@@ -97,6 +108,7 @@ export async function startPreview(options: {
 
   async function close(): Promise<void> {
     try {
+      await phoneRoute?.close();
       await stop?.();
     } finally {
       await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

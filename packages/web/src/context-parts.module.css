@@ -4,12 +4,6 @@
   gap: 12px;
 }
 
-/* A group sits under its label like a setting of a tool card, with its parts as tiles. */
-.group {
-  composes: setting from "./tool-card.module.css";
-}
-
 .heading {
-  composes: settingLabel from "./tool-card.module.css";
   margin: 0;
 }

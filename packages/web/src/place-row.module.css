@@ -3,7 +3,6 @@
   number or its icon sits before its text, where a tool card shows its icon.
 */
 .row {
-  composes: toggle from "./disclosure.module.css";
   width: 100%;
   color: var(--muted);
   text-align: left;

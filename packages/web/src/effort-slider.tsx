@@ -2,6 +2,7 @@ import type { ChatState } from "independum/api-types";
 import { type CSSProperties, type ReactElement, useEffect, useRef, useState } from "react";
 import { describeThinking } from "./describe-thinking.ts";
 import styles from "./effort-slider.module.css";
+import tooltipStyles from "./use-tooltip.module.css";
 
 /** Properties of an effort slider. */
 interface EffortSliderProps {
@@ -106,7 +107,10 @@ export function EffortSlider({ thinking, onChoose }: EffortSliderProps): ReactEl
         />
         <span className={styles.knob} data-pointed={isOnKnob} />
         {pointed === undefined ? null : (
-          <span className={styles.peek} style={{ "--at": pointed / last } as CSSProperties}>
+          <span
+            className={`${tooltipStyles.tooltip} ${styles.peek}`}
+            style={{ "--at": pointed / last } as CSSProperties}
+          >
             {describeThinking(thinking.levels[pointed] ?? level)}
           </span>
         )}

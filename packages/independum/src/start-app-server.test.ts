@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { createServer as createHttpServer } from "node:http";
 import { join } from "node:path";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
@@ -54,7 +55,9 @@ test("a headless server publishes only after listening and status omits its toke
     expect(output).toHaveLength(1);
     expect(output[0]).toContain('"protocolVersion":1');
     expect(output.join("")).not.toContain(token);
-    expect((await fetch(url)).status).toBe(503);
+    expect((await fetch(url)).status).toBe(
+      existsSync(join(import.meta.dirname, "..", "..", "web", "dist", "index.html")) ? 200 : 503,
+    );
   } finally {
     await Promise.all([server.close(), server.close()]);
   }

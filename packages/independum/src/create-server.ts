@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
+import { createApiRoutes } from "./create-api-routes.ts";
 
 /** Settings that decide which requests may use the API, and the routes the API serves. */
 export interface ServerOptions {
@@ -32,8 +33,7 @@ export function createServer(options: ServerOptions): Hono {
     return undefined;
   });
 
-  server.get("/api/health", (context) => context.json({ status: "ok", ...options.identity }));
-  server.route("/api", options.api);
+  server.route("/api", createApiRoutes(options.api, options.identity));
   return server;
 }
 

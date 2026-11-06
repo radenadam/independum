@@ -78,7 +78,6 @@
 }
 
 .peek {
-  composes: tooltip from "./use-tooltip.module.css";
   position: absolute;
   bottom: calc(100% + 6px);
   left: calc(var(--inset) + var(--knob-size) / 2 + var(--at) * var(--travel));

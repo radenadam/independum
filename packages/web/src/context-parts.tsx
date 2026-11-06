@@ -12,6 +12,7 @@ import styles from "./context-parts.module.css";
 import { type CompactionChange, Conversation, type ConversationPoint } from "./conversation.tsx";
 import { PlaceBox } from "./place-box.tsx";
 import { PlaceRow } from "./place-row.tsx";
+import toolStyles from "./tool-card.module.css";
 import { type FigureKind, KindSwatch, WindowFigure } from "./window-figure.tsx";
 
 /** What a part of the context opens: a part of the request, every tool, a request, or a compaction. */
@@ -128,8 +129,8 @@ export function ContextParts({
         }}
       />
       {setup.length === 0 ? null : (
-        <div className={styles.group}>
-          <p className={styles.heading}>Instructions and tools</p>
+        <div className={toolStyles.setting}>
+          <p className={`${toolStyles.settingLabel} ${styles.heading}`}>Instructions and tools</p>
           <PlaceBox>
             {setup.map((part) => (
               <PlaceRow
@@ -151,8 +152,8 @@ export function ContextParts({
         </div>
       )}
       {compactionRow}
-      <div className={styles.group}>
-        <p className={styles.heading}>Conversation</p>
+      <div className={toolStyles.setting}>
+        <p className={`${toolStyles.settingLabel} ${styles.heading}`}>Conversation</p>
         <Conversation
           requests={requests}
           pendingChanges={pendingChanges}

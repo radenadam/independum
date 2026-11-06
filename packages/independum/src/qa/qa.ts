@@ -20,6 +20,7 @@ const directory = await mkdtemp(join(tmpdir(), "independum-qa-"));
 process.stdout.write(`QA output: ${directory}\n`);
 let preview: Awaited<ReturnType<typeof startPreview>> | undefined;
 let browser: BrowserConnection | undefined;
+const clients = new Map<string, BrowserConnection>();
 let isClosing = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
@@ -37,6 +38,7 @@ try {
   if (url === undefined) {
     preview = await startPreview({
       ...options,
+      hasPhoneRoute: scenario.hasPhoneRoute,
       fixture: process.argv.some(
         (argument) => argument === "--fixture" || argument.startsWith("--fixture="),
       )
@@ -45,8 +47,20 @@ try {
     });
     url = preview.url;
   }
-  browser = await connectBrowser(executable, directory);
-  await runScenario(browser, url, scenario.steps, directory);
+  const browserOptions =
+    preview?.certificatePin === undefined ? {} : { certificatePin: preview.certificatePin };
+  browser = await connectBrowser(executable, directory, browserOptions);
+  await runScenario(browser, url, scenario.steps, directory, async (name) => {
+    const client = await connectBrowser(executable, directory, {
+      ...browserOptions,
+      profileName: `profile-${name}`,
+    });
+    clients.set(name, client);
+    return client;
+  });
+  for (const client of clients.values()) {
+    await client.close();
+  }
   await browser.close();
   browser = undefined;
   const diagnostics = await readFile(join(directory, "browser.jsonl"), "utf8");
@@ -70,6 +84,9 @@ async function close(): Promise<void> {
   }
   isClosing = true;
   try {
+    for (const client of clients.values()) {
+      await client.close();
+    }
     await browser?.close();
   } finally {
     try {
@@ -81,6 +98,14 @@ async function close(): Promise<void> {
         maxRetries: 10,
         retryDelay: 200,
       });
+      for (const name of clients.keys()) {
+        await rm(join(directory, `profile-${name}`), {
+          recursive: true,
+          force: true,
+          maxRetries: 10,
+          retryDelay: 200,
+        });
+      }
     }
   }
 }

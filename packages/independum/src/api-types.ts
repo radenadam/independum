@@ -842,3 +842,42 @@ export type ChatEvent =
   | { type: "toolProgress"; id: string; details: unknown }
   | { type: "toolResult"; id: string; result: ToolResult }
   | { type: "commandEnd"; end: CommandEnd };
+/** The transport selected for the separate phone listener. */
+export interface PhoneConnection {
+  kind: "certificate" | "proxy";
+  address: string;
+  port: number;
+  origin: string;
+  certificatePath?: string;
+  keyPath?: string;
+}
+
+/** A paired browser without its private authentication material. */
+export interface PairedPhone {
+  id: string;
+  name: string;
+  pairedAt: number;
+  lastSeenAt: number;
+}
+
+/** A local-only invitation and its camera-readable image. */
+export interface PhoneInvitation {
+  id: string;
+  url: string;
+  expiresAt: number;
+  qrSvg: string;
+}
+
+/** The local owner's phone controls and the current comparison request. */
+export interface PhoneAccessState {
+  connection: PhoneConnection | null;
+  addresses: { name: string; address: string }[];
+  phones: PairedPhone[];
+  pairing: {
+    id: string;
+    expiresAt: number;
+    name: string | null;
+    code: string | null;
+    isApproved: boolean;
+  } | null;
+}
