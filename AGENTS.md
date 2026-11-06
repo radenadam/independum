@@ -216,6 +216,7 @@ A doc comment fits on one line, or wraps like this:
 - Tests use Vitest, with `test` and no `describe`. The file is the group.
 - Test names are lowercase phrases without a final period that state the behavior, for example `test("health route reports ok")`.
 - Tests exercise behavior through exported functions, not internals.
+- Every test has 20 seconds, set once in the `test` script, because the Windows runners of CI start processes and Pi slowly. A test sets its own limit only when it needs more.
 
 ## Writing
 

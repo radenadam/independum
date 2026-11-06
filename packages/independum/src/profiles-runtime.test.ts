@@ -46,7 +46,7 @@ test("context controls keep saved literal filenames visible while a reply waits 
   } finally {
     await chats.stopAll();
   }
-}, 20_000);
+});
 
 test("project approvals survive restart and removing one blocks the next resource read", async () => {
   const created = await setup();
@@ -91,7 +91,7 @@ test("project approvals survive restart and removing one blocks the next resourc
   } finally {
     await restarted.stopAll();
   }
-}, 20_000);
+});
 
 test.each([true, false])(
   "external context approval precedes the provider and records a decision of %s",

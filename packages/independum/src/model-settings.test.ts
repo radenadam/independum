@@ -150,7 +150,7 @@ test("model overrides reach only requests of their provider and model", async ()
   }
   expect(faux.models[0].contextWindow).toBe(128_000);
   expect(faux.models[0].maxTokens).toBe(16_384);
-}, 20_000);
+});
 
 test("model overrides keep cutoff facts and message times through changes and resets", async () => {
   const { chat, chats, faux, provider } = await setup();
