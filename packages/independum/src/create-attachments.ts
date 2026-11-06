@@ -76,6 +76,7 @@ export interface Attachments {
     settings: AttachmentSettings,
     texts: ModelTexts,
     model: Model<Api>,
+    images?: ImageContent[],
   ): Promise<PreparedAttachments>;
   expire(retained: Set<string>, now?: number): void;
   remove(id: string): void;
@@ -362,9 +363,9 @@ export function createAttachments(directory: string): Attachments {
       }
       return sources;
     },
-    async prepare(text, ids, files, chatId, settings, texts, model) {
+    async prepare(text, ids, files, chatId, settings, texts, model, images = []) {
       attachments.validate(ids, files, chatId, settings);
-      const result: PreparedAttachments = { text, images: [], positions: [] };
+      const result: PreparedAttachments = { text, images: [...images], positions: [] };
       for (const [index, id] of ids.entries()) {
         const preview = await attachments.preview(
           id,

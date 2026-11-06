@@ -43,7 +43,7 @@ All paths below start with `/api/chats/:id` and retain token, host, and origin c
 | `POST /attachments?name=...` | Raw bounded body and advisory `Content-Type`. Returns a source summary with 201 after saving the original. Declared and streamed byte limits apply. |
 | `GET /attachments/:attachmentId` | Current prepared preview. `form=file` chooses a saved path. Otherwise text and supported images are inline. |
 | `GET /attachments/:attachmentId/content` | Original bytes for the chat or a retained reference. Images use their validated type. Other files use `application/octet-stream`, attachment disposition, `nosniff`, and no-store caching. |
-| `POST /messages` | The existing send schema adds optional `attachmentIds` and `fileAttachmentIds`. Text may be empty when attachments contribute input. |
+| `POST /messages` | Send and edit accept optional `attachmentIds` and `fileAttachmentIds`. An edit defaults to its saved sources and file path choices. A retry accepts no replacements and uses its saved prompt sources. Text may be empty when attachments contribute input. |
 
 Invalid names, ids, or shapes return 400, missing sources or another chat's unreferenced uploads return 404, limits return 413, preparation failures return 422, and persistence failures return 500. Errors include a stable code and a complete-sentence message. [Decision 0064](../decisions/0064-queue-and-steer.md) still governs durable acceptance and idempotency.
 
@@ -53,4 +53,4 @@ Invalid names, ids, or shapes return 400, missing sources or another chat's unre
 - [Draft lifecycle](../../packages/web/src/use-attachment-draft.ts), [tiles and details](../../packages/web/src/attachment-list.tsx), and [profile controls](../../packages/web/src/attachment-settings-detail.tsx).
 - `pnpm qa attachments` covers picker, paste, drop, each form, image limitations, details, queue, steer, stop, resume, and both phone themes. `pnpm qa queue` checks existing delivery boundaries.
 
-Edit, resend, retry, forks, and branch tiles remain in [the roadmap](../roadmap.md). Browser QA needs a host that can launch Chrome subprocesses. The worker preview starts, but Chrome exits before navigation because its GPU process cannot start, so screenshot validation remains for the coordinator.
+Edit and resend load retained sources and file path choices into the composer for changes. Retry keeps those of its saved prompt. Both prepare sources again at handoff and keep legacy inline images without duplicating attached images. Forks remain in [the roadmap](../roadmap.md). Browser QA needs a host that can launch Chrome subprocesses. The worker preview starts, but Chrome exits before navigation because its GPU process cannot start, so screenshot validation remains for the coordinator.

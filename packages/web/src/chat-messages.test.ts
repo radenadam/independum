@@ -1,4 +1,4 @@
-import type { ChatMessage } from "independum/api-types";
+import type { ChatMessage, ChatState } from "independum/api-types";
 import type { ReactElement, RefObject } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ChatMessages } from "./chat-messages.tsx";
@@ -7,6 +7,14 @@ import { findElement, renderHook } from "./render-hook.ts";
 vi.mock("react", async () => (await import("./render-hook.ts")).mockReact());
 
 afterEach(() => vi.unstubAllGlobals());
+
+const branchProperties = {
+  chat: { branchSelectionId: null } as ChatState,
+  models: undefined,
+  onEdit: vi.fn(),
+  onOpenModels: vi.fn(),
+  onManageLogins: vi.fn(),
+};
 
 test("messages with the same timestamp keep distinct keys", () => {
   const messages: ChatMessage[] = ["user", "user", "note", "note"].map((role) => ({
@@ -19,6 +27,7 @@ test("messages with the same timestamp keep distinct keys", () => {
   }));
   const view = renderHook(() =>
     ChatMessages({
+      ...branchProperties,
       chatId: "chat",
       messages,
       reply: [],
@@ -67,6 +76,7 @@ test.each([true, false])(
     const spacer = { style: { setProperty: vi.fn() }, offsetHeight: 0 };
     const view = renderHook(() => {
       const tree = ChatMessages({
+        ...branchProperties,
         chatId: "chat",
         messages: [],
         reply: [],

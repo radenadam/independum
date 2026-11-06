@@ -1,0 +1,33 @@
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.dialog {
+  width: min(100% - 32px, 520px);
+  padding: 18px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.note {
+  composes: note from "./place-frame.module.css";
+  padding: 10px;
+}
+
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}

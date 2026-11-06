@@ -32,6 +32,8 @@ import type {
   ArchivedChatSummary,
   AttachmentPreview,
   AttachmentSummary,
+  BranchChoice,
+  BranchRequest,
   ChatEvent,
   ChatMessage,
   ChatOverrides,
@@ -66,6 +68,11 @@ import {
 import { type AttachmentPosition, createAttachments } from "./create-attachments.ts";
 import { createCommandPreviews } from "./create-command-previews.ts";
 import { type ContextPermissions, createContextPermissions } from "./create-context-permissions.ts";
+import {
+  type ConversationBranches,
+  checkBranchBoundary,
+  createConversationBranches,
+} from "./create-conversation-branches.ts";
 import {
   createPendingInputs,
   InputError,
@@ -145,6 +152,7 @@ interface ThinkingTimes {
 
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
+  branches: ConversationBranches;
   pending: PendingInputs;
   inputMutation: Promise<unknown>;
   isDispatching: boolean;
@@ -213,6 +221,15 @@ export interface OpenChat {
   ): Promise<AttachmentSummary>;
   attachmentSource(id: string): { summary: AttachmentSummary; path: string; bytes: Buffer };
   previewAttachment(id: string, isFile: boolean): Promise<AttachmentPreview>;
+  branchChoices(sourceId: string, kind: "prompt" | "reply"): BranchChoice[];
+  selectBranch(
+    sourceId: string,
+    targetId: string,
+    kind: "prompt" | "reply",
+    expectedRevision: number,
+    expectedLeafId: string | null,
+  ): Promise<void>;
+  resubmit(request: BranchRequest): Promise<boolean>;
   inputState(id: string): string | undefined;
   getHooks(): HookSummary;
   reloadHooks(): void;
@@ -603,6 +620,15 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const streaming = run.isReplying ? session.agent.state.streamingMessage : undefined;
     return {
       attachmentSettings: run.configuration.settings.attachments,
+      branchSelectionId:
+        session.sessionManager
+          .getEntries()
+          .findLast(
+            (entry) =>
+              entry.type === "custom" && entry.customType === "independum-branch-selection",
+          )?.id ?? null,
+      branches: run.branches.summaries(),
+      branchBlockedReason: branchBlockedReason(run),
       pending: run.pending.state(),
       leafId: inputLeaf(run),
       whileReplying: profiles.user().document?.messages?.whileReplying ?? "queue",
@@ -997,9 +1023,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           holdInputs(run, new Error("Held after the reply stopped or failed."));
         }
         endReply(run, lastReplyOf(run));
-        setImmediate(() => {
-          dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
-        });
+        emitFor(run, { type: "state", state: getState(run) });
+        scheduleInputs(run);
       } else if (event.type === "message_start" && event.message.role === "assistant") {
         run.thinkingStarts.clear();
         run.thinkingTimes.clear();
@@ -1595,6 +1620,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       onChange: announceContext,
     });
     const run: ChatRun = Object.assign(previous ?? {}, {
+      branches: createConversationBranches(manager),
       pending: previous?.pending ?? pendingFor(manager),
       inputMutation: previous?.inputMutation ?? Promise.resolve(),
       isDispatching: previous?.isDispatching ?? false,
@@ -2437,6 +2463,13 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       return {
         ...message,
         entryId: entry.id,
+        ...(message.role === "user"
+          ? {
+              submittedText: run.branches.source(entry.id).text,
+              imageCount: run.branches.source(entry.id).images.length,
+            }
+          : {}),
+        ...(message.role === "assistant" ? { attempt: attemptOf(run, entry) } : {}),
         ...(steered.has(entry.id) ? { isSteered: true } : {}),
       };
     });
@@ -2508,6 +2541,42 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
   }
 
+  function attemptOf(
+    run: ChatRun,
+    entry: SessionEntry,
+  ): import("./api-types.ts").InputModel | undefined {
+    const user = run.session.sessionManager
+      .getBranch(entry.id)
+      .findLast((candidate) => candidate.type === "message" && candidate.message.role === "user");
+    return user === undefined ? undefined : (run.branches.source(user.id).model ?? undefined);
+  }
+
+  function branchBlockedReason(run: ChatRun): string | null {
+    if (run.isReplying || run.isCompacting || run.isClosing || run.isDispatching) {
+      return "Wait for the chat to finish its current work before changing branches.";
+    }
+    if (background.listRunning(run.session.sessionId).length > 0 || run.pendingNotes > 0) {
+      return "Stop background commands before changing branches.";
+    }
+    if (run.pending.state().items.length > 0 || run.pending.state().error !== null) {
+      return "Remove or deliver waiting messages before changing branches.";
+    }
+    return null;
+  }
+
+  function checkBranchState(run: ChatRun, revision: number, leafId: string | null): void {
+    const reason = branchBlockedReason(run);
+    if (reason !== null) {
+      throw new InputError(reason, "chatBusy");
+    }
+    if (revision !== run.pending.state().revision || leafId !== inputLeaf(run)) {
+      throw new InputError(
+        "The chat changed. Review the selected branch and try again.",
+        "staleInputState",
+      );
+    }
+  }
+
   function emitPending(run: ChatRun): void {
     emitFor(run, {
       type: "pending",
@@ -2521,7 +2590,17 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     return run.session.messages.some(
       (message) => message.role === "user" || message.role === "assistant",
     )
-      ? run.session.sessionManager.getLeafId()
+      ? (run.session.sessionManager
+          .getBranch()
+          .findLast(
+            (entry) =>
+              entry.type === "message" ||
+              entry.type === "custom_message" ||
+              entry.type === "compaction" ||
+              entry.type === "branch_summary" ||
+              entry.type === "context_edit" ||
+              (entry.type === "custom" && entry.customType === "independum-branch-selection"),
+          )?.id ?? null)
       : null;
   }
 
@@ -2553,6 +2632,30 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     return mutation;
   }
 
+  function scheduleInputs(run: ChatRun): void {
+    setImmediate(() => {
+      dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
+    });
+  }
+
+  async function applyInputChoice(
+    run: ChatRun,
+    selected: Model,
+    level: ReturnType<typeof getSupportedThinkingLevels>[number] | undefined,
+  ): Promise<void> {
+    if (run.session.model?.provider !== selected.provider || run.session.model.id !== selected.id) {
+      await run.session.setModel(
+        applyModelOverrides(
+          selected,
+          run.configuration.settings.modelOverrides[selected.provider]?.[selected.id] ?? {},
+        ),
+      );
+    }
+    if (level !== undefined) {
+      run.session.setThinkingLevel(level);
+    }
+  }
+
   async function dispatchInputs(run: ChatRun, isTurnBoundary: boolean): Promise<void> {
     await mutateInput(run, async () => {
       if (run.isClosing || stoppingChats.has(run.session.sessionId)) {
@@ -2580,6 +2683,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         if (input === undefined) {
           return;
         }
+        const source =
+          input.branch === undefined
+            ? undefined
+            : run.branches.source(input.branch.sourceUserEntryId);
         const selected = models.getModel(input.model.providerId, input.model.modelId);
         if (selected === undefined || !models.hasConfiguredAuth(input.model.providerId)) {
           throw new Error("The captured model of a waiting message has no available login.");
@@ -2595,20 +2702,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             "The captured thinking effort of a waiting message is no longer supported.",
           );
         }
-        if (
-          run.session.model?.provider !== selected.provider ||
-          run.session.model.id !== selected.id
-        ) {
-          await run.session.setModel(
-            applyModelOverrides(
-              selected,
-              run.configuration.settings.modelOverrides[selected.provider]?.[selected.id] ?? {},
-            ),
-          );
-        }
-        if (level !== undefined) {
-          run.session.setThinkingLevel(level);
-        }
+        await applyInputChoice(run, selected, level);
         const prepared = await attachments.prepare(
           input.text,
           input.attachmentIds ?? [],
@@ -2622,6 +2716,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           },
           createModelTexts(() => run.configuration.settings.texts),
           selected,
+          source?.images,
         );
         if (
           run.pending.state().isPaused ||
@@ -2639,6 +2734,41 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         }
         run.pending.handoff(input.id);
         run.activeInput = input.id;
+        if (source !== undefined) {
+          savedRequests.remove(run.session.sessionId);
+          run.lastRequest = null;
+          const manager = run.session.sessionManager;
+          if (manager.getLeafId() === source.id) {
+            // Pi treats navigation to its current leaf as a no-op, including a user entry.
+            const session = run.session;
+            const stopFollowing = run.stopFollowing;
+            const parent = manager.getEntry(source.id)?.parentId;
+            if (parent == null) {
+              manager.resetLeaf();
+            } else {
+              manager.branch(parent);
+            }
+            await openSession(manager, run.folder, run);
+            stopFollowing();
+            session.dispose();
+            await applyInputChoice(run, selected, level);
+          } else {
+            const result = await run.session.navigateTree(source.id, { summarize: false });
+            if (result.cancelled) {
+              throw new Error("The branch navigation was cancelled.");
+            }
+          }
+        }
+        if (
+          run.pending.state().isPaused ||
+          run.isClosing ||
+          stoppingChats.has(run.session.sessionId) ||
+          !run.pending
+            .state()
+            .items.some((item) => item.id === input.id && item.state === "handingOff")
+        ) {
+          return;
+        }
         run.session.sessionManager.appendCustomEntry("independum-input", {
           version: 1,
           inputId: input.id,
@@ -2651,6 +2781,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           attachmentPositions: prepared.positions,
           receivesImages: selected.input.includes("image"),
           model: input.model,
+          ...(input.branch === undefined ? {} : { branch: input.branch }),
         });
         if (input.command !== null) {
           run.session.sessionManager.appendCustomEntry("independum-command", {
@@ -2675,6 +2806,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             emitPending(run);
           }
         } else {
+          if (source !== undefined) {
+            refreshContext(run);
+            emitFor(run, { type: "state", state: getState(run) });
+          }
           setReplying(run, true);
           run.session
             .prompt(prepared.text, {
@@ -2767,6 +2902,179 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           1,
           retainedFor(run),
         );
+      },
+      branchChoices: (sourceId, kind) => run.branches.choices(sourceId, kind),
+      async selectBranch(sourceId, targetId, kind, expectedRevision, expectedLeafId) {
+        await mutateInput(run, async () => {
+          checkBranchState(run, expectedRevision, expectedLeafId);
+          const manager = run.session.sessionManager;
+          const target = run.branches.target(sourceId, targetId, kind);
+          checkBranchBoundary(manager.getBranch(target));
+          const session = run.session;
+          const stopFollowing = run.stopFollowing;
+          const previousLeaf = manager.getLeafId();
+          try {
+            manager.branch(target);
+            manager.appendCustomEntry("independum-branch-selection", {
+              version: 1,
+              targetLeafId: target,
+            });
+          } catch {
+            if (previousLeaf === null) {
+              manager.resetLeaf();
+            } else {
+              manager.branch(previousLeaf);
+            }
+            throw new InputError(
+              "The branch selection could not be saved.",
+              "branchSaveFailed",
+              500,
+            );
+          }
+          run.contextAbort.abort();
+          await openSession(manager, run.folder, run);
+          stopFollowing();
+          session.dispose();
+          savedRequests.remove(run.session.sessionId);
+          run.lastRequest = null;
+          refreshContext(run);
+          emitFor(run, { type: "state", state: getState(run) });
+        });
+      },
+      async resubmit(request) {
+        if (
+          request.kind === "retry" &&
+          (request.text !== undefined ||
+            request.attachmentIds !== undefined ||
+            request.fileAttachmentIds !== undefined)
+        ) {
+          throw new InputError(
+            "A retry keeps its saved text and attachments.",
+            "invalidInput",
+            400,
+          );
+        }
+        const fingerprint = inputFingerprint(request);
+        const accepted = await mutateInput(run, async () => {
+          if (run.pending.receipt(request.id, fingerprint) !== undefined) {
+            return true;
+          }
+          checkBranchState(run, request.expectedRevision, request.expectedLeafId);
+          const source = run.branches.source(request.sourceUserEntryId);
+          if (!run.session.sessionManager.getBranch().some((entry) => entry.id === source.id)) {
+            throw new InputError(
+              "This prompt is outside the selected branch.",
+              "promptNotSelected",
+            );
+          }
+          if (request.kind === "retry" && source.assistantId !== request.sourceAssistantEntryId) {
+            throw new InputError(
+              "This reply does not belong to the saved prompt.",
+              "replyMissing",
+              404,
+            );
+          }
+          const parent = run.session.sessionManager.getEntry(source.id)?.parentId;
+          checkBranchBoundary(parent == null ? [] : run.session.sessionManager.getBranch(parent));
+          const choice =
+            request.model ??
+            (request.kind === "retry"
+              ? source.model
+              : {
+                  providerId: run.session.model?.provider ?? "",
+                  modelId: run.session.model?.id ?? "",
+                  thinkingLevel: run.session.thinkingLevel,
+                });
+          if (choice === null || choice.thinkingLevel === null) {
+            throw new InputError(
+              "The original effort is unknown. Choose a model and effort for this retry.",
+              "retryChoiceRequired",
+              400,
+            );
+          }
+          const model = models.getModel(choice.providerId, choice.modelId);
+          if (model === undefined || !models.hasConfiguredAuth(choice.providerId)) {
+            throw new InputError(
+              "The original model is unavailable. Choose another model for this retry.",
+              "retryModelUnavailable",
+            );
+          }
+          if (!getSupportedThinkingLevels(model).some((level) => level === choice.thinkingLevel)) {
+            throw new InputError(
+              "This model does not support the selected effort.",
+              "unsupportedEffort",
+              400,
+            );
+          }
+          const text = request.kind === "retry" ? source.text : request.text;
+          const attachmentIds = request.attachmentIds ?? source.attachmentIds;
+          const fileAttachmentIds =
+            request.fileAttachmentIds ??
+            source.fileAttachmentIds.filter((id) => attachmentIds.includes(id));
+          if (
+            text === undefined ||
+            (text.trim() === "" && source.images.length === 0 && attachmentIds.length === 0)
+          ) {
+            throw new InputError("A message needs text or an attachment.", "invalidInput", 400);
+          }
+          await reconcileRun(run);
+          checkBranchState(run, request.expectedRevision, request.expectedLeafId);
+          if (configurationIssues(run).length > 0) {
+            return false;
+          }
+          await profiles.saveChoices(run.session.sessionId);
+          checkBranchState(run, request.expectedRevision, request.expectedLeafId);
+          const settings = run.configuration.settings;
+          const sources = attachments.validate(
+            attachmentIds,
+            fileAttachmentIds,
+            run.session.sessionId,
+            settings.attachments,
+          );
+          await attachments.prepare(
+            text,
+            attachmentIds,
+            fileAttachmentIds,
+            run.session.sessionId,
+            {
+              ...settings.attachments,
+              resizeImages:
+                settings.attachments.resizeImages &&
+                !settings.context.pi.disabled.includes("imageResize"),
+            },
+            createModelTexts(() => settings.texts),
+            model,
+            source.images,
+          );
+          checkBranchState(run, request.expectedRevision, request.expectedLeafId);
+          run.pending.accept(
+            {
+              attachmentIds,
+              fileAttachmentIds,
+              attachments: sources,
+              id: request.id,
+              delivery: "queue",
+              text,
+              model: choice,
+              hasBrowserApprovals: request.hasBrowserApprovals === true,
+              command: source.command,
+              branch: {
+                kind: request.kind,
+                sourceUserEntryId: source.id,
+                ...(request.sourceAssistantEntryId === undefined
+                  ? {}
+                  : { sourceAssistantEntryId: request.sourceAssistantEntryId }),
+              },
+            },
+            fingerprint,
+          );
+          emitPending(run);
+          return true;
+        });
+        if (accepted) {
+          scheduleInputs(run);
+        }
+        return accepted;
       },
       inputState(id) {
         return (
@@ -3119,9 +3427,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           );
         }
         if (accepted) {
-          setImmediate(() => {
-            dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
-          });
+          scheduleInputs(run);
         }
         return accepted;
       },
@@ -3141,9 +3447,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         }
         run.pending.resume();
         emitPending(run);
-        setImmediate(() => {
-          dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
-        });
+        scheduleInputs(run);
       },
       async chooseModel(providerId, modelId) {
         const model = models.getModel(providerId, modelId);

@@ -27,5 +27,5 @@ The maintainer approves original file retention, explicit delivery forms, strict
 - This extends decisions 0013, 0016, 0033, 0061, 0063, 0064, 0065, and 0067, and completes the envelope move of decision 0040.
 - Pi keeps its messages and agent loop. Independum supplies retained sources, validation, durable references, and UI. No extraction or image conversion dependency is added.
 - Original paths remain readable after restart under the same system read boundary. Retained references and cleanup do not depend on saved approvals. The upload store does not create an exception inside any denied folder.
-- Editing and resending prompts, retrying replies, forks, and branch switchers remain checkpoint work in `docs/roadmap.md`, as the maintainer permits for this change.
+- [Decision 0069](0069-branches-in-a-chat.md) adds editing and resending prompts, retrying replies, and branch switchers. Edits retain attachment sources and allow adding and removing attachments. Retries keep the saved sources and file path choices. Forks remain checkpoint work in `docs/roadmap.md`.
 - The storage, API, and current limits live in [the attachment product page](../product/attachments.md).
