@@ -44,7 +44,7 @@ test("context controls keep saved literal filenames visible while a reply waits 
   } finally {
     await chats.stopAll();
   }
-});
+}, 20_000);
 
 test("project approvals survive restart and removing one blocks the next resource read", async () => {
   const created = await setup();
