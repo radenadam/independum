@@ -1,0 +1,405 @@
+import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  type AssistantMessage,
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxToolCall,
+} from "@earendil-works/pi-ai";
+import { expect, test, vi } from "vitest";
+import type { ChatState, InputDelivery, InputOptions } from "./api-types.ts";
+import { validateUserSettings } from "./configuration-schema.ts";
+import { createChat, type OpenChat } from "./create-chat.ts";
+import { createChatRoutes } from "./create-chat-routes.ts";
+import { createModelRuntime } from "./create-model-runtime.ts";
+import { createTestFolder } from "./tools/create-test-folder.ts";
+
+const parent = createTestFolder("input-delivery");
+
+async function setup() {
+  const directory = join(parent, randomUUID());
+  const folder = join(directory, "project");
+  mkdirSync(folder, { recursive: true });
+  const models = await createModelRuntime(directory);
+  const provider = `input-${randomUUID()}`;
+  const faux = fauxProvider({ provider, models: [{ id: "first" }, { id: "second" }] });
+  models.registerNativeProvider(faux.provider);
+  await models.setRuntimeApiKey(provider, "test-key");
+  const chats = await createChat({ models, directory, folder });
+  const chat = await chats.open(await chats.first());
+  if (chat === undefined) {
+    throw new Error("The input test chat did not open.");
+  }
+  await chat.chooseModel(provider, "first");
+  return { chats, chat, models, provider, faux, directory, folder };
+}
+
+function optionsFor(chat: OpenChat, delivery: InputDelivery = "queue"): InputOptions {
+  const state = chat.getState();
+  return {
+    id: randomUUID(),
+    delivery,
+    expectedRevision: state.pending.revision,
+    expectedLeafId: state.leafId,
+  };
+}
+
+async function send(
+  chat: OpenChat,
+  text: string,
+  delivery: InputDelivery = "queue",
+): Promise<InputOptions> {
+  const options = optionsFor(chat, delivery);
+  expect(await chat.send(text, "literal", undefined, false, options)).toBe(true);
+  return options;
+}
+
+function holdReply(message: AssistantMessage) {
+  const entered = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  return {
+    entered: entered.promise,
+    finish: finish.resolve,
+    async receive() {
+      entered.resolve();
+      await finish.promise;
+      return message;
+    },
+  };
+}
+
+function prompts(state: ChatState): string[] {
+  return state.messages
+    .filter((message) => message.role === "user")
+    .map((message) =>
+      message.parts.map((part) => (part.type === "text" ? part.text : "")).join(""),
+    );
+}
+
+test("steers follow the tool batch one per boundary and precede queued prompts in order", async () => {
+  const { chats, chat, faux } = await setup();
+  const entered = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  const observed: string[] = [];
+  const stop = chat.subscribe((event) => {
+    if (event.type === "toolResult") {
+      observed.push("tool result");
+    }
+    if (event.type === "message" && event.message.role === "user") {
+      observed.push(
+        event.message.parts.map((part) => (part.type === "text" ? part.text : "")).join(""),
+      );
+    }
+  });
+  faux.setResponses([
+    async () => {
+      entered.resolve();
+      await finish.promise;
+      return fauxAssistantMessage([fauxToolCall("CheckCommand", { id: 1 })], {
+        stopReason: "toolUse",
+      });
+    },
+    fauxAssistantMessage("First steer answered."),
+    fauxAssistantMessage("Second steer answered."),
+    fauxAssistantMessage("First queued answer."),
+    fauxAssistantMessage("Second queued answer."),
+  ]);
+  try {
+    await send(chat, "Start");
+    await entered.promise;
+    await send(chat, "Queued first");
+    await send(chat, "Queued second");
+    await send(chat, "Steer first", "steer");
+    await send(chat, "Steer second", "steer");
+    expect(prompts(chat.getState())).toEqual(["Start"]);
+    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(4));
+    finish.resolve();
+    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    expect(observed).toEqual([
+      "Start",
+      "tool result",
+      "Steer first",
+      "Steer second",
+      "Queued first",
+      "Queued second",
+    ]);
+    expect(
+      chat
+        .getState()
+        .messages.filter((message) => message.isSteered)
+        .map((message) => message.parts),
+    ).toHaveLength(2);
+    expect(
+      chat
+        .getContext()
+        .entries.filter(
+          (entry) =>
+            entry.type === "custom" &&
+            (entry.data as { customType?: string }).customType === "independum-input",
+        ),
+    ).toHaveLength(5);
+  } finally {
+    finish.resolve();
+    stop();
+    await chats.stopAll();
+  }
+});
+
+test("stop holds pending work and resume is required even for a later send", async () => {
+  const { chats, chat, faux } = await setup();
+  const held = holdReply(fauxAssistantMessage("Stopped."));
+  faux.setResponses([
+    held.receive,
+    fauxAssistantMessage("Resumed."),
+    fauxAssistantMessage("Later."),
+  ]);
+  try {
+    await send(chat, "Start");
+    await held.entered;
+    const removable = await send(chat, "Remove me");
+    expect(chat.removePending(removable.id)).toBe(true);
+    await send(chat, "Resume me");
+    const stopped = chat.stop();
+    expect(chat.getState().pending).toMatchObject({ isPaused: true, items: [{ state: "held" }] });
+    held.finish();
+    await stopped;
+    await send(chat, "Later send");
+    expect(prompts(chat.getState())).toEqual(["Start"]);
+    await chat.resumePending();
+    await vi.waitFor(() =>
+      expect(prompts(chat.getState())).toEqual(["Start", "Resume me", "Later send"]),
+    );
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+  } finally {
+    held.finish();
+    await chats.stopAll();
+  }
+});
+
+test("input receipts survive restart and stale or conflicting submissions fail", async () => {
+  const { chats, chat, models, directory, folder, faux } = await setup();
+  faux.setResponses([fauxAssistantMessage("Done.")]);
+  const input = await send(chat, "One input");
+  await vi.waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
+  await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+  expect(await chat.send("One input", "literal", undefined, false, input)).toBe(true);
+  await expect(chat.send("Changed input", "literal", undefined, false, input)).rejects.toThrow(
+    "different content",
+  );
+  await expect(
+    chat.send("Stale input", "literal", undefined, false, { ...input, id: randomUUID() }),
+  ).rejects.toThrow("chat changed");
+  await chats.stopAll();
+  const reopened = await createChat({ models, directory, folder });
+  try {
+    const selected = await reopened.open(chat.getState().id);
+    expect(selected).toBeDefined();
+    expect(await selected?.send("One input", "literal", undefined, false, input)).toBe(true);
+    expect(prompts(selected?.getState() as ChatState)).toEqual(["One input"]);
+  } finally {
+    await reopened.stopAll();
+  }
+});
+
+test("queued command previews preserve captured text and a restart holds them", async () => {
+  const { chats, chat, models, directory, folder, faux } = await setup();
+  faux.setResponses([
+    fauxAssistantMessage("First answer."),
+    fauxAssistantMessage("Captured answer."),
+  ]);
+  const initial = await send(chat, "Start");
+  await vi.waitFor(() => expect(chat.inputState(initial.id)).toBe("delivered"));
+  await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+  const commands = join(folder, ".independum", "commands");
+  mkdirSync(commands, { recursive: true });
+  writeFileSync(join(commands, "review.md"), "---\ndescription: Review data.\n---\nCaptured $1.");
+  const preview = chat.compose("/review result", "commands");
+  await chat.stop();
+  const input = optionsFor(chat);
+  expect(await chat.send(preview.text, "commands", preview.id, false, input)).toBe(true);
+  await chats.stopAll();
+  writeFileSync(
+    join(commands, "review.md"),
+    "---\ndescription: Review data.\n---\nChanged on disk.",
+  );
+  const reopened = await createChat({ models, directory, folder });
+  const selected = await reopened.open(chat.getState().id);
+  if (selected === undefined) {
+    throw new Error("The saved chat did not reopen.");
+  }
+  try {
+    expect(selected.getState().pending.isPaused).toBe(true);
+    expect(prompts(selected.getState())).toEqual(["Start"]);
+    await selected.resumePending();
+    await vi.waitFor(() =>
+      expect(prompts(selected.getState())).toEqual(["Start", "Captured result."]),
+    );
+  } finally {
+    await reopened.stopAll();
+  }
+});
+
+test("addressed input routes validate identities and report removal conflicts", async () => {
+  const { chats, chat, models, faux } = await setup();
+  faux.setResponses([fauxAssistantMessage("Done.")]);
+  const routes = createChatRoutes(chats, models);
+  const path = `/chats/${chat.getState().id}`;
+  const input = optionsFor(chat);
+  const body = { ...input, kind: "send", text: "One request", interpretation: "literal" };
+  async function post(value: unknown): Promise<Response> {
+    return routes.request(`${path}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(value),
+    });
+  }
+  try {
+    expect((await post({ text: "No identity" })).status).toBe(400);
+    expect((await post(body)).status).toBe(202);
+    expect((await post(body)).status).toBe(202);
+    expect((await post({ ...body, text: "Changed" })).status).toBe(409);
+    await vi.waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    expect((await routes.request(`${path}/pending/${input.id}`, { method: "DELETE" })).status).toBe(
+      409,
+    );
+    expect(
+      (await routes.request(`${path}/pending/${randomUUID()}`, { method: "DELETE" })).status,
+    ).toBe(404);
+  } finally {
+    await chats.stopAll();
+  }
+});
+
+test("failed replies hold steering inputs until an explicit resume", async () => {
+  const { chats, chat, faux } = await setup();
+  const held = holdReply(
+    fauxAssistantMessage("", { stopReason: "error", errorMessage: "Request refused." }),
+  );
+  faux.setResponses([held.receive, fauxAssistantMessage("Resumed.")]);
+  try {
+    await send(chat, "Fail this reply");
+    await held.entered;
+    await send(chat, "Held steer", "steer");
+    held.finish();
+    await vi.waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
+    expect(prompts(chat.getState())).toEqual(["Fail this reply"]);
+    await chat.resumePending();
+    await vi.waitFor(() =>
+      expect(prompts(chat.getState())).toEqual(["Fail this reply", "Held steer"]),
+    );
+  } finally {
+    held.finish();
+    await chats.stopAll();
+  }
+});
+
+test("a captured model without its login holds work instead of substituting another model", async () => {
+  const { chats, chat, faux, models } = await setup();
+  const held = holdReply(fauxAssistantMessage("First reply."));
+  faux.setResponses([held.receive, fauxAssistantMessage("Queued reply.")]);
+  const available = vi.spyOn(models, "hasConfiguredAuth");
+  try {
+    await send(chat, "Start");
+    await held.entered;
+    await send(chat, "Captured choice");
+    available.mockReturnValue(false);
+    held.finish();
+    await vi.waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
+    expect(chat.getState().pending.items[0]?.reason).toContain("captured model");
+    expect(prompts(chat.getState())).toEqual(["Start"]);
+    available.mockRestore();
+    await chat.resumePending();
+    await vi.waitFor(() => expect(prompts(chat.getState())).toEqual(["Start", "Captured choice"]));
+  } finally {
+    available.mockRestore();
+    held.finish();
+    await chats.stopAll();
+  }
+});
+
+test("an accepted first input can reopen, archive, and resume before pi saves a message", async () => {
+  const { chats, chat, models, directory, folder, faux } = await setup();
+  const input = await send(chat, "Unsent durable input");
+  const id = chat.getState().id;
+  await chats.stopAll();
+  const reopened = await createChat({ models, directory, folder });
+  try {
+    const selected = await reopened.open(id);
+    if (selected === undefined) {
+      throw new Error("The pending chat did not reopen.");
+    }
+    expect(selected.inputState(input.id)).toBe("held");
+    expect(prompts(selected.getState())).toEqual([]);
+    expect(await reopened.rename(id, "Held first input")).toBe(true);
+    expect(await reopened.archive(id, true)).toBe(true);
+    expect((await reopened.getArchived()).some((chat) => chat.id === id)).toBe(true);
+    expect(await reopened.archive(id, false)).toBe(true);
+    const restored = await reopened.open(id);
+    if (restored === undefined) {
+      throw new Error("The restored pending chat did not reopen.");
+    }
+    expect(restored.getState().pending.isPaused).toBe(true);
+    faux.setResponses([fauxAssistantMessage("Delivered.")]);
+    await restored.resumePending();
+    await vi.waitFor(() => expect(prompts(restored.getState())).toEqual(["Unsent durable input"]));
+    await vi.waitFor(() => expect(restored.getState().isReplying).toBe(false));
+    expect(await reopened.remove(id)).toBe(true);
+    expect(await reopened.open(id)).toBeUndefined();
+  } finally {
+    await reopened.stopAll();
+  }
+});
+
+test("pending inputs keep their model and later work keeps the user's newer choice", async () => {
+  const { chats, chat, faux, provider } = await setup();
+  const held = holdReply(fauxAssistantMessage("Original."));
+  faux.setResponses([held.receive, fauxAssistantMessage("Captured.")]);
+  try {
+    await send(chat, "Start");
+    await held.entered;
+    const queued = await send(chat, "Use captured choice");
+    await chat.chooseModel(provider, "second");
+    expect(
+      chat.getState().pending.items.find((input) => input.id === queued.id)?.model.modelId,
+    ).toBe("first");
+    held.finish();
+    await vi.waitFor(() => expect(chat.inputState(queued.id)).toBe("delivered"));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await vi.waitFor(() => expect(chat.getState().model?.id).toBe("second"));
+  } finally {
+    held.finish();
+    await chats.stopAll();
+  }
+});
+
+test("delivery preferences use strict user settings and persist across restarts", async () => {
+  const { chats, chat, models, directory, folder } = await setup();
+  const user = chats.profiles.user();
+  if (user.document === null) {
+    throw new Error("The user settings did not load.");
+  }
+  const document = { ...user.document, messages: { whileReplying: "steer" as const } };
+  validateUserSettings({ ...document, messages: {} }, "settings.json");
+  for (const messages of [
+    { whileReplying: "other" },
+    { whileReplying: false },
+    { whileReplying: "queue", extra: true },
+  ]) {
+    expect(() => validateUserSettings({ ...document, messages }, "settings.json")).toThrow(
+      "whileReplying",
+    );
+  }
+  await chats.profiles.putUser(document, user.revision);
+  expect(chat.getState().whileReplying).toBe("steer");
+  await chats.stopAll();
+  const reopened = await createChat({ models, directory, folder });
+  try {
+    const selected = await reopened.open(await reopened.first());
+    expect(selected?.getState().whileReplying).toBe("steer");
+  } finally {
+    await reopened.stopAll();
+  }
+});

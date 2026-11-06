@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -116,7 +117,18 @@ async function readTitles(folder: string): Promise<string[]> {
   );
 }
 
-function post(path: string, body: unknown): Promise<Response> {
+async function post(path: string, body: unknown): Promise<Response> {
+  if (path.endsWith("/messages") && typeof body === "object" && body !== null) {
+    const state = (await (await routes.request(path.slice(0, -9))).json()) as ChatState;
+    body = {
+      kind: "send",
+      id: randomUUID(),
+      delivery: "queue",
+      expectedRevision: state.pending?.revision ?? 0,
+      expectedLeafId: state.leafId ?? null,
+      ...body,
+    };
+  }
   return Promise.resolve(
     routes.request(path, { method: "POST", headers: json, body: JSON.stringify(body) }),
   );
@@ -1175,7 +1187,10 @@ test("two clients follow only their own chat and a message names its destination
     expect(
       (await put(`/chats/${firstId}/model`, { providerId: "faux", modelId: "faux-model" })).status,
     ).toBe(204);
-    const refreshed = await first.next();
+    let refreshed = await first.next();
+    while (refreshed.type === "pending") {
+      refreshed = await first.next();
+    }
     expect(refreshed.type).toBe("state");
     const firstState = (await (await routes.request(`/chats/${firstId}`)).json()) as ChatState;
     expect(firstState.messages.map(textOf)).toEqual(["For the first chat", "First answer."]);

@@ -4,6 +4,7 @@ import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
 import { ConfigurationError, validateChatSettings } from "./configuration-schema.ts";
 import type { ApprovalPersistence } from "./create-approvals.ts";
 import type { Chat, OpenChat } from "./create-chat.ts";
+import { InputError } from "./create-pending-inputs.ts";
 import {
   bodyOf,
   configurationErrorResponse,
@@ -185,6 +186,37 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   active.post("/messages", async (context) => {
     const body = await contextBody(context);
+    if (
+      body.kind !== "send" ||
+      typeof body.id !== "string" ||
+      !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.id) ||
+      !Number.isSafeInteger(body.expectedRevision) ||
+      (body.expectedRevision as number) < 0 ||
+      (body.expectedLeafId !== null && typeof body.expectedLeafId !== "string") ||
+      (body.delivery !== "queue" && body.delivery !== "steer") ||
+      Object.keys(body).some(
+        (key) =>
+          ![
+            "kind",
+            "id",
+            "expectedRevision",
+            "expectedLeafId",
+            "delivery",
+            "text",
+            "interpretation",
+            "previewId",
+            "approvalMode",
+          ].includes(key),
+      )
+    ) {
+      return context.json(
+        {
+          code: "invalidInput",
+          error: "A send needs its input id, pending revision, leaf id, delivery mode, and text.",
+        },
+        400,
+      );
+    }
     if (typeof body.text !== "string" || body.text.trim() === "") {
       return context.json({ error: "A message needs text." }, 400);
     }
@@ -212,18 +244,56 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
             body.interpretation ?? "commands",
             body.previewId,
             body.approvalMode === "browser",
+            {
+              id: body.id,
+              expectedRevision: body.expectedRevision as number,
+              expectedLeafId: body.expectedLeafId,
+              delivery: body.delivery,
+            },
           ))
       ) {
         return context.json(
-          { error: "The chat needs a model and must be idle to receive a message." },
+          {
+            code: "chatUnavailable",
+            error:
+              "The chat needs a model and valid configuration and cannot be closing or compacting.",
+          },
           409,
         );
       }
-      return context.body(null, 202);
+      const state = context.get("chat").getState();
+      return context.json(
+        {
+          inputId: body.id,
+          state: context.get("chat").inputState(body.id),
+          revision: state.pending.revision,
+        },
+        202,
+      );
     } catch (error) {
+      if (error instanceof InputError) {
+        return inputFailure(context, error);
+      }
       return contextFailure(context, error, "The message cannot be sent.", 409);
     }
   });
+
+  active.delete("/pending/:inputId", (context) =>
+    inputResponse(context, async () => {
+      return context.get("chat").removePending(context.req.param("inputId"))
+        ? context.body(null, 204)
+        : context.json(
+            { code: "inputMissing", error: "This waiting message does not exist." },
+            404,
+          );
+    }),
+  );
+  active.post("/pending/resume", (context) =>
+    inputResponse(context, async () => {
+      await context.get("chat").resumePending();
+      return context.body(null, 204);
+    }),
+  );
 
   active.put("/model", async (context) => {
     const body: { providerId?: unknown; modelId?: unknown } = await context.req
@@ -356,6 +426,24 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   routes.route("/chats/:id", active);
   return routes;
+}
+
+function inputFailure(context: Context, error: InputError): Response {
+  return context.json({ code: error.code, error: error.message }, error.status);
+}
+
+async function inputResponse(
+  context: Context,
+  mutation: () => Promise<Response>,
+): Promise<Response> {
+  try {
+    return await mutation();
+  } catch (error) {
+    if (error instanceof InputError) {
+      return inputFailure(context, error);
+    }
+    throw error;
+  }
 }
 
 function answer(context: Context, isDone: boolean): Response {

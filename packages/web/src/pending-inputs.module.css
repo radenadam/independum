@@ -1,0 +1,33 @@
+.pending {
+  position: relative;
+  min-width: 0;
+  font-size: 13px;
+}
+
+/* Resume ends where the list ends, inside the room the list keeps for focus rings. */
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  padding-right: 5px;
+  color: var(--muted);
+}
+
+/* Three rows show before the list scrolls, with room for the focus rings of their controls. */
+.list {
+  display: flex;
+  max-height: 217px;
+  padding: 5px;
+}
+
+.detail {
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pending p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}

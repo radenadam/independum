@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type ReactElement,
   type ReactNode,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -73,6 +74,15 @@ export function Popover({
     setVariables({ "--x": `${x}px`, "--y": `${y}px` } as CSSProperties);
   }, [point, place]);
 
+  // A pop-up that holds no control of its own, such as the details of a pending message, takes
+  // the focus itself, so Escape reaches it. Its controls focus themselves first.
+  useEffect(() => {
+    const element = popover.current;
+    if (element !== null && !element.contains(document.activeElement)) {
+      element.focus();
+    }
+  }, []);
+
   const placeClass = typeof place === "string" ? styles[place] : styles.atPoint;
 
   return (
@@ -92,6 +102,7 @@ export function Popover({
         ref={popover}
         role="dialog"
         aria-label={label}
+        tabIndex={-1}
         className={`${styles.popover} ${placeClass} ${styles[size]}`}
         style={variables}
         onKeyDown={(event) => {

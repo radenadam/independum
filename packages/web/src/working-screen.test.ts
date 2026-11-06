@@ -26,6 +26,9 @@ beforeEach(() => {
   });
   const chat: ChatState = {
     id: "chat",
+    pending: { revision: 0, isPaused: false, items: [], error: null },
+    leafId: null,
+    whileReplying: "queue",
     folder: "folder",
     model: null,
     thinking: null,

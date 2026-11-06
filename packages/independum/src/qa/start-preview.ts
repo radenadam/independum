@@ -49,6 +49,14 @@ export async function startPreview(options: {
     async function respond(context: TranscriptContext): Promise<AssistantMessage> {
       faux.appendResponses([respond]);
       await setTimeout(500);
+      if (
+        context.messages.at(-1)?.role !== "toolResult" &&
+        JSON.stringify(context.messages.findLast((message) => message.role === "user")).includes(
+          "Hold queue preview.",
+        )
+      ) {
+        await setTimeout(8000);
+      }
       const hasNetworkRequest = JSON.stringify(
         context.messages.findLast((message) => message.role === "user"),
       ).includes("Check network permissions.");

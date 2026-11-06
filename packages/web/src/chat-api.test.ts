@@ -9,6 +9,8 @@ import {
   followChat,
   followChats,
   moveCommandToBackground,
+  removePendingInput,
+  resumePendingInputs,
   sendMessage,
   startNewChat,
   stopCommand,
@@ -25,8 +27,19 @@ test("each request keeps its chat id even when another chat is read", async () =
   request.mockImplementation(async () => Response.json({ id: "created" }));
   await chooseModel("first", "provider", "model");
   await fetchContext("second");
-  await sendMessage("first", "Hello");
-  expect(request.mock.calls.at(-1)?.[1]?.body).toEqual({ text: "Hello", approvalMode: "browser" });
+  const options = {
+    id: "input",
+    expectedRevision: 0,
+    expectedLeafId: null,
+    delivery: "queue",
+  } as const;
+  await sendMessage("first", "Hello", options);
+  expect(request.mock.calls.at(-1)?.[1]?.body).toEqual({
+    kind: "send",
+    ...options,
+    text: "Hello",
+    approvalMode: "browser",
+  });
   await chooseThinking("second", "high");
   await fetchAgent("first");
   await compactChat("second");
@@ -149,6 +162,24 @@ test.each([stopCommand, moveCommandToBackground])(
   async (run) => {
     vi.mocked(requestApi).mockResolvedValue(new Response(null, { status: 404 }));
     await expect(run("chat", "ended-call")).resolves.toBeUndefined();
+  },
+);
+
+test.each([
+  ["removing", () => removePendingInput("chat", "input")],
+  ["resuming", () => resumePendingInputs("chat")],
+])(
+  "%s waiting messages accepts an empty success and reports the reason of a refusal",
+  async (_, run) => {
+    vi.mocked(requestApi).mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await expect(run()).resolves.toBeUndefined();
+    vi.mocked(requestApi).mockResolvedValueOnce(
+      Response.json(
+        { code: "inputConflict", error: "The input was already sent." },
+        { status: 409 },
+      ),
+    );
+    await expect(run()).rejects.toThrow("The input was already sent.");
   },
 );
 

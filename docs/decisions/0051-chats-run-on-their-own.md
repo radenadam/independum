@@ -1,6 +1,6 @@
 # Chats run on their own
 
-- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes independent execution from the open chat shared by browsers, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own open chat
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes independent execution from the open chat shared by browsers, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own open chat, amended by [decision 0064](0064-queue-and-steer.md) for durable queue and steering delivery
 - Date: 2026-11-04
 
 ## Context

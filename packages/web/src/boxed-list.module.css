@@ -19,6 +19,37 @@
   border-top: 1px solid var(--line);
 }
 
+/* An entry that opens gives its room to its button, so the fill of the button reaches the edge. */
+.entry[data-opens="true"] {
+  padding: 0 14px 0 0;
+}
+
+.open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px 12px 14px;
+  color: var(--muted);
+}
+
+/* The list clips its rows, so a focused button shows its focus with the fill of a pointed one. */
+.open:hover,
+.open:focus-visible {
+  background: var(--raised);
+}
+
+.open:focus-visible {
+  outline: none;
+}
+
+.title {
+  display: flex;
+  min-width: 0;
+  color: var(--ink);
+}
+
 .text {
   flex: 1;
   min-width: 0;
@@ -33,7 +64,8 @@
   white-space: nowrap;
 }
 
-.name {
+.name,
+.title {
   font-size: 14px;
   font-weight: 500;
 }

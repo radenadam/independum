@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
@@ -235,6 +236,7 @@ test.each([false, true])(
       chats.profiles.profile(reference, projectId).revision,
     );
     faux.setResponses([fauxAssistantMessage("Unblocked.")]);
+    await chat.resumePending();
     await reply(chat, "Unblocked request");
     expect(faux.state.callCount).toBe(callsBefore + 1);
     await chats.stopAll();
@@ -252,16 +254,26 @@ test("command previews submit their captured expansion exactly once through addr
   faux.setResponses([fauxAssistantMessage("Reviewed.")]);
   const routes = createChatRoutes(chats, models);
   const path = `/chats/${chat.getState().id}/messages`;
+  const state = chat.getState();
+  const input = {
+    kind: "send",
+    id: randomUUID(),
+    delivery: "queue",
+    expectedRevision: state.pending.revision,
+    expectedLeafId: state.leafId,
+  };
   function submit(): Promise<Response> {
     return routes.request(path, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: "/User edited expansion", previewId: preview.id }),
+      body: JSON.stringify({ ...input, text: "/User edited expansion", previewId: preview.id }),
     }) as Promise<Response>;
   }
   expect((await submit()).status).toBe(202);
   expect((await submit()).status).toBe(202);
-  expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1);
+  await vi.waitFor(() =>
+    expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1),
+  );
   expect(chat.getState().messages.find((message) => message.role === "user")?.parts).toEqual([
     { type: "text", text: "/User edited expansion" },
   ]);
