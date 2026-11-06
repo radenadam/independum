@@ -7,6 +7,7 @@ import {
   withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import type { WriteDetails } from "../api-types.ts";
+import { isMissingFile } from "../is-missing-file.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 import {
   checkNotFolder,
@@ -227,7 +228,7 @@ async function readExisting(
   try {
     bytes = await readFile(file);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isMissingFile(error)) {
       return undefined;
     }
     throw error;

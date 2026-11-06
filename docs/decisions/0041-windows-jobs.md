@@ -1,6 +1,6 @@
 # Windows jobs for commands
 
-- Status: accepted
+- Status: accepted, and amended by [decision 0063](0063-permissions-and-enforced-tool-access.md)
 - Date: 2026-10-29
 
 ## Context
@@ -9,7 +9,7 @@ On Windows, Stop ran `taskkill /T` on the shell of a command, which reaches a pr
 
 ## Decision
 
-- Each command on Windows runs in a job of its own. Stop first runs `taskkill /T` on the shell, and then ends the job. `taskkill` reaches every program whose parents still run, even one that left the job, and the job reaches every program in it whose parent has ended.
+- Each unrestricted command on Windows runs in a job of its own. Sandboxed commands use the native sandbox launch and termination path of decision 0063. Stop first runs `taskkill /T` on the shell, and then ends the job. `taskkill` reaches every program whose parents still run, even one that left the job, and the job reaches every program in it whose parent has ended.
 - Independum calls the functions of Windows through koffi, which loads only when the first command runs on Windows. When the job cannot be made, Stop uses `taskkill` alone, as before.
 - The job closes when the run ends, so a program that a command leaves behind on purpose runs on, as before.
 - On macOS and Linux nothing changes, because a command leads its own process group there.

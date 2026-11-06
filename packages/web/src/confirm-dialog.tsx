@@ -12,7 +12,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-/** Draws a dialog that asks before an action that cannot be undone. */
+/** Draws a dialog that asks before a weighty action, such as one that cannot be undone. */
 export function ConfirmDialog({
   title,
   text,

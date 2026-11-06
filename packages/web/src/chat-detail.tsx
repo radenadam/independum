@@ -4,14 +4,13 @@ import { CodeWell } from "./code-well.tsx";
 import { FactTable } from "./fact-table.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
+import { timeFormat } from "./time-format.ts";
 
 /** Properties of the detail of a chat. */
 interface ChatDetailProps {
   folder: string;
   context: ContextSummary | undefined;
 }
-
-const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 /**
  * Draws the folder of a chat, its id, when it started and was last active, and the files that hold

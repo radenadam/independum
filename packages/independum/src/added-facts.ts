@@ -1,8 +1,12 @@
 import { readFileSync } from "node:fs";
 import { machine, release, type } from "node:os";
+import { join } from "node:path";
 import { type AgentSession, VERSION as piVersion } from "@earendil-works/pi-coding-agent";
 import type { AddedFactSummary, Settings } from "./api-types.ts";
+import { commandEnvironment } from "./command-environment.ts";
+import { sandboxRuntime } from "./create-sandbox.ts";
 import { createModelTexts, defineText, type ModelText } from "./model-texts.ts";
+import { findShell } from "./tools/find-shell.ts";
 
 type AgentMessage = AgentSession["messages"][number];
 
@@ -74,6 +78,51 @@ const knowledgeCutoff = defineText({
   },
 });
 
+const permissions = defineText({
+  id: "facts.permissions",
+  group: "Permissions",
+  section: "prompt",
+  label: "In project mode when the sandbox is available",
+  builtIn:
+    "Permission mode: project.\nProject folder: {project}.\nTool workers require {backend}. Project files are readable and writable, subject to permission rules and protected configuration paths.\nShell excludes protected configuration paths unless access to them is approved. Additional filesystem and network access is decided by the permission policy. Shell can request it through its access parameter.\nThe runtime baseline requires approval before execution. Commands use the {environment} environment policy. Running commands retain their launch authority. Policies that the backend cannot enforce refuse before execution.\nRuntime access: {runtime}.\nRestrictions: {restrictions}.",
+  slots: {
+    project: { meaning: "The project folder.", example: "C:/work/project" },
+    backend: {
+      meaning: "The required concrete operating system backend.",
+      example: "processcontainer",
+    },
+    environment: { meaning: "The environment policy.", example: "minimal" },
+    runtime: {
+      meaning: "The installation grants and implicit platform baseline for Shell and file workers.",
+      example: "Read-only installation paths and the operating system runtime baseline.",
+    },
+    restrictions: {
+      meaning: "The active resource rules and protected configuration paths.",
+      example: "Project .independum and the harness state folder.",
+    },
+  },
+});
+const unavailablePermissions = defineText({
+  id: "facts.permissionsUnavailable",
+  group: "Permissions",
+  section: "prompt",
+  label: "When project mode cannot use the required sandbox",
+  builtIn:
+    "Permission mode: project. The required sandbox is unavailable: {reason} Tool operations refuse before execution. No unrestricted fallback runs.",
+  slots: {
+    reason: { meaning: "The exact discovery failure.", example: "Bubblewrap is unavailable." },
+  },
+});
+const unrestrictedPermissions = defineText({
+  id: "facts.permissionsUnrestricted",
+  group: "Permissions",
+  section: "prompt",
+  label: "In unrestricted mode",
+  builtIn:
+    "Permission mode: unrestricted. Tools use the ordinary authority of the account that starts Independum. No filesystem or network sandbox restricts tool operations. Commands use the {environment} environment policy.",
+  slots: { environment: { meaning: "The environment policy.", example: "minimal" } },
+});
+
 /** The editable texts of every fact that Independum adds to a request. */
 export const addedFactTexts: ModelText[] = [
   messageTime,
@@ -83,6 +132,9 @@ export const addedFactTexts: ModelText[] = [
   timeZone,
   chatFolder,
   knowledgeCutoff,
+  permissions,
+  unavailablePermissions,
+  unrestrictedPermissions,
 ];
 
 const packageInfo = JSON.parse(
@@ -91,6 +143,7 @@ const packageInfo = JSON.parse(
 
 /** The settings and location of the request whose facts are being built. */
 export interface AddedFactsOptions {
+  directory?: string;
   settings: Settings;
   folder: string;
   model: { provider: string; id: string } | undefined;
@@ -101,10 +154,19 @@ export function summarizeAddedFacts({
   settings,
   folder,
   model,
+  directory,
 }: AddedFactsOptions): AddedFactSummary[] {
   const texts = createModelTexts(() => settings.texts);
   const cutoff =
     model === undefined ? undefined : settings.knowledgeCutoffs[model.provider]?.[model.id];
+  const permissionRuntime =
+    settings.permissions.mode === "project"
+      ? sandboxRuntime(
+          findShell(settings.shell ?? undefined, true)?.path ?? process.execPath,
+          settings.permissions.environment,
+          Object.keys(commandEnvironment(settings.permissions.environment, settings.environment)),
+        )
+      : undefined;
   const values: [ModelText, string | null][] = [
     [messageTime, texts.get(messageTime)],
     [harness, texts.fill(harness, { version: packageInfo.version })],
@@ -116,6 +178,46 @@ export function summarizeAddedFacts({
     [timeZone, texts.fill(timeZone, { zone: Intl.DateTimeFormat().resolvedOptions().timeZone })],
     [chatFolder, texts.fill(chatFolder, { folder })],
     [knowledgeCutoff, cutoff === undefined ? null : texts.fill(knowledgeCutoff, { cutoff })],
+    [
+      permissions,
+      permissionRuntime?.unavailable === null
+        ? texts.fill(permissions, {
+            project: folder,
+            backend: permissionRuntime.backend,
+            environment: settings.permissions.environment,
+            runtime: JSON.stringify({
+              shell: permissionRuntime.readonlyPaths,
+              fileWorkers: sandboxRuntime(
+                process.execPath,
+                "minimal",
+                Object.keys(commandEnvironment("minimal", {})),
+                true,
+              ).readonlyPaths,
+              implicitAccess: permissionRuntime.implicitAccess,
+              environmentNames: permissionRuntime.environmentNames,
+            }),
+            restrictions: JSON.stringify({
+              rules: settings.permissions.rules,
+              protectedPaths: [
+                join(folder, ".independum"),
+                ...(directory === undefined ? [] : [directory]),
+              ],
+            }),
+          })
+        : null,
+    ],
+    [
+      unavailablePermissions,
+      permissionRuntime?.unavailable
+        ? texts.fill(unavailablePermissions, { reason: permissionRuntime.unavailable })
+        : null,
+    ],
+    [
+      unrestrictedPermissions,
+      settings.permissions.mode === "unrestricted"
+        ? texts.fill(unrestrictedPermissions, { environment: settings.permissions.environment })
+        : null,
+    ],
   ];
   return values.map(([text, value]) => ({
     id: text.id,

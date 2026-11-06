@@ -26,6 +26,8 @@ Tool settings and model texts belong to the user in decisions 0031 and 0033. The
 
 ## Consequences
 
+- [Decision 0063](0063-permissions-and-enforced-tool-access.md) adds profile permission policy and runtime acceptance.
+
 - This decision amends the ownership, storage, and invalid-file fallback of decision 0031 and the storage and application timing of decision 0033.
 - It extends decision 0048 with the profile row and project settings. It moves the overrides and compaction of decision 0055 into profiles. The cutoffs of decision 0054 remain user facts, and its switches and texts move into profiles.
 - Decision 0058 keeps chat addresses by id. New chats now follow their resolved profile defaults instead of copying the source chat's model. The old runtime body of `PUT /api/settings` is removed.

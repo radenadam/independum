@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { OutputLimits, ShellDetails, ShellProgress } from "../api-types.ts";
+import type { SandboxLaunch } from "../create-sandbox.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 import { type BackgroundCommands, outputOpenText } from "./create-background-commands.ts";
 import { createOutputLog } from "./create-output-log.ts";
@@ -16,6 +17,8 @@ import { describeSeconds, type RunEnd, runCommand } from "./run-command.ts";
  * commands that run in the background.
  */
 interface ShellToolOptions {
+  getSandbox?: (id: string) => SandboxLaunch | undefined;
+  getEnvironmentMode?: () => "minimal" | "inherit";
   getShell: () => Shell | undefined;
   getLimits: () => OutputLimits;
   getEnvironment: () => Record<string, string>;
@@ -42,6 +45,53 @@ const outputSlot = {
 
 /** The texts of the Shell tool that the model reads, which the user can edit. */
 const shellTexts = {
+  versionUnavailable: defineText({
+    id: "shell.versionUnavailable",
+    group: "Shell",
+    section: "description",
+    label: "When no authorized version probe runs",
+    builtIn: "The version of this shell has not been queried.",
+    slots: {},
+  }),
+  access: defineText({
+    id: "shell.parameters.access",
+    group: "Shell",
+    section: "parameter",
+    label: "access",
+    builtIn:
+      "Additional filesystem and network access for this command and its descendants. Access outside the project may require user approval.",
+    slots: {},
+  }),
+  accessPaths: defineText({
+    id: "shell.parameters.access.paths",
+    group: "Shell",
+    section: "parameter",
+    label: "access.paths",
+    builtIn: "Additional paths, each with a path, file or tree scope, and read or write access.",
+    slots: {},
+  }),
+  accessNetwork: defineText({
+    id: "shell.parameters.access.network",
+    group: "Shell",
+    section: "parameter",
+    label: "access.network",
+    builtIn:
+      "Permits outbound and inbound network access, including host loopback, for this invocation.",
+    slots: {},
+  }),
+  sandboxReport: defineText({
+    id: "shell.sandboxReport",
+    group: "Shell",
+    section: "result",
+    label: "When the sandbox reports a warning",
+    builtIn: "Sandbox report: {report}",
+    slots: {
+      report: {
+        meaning: "The report returned by the operating system sandbox.",
+        example: "Access denied.",
+      },
+    },
+  }),
   description: defineText({
     id: "shell.description",
     group: "Shell",
@@ -212,6 +262,8 @@ export const shellTextList: ModelText[] = Object.values(shellTexts);
  * and how it ended.
  */
 export function createShellTool({
+  getSandbox,
+  getEnvironmentMode,
   getShell,
   getLimits,
   getEnvironment,
@@ -235,6 +287,7 @@ export function createShellTool({
       const names = Object.keys(getEnvironment());
       return [
         described,
+        ...(getShell()?.hasVersion === false ? [texts.get(shellTexts.versionUnavailable)] : []),
         ...(seconds === 0 ? [] : [texts.fill(shellTexts.handBack, { seconds })]),
         ...(names.length === 0
           ? []
@@ -243,6 +296,29 @@ export function createShellTool({
     },
     get parameters() {
       return Type.Object({
+        access: Type.Optional(
+          Type.Object(
+            {
+              paths: Type.Optional(
+                Type.Array(
+                  Type.Object(
+                    {
+                      path: Type.String({ minLength: 1 }),
+                      scope: Type.Union([Type.Literal("file"), Type.Literal("tree")]),
+                      access: Type.Union([Type.Literal("read"), Type.Literal("write")]),
+                    },
+                    { additionalProperties: false },
+                  ),
+                  { description: texts.get(shellTexts.accessPaths) },
+                ),
+              ),
+              network: Type.Optional(
+                Type.Boolean({ description: texts.get(shellTexts.accessNetwork) }),
+              ),
+            },
+            { description: texts.get(shellTexts.access), additionalProperties: false },
+          ),
+        ),
         command: Type.String({ minLength: 1, description: texts.get(shellTexts.command) }),
         description: Type.Optional(
           Type.String({ description: texts.get(shellTexts.descriptionParameter) }),
@@ -283,6 +359,8 @@ export function createShellTool({
         command,
         folder,
         environment: getEnvironment(),
+        environmentMode: getEnvironmentMode?.() ?? "inherit",
+        ...(getSandbox?.(toolCallId) === undefined ? {} : { sandbox: getSandbox?.(toolCallId) }),
         timeoutMs: timeout === undefined ? undefined : timeout * 1000,
         outputPath: path,
         limits: getLimits(),
@@ -417,5 +495,10 @@ function describeEnd(end: RunEnd, timeout: number | undefined, texts: ModelTexts
     end.exitCode === null && end.signal !== null
       ? texts.fill(shellTexts.signaled, { signal: end.signal, time })
       : texts.fill(shellTexts.exited, { code: end.exitCode ?? "unknown", time });
-  return end.isOutputOpen ? `${how} ${texts.get(shellTexts.outputOpen)}` : how;
+  return [
+    end.isOutputOpen ? `${how} ${texts.get(shellTexts.outputOpen)}` : how,
+    ...(end.sandboxWarnings?.length
+      ? [texts.fill(shellTexts.sandboxReport, { report: end.sandboxWarnings.join(" ") })]
+      : []),
+  ].join("\n");
 }

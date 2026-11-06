@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { ConfigurationError } from "./configuration-schema.ts";
+import { isMissingFile } from "./is-missing-file.ts";
 
 /** A file replacement within one managed configuration root. */
 export interface ConfigurationWrite {
@@ -45,7 +46,7 @@ export function readConfigurationFile(path: string): string | null {
     // biome-ignore lint/style/useNamingConvention: TextDecoder names this option ignoreBOM.
     return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(path));
   } catch (error) {
-    if (isMissing(error)) {
+    if (isMissingFile(error)) {
       return null;
     }
     throw error;
@@ -243,10 +244,6 @@ async function recoverConfiguration(root: string): Promise<void> {
 /** Writes the plain JSON shape used by every configuration document. */
 export function jsonConfiguration(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-function isMissing(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 }
 
 function checkRegisteredFile(root: string, path: string): void {

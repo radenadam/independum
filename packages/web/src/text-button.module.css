@@ -1,10 +1,11 @@
+/* A label too long for a narrow screen wraps, and its lines keep room above and below them. */
 .button {
   align-self: flex-start;
   min-height: 36px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 6px 12px;
   border: 1px solid var(--line);
   border-radius: 9px;
   font-size: 14px;

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll } from "vitest";
@@ -11,8 +11,15 @@ export function createTestFolder(name: string): string {
 }
 
 /** Creates an isolated state folder and project within a test file's retained folder. */
-export function createTestProject(parent: string): { directory: string; project: string } {
-  const directory = mkdtempSync(join(parent, "case-"));
+export function createTestProject(
+  parent: string,
+  isLinked = false,
+): { directory: string; project: string } {
+  const target = mkdtempSync(join(parent, "case-"));
+  const directory = isLinked ? `${target}-linked` : target;
+  if (isLinked) {
+    symlinkSync(target, directory, "junction");
+  }
   const project = join(directory, "project");
   mkdirSync(project);
   return { directory, project };

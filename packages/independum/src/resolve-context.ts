@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parseFrontmatter, withFileMutationQueue } from "@earendil-works/pi-coding-agent";
@@ -19,6 +28,7 @@ export interface ContextScope {
   profileDirectory: string;
   settings: ContextSettings;
   texts: ModelTexts;
+  permission?: (path: string, scope: "file" | "tree", access?: "read" | "write") => boolean;
 }
 
 /** Saves a known source only while its exact captured fingerprint still matches. */
@@ -39,6 +49,9 @@ export async function saveContextResource(
     }
     if (current.state === "needsPermission" || current.fingerprint === "") {
       throw new Error("This resource cannot be edited without permission.");
+    }
+    if (options.permission?.(current.path, "file", "write") === false) {
+      throw new Error("This resource cannot be edited without write permission.");
     }
     if (Buffer.from(content, "utf8").toString("utf8") !== content) {
       throw new Error("The source must contain valid Unicode text.");
@@ -82,7 +95,14 @@ export function resolveContext(options: ContextScope): ContextRevision {
   const identities = new Map<string, ContextResource>();
   const fingerprints = new Map<string, ContextResource>();
 
-  function isAllowed(path: string, scope: ContextResource["scope"]): boolean {
+  function isAllowed(
+    path: string,
+    scope: ContextResource["scope"],
+    extent: "file" | "tree" = "file",
+  ): boolean {
+    if (options.permission !== undefined) {
+      return options.permission(path, extent);
+    }
     const location = realLocation(path);
     return (scope === "project" ? roots.slice(0, 1) : roots).some((root) =>
       isInside(root, location),
@@ -114,10 +134,15 @@ export function resolveContext(options: ContextScope): ContextRevision {
       metadata: {},
     };
     try {
+      if (
+        options.permission !== undefined &&
+        lstatSync(path, { throwIfNoEntry: false }) === undefined
+      ) {
+        return undefined;
+      }
       if (!isAllowed(path, scope)) {
         resource.state = "needsPermission";
-        resource.reason =
-          "This path needs permission. The permission service is not available yet.";
+        resource.reason = "This path needs read permission before its contents can be read.";
         resources.push(resource);
         return resource;
       }
@@ -134,7 +159,7 @@ export function resolveContext(options: ContextScope): ContextRevision {
       if (!isAllowed(physical, scope)) {
         resource.state = "needsPermission";
         resource.reason = "The link target needs permission. Its contents are not read.";
-      } else if (["auth.json", "models.json", ".env"].includes(basename(physical).toLowerCase())) {
+      } else if (/^(?:auth\.json|models\.json|\.env(?:\..*)?)$/i.test(basename(physical))) {
         resource.state = "invalid";
         resource.reason = "Credential files are not context resources.";
       } else {
@@ -155,7 +180,21 @@ export function resolveContext(options: ContextScope): ContextRevision {
           resource.reason = `The same file is already listed at ${existing.path}.`;
           existing.aliases.push(path);
         } else {
-          const bytes = readFileSync(physical);
+          const descriptor = openSync(physical, "r");
+          let bytes: Buffer;
+          try {
+            const opened = fstatSync(descriptor, { bigint: true });
+            if (
+              opened.dev !== information.dev ||
+              opened.ino !== information.ino ||
+              !isAllowed(physical, scope)
+            ) {
+              throw new Error("The resource identity changed before its contents could be read.");
+            }
+            bytes = readFileSync(descriptor);
+          } finally {
+            closeSync(descriptor);
+          }
           resource.bytes = bytes.length;
           resource.fingerprint = digest(bytes);
           // TextDecoder names this standard option with an uppercase acronym.
@@ -270,12 +309,28 @@ export function resolveContext(options: ContextScope): ContextRevision {
       read(kind, scope, file, name, feature.isEnabled && !feature.disabledPaths.includes(file));
     }
     try {
-      if (!isAllowed(path, scope)) {
-        add(path, basename(path));
+      if (
+        options.permission !== undefined &&
+        lstatSync(path, { throwIfNoEntry: false }) === undefined
+      ) {
+        return;
+      }
+      const extent =
+        isExplicit &&
+        (basename(path) === "SKILL.md" || (kind === "command" && path.endsWith(".md")))
+          ? "file"
+          : "tree";
+      if (!isAllowed(path, scope, extent)) {
+        const resource = read(kind, scope, path, basename(path), feature.isEnabled);
+        if (resource !== undefined) {
+          resource.state = "needsPermission";
+          resource.reason = "This path needs read permission before discovery.";
+          resource.permissionScope = extent;
+        }
         return;
       }
       const physical = realpathSync(path);
-      if (!isAllowed(physical, scope)) {
+      if (!isAllowed(physical, scope, extent)) {
         add(path, basename(path));
         return;
       }
@@ -305,7 +360,7 @@ export function resolveContext(options: ContextScope): ContextRevision {
     } catch (error) {
       if (!hasCode(error, "ENOENT")) {
         const resource = read(kind, scope, path, basename(path), feature.isEnabled);
-        if (resource !== undefined) {
+        if (resource !== undefined && resource.state !== "invalid") {
           resource.state = "invalid";
           resource.reason = "The resource root cannot be read.";
         }

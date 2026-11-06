@@ -1,0 +1,14 @@
+/* The column keeps the width of the step, so a long line of a command scrolls inside its block. */
+.approval {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+  padding: 5px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

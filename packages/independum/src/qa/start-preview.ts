@@ -49,12 +49,19 @@ export async function startPreview(options: {
     async function respond(context: TranscriptContext): Promise<AssistantMessage> {
       faux.appendResponses([respond]);
       await setTimeout(500);
+      const hasNetworkRequest = JSON.stringify(
+        context.messages.findLast((message) => message.role === "user"),
+      ).includes("Check network permissions.");
       return context.messages.at(-1)?.role === "toolResult"
         ? fauxAssistantMessage([fauxText(reply)])
         : fauxAssistantMessage(
             [
               fauxThinking("I check the project steps before writing the reply."),
-              fauxToolCall("Shell", { command, description: "Check the project steps" }),
+              fauxToolCall("Shell", {
+                command,
+                description: "Check the project steps",
+                ...(hasNetworkRequest ? { access: { network: true } } : {}),
+              }),
             ],
             { stopReason: "toolUse" },
           );

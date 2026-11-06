@@ -26,6 +26,7 @@ test("each request keeps its chat id even when another chat is read", async () =
   await chooseModel("first", "provider", "model");
   await fetchContext("second");
   await sendMessage("first", "Hello");
+  expect(request.mock.calls.at(-1)?.[1]?.body).toEqual({ text: "Hello", approvalMode: "browser" });
   await chooseThinking("second", "high");
   await fetchAgent("first");
   await compactChat("second");

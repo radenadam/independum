@@ -1,4 +1,5 @@
 import type {
+  ApprovalRequest,
   CommandEnd,
   DiffHunk,
   FileDiff,
@@ -58,9 +59,11 @@ export function describeToolCall(
   elapsed: number,
 ): DescribedCall {
   const isRunning = isCallRunning(part, run, end, isReplying);
+  const isWaiting = approvalOf(part, run) !== undefined;
   const quietMs = isRunning ? quietOf(run, elapsed) : undefined;
-  const status: StepStatus | undefined =
-    quietMs === undefined
+  const status: StepStatus | undefined = isWaiting
+    ? { text: "Needs approval", tone: "quiet" }
+    : quietMs === undefined
       ? statusOf(part, run, end, isReplying, elapsed)
       : { text: `No output for ${describeDuration(quietMs)}`, tone: "alert" };
   if (part.name === "Read" || part.name === "Write" || part.name === "Edit") {
@@ -230,6 +233,9 @@ export function isCallRunning(
   end: CommandEnd | undefined,
   isReplying: boolean,
 ): boolean {
+  if (approvalOf(part, run) !== undefined) {
+    return false;
+  }
   if (part.result === null) {
     return isReplying && run !== undefined;
   }
@@ -238,6 +244,20 @@ export function isCallRunning(
     end === undefined &&
     run !== undefined
   );
+}
+
+/** Returns the approval that a call to a tool waits for, from the live progress of the tool. */
+export function approvalOf(
+  part: ToolCallPart,
+  run: ToolRun | undefined,
+): ApprovalRequest | undefined {
+  const details = run?.details;
+  return part.result === null &&
+    typeof details === "object" &&
+    details !== null &&
+    "approval" in details
+    ? (details.approval as ApprovalRequest)
+    : undefined;
 }
 
 /** Returns how a background command ended, as its step and the note about it show it. */
@@ -272,6 +292,9 @@ function statusOf(
     }
     return run === undefined ? undefined : running;
   }
+  if (isDenied(part.result.details)) {
+    return { text: "Denied", tone: "quiet" };
+  }
   const details = shellDetailsOf(part.result.details);
   if (details === undefined) {
     return part.result.isError ? { text: "Failed", tone: "alert" } : undefined;
@@ -284,6 +307,16 @@ function statusOf(
     return statusOfEnd(end);
   }
   return run === undefined ? { text: "In the background", tone: "quiet" } : running;
+}
+
+// A denial is the choice of the user, so it reads as a fact and not as a failure.
+function isDenied(details: unknown): boolean {
+  return (
+    typeof details === "object" &&
+    details !== null &&
+    "outcome" in details &&
+    details.outcome === "denied"
+  );
 }
 
 function shellDetailsOf(details: unknown): ShellDetails | undefined {

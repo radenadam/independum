@@ -32,6 +32,14 @@
       "wait": 0
     },
     {
+      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].find(element => element.textContent.includes('installation folders and operating system files')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { startupReasonVisible: isShown(reason()), startupApprovalVisible: isShown(button()) }; })()",
+      "wait": 0
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile')",
+      "wait": 0
+    },
+    {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))",
       "wait": 0
     },

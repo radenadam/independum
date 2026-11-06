@@ -20,7 +20,7 @@ An expression that throws, a protocol error, a missing target, or a returned che
 
 Preview links include the selected chat in the `chat` query parameter. A copied URL or reload follows that id. A client without one requests `GET /api/chats/first`. Chat actions and streams use `/api/chats/:id`, and shared project and reply events use `/api/chats/events`.
 
-The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. Real model calls follow the Real model calls section of `AGENTS.md`.
+The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. A message containing `Check network permissions.` makes the stand-in request network access for the same local command, which makes no connection. Real model calls follow the Real model calls section of `AGENTS.md`.
 
 ## Scenarios
 
@@ -35,6 +35,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa settings` | Logins, missing provider logos, and appearance. |
 | `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |
 | `pnpm qa context` | Command preview and submission, resource controls, duplicate instruction sources, and phone layouts in both themes. |
+| `pnpm qa permissions` | Permission sections, the exact environment name list, the confirmation before unrestricted mode, startup approval and reuse, the order of approval choices, chat and project network approvals, revocation and renewed requests, denial, and 360 pixel layouts in both themes. Approval waiting requires a backend that can compile the project policy. |
 | `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |
 | `pnpm qa archived` | Archived title tooltips inside Settings and full titles on a 360 pixel touch screen in both themes. |
 
@@ -65,7 +66,7 @@ Each step can contain several fields. Fields run in the order below, followed by
 | `wait` | Milliseconds after the actions, from `0` to `60000`. The default is `700`. |
 | `shot` | A lowercase kebab-case name. It saves `<name>.png` after the delay. |
 
-Focus a control, insert text, and press Enter in separate steps because `key` precedes `text` and `clickOn`. Use `run` with a promise to wait for a condition instead of adding a long fixed delay. A browser command times out after 30 seconds. A browser expression times out after 25 seconds. Unknown step fields and invalid values fail before the browser starts.
+Focus a control, insert text, and press Enter in separate steps because `key` precedes `text` and `clickOn`. A touch screen adds a new line on Enter, so a phone step presses Send instead. A phone shows the sidebar and the side panel over the chat, so a scenario that narrows the window closes each one before it uses the chat. Use `run` with a promise to wait for a condition instead of adding a long fixed delay. Wait until a control is shown, not only present, because a step box unfolds over a moment and `clickOn` fails while its target is clipped. A browser command times out after 30 seconds. A browser expression times out after 25 seconds. Unknown step fields and invalid values fail before the browser starts.
 
 ```json
 {

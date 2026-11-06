@@ -150,7 +150,7 @@ function followEvents<Event>(
 /** Sends a message to the chat. */
 export async function sendMessage(id: string, text: string, previewId?: string): Promise<void> {
   const response = await requestApi(chatPath(id, "/messages"), {
-    body: { text, ...(previewId === undefined ? {} : { previewId }) },
+    body: { text, approvalMode: "browser", ...(previewId === undefined ? {} : { previewId }) },
   });
   if (!response.ok) {
     throw new Error("The message was not sent.");

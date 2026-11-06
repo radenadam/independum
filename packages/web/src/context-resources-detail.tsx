@@ -26,11 +26,32 @@ export function ContextResourcesDetail({ settings }: ContextResourcesDetailProps
   const context = settings.agent?.contextSettings;
   const [search, setSearch] = useState("");
   const [editingSource, setEditingSource] = useState<ContextResource | undefined>();
+  const [permissionError, setPermissionError] = useState<string | undefined>();
   if (context === undefined) {
     return <PlaceNote>Loading context controls.</PlaceNote>;
   }
   function save(next: ContextSettings): void {
     settings.change({ context: next });
+  }
+  async function requestReadAccess(resource: ContextResource): Promise<void> {
+    setPermissionError(undefined);
+    try {
+      const chatId = settings.agent?.chatId;
+      if (chatId === undefined) {
+        throw new Error("The chat is not open.");
+      }
+      const response = await requestApi(
+        `/api/chats/${encodeURIComponent(chatId)}/resources/${encodeURIComponent(resource.id)}/approval`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        await readResponse(response);
+      }
+    } catch (error) {
+      setPermissionError(
+        error instanceof Error ? error.message : "Read access could not be requested.",
+      );
+    }
   }
   const catalog = settings.agent?.resources;
   const captured = settings.agent?.lastContext;
@@ -136,6 +157,7 @@ export function ContextResourcesDetail({ settings }: ContextResourcesDetailProps
         </Disclosure>
       </PlaceSection>
       <PlaceSection heading="Resource catalog">
+        {permissionError === undefined ? null : <PlaceNote>{permissionError}</PlaceNote>}
         <TextField
           id="resource-search"
           label="Search resources"
@@ -157,6 +179,14 @@ export function ContextResourcesDetail({ settings }: ContextResourcesDetailProps
           >
             <CodeWell code={resource.path} copyLabel="Copy resource path" />
             {resource.reason === "" ? null : <PlaceNote>{resource.reason}</PlaceNote>}
+            {resource.state !== "needsPermission" || settings.agent?.chatId === undefined ? null : (
+              <TextButton
+                label="Request read access"
+                onClick={() => {
+                  void requestReadAccess(resource);
+                }}
+              />
+            )}
             {captured?.resources.some(
               (previous) =>
                 previous.id === resource.id && previous.fingerprint !== resource.fingerprint,

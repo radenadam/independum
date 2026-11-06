@@ -11,6 +11,7 @@ import type {
 } from "./api-types.ts";
 import { thinkingLevels } from "./api-types.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
+import { validatePermissionPolicy } from "./permission-policy.ts";
 import { readContextSettings } from "./read-context-settings.ts";
 import { handBackRange, readSettingsChange } from "./read-settings-change.ts";
 
@@ -295,6 +296,7 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
     "outputLimits",
     "handBackSeconds",
     "environment",
+    "permissions",
   ]);
   validateChoices(fields, file, pointer);
   if (fields.context !== undefined) {
@@ -312,6 +314,17 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
     }
   }
   validateRuntimeFields(fields, file, pointer);
+  if (fields.permissions !== undefined) {
+    try {
+      validatePermissionPolicy(fields.permissions);
+    } catch (error) {
+      throw new ConfigurationError(
+        error instanceof Error ? error.message : "Invalid permission policy.",
+        file,
+        `${pointer}/permissions`,
+      );
+    }
+  }
   const { model: _model, thinkingLevel: _thinkingLevel, ...runtime } = fields;
   for (const [key, entry] of Object.entries(runtime)) {
     if (readSettingsChange({ [key]: entry }) === undefined) {

@@ -65,9 +65,9 @@ button.header:hover {
 
 /*
   While the box follows its step, it shows only the latest lines, so a long step does not push the
-  reply down, and it keeps showing them while it folds. Opened by the user, it shows every line, and
-  a long block in it scrolls past `--block-height`. Each box sets both on its own view, so a step
-  inside a group keeps its own state.
+  reply down, and it keeps showing them while it folds. Opened by the user, or asking the user, it
+  shows every line, and a long block in it scrolls past `--block-height`. Each box sets both on its
+  own view, so a step inside a group keeps its own state.
 */
 .view[data-following="true"] {
   --block-height: none;

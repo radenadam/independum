@@ -3,8 +3,9 @@ import { existsSync, lstatSync } from "node:fs";
 import { delimiter, dirname, join } from "node:path";
 import type { ShellKind } from "../api-types.ts";
 
-/** A shell that the Shell tool runs commands in, named with its version. */
+/** A shell with its version when an authorized query supplies it. */
 export interface Shell {
+  hasVersion?: boolean;
   kind: ShellKind;
   name: string;
   path: string;
@@ -19,20 +20,37 @@ interface Named {
 // Starting a shell to ask its version takes a moment, so each one answers once.
 const namesByPath = new Map<string, Named>();
 
-// PowerShell counts from version 7.
 /**
  * Returns the shell of a kind on this computer, or the default kind of the system when none is
  * chosen, or undefined when it is not installed.
  */
-export function findShell(kind: ShellKind = defaultShellKind()): Shell | undefined {
-  const path = kind === "bash" ? findBash() : findPowerShell();
+export function findShell(
+  kind: ShellKind = defaultShellKind(),
+  isSandboxed = false,
+): Shell | undefined {
+  const path = kind === "bash" ? findBash() : findPowerShell(isSandboxed);
   if (path === undefined) {
     return undefined;
+  }
+  if (isSandboxed) {
+    return {
+      kind,
+      path,
+      name:
+        kind === "powershell"
+          ? path.toLowerCase().endsWith("\\powershell.exe")
+            ? "Windows PowerShell"
+            : "PowerShell"
+          : process.platform === "win32"
+            ? "Git Bash"
+            : "Bash",
+      hasVersion: false,
+    };
   }
   const { name, major } = nameOf(kind, path);
   return kind === "powershell" && major !== undefined && major < 7
     ? undefined
-    : { kind, name, path };
+    : { kind, name, path, hasVersion: major !== undefined };
 }
 
 /** Returns the kind of shell that a system uses when the user has not chosen one. */
@@ -41,8 +59,14 @@ export function defaultShellKind(): ShellKind {
 }
 
 /** Returns what the user reads when the shell of a kind is not installed on this computer. */
-export function missingShellOf(kind: ShellKind): string {
+export function missingShellOf(kind: ShellKind, isSandboxed = false): string {
   if (kind === "powershell") {
+    if (isSandboxed && process.platform === "win32") {
+      const fromPath = findOnPath("pwsh.exe");
+      return fromPath?.toLowerCase().includes("windowsapps") === true
+        ? "Only the Microsoft Store PowerShell alias is available. Windows ProcessContainer cannot launch it. Install PowerShell from its installer or choose unrestricted mode for this profile."
+        : "No PowerShell that Windows ProcessContainer can launch is installed. Install PowerShell from its installer or choose unrestricted mode for this profile.";
+    }
     return "PowerShell 7 or newer is not installed on this computer.";
   }
   return process.platform === "win32"
@@ -50,11 +74,28 @@ export function missingShellOf(kind: ShellKind): string {
     : "Bash is not installed on this computer.";
 }
 
-function findPowerShell(): string | undefined {
+function findPowerShell(isSandboxed: boolean): string | undefined {
   if (process.platform !== "win32") {
     return findOnPath("pwsh");
   }
   const programFiles = process.env.ProgramFiles;
+  if (isSandboxed) {
+    const fromPath = findOnPath("pwsh.exe");
+    const systemRoot = process.env.SystemRoot ?? process.env.windir;
+    return (
+      existing(
+        programFiles === undefined ? undefined : join(programFiles, "PowerShell", "7", "pwsh.exe"),
+      ) ??
+      (fromPath !== undefined && !fromPath.toLowerCase().includes("windowsapps")
+        ? fromPath
+        : undefined) ??
+      existing(
+        systemRoot === undefined
+          ? undefined
+          : join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+      )
+    );
+  }
   return (
     findOnPath("pwsh.exe") ??
     existing(
@@ -93,12 +134,24 @@ function nameOf(kind: ShellKind, path: string): Named {
     kind === "powershell" ? "PowerShell" : process.platform === "win32" ? "Git Bash" : "Bash";
   let version: string | undefined;
   try {
-    const output = execFileSync(path, ["--version"], {
-      encoding: "utf8",
-      timeout: 10_000,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    const output = execFileSync(
+      path,
+      path.toLowerCase().endsWith("\\powershell.exe")
+        ? [
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "$PSVersionTable.PSVersion.ToString()",
+          ]
+        : ["--version"],
+      {
+        encoding: "utf8",
+        timeout: 10_000,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
     version = /\d+\.\d+(?:\.\d+)?/.exec(output)?.[0];
   } catch {
     version = undefined;
@@ -109,6 +162,18 @@ function nameOf(kind: ShellKind, path: string): Named {
   };
   namesByPath.set(path, named);
   return named;
+}
+
+/** Returns the measured incompatibility of a Windows shell before isolated execution. */
+export function sandboxShellReason(shell: Shell): string | null {
+  if (process.platform !== "win32") {
+    return null;
+  }
+  return shell.kind === "bash"
+    ? "Git Bash cannot start its MSYS runtime inside Windows ProcessContainer. Select PowerShell or choose unrestricted mode for this profile."
+    : shell.path.toLowerCase().includes("windowsapps")
+      ? "Microsoft Store PowerShell is an app execution alias that Windows ProcessContainer cannot launch. Install PowerShell from its installer, select Windows PowerShell, or choose unrestricted mode for this profile."
+      : null;
 }
 
 function findOnPath(name: string): string | undefined {

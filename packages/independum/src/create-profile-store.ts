@@ -34,6 +34,7 @@ import {
   validateProjectSettings,
   validateUserSettings,
 } from "./configuration-schema.ts";
+import { serializePermissionPath } from "./permission-policy.ts";
 import { readContextSettings } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { subscribeTo } from "./subscribe-to.ts";
@@ -72,6 +73,7 @@ export interface ProfileStore {
     projectId: string,
     value: unknown,
     revision: string | undefined,
+    isCurrent?: () => boolean,
   ): Promise<void>;
   newChoices(folder: string, reference?: ProfileReference): ChatSettingsDocument;
   choices(id: string): ConfigurationResource<ChatSettingsDocument>;
@@ -481,12 +483,8 @@ export async function createProfileStore(
     schedule();
   }
 
-  async function putProfile(
-    reference: ProfileReference,
-    projectId: string,
-    value: unknown,
-    revision: string | undefined,
-  ): Promise<void> {
+  async function putProfile(...parameters: Parameters<ProfileStore["putProfile"]>): Promise<void> {
+    const [reference, projectId, value, revision, isCurrent] = parameters;
     const path = profileFolder(reference, projectId);
     const bundle = normalizeBundle(validateProfileBundle(value, path));
     const root = reference.scope === "user" ? directory : join(folderOf(projectId), ".independum");
@@ -494,7 +492,17 @@ export async function createProfileStore(
       root,
       () => profile(reference, projectId),
       revision,
-      () => bundleWrites(path, bundle),
+      () => {
+        if (isCurrent?.() === false) {
+          throw new ConfigurationError(
+            "The approval changed before it could be saved.",
+            path,
+            "",
+            409,
+          );
+        }
+        return bundleWrites(path, bundle);
+      },
     );
   }
 
@@ -680,6 +688,11 @@ export async function createProfileStore(
   };
 }
 
+/** Returns the name that a person gave a profile, or its id when its file cannot be read. */
+export function profileNameOf(profile: ProfileResource): string {
+  return profile.document?.profile.name ?? profile.reference.id;
+}
+
 /** Returns the stable server id for an exact known project folder. */
 export function projectIdOf(folder: string): string {
   return createHash("sha256").update(folder).digest("hex").slice(0, 24);
@@ -687,6 +700,21 @@ export function projectIdOf(folder: string): string {
 
 function normalizeBundle(bundle: ProfileBundle): ProfileBundle {
   const result = structuredClone(bundle);
+  const permissions = result.profile.settings?.permissions;
+  if (permissions !== undefined) {
+    for (const approval of permissions.savedApprovals) {
+      approval.project = serializePermissionPath(approval.project);
+      if (approval.resource.kind === "path") {
+        approval.resource.path = serializePermissionPath(approval.resource.path);
+      }
+    }
+    for (const rule of permissions.rules) {
+      rule.project = serializePermissionPath(rule.project);
+      if (rule.resource.kind === "path") {
+        rule.resource.path = serializePermissionPath(rule.resource.path);
+      }
+    }
+  }
   if (result.systemPrompt === systemPromptText.builtIn) {
     result.systemPrompt = null;
     if (result.modelTexts !== null) {

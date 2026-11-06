@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
@@ -48,19 +49,35 @@ import type {
   ToolResult,
   ToolSummary,
 } from "./api-types.ts";
+import { commandEnvironment, minimalEnvironmentNames } from "./command-environment.ts";
 import { configurationRevision } from "./configuration-files.ts";
 import { escapePointer } from "./configuration-schema.ts";
+import {
+  type Approvals,
+  createApprovals,
+  type PermissionApprovalSave,
+} from "./create-approvals.ts";
 import { createCommandPreviews } from "./create-command-previews.ts";
+import { type ContextPermissions, createContextPermissions } from "./create-context-permissions.ts";
 import {
   createProfileStore,
   type ProfileStore,
+  profileNameOf,
   type ResolvedProfile,
 } from "./create-profile-store.ts";
+import { type SandboxLaunch, sandboxRuntime } from "./create-sandbox.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
 import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
+import {
+  evaluatePermission,
+  type PermissionPolicy,
+  permissionResourceIdentity,
+  readablePermissionPolicy,
+} from "./permission-policy.ts";
+import { permissionBranch, permissionTool } from "./permission-tool.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
@@ -81,7 +98,12 @@ import { createShellTool } from "./tools/create-shell-tool.ts";
 import { createStopCommandTool } from "./tools/create-stop-command-tool.ts";
 import { createWriteTool } from "./tools/create-write-tool.ts";
 import { environmentSuggestions } from "./tools/environment-suggestions.ts";
-import { defaultShellKind, findShell, missingShellOf } from "./tools/find-shell.ts";
+import {
+  defaultShellKind,
+  findShell,
+  missingShellOf,
+  sandboxShellReason,
+} from "./tools/find-shell.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -99,10 +121,13 @@ interface ThinkingTimes {
 
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
+  contextPermissions: ContextPermissions | undefined;
+  contextAbort: AbortController;
   preparedPiSections: Record<string, string | null>;
   preparedContext: ContextRevision | undefined;
   resources: ContextRevision;
   preparationError: string | undefined;
+  hasBrowserApprovals: boolean;
   session: AgentSession;
   // The hidden extension of the chat, through which Independum registers its tools anew.
   extension: ExtensionAPI | undefined;
@@ -149,6 +174,7 @@ export interface ChatOptions {
 
 /** A chat held by an API request, with a separate subscription for each follower. */
 export interface OpenChat {
+  requestResourcePermission(id: string): Promise<boolean>;
   getResources(): ContextRevision;
   saveResource(id: string, fingerprint: string, content: string): Promise<ContextRevision>;
   compose(text: string, interpretation: "literal" | "commands"): ComposePreview;
@@ -157,7 +183,12 @@ export interface OpenChat {
   getAgent(): AgentSummary;
   getContext(): ContextSummary;
   subscribe(listener: (event: ChatEvent) => void): () => void;
-  send(text: string, interpretation?: "literal" | "commands", previewId?: string): Promise<boolean>;
+  send(
+    text: string,
+    interpretation?: "literal" | "commands",
+    previewId?: string,
+    hasBrowserApprovals?: boolean,
+  ): Promise<boolean>;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   chooseThinking(level: string): Promise<boolean>;
   compact(instructions?: string): Promise<boolean>;
@@ -169,6 +200,7 @@ export interface OpenChat {
 
 /** The independent chat runs and the projects with their chats. */
 export interface Chat {
+  approvals: Approvals;
   first(): Promise<string>;
   open(id: string): Promise<OpenChat | undefined>;
   profiles: ProfileStore;
@@ -216,6 +248,82 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   const slashResults = new Map<string, Awaited<ReturnType<OpenChat["slashAction"]>>>();
   const commandStops = new Map<string, () => Promise<void>>();
   const commandHandBacks = new Map<string, () => void>();
+  const approvals = createApprovals();
+  function permissionRevision(configuration: ResolvedProfile): string {
+    return configurationRevision([
+      JSON.stringify({
+        profile: configuration.profile.path,
+        choices: configuration.choices.revision,
+        settings: {
+          ...configuration.settings,
+          permissions: {
+            ...configuration.settings.permissions,
+            runtimeApprovals: [],
+            savedApprovals: [],
+          },
+        },
+        model: configuration.model,
+        thinkingLevel: configuration.thinkingLevel,
+      }),
+    ]);
+  }
+  async function savePermissionApproval({
+    chatId,
+    folder,
+    binding,
+    project,
+    resources,
+    runtime,
+    isCurrent,
+  }: PermissionApprovalSave): Promise<PermissionPolicy> {
+    const current = profiles.resolve(chatId, folder);
+    if (
+      current.issues.length > 0 ||
+      permissionRevision(current) !== binding ||
+      current.profile.document === null
+    ) {
+      throw new Error("The profile changed before the approval could be saved.");
+    }
+    const permissions = structuredClone(current.settings.permissions);
+    if (
+      runtime !== undefined &&
+      !permissions.runtimeApprovals.some(
+        (approval) =>
+          approval.backend === runtime.backend && approval.runtimeHash === runtime.runtimeHash,
+      )
+    ) {
+      permissions.runtimeApprovals.push({
+        backend: runtime.backend,
+        runtimeHash: runtime.runtimeHash,
+        approvedAt: new Date().toISOString(),
+      });
+    }
+    for (const resource of resources) {
+      permissions.savedApprovals.push({
+        id: randomUUID(),
+        project,
+        resource,
+        identity: permissionResourceIdentity(resource),
+        approvedAt: new Date().toISOString(),
+      });
+    }
+    if (resources.length === 0 && runtime === undefined) {
+      return permissions;
+    }
+    const bundle = current.profile.document;
+    await profiles.putProfile(
+      current.profile.reference,
+      current.profile.projectId,
+      {
+        ...bundle,
+        profile: { ...bundle.profile, settings: { ...bundle.profile.settings, permissions } },
+      },
+      current.profile.revision,
+      () =>
+        isCurrent?.() !== false && permissionRevision(profiles.resolve(chatId, folder)) === binding,
+    );
+    return permissions;
+  }
   const background = createBackgroundCommands({
     onProgress(chatId, toolCallId, progress) {
       const run = runs.get(chatId);
@@ -228,12 +336,18 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function toolsFor(configuration: ResolvedProfile): ToolDefinition[] {
     const settings = { get: () => configuration.settings };
     const texts = createModelTexts(() => configuration.settings.texts);
-    const shell = findShell(configuration.settings.shell ?? undefined);
-    return [
+    const shell = findShell(
+      configuration.settings.shell ?? undefined,
+      configuration.settings.permissions.mode === "project",
+    );
+    const launches = new Map<string, SandboxLaunch>();
+    const own = [
       createReadTool({ getLimits: () => settings.get().outputLimits, texts }),
       createWriteTool(texts),
       createEditTool(texts),
       createShellTool({
+        getSandbox: (id) => launches.get(id),
+        getEnvironmentMode: () => settings.get().permissions.environment,
         getShell: () => shell,
         getLimits: () => settings.get().outputLimits,
         getEnvironment: () => settings.get().environment,
@@ -247,6 +361,27 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       createCheckCommandTool(background, texts),
       createStopCommandTool(background, texts),
     ];
+    return own.map((tool) =>
+      permissionTool(tool, {
+        policy: (chatId, folder) => profiles.resolve(chatId, folder).settings.permissions,
+        saveApproval: savePermissionApproval,
+        settings: configuration.settings,
+        texts,
+        directory,
+        shell,
+        approvals,
+        launches,
+        profileName: profileNameOf(configuration.profile),
+        revision: permissionRevision(configuration),
+        currentRevision: (chatId, folder) => {
+          const current = profiles.resolve(chatId, folder);
+          return current.issues.length === 0 ? permissionRevision(current) : "invalid";
+        },
+        isInteractive: (chatId) => runs.get(chatId)?.hasBrowserApprovals === true,
+        audit: (chatId, data) =>
+          runs.get(chatId)?.session.sessionManager.appendCustomEntry("independum-permission", data),
+      }),
+    );
   }
 
   function refreshResources(
@@ -261,12 +396,57 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       profileDirectory: configuration.profile.path,
       settings: configuration.settings.context,
       texts: createModelTexts(() => configuration.settings.texts),
+      permission: (path, scope, access = "read") =>
+        run?.contextPermissions?.check(path, scope, access) ??
+        evaluatePermission(
+          configuration.settings.permissions,
+          sessionFolder,
+          {
+            kind: "path",
+            path,
+            scope,
+            access,
+          },
+          [directory, join(sessionFolder, ".independum")],
+        ).decision === "allow",
     });
     if (run !== undefined && run.resources?.revision !== revision.revision) {
       run.resources = revision;
       refreshContext(run);
     }
     return revision;
+  }
+
+  async function authorizeResources(run: ChatRun): Promise<void> {
+    const attempted = new Set<string>();
+    while (run.hasBrowserApprovals) {
+      const resource = refreshResources(run, run.configuration, run.folder).resources.find(
+        (entry) => {
+          const feature =
+            entry.kind === "instructions"
+              ? run.configuration.settings.context.instructions
+              : entry.kind === "skill"
+                ? run.configuration.settings.context.skills
+                : run.configuration.settings.context.slashCommands;
+          return (
+            entry.state === "needsPermission" &&
+            feature.isEnabled &&
+            !feature.disabledPaths.includes(entry.path) &&
+            !attempted.has(entry.id)
+          );
+        },
+      );
+      if (resource === undefined) {
+        return;
+      }
+      attempted.add(resource.id);
+      await run.contextPermissions?.request(
+        resource.path,
+        resource.permissionScope ?? "file",
+        "read",
+        run.contextAbort.signal,
+      );
+    }
   }
   const listeners = new Set<(event: ChatsEvent) => void>();
   const runs = new Map<string, ChatRun>();
@@ -282,6 +462,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     }
   >();
   profiles.subscribe(() => {
+    approvals.invalidate();
     reconcile().catch(() => undefined);
   });
   let firstId: string | undefined;
@@ -306,6 +487,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const streaming = run.isReplying ? session.agent.state.streamingMessage : undefined;
     return {
       id: session.sessionId,
+      contextApprovals: approvals
+        .pending(session.sessionId)
+        .filter((approval) => approval.toolName === "Context"),
       folder: run.folder,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
       // Pi offers only the levels that the model supports, and none for a model that cannot think.
@@ -340,6 +524,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       run.isReplying ||
       run.isCompacting ||
       run.pendingNotes > 0 ||
+      approvals
+        .pending(run.session.sessionId)
+        .some((approval) => approval.toolName === "Context") ||
       stoppingChats.has(run.session.sessionId) ||
       background.listRunning(run.session.sessionId).length > 0
     ) {
@@ -562,6 +749,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     run.isClosing = true;
     stoppingChats.add(saved.id);
     try {
+      run.contextAbort.abort();
       await Promise.all([run.session.abort(), background.stopAll(saved.id)]);
     } finally {
       stoppingChats.delete(saved.id);
@@ -655,7 +843,13 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       } else if (event.type === "tool_execution_update") {
         const details = event.partialResult?.details ?? null;
         run.toolRuns[event.toolCallId] = {
-          startedAt: run.toolRuns[event.toolCallId]?.startedAt ?? Date.now(),
+          startedAt:
+            typeof details === "object" &&
+            details !== null &&
+            "permissionExecutionStartedAt" in details &&
+            typeof details.permissionExecutionStartedAt === "number"
+              ? details.permissionExecutionStartedAt
+              : (run.toolRuns[event.toolCallId]?.startedAt ?? Date.now()),
           details,
         };
         emitFor(run, {
@@ -843,12 +1037,13 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             pi.on("context", (event) => ({
               messages: addMessageTimes(event.messages, settings.get()),
             }));
-            pi.on("context_with_system", (event, context) => {
+            pi.on("context_with_system", async (event, context) => {
               const run = hold.run;
               if (run === undefined) {
                 return;
               }
               try {
+                await authorizeResources(run);
                 const resources = refreshResources(run, configuration, sessionFolder);
                 run.preparedContext = resources;
                 run.preparationError = resources.resources.find(
@@ -1001,6 +1196,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
     const { session } = created;
     const run: ChatRun = Object.assign(previous ?? {}, {
+      contextPermissions: undefined,
+      contextAbort: new AbortController(),
       session,
       extension: hold.extension,
       folder: sessionFolder,
@@ -1010,6 +1207,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       isModelChosen:
         session.model !== undefined && created.modelFallbackMessage === undefined && isChosen,
       isReplying: false,
+      hasBrowserApprovals: previous?.hasBrowserApprovals ?? false,
       isCompacting: false,
       compactionError: null,
       contextVersion: previous?.contextVersion ?? 0,
@@ -1075,6 +1273,25 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     session.agent.streamFunction = streamWithOverrides;
     session.setActiveToolsByName(activeToolNames(run));
     run.stopFollowing = session.subscribe(followRun(run));
+    run.contextPermissions = createContextPermissions({
+      project: sessionFolder,
+      directory,
+      chatId: session.sessionId,
+      approvals,
+      policy: () => profiles.resolve(session.sessionId, sessionFolder).settings.permissions,
+      profileName: () => profileNameOf(profiles.resolve(session.sessionId, sessionFolder).profile),
+      saveApproval: savePermissionApproval,
+      revision: () => {
+        const current = profiles.resolve(session.sessionId, sessionFolder);
+        return current.issues.length === 0 ? permissionRevision(current) : "invalid";
+      },
+      branch: () => permissionBranch(session.sessionManager, true) ?? null,
+      audit: (data) => session.sessionManager.appendCustomEntry("independum-permission", data),
+      onChange: () => {
+        refreshContext(run);
+        emitFor(run, { type: "state", state: getState(run) });
+      },
+    });
     runs.set(session.sessionId, run);
     return run;
   }
@@ -1089,6 +1306,18 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       run.lastRequest,
     );
     agent.chatId = run.session.sessionId;
+    const current = profiles.resolve(run.session.sessionId, run.folder);
+    if (current.issues.length === 0) {
+      agent.permissions = readablePermissionPolicy(current.settings.permissions);
+      agent.contextSettings = current.settings.context;
+      if (
+        agent.configuration !== undefined &&
+        current.profile.path === agent.configuration.profile.path
+      ) {
+        agent.configuration.profile = current.profile;
+      }
+    }
+    agent.chatPermissionApprovals = approvals.saved(run.session.sessionId);
     agent.resources = refreshResources(run, run.configuration, run.folder);
     const saved = run.session.sessionManager
       .getBranch()
@@ -1133,6 +1362,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
+      protectedConfigurationPaths: [directory, join(folder, ".independum")],
       configuration: {
         profile: configuration.profile,
         choices: configuration.choices,
@@ -1155,6 +1385,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       systemPrompt: prompt,
       addedByPi: "",
       addedFacts: summarizeAddedFacts({
+        directory,
         settings: settings.get(),
         folder,
         model: selected,
@@ -1172,8 +1403,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       shells: shellKinds.map(
         (kind): ShellChoice => ({
           kind,
-          name: findShell(kind)?.name ?? null,
-          missing: missingShellOf(kind),
+          name:
+            findShell(kind, configuration.settings.permissions.mode === "project")?.name ?? null,
+          missing: missingShellOf(kind, configuration.settings.permissions.mode === "project"),
           isChosen: kind === (settings.get().shell ?? defaultShellKind()),
         }),
       ),
@@ -1185,6 +1417,22 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       texts: summarizeTexts(allTexts, settings.get().texts),
       piTexts: summarizePiTexts(lastRequest ?? null),
       environment: settings.get().environment,
+      permissions: readablePermissionPolicy(settings.get().permissions),
+      permissionProject: folder,
+      sandbox: sandboxRuntime(
+        findShell(configuration.settings.shell ?? undefined, true)?.path ?? process.execPath,
+        settings.get().permissions.environment,
+        Object.keys(
+          commandEnvironment(settings.get().permissions.environment, settings.get().environment),
+        ),
+      ),
+      fileSandbox: sandboxRuntime(
+        process.execPath,
+        "minimal",
+        Object.keys(commandEnvironment("minimal", {})),
+        true,
+      ),
+      minimalEnvironmentNames,
       environmentSuggestions,
     };
   }
@@ -1207,10 +1455,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   }
 
   function unavailableOf(toolName: string, settings: Settings): string | null {
-    if (toolName !== "Shell" || findShell(settings.shell ?? undefined) !== undefined) {
+    if (toolName !== "Shell") {
       return null;
     }
-    return missingShellOf(settings.shell ?? defaultShellKind());
+    const isSandboxed = settings.permissions.mode === "project";
+    const shell = findShell(settings.shell ?? undefined, isSandboxed);
+    return shell === undefined
+      ? missingShellOf(settings.shell ?? defaultShellKind(), isSandboxed)
+      : isSandboxed
+        ? sandboxShellReason(shell)
+        : null;
   }
 
   // A change names model texts by their ids, so one that names a text that does not exist is
@@ -1660,7 +1914,46 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function handleOf(run: ChatRun): OpenChat {
     let isClosed = false;
     return {
+      async requestResourcePermission(id) {
+        if (run.contextAbort.signal.aborted) {
+          run.contextAbort = new AbortController();
+        }
+        const resource = refreshResources(run, run.configuration, run.folder).resources.find(
+          (entry) => entry.id === id,
+        );
+        if (resource === undefined || run.contextPermissions === undefined) {
+          return false;
+        }
+        try {
+          const isAllowed = await run.contextPermissions.request(
+            resource.path,
+            resource.permissionScope ?? "file",
+            "read",
+            run.contextAbort.signal,
+          );
+          if (isAllowed) {
+            refreshResources(run, run.configuration, run.folder);
+          }
+          return isAllowed;
+        } finally {
+          releaseIfIdle(run);
+        }
+      },
       async saveResource(id, fingerprint, content) {
+        const resource = refreshResources(run, run.configuration, run.folder).resources.find(
+          (entry) => entry.id === id,
+        );
+        if (
+          resource !== undefined &&
+          !(await run.contextPermissions?.request(
+            resource.path,
+            "file",
+            "write",
+            run.contextAbort.signal,
+          ))
+        ) {
+          throw new Error("This resource cannot be edited without write permission.");
+        }
         await saveContextResource(
           {
             projectRoot: run.folder,
@@ -1669,6 +1962,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             profileDirectory: run.configuration.profile.path,
             settings: run.configuration.settings.context,
             texts: createModelTexts(() => run.configuration.settings.texts),
+            permission: (path, scope, access) =>
+              run.contextPermissions?.check(path, scope, access) === true,
           },
           id,
           fingerprint,
@@ -1688,7 +1983,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         await previews.submit(run.session.sessionId, previewId, "", async () => {
           const opened = handleOf(run);
           if (action === "stop") {
-            await run.session.abort();
+            await opened.stop();
           }
           if (action === "compact" && !(await opened.compact(preview.arguments || undefined))) {
             throw new Error("The chat cannot compact now.");
@@ -1759,7 +2054,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           releaseIfIdle(run);
         };
       },
-      async send(text, interpretation = "commands", previewId) {
+      async send(text, interpretation = "commands", previewId, hasBrowserApprovals = false) {
         const id = run.session.sessionId;
         const preview =
           previewId === undefined
@@ -1785,6 +2080,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 isEdited: captured.text !== submitted,
               });
             }
+            run.hasBrowserApprovals = hasBrowserApprovals;
+            run.contextAbort = new AbortController();
             setReplying(run, true);
             run.session
               .prompt(submitted, { expandPromptTemplates: false })
@@ -1849,6 +2146,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         return true;
       },
       async stop() {
+        run.contextAbort.abort();
         await run.session.abort();
       },
       stopCommand(id) {
@@ -1882,6 +2180,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     getProjects,
     getReplyingIds,
     profiles,
+    approvals,
     changeSettings,
     reconcile,
     profileAgent(reference, projectId) {
@@ -1972,6 +2271,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       }));
     },
     async stopAll() {
+      for (const run of runs.values()) {
+        run.contextAbort.abort();
+      }
       profiles.close();
       const running = [...runs.values()];
       for (const run of running) {

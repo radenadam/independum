@@ -5,6 +5,7 @@ import { describeThinking } from "./describe-thinking.ts";
 import { modelNameOf } from "./model-name-of.ts";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceRow } from "./place-row.tsx";
+import { timeFormat } from "./time-format.ts";
 import { KindSwatch } from "./window-figure.tsx";
 
 /** A compaction among the changes of a chat. */
@@ -29,7 +30,6 @@ interface ConversationProps {
 
 // The newest requests show, and each older stretch between two compactions waits behind one row.
 const newestShown = 5;
-const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const numberFormat = new Intl.NumberFormat();
 
 // A request that the model now reads only as a summary is faded, and so is every compaction

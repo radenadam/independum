@@ -1,6 +1,31 @@
 import { expect, test } from "vitest";
 import { findCodeProblems } from "./find-code-problems.ts";
 
+test("sandbox imports use the stable contract through one production adapter", () => {
+  expect(
+    findCodeProblems("create-sandbox.ts", 'import { spawn } from "@microsoft/mxc-sdk/v1";'),
+  ).toEqual([]);
+  expect(
+    findCodeProblems("example.ts", 'import { spawn } from "@microsoft/mxc-sdk/v1";'),
+  ).toContainEqual(expect.stringContaining("Native sandbox access belongs"));
+  expect(
+    findCodeProblems("create-sandbox.ts", 'import { spawn } from "@microsoft/mxc-sdk";'),
+  ).toContainEqual(expect.stringContaining("stable MXC V1"));
+});
+
+test("sandbox operations require an explicit telemetry refusal even under an import alias", () => {
+  const imported = 'import { spawn as launch } from "@microsoft/mxc-sdk/v1"; ';
+  expect(findCodeProblems("create-sandbox.ts", `${imported}launch(request);`)).toContainEqual(
+    expect.stringContaining("explicitly disable telemetry"),
+  );
+  expect(
+    findCodeProblems(
+      "create-sandbox.ts",
+      `${imported}launch(request, { telemetry: { enabled: false } });`,
+    ),
+  ).toEqual([]);
+});
+
 test("named arrows fail while callbacks and function declarations pass", () => {
   expect(
     findCodeProblems("example.ts", "const rank = (value: number) => value + 1;"),
