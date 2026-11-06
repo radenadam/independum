@@ -3,7 +3,6 @@ import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SessionManager, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { parseSync, Visitor } from "oxc-parser";
 import { expect, test } from "vitest";
 import { commandEnvironment } from "./command-environment.ts";
 import { builtInSettings } from "./read-settings-change.ts";
@@ -12,95 +11,7 @@ import { createTestFolder, createTestProject } from "./tools/create-test-folder.
 
 const { project: folder } = createTestProject(createTestFolder("file-worker-startup"), true);
 const worker = new URL("./run-file-operation.ts", import.meta.url);
-const resolver = new URL("./file-worker-resolver.ts", import.meta.url);
-const deniedRealpath = `
-import fs from "node:fs";
-import { syncBuiltinESMExports } from "node:module";
-const native = fs.realpathSync.native;
-fs.realpathSync = Object.assign(() => {
-  throw new Error("JavaScript realpath cannot inspect the drive root.");
-}, { native });
-syncBuiltinESMExports();
-`;
-
-function packageImports(entry: URL): string[] {
-  const packages = new Set<string>();
-  const visited = new Set<string>();
-  function visit(file: URL): void {
-    if (visited.has(file.href)) {
-      return;
-    }
-    visited.add(file.href);
-    function dependency(specifier: string): void {
-      if (specifier.startsWith(".")) {
-        visit(new URL(specifier, file));
-      } else if (!specifier.startsWith("node:")) {
-        packages.add(specifier);
-      }
-    }
-    const source = parseSync(fileURLToPath(file), readFileSync(file, "utf8"));
-    expect(source.errors).toEqual([]);
-    // biome-ignore-start lint/style/useNamingConvention: Oxc names its syntax visitors.
-    new Visitor({
-      ImportDeclaration(node) {
-        if (
-          node.importKind !== "type" &&
-          (node.specifiers.length === 0 ||
-            node.specifiers.some(
-              (specifier) =>
-                specifier.type !== "ImportSpecifier" || specifier.importKind !== "type",
-            ))
-        ) {
-          dependency(node.source.value);
-        }
-      },
-      ExportNamedDeclaration(node) {
-        if (node.source !== null && node.exportKind !== "type") {
-          if (
-            node.specifiers.length === 0 ||
-            node.specifiers.some((item) => item.exportKind !== "type")
-          ) {
-            dependency(node.source.value);
-          }
-        }
-      },
-      ExportAllDeclaration(node) {
-        if (node.exportKind !== "type") {
-          dependency(node.source.value);
-        }
-      },
-      ImportExpression(node) {
-        expect(node.source.type).toBe("Literal");
-        if (node.source.type === "Literal" && typeof node.source.value === "string") {
-          dependency(node.source.value);
-        }
-      },
-      CallExpression(node) {
-        if (node.callee.type === "Identifier" && node.callee.name === "require") {
-          const argument = node.arguments[0];
-          expect(argument?.type).toBe("Literal");
-          if (argument?.type === "Literal" && typeof argument.value === "string") {
-            dependency(argument.value);
-          }
-        }
-      },
-    }).visit(source.program);
-    // biome-ignore-end lint/style/useNamingConvention: Oxc names its syntax visitors.
-  }
-  visit(entry);
-  return [...packages].sort();
-}
-
-test("file worker bootstrap has no package value imports and its operation graph stays explicit", () => {
-  expect(packageImports(resolver)).toEqual([]);
-  expect(packageImports(worker)).toEqual([
-    "@earendil-works/pi-ai",
-    "@earendil-works/pi-coding-agent",
-    "diff",
-  ]);
-});
-
-test("file worker preserves fingerprints, diffs, and images without javascript realpath", () => {
+test("file worker preserves fingerprints, diffs, and images with ordinary node module resolution", () => {
   const manager = SessionManager.inMemory(folder);
   function call(
     name: string,
@@ -115,24 +26,12 @@ test("file worker preserves fingerprints, diffs, and images without javascript r
       branch: manager.getBranch(),
       model: { input: ["text", "image"] },
     };
-    const output = execFileSync(
-      process.execPath,
-      [
-        "--preserve-symlinks",
-        "--preserve-symlinks-main",
-        "--import",
-        `data:text/javascript,${encodeURIComponent(deniedRealpath)}`,
-        "--import",
-        resolver.href,
-        fileURLToPath(worker),
-      ],
-      {
-        input: JSON.stringify(operation),
-        encoding: "utf8",
-        env: commandEnvironment("minimal", {}),
-        timeout: 15_000,
-      },
-    );
+    const output = execFileSync(process.execPath, [fileURLToPath(worker)], {
+      input: JSON.stringify(operation),
+      encoding: "utf8",
+      env: commandEnvironment("minimal", {}),
+      timeout: 15_000,
+    });
     const { result } = JSON.parse(output) as {
       result: Awaited<ReturnType<ToolDefinition["execute"]>>;
     };

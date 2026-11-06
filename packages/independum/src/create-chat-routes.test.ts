@@ -414,7 +414,7 @@ test("the agent shows its prompts and its tools", async () => {
   ]);
   expect(shellOf(agent)?.description).toMatch(/^Runs a command in /);
   expect(agent.shells.filter((choice) => choice.isChosen)).toHaveLength(1);
-}, 20_000);
+});
 
 test("files that pi would add to the system prompt stay out of it", async () => {
   const addendum = "Text from a file that the Session place does not show.";
@@ -983,7 +983,7 @@ test("checkcommand returns what a background command printed since the last chec
     text: "No background command has the id 999.",
   });
   await expectNothingInBackground();
-}, 20_000);
+});
 
 test("an output file gets a name that every system accepts, whatever the id of its call", async () => {
   expect((await startNew()).status).toBe(201);
@@ -1005,7 +1005,7 @@ test("an output file gets a name that every system accepts, whatever the id of i
       : "";
   expect(basename(outputPath)).toBe("call_1_fc_2.log");
   expect(readFileSync(outputPath, "utf8")).toBe("kept\n");
-}, 20_000);
+});
 
 test("a chat opened again still knows which version of a file it saw", async () => {
   const notes = join(startFolder, "fingerprint-notes.txt");

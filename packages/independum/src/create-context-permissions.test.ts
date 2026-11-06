@@ -23,6 +23,12 @@ function fixture(): {
   const external = join(directory, "external");
   mkdirSync(external);
   const policy = structuredClone(builtInPermissions);
+  policy.rules.push({
+    id: "ask-external",
+    project,
+    effect: "ask",
+    resource: { kind: "path", path: external, scope: "tree", access: "read" },
+  });
   const approvals = createApprovals();
   let revision = "original";
   const permissions = createContextPermissions({
@@ -81,6 +87,15 @@ test("external command sources remain unread until the shared approval service a
   ).rejects.toThrow("write permission");
 });
 
+test("default context reads outside the project need no approval and outside writes still ask", async () => {
+  const { permissions, approvals, external, policy } = fixture();
+  policy.rules = [];
+  expect(permissions.check(external, "tree")).toBe(true);
+  expect(await permissions.request(external, "tree", "read")).toBe(true);
+  expect(approvals.pending()).toEqual([]);
+  expect(permissions.check(external, "tree", "write")).toBe(false);
+});
+
 test("external skill directories ask for tree access before enumeration", async () => {
   const { options, permissions, approvals, external } = fixture();
   const folder = join(external, "review");
@@ -136,7 +151,13 @@ test("denial cancellation and changed profile revisions grant no context access"
 });
 
 test("context tree grants match real locations and expire when their junction changes", async () => {
-  const { permissions, approvals, external, options } = fixture();
+  const { permissions, approvals, external, options, policy } = fixture();
+  policy.rules.push({
+    id: "ask-profile",
+    project: "*",
+    effect: "ask",
+    resource: { kind: "path", path: options.profileDirectory, scope: "tree", access: "read" },
+  });
   mkdirSync(options.profileDirectory);
   const alias = join(options.profileDirectory, "alias");
   symlinkSync(external, alias, "junction");
@@ -172,7 +193,7 @@ test("context grants expire when an approved identity is replaced and deny rules
     resource: { kind: "path", path: source, scope: "file", access: "read" },
   });
   expect(() => permissions.check(source, "file")).toThrow("permission rule denies");
-  policy.rules = [];
+  policy.rules = policy.rules.filter((rule) => rule.id !== "deny");
   renameSync(source, join(external, "original.md"));
   writeFileSync(source, "Replacement.");
   expect(permissions.check(source, "file")).toBe(false);

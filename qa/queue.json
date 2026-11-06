@@ -71,14 +71,6 @@
       "shot": "queue-phone-dark"
     },
     {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('installation folders and operating system files')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); for (let attempt = 0; attempt < 200 && !(isShown(reason()) && isShown(button())); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { startupReasonVisible: isShown(reason()), startupApprovalVisible: isShown(button()) }; })()",
-      "wait": 0
-    },
-    {
-      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile')",
-      "wait": 0
-    },
-    {
       "run": "(async () => { const shown = () => document.body.innerText; for (let attempt = 0; attempt < 200 && !document.querySelector('main').innerText.includes('Sent during a reply'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { steerDelivered: document.querySelector('main').innerText.includes('Sent during a reply'), steerLeftList: !shown().includes('Steers this reply at its next step'), queuedStillWaits: shown().includes('Sends after this reply') && !!document.querySelector('button[aria-label=Stop]') }; })()",
       "shot": "queue-steered"
     },

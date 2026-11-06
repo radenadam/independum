@@ -8,6 +8,7 @@ import type { ProfileBundle, ProfileReference } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { builtInPermissions } from "./permission-policy.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
 const folder = createTestFolder("profile-runtime");
@@ -45,7 +46,7 @@ test("context controls keep saved literal filenames visible while a reply waits 
   } finally {
     await chats.stopAll();
   }
-}, 20_000);
+});
 
 test("project approvals survive restart and removing one blocks the next resource read", async () => {
   const created = await setup();
@@ -110,6 +111,7 @@ test.each([true, false])(
       { context: { ...settings, skills: { ...settings.skills, paths: [source] } } },
       chats.profiles.profile(reference, projectId).revision,
     );
+    await requireContextApproval({ chats, chat, reference, projectId }, source);
     let request = "";
     faux.setResponses([
       (...[context]) => {
@@ -157,6 +159,7 @@ test("stopping context preparation cancels external approvals without calling th
     { context: { ...settings, slashCommands: { ...settings.slashCommands, paths: [commands] } } },
     chats.profiles.profile(reference, projectId).revision,
   );
+  await requireContextApproval({ chats, chat, reference, projectId }, commands, "tree");
   try {
     expect(await chat.send("Start", "literal", undefined, true)).toBe(true);
     await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
@@ -658,5 +661,36 @@ async function configureExternalCommand({
     { context: { ...context, slashCommands: { ...context.slashCommands, paths: [source] } } },
     chats.profiles.profile(reference, projectId).revision,
   );
+  await requireContextApproval({ chats, chat, reference, projectId }, source);
   return source;
+}
+
+async function requireContextApproval(
+  {
+    chats,
+    chat,
+    reference,
+    projectId,
+  }: Pick<Awaited<ReturnType<typeof setup>>, "chats" | "chat" | "reference" | "projectId">,
+  path: string,
+  scope: "file" | "tree" = "file",
+): Promise<void> {
+  await chats.changeSettings(
+    reference,
+    projectId,
+    {
+      permissions: {
+        ...(chat.getAgent().permissions ?? builtInPermissions),
+        rules: [
+          {
+            id: "ask-context",
+            project: "*",
+            effect: "ask",
+            resource: { kind: "path", path, scope, access: "read" },
+          },
+        ],
+      },
+    },
+    chats.profiles.profile(reference, projectId).revision,
+  );
 }

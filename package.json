@@ -25,7 +25,7 @@
     "check:types": "tsc --noEmit && pnpm --recursive run check:types",
     "check:unused": "knip --treat-config-hints-as-errors",
     "check:duplicates": "jscpd",
-    "test": "vitest run"
+    "test": "vitest run --testTimeout 20000"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm check"

@@ -32,20 +32,18 @@ export interface SavedPermissionApproval {
 
 /** The complete permission policy stored in a profile. */
 export interface PermissionPolicy {
-  version: 1;
+  version: 2;
   mode: "project" | "unrestricted";
   environment: "minimal" | "inherit";
-  runtimeApprovals: { backend: string; runtimeHash: string; approvedAt: string }[];
   savedApprovals: SavedPermissionApproval[];
   rules: PermissionRule[];
 }
 
 /** The default authority for each profile. */
 export const builtInPermissions: PermissionPolicy = {
-  version: 1,
+  version: 2,
   mode: "project",
   environment: "minimal",
-  runtimeApprovals: [],
   savedApprovals: [],
   rules: [],
 };
@@ -53,7 +51,6 @@ export const builtInPermissions: PermissionPolicy = {
 /** Identifies saved decisions independently of the profile settings they authorize. */
 export function permissionApprovalState(policy: PermissionPolicy): string {
   return JSON.stringify({
-    runtime: policy.runtimeApprovals,
     resources: policy.savedApprovals.map((approval) => ({
       ...approval,
       project: serializePermissionPath(approval.project),
@@ -76,16 +73,16 @@ export function validatePermissionPolicy(value: unknown): PermissionPolicy {
     "rules",
   ]);
   if (
-    fields.version !== 1 ||
+    (fields.version !== 1 && fields.version !== 2) ||
     !["project", "unrestricted"].includes(String(fields.mode)) ||
     !["minimal", "inherit"].includes(String(fields.environment)) ||
-    !Array.isArray(fields.runtimeApprovals) ||
+    (fields.version === 1
+      ? !Array.isArray(fields.runtimeApprovals)
+      : Object.hasOwn(fields, "runtimeApprovals")) ||
     !Array.isArray(fields.savedApprovals) ||
     !Array.isArray(fields.rules)
   ) {
-    throw new Error(
-      "Expected permission version 1, mode, environment, runtimeApprovals, savedApprovals, and rules.",
-    );
+    throw new Error("Expected permission version 2, mode, environment, savedApprovals, and rules.");
   }
   const ids = new Set<string>();
   for (const entry of fields.rules) {
@@ -106,7 +103,7 @@ export function validatePermissionPolicy(value: unknown): PermissionPolicy {
   if (fields.mode === "unrestricted" && fields.rules.length !== 0) {
     throw new Error("Unrestricted mode cannot contain resource rules.");
   }
-  for (const entry of fields.runtimeApprovals) {
+  for (const entry of (fields.runtimeApprovals ?? []) as unknown[]) {
     const approval = objectOf(entry, ["backend", "runtimeHash", "approvedAt"]);
     if (
       typeof approval.backend !== "string" ||
@@ -139,7 +136,8 @@ export function validatePermissionPolicy(value: unknown): PermissionPolicy {
     ids.add(approval.id);
     validatePermissionResource(approval.resource);
   }
-  return value as PermissionPolicy;
+  const { runtimeApprovals: _runtimeApprovals, ...policy } = fields;
+  return { ...policy, version: 2 } as PermissionPolicy;
 }
 
 /** Identifies a resource through its canonical path and nearest existing ancestor. */
@@ -297,6 +295,7 @@ export function evaluatePermission(
   project: string,
   resource: PermissionResource,
   protectedPaths: string[],
+  deniedPaths: string[] = [],
 ): { decision: "allow" | "ask" | "deny"; matches: PermissionRule[]; reason: string } {
   if (policy.mode === "unrestricted") {
     return { decision: "allow", matches: [], reason: "Unrestricted account authority." };
@@ -306,6 +305,12 @@ export function evaluatePermission(
     resource.kind === "network"
       ? resource
       : { ...resource, path: canonicalPermissionPath(resource.path, project) };
+  if (
+    requested.kind === "path" &&
+    deniedPaths.some((path) => containsPermissionPath(path, requested.path))
+  ) {
+    return { decision: "deny", matches: [], reason: "Independum's state folder is denied." };
+  }
   const isProtected =
     requested.kind === "path" &&
     requested.access === "write" &&
@@ -357,16 +362,44 @@ export function evaluatePermission(
             : "A saved rule allows this access.",
     };
   }
+  const isRead = requested.kind === "path" && requested.access === "read";
   const isInside = requested.kind === "path" && containsPermissionPath(location, requested.path);
   return {
-    decision: isInside ? "allow" : "ask",
+    decision: isRead || isInside ? "allow" : "ask",
     matches,
-    reason: isInside
-      ? "This path is inside the project."
-      : resource.kind === "network"
-        ? "The command wants to connect to the network."
-        : `The command wants to ${resource.access === "write" ? "write to" : "read"} a path outside the project.`,
+    reason: isRead
+      ? "Reading paths needs no approval by default."
+      : isInside
+        ? "This path is inside the project."
+        : resource.kind === "network"
+          ? "The command wants to connect to the network."
+          : "The command wants to write to a path outside the project.",
   };
+}
+
+/** Lists the state folder and active read denials that restrict system reads. */
+export function deniedPermissionPaths(
+  policy: PermissionPolicy,
+  project: string,
+  directory: string,
+): string[] {
+  return [
+    ...new Set(
+      [
+        directory,
+        ...policy.rules.flatMap((rule) =>
+          rule.effect === "deny" &&
+          rule.resource.kind === "path" &&
+          rule.resource.access === "read" &&
+          (rule.project === "*" ||
+            canonicalPermissionPath(rule.project, project) ===
+              canonicalPermissionPath(project, project))
+            ? [rule.resource.path]
+            : [],
+        ),
+      ].map((path) => canonicalPermissionPath(path, project)),
+    ),
+  ];
 }
 
 function objectOf(value: unknown, keys: string[]): Record<string, unknown> {

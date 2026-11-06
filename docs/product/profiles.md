@@ -54,6 +54,8 @@ Fresh installs create a real default profile and user settings. A valid unversio
 
 Configuration writes use Pi's mutation queue, a cooperative lock, staged files, a journal, and temporary recovery copies. A prepared journal completes only when every target matches its recorded old or new state. Another editor's third version stops recovery and preserves both versions. An abandoned lock requires review after its server stops. Ordinary editors do not honor the lock, so the final filesystem replacement cannot provide compare-and-swap against them.
 
+Permission policy version 1 migrates to version 2 as [Permissions](permissions.md) describes. Startup approval records disappear while other profile settings and resource approvals remain intact. Startup migrates user and known project profiles through conditional transactions. A profile read later normalizes its policy and writes the new version on its next save.
+
 ## Remaining checkpoint work
 
 The exact remaining work is in [the roadmap](../roadmap.md). Browser preference files and deletion are not implemented in this foundation. Field-level source presentation, automatic cleanup of redundant external text edits, and richer model text conflict review also remain.

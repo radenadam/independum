@@ -16,7 +16,7 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Permissions'))"
     },
     {
-      "run": "({ sectionsVisible: ['Permission mode', 'Command environment', 'Program startup', 'Saved approvals', 'Protected settings folders'].every(label => document.querySelector('aside').innerText.includes(label)), modeControlVisible: !!document.querySelector('fieldset[aria-label=\"Permission mode\"]'), startupDetailsVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Shell startup permissions')) })",
+      "run": "({ sectionsVisible: ['Permission mode', 'Command environment', 'Sandbox boundary', 'Denied paths', 'Saved approvals', 'Protected settings folders'].every(label => document.querySelector('aside').innerText.includes(label)), modeControlVisible: !!document.querySelector('fieldset[aria-label=\"Permission mode\"]'), sandboxDetailsVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Shell sandbox details')), readsExplained: document.querySelector('aside').innerText.includes('read everywhere except denied paths'), maskingExplained: document.querySelector('aside').innerText.includes('shows denied folders as empty'), noStartupApproval: !document.querySelector('aside').innerText.includes('startup permissions') })",
       "shot": "permissions-desktop"
     },
     {
@@ -68,6 +68,10 @@
       "shot": "permissions-phone-light-environment"
     },
     {
+      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+      "shot": "denied-paths-phone-light"
+    },
+    {
       "run": "( () => { const panel = document.querySelector('aside [role=tabpanel]'); const target = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Saved approvals'); target.scrollIntoView({ block: 'start' }); return { phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, sectionVisible: target.checkVisibility() }; })()",
       "shot": "permissions-phone-light-saved"
     },
@@ -86,6 +90,10 @@
     {
       "run": "( () => { const panel = document.querySelector('aside [role=tabpanel]'); const target = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Command environment'); target.scrollIntoView({ block: 'start' }); return { phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, sectionVisible: target.checkVisibility() }; })()",
       "shot": "permissions-phone-dark-environment"
+    },
+    {
+      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+      "shot": "denied-paths-phone-dark"
     },
     {
       "run": "( () => { const panel = document.querySelector('aside [role=tabpanel]'); const target = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Saved approvals'); target.scrollIntoView({ block: 'start' }); return { phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, sectionVisible: target.checkVisibility() }; })()",
@@ -112,28 +120,11 @@
       "wait": 0
     },
     {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('installation folders and operating system files')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()",
-      "wait": 0
-    },
-    {
-      "scheme": "light"
-    },
-    {
-      "run": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); allow.scrollIntoView({ block: 'center' }); return { startupChoiceVisible: allow.checkVisibility(), oneUseVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), denyVisible: buttons.some(button => button.textContent.trim() === 'Deny'), startupHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Startup access'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for every chat of the Default profile', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for every chat of the Default profile,Deny', startupExplained: document.querySelector('main').innerText.includes('installation folders and operating system files'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "startup-approval-phone-light"
-    },
-    {
-      "scheme": "dark"
-    },
-    {
-      "run": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); allow.scrollIntoView({ block: 'center' }); return { startupChoiceVisible: allow.checkVisibility(), oneUseVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), denyVisible: buttons.some(button => button.textContent.trim() === 'Deny'), startupHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Startup access'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for every chat of the Default profile', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for every chat of the Default profile,Deny', startupExplained: document.querySelector('main').innerText.includes('installation folders and operating system files'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "startup-approval-phone-dark"
-    },
-    {
-      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile')"
-    },
-    {
       "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
+    },
+    {
+      "run": "({ noStartupApproval: !document.querySelector('main').innerText.includes('Startup access'), noApprovalWaiting: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once'), commandSucceeded: document.querySelector('main').innerText.includes('Preview reply complete.') })",
+      "shot": "command-without-approval"
     },
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')"
@@ -144,45 +135,6 @@
     {
       "clickOn": "document.querySelector('button[aria-label=Send]')",
       "wait": 0
-    },
-    {
-      "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
-    },
-    {
-      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
-    },
-    {
-      "run": "({ savedStartupVisible: document.querySelector('aside').innerText.includes('startup approved for profile') })",
-      "shot": "saved-startup"
-    },
-    {
-      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.includes('startup approved for profile'))"
-    },
-    {
-      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim() === 'Remove startup approval')"
-    },
-    {
-      "run": "({ startupRemoved: !document.querySelector('aside').innerText.includes('startup approved for profile') })"
-    },
-    {
-      "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
-    },
-    {
-      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
-    },
-    {
-      "text": "Check the preview steps after removing startup approval."
-    },
-    {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
-    },
-    {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('installation folders and operating system files')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()",
-      "wait": 0
-    },
-    {
-      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile')"
     },
     {
       "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"

@@ -18,6 +18,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
 | Compaction | Pi summarizes older messages of a chat and keeps the newest messages whole near a token budget. Its settings and the action to compact now live in the Session place. | "trimming", "compression" |
 | Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. The Session place shows all of it. | "session details", "stats", "info" |
+| Denied path | A path that project commands and file tools cannot access, including Independum's state folder and paths denied by the profile. Linux shows denied folders as empty, which is not their actual content. | "hidden folder", "empty folder" |
 | Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
 | Follower | A client with the event stream of one chat open, which holds that chat's run alive. See [decision 0053](decisions/0058-address-chats-by-id.md). | "current client", "active browser" |
@@ -41,7 +42,6 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Reply | The answer to one prompt, which can span several model turns and their tool calls. | "response", "completion" |
 | Request | The data sent to a model for one turn. The Session history reconstructs requests from saved assistant messages, so it is not a complete log of network requests. | "HTTP log", "reply" |
-| Runtime baseline | The installation reads and platform access required to start an isolated tool worker, shown before acceptance. | "implicit tool access" |
 | Sandbox | The operating system boundary that restricts a tool worker and its descendants while they run. | "job", "approval" |
 | Session | Everything a chat runs with: how its agent is set up, its context, and the parts of its last request. Its place in the side panel shows all of it, and each part opens on demand. | "agent place", "context place", "inspector" |
 | Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |

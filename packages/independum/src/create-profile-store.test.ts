@@ -51,6 +51,85 @@ test("fresh settings create real files and resolve explicit, project, and user d
   }
 });
 
+test("startup approvals migrate out of user and project profiles without changing other files", async () => {
+  const { store, project, directory, projectId } = await setup();
+  const references: ProfileReference[] = [defaultReference, { scope: "project", id: "research" }];
+  const paths: string[] = [];
+  for (const reference of references) {
+    if (reference.scope === "project") {
+      await store.putProfile(reference, projectId, bundle(), "*");
+    }
+    const resource = store.profile(reference, projectId);
+    const path = join(resource.path, "profile.json");
+    const profile = {
+      ...resource.document?.profile,
+      settings: {
+        environment: { example: "kept" },
+        disabledTools: ["Edit"],
+        permissions: {
+          ...builtInSettings.permissions,
+          version: 1,
+          environment: "inherit",
+          runtimeApprovals: [
+            {
+              backend: "processcontainer",
+              runtimeHash: `sha256:${"a".repeat(64)}`,
+              approvedAt: "2026-11-06T00:00:00Z",
+            },
+          ],
+          savedApprovals: [
+            {
+              id: "network",
+              project,
+              resource: { kind: "network" },
+              identity: '{"kind":"network"}',
+              approvedAt: "2026-11-06T00:00:00Z",
+            },
+          ],
+          rules: [
+            {
+              id: "private",
+              effect: "deny",
+              project: "*",
+              resource: {
+                kind: "path",
+                path: join(project, "private"),
+                scope: "tree",
+                access: "read",
+              },
+            },
+          ],
+        },
+      },
+    };
+    writeFileSync(path, JSON.stringify(profile));
+    writeFileSync(join(resource.path, "SYSTEM.md"), "Exact system prompt.\n");
+    paths.push(path);
+  }
+  store.close();
+  const reopened = await createProfileStore(directory, [project], []);
+  try {
+    for (const [index, reference] of references.entries()) {
+      const resource = reopened.profile(reference, projectId);
+      expect(resource.issues).toEqual([]);
+      expect(resource.document?.profile.settings).toMatchObject({
+        environment: { example: "kept" },
+        disabledTools: ["Edit"],
+        permissions: {
+          version: 2,
+          environment: "inherit",
+          savedApprovals: [{ id: "network" }],
+          rules: [{ id: "private" }],
+        },
+      });
+      expect(resource.document?.systemPrompt).toBe("Exact system prompt.\n");
+      expect(readFileSync(paths[index] ?? "", "utf8")).not.toContain("runtimeApprovals");
+    }
+  } finally {
+    reopened.close();
+  }
+});
+
 test("a saved chat keeps its profile after either default changes", async () => {
   const { store, project, projectId } = await setup();
   try {

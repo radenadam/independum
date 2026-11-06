@@ -8,7 +8,7 @@ import {
 } from "./permission-policy.ts";
 
 /** The lifetime explicitly chosen for an approval. */
-export type ApprovalPersistence = "once" | "chat" | "project" | "runtime";
+export type ApprovalPersistence = "once" | "chat" | "project";
 
 /** An explicit approval ready for a conditional profile save. */
 export interface PermissionApprovalSave {
@@ -17,7 +17,6 @@ export interface PermissionApprovalSave {
   binding: string;
   project: string;
   resources: PermissionResource[];
-  runtime?: SandboxRuntime;
   isCurrent: () => boolean;
 }
 
@@ -30,7 +29,6 @@ export interface ChatPermissionApproval extends SavedPermissionApproval {
 /** An approval bound to one validated resource or tool invocation. */
 export interface ApprovalRequest {
   requiredResources?: PermissionResource[];
-  needsRuntimeApproval?: boolean;
   persistences?: ApprovalPersistence[];
   readonlyPaths?: string[];
   project?: string;

@@ -11,7 +11,7 @@ import { TextButton } from "./text-button.tsx";
 import { timeFormat } from "./time-format.ts";
 import type { AgentSettings } from "./use-agent-settings.ts";
 
-/** Shows permissions, startup access, saved decisions, and the exact saved file. */
+/** Shows permissions, denied paths, saved decisions, and the exact saved file. */
 export function PermissionDetail({
   settings,
   project,
@@ -88,7 +88,7 @@ export function PermissionDetail({
         ) : null}
         <PlaceNote>
           {policy.mode === "project"
-            ? "Tools can read and change project files. Access outside the project and network connections need approval unless a saved rule or approval allows them. A sandbox enforces these permissions while each program runs."
+            ? "Tools can read everywhere except denied paths and can change project files. Writes outside the project and network connections need approval unless a saved rule or approval allows them. A sandbox enforces these permissions while each program runs."
             : "Tools have the same access as your account. Project permissions and saved rules do not restrict them."}
         </PlaceNote>
         <PlaceNote>
@@ -128,68 +128,37 @@ export function PermissionDetail({
           />
         </Disclosure>
       </PlaceSection>
-      <PlaceSection heading="Program startup">
+      <PlaceSection heading="Sandbox boundary">
         <PlaceNote>
-          Programs need to read their installation folders and operating system files before they
-          can run. Approval remembers this startup access for every chat of this profile. It asks
-          again when the program, the sandbox engine, or what the program needs to start changes.
+          System roots are readable without approval. Denied paths stay inaccessible.
         </PlaceNote>
         {runtimes.map(({ label, runtime }) =>
           runtime === undefined ? null : (
-            <Disclosure key={label} label={`${label} startup permissions`}>
-              <PlaceNote>
-                {runtime.unavailable ??
-                  (policy.runtimeApprovals.some(
-                    (approval) =>
-                      approval.backend === runtime.backend &&
-                      approval.runtimeHash === runtime.runtimeHash,
-                  )
-                    ? "Approved for this profile."
-                    : "Not approved for this profile.")}
-              </PlaceNote>
-              <PlaceNote>
-                These folders are readable. This startup approval grants no writes outside the
-                project and no network connections.
-              </PlaceNote>
+            <Disclosure key={label} label={`${label} sandbox details`}>
+              {runtime.unavailable === null ? null : <PlaceNote>{runtime.unavailable}</PlaceNote>}
               <CodeWell
                 code={runtime.readonlyPaths.join("\n")}
-                copyLabel={`Copy ${label} startup folders`}
+                copyLabel={`Copy ${label} system read roots`}
               />
               <PlaceNote>{runtime.implicitAccess}</PlaceNote>
-              <Disclosure label="Sandbox engine and startup details">
-                <CodeWell
-                  code={JSON.stringify(runtime, null, 2)}
-                  copyLabel={`Copy ${label} startup details`}
-                />
-              </Disclosure>
-              {runtime.unavailable !== null ||
-              policy.runtimeApprovals.some(
-                (approval) =>
-                  approval.backend === runtime.backend &&
-                  approval.runtimeHash === runtime.runtimeHash,
-              ) ? null : (
-                <TextButton
-                  label={`Approve ${label} startup permissions`}
-                  onClick={() =>
-                    settings.change({
-                      permissions: {
-                        ...policy,
-                        runtimeApprovals: [
-                          ...policy.runtimeApprovals,
-                          {
-                            backend: runtime.backend,
-                            runtimeHash: runtime.runtimeHash,
-                            approvedAt: new Date().toISOString(),
-                          },
-                        ],
-                      },
-                    })
-                  }
-                />
-              )}
+              <CodeWell
+                code={JSON.stringify(runtime, null, 2)}
+                copyLabel={`Copy ${label} sandbox details`}
+              />
             </Disclosure>
           ),
         )}
+      </PlaceSection>
+      <PlaceSection heading="Denied paths">
+        <PlaceNote>
+          In project mode, commands and file tools cannot access Independum's state folder, which
+          holds the logins. Profile rules can deny more paths. An approval cannot override a denial.
+        </PlaceNote>
+        <CodeWell code={(agent.deniedPaths ?? []).join("\n")} copyLabel="Copy denied paths" />
+        <PlaceNote>
+          On Linux, the sandbox shows denied folders as empty. That view does not describe their
+          actual contents.
+        </PlaceNote>
       </PlaceSection>
       <PlaceSection heading="Saved approvals">
         <PlaceNote>
@@ -200,32 +169,6 @@ export function PermissionDetail({
             : ""}
         </PlaceNote>
         {failure === undefined ? null : <PlaceNote>{failure}</PlaceNote>}
-        {policy.runtimeApprovals.map((approval) => (
-          <Disclosure
-            key={`${approval.backend}:${approval.runtimeHash}`}
-            label={`${runtimes.find(({ runtime }) => runtime?.runtimeHash === approval.runtimeHash)?.label ?? "Program"} startup approved for profile`}
-          >
-            <PlaceNote>
-              Saved {timeFormat.format(new Date(approval.approvedAt))}. This approval applies to
-              every chat of this profile.
-            </PlaceNote>
-            <PlaceNote>
-              Sandbox engine: <code>{approval.backend}</code>.
-            </PlaceNote>
-            <CodeWell code={approval.runtimeHash} copyLabel="Copy approved startup fingerprint" />
-            <TextButton
-              label="Remove startup approval"
-              onClick={() =>
-                settings.change({
-                  permissions: {
-                    ...policy,
-                    runtimeApprovals: policy.runtimeApprovals.filter((entry) => entry !== approval),
-                  },
-                })
-              }
-            />
-          </Disclosure>
-        ))}
         {policy.savedApprovals.map((approval) => (
           <Disclosure
             key={approval.id}
@@ -272,8 +215,7 @@ export function PermissionDetail({
               />
             </Disclosure>
           ))}
-        {policy.runtimeApprovals.length +
-          policy.savedApprovals.length +
+        {policy.savedApprovals.length +
           (agent.chatPermissionApprovals ?? []).filter((approval) => !removed.includes(approval.id))
             .length ===
         0 ? (
@@ -315,8 +257,8 @@ export function PermissionDetail({
       </PlaceSection>
       <PlaceSection heading="Protected settings folders">
         <PlaceNote>
-          Independum keeps its settings in these folders. They stay readable, and changing them
-          needs explicit approval, even when a rule allows writes to the surrounding folder.
+          Project settings stay in these folders. They stay readable, and changing them needs
+          explicit approval, even when a rule allows writes to the surrounding folder.
         </PlaceNote>
         <CodeWell
           code={(agent.protectedConfigurationPaths ?? []).join("\n")}

@@ -126,7 +126,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 
 ## Security
 
-- Native sandbox launches belong to `packages/independum/src/create-sandbox.ts`. Use only `@microsoft/mxc-sdk/v1` and disable telemetry on every operation. Project tools never fall back to unrestricted execution. Shell version queries also require the sandbox boundary. Protect configuration with nested read-only grants so reads remain exact and writes fail. Refuse policies the selected backend cannot enforce, and never mask a denied file with successful empty contents. See decision 0063.
+- Native sandbox launches belong to `packages/independum/src/create-sandbox.ts`. Use only `@microsoft/mxc-sdk/v1` and disable telemetry on every operation. Project tools read system roots and write only granted paths. Always deny Independum's state folder to project commands and file tools. Project tools never fall back to unrestricted execution. Shell version queries also require the sandbox boundary. Protect project configuration with nested read-only grants so reads remain exact and writes fail. Refuse policies the selected backend cannot enforce, and never mask a denied file with successful empty contents. Linux denied folders use MXC's private masks. Native boundary tests check host contents and file creation before checking command output. The editable permission fact names denied paths and explains that Linux masks look empty and accept writes that disappear when the command ends without reaching the host folder. See decisions 0063 and 0067.
 
 - Every API route sits under `/api/`, where the server requires the access token and its own address, and rejects an origin other than its own when the request supplies one. See decision 0005.
 - The server listens on `127.0.0.1` only until network access and phone pairing exist.
@@ -216,6 +216,7 @@ A doc comment fits on one line, or wraps like this:
 - Tests use Vitest, with `test` and no `describe`. The file is the group.
 - Test names are lowercase phrases without a final period that state the behavior, for example `test("health route reports ok")`.
 - Tests exercise behavior through exported functions, not internals.
+- Every test has 20 seconds, set once in the `test` script, because the Windows runners of CI start processes and Pi slowly. A test sets its own limit only when it needs more.
 
 ## Writing
 

@@ -6,6 +6,7 @@ import {
   builtInPermissions,
   canonicalPermissionPath,
   containsPermissionPath,
+  deniedPermissionPaths,
   evaluatePermission,
   hasSavedPermissionApproval,
   type PathAccess,
@@ -26,9 +27,17 @@ const inside = {
   access: "write",
 } as const;
 
-test("project defaults use components and ask for outside paths and network", () => {
+test("project defaults allow reads everywhere and ask for outside writes and network", () => {
   expect(evaluatePermission(builtInPermissions, project, inside, []).decision).toBe("allow");
   expect(containsPermissionPath(project, `${project}-neighbor`)).toBe(false);
+  expect(
+    evaluatePermission(
+      builtInPermissions,
+      project,
+      { ...inside, access: "read", path: `${project}-neighbor` },
+      [],
+    ).decision,
+  ).toBe("allow");
   for (const resource of [
     { ...inside, path: `${project}-neighbor` },
     { kind: "network" } as const,
@@ -170,6 +179,50 @@ test("all matching rules apply with deny before ask before allow", () => {
   ).toBe("ask");
 });
 
+test("state denial precedes allow rules and active profile denials use real project paths", () => {
+  const directory = join(folder, ".independum");
+  const denied = { ...inside, path: join(directory, "private.txt"), access: "read" } as const;
+  const policy: PermissionPolicy = {
+    ...builtInPermissions,
+    rules: [
+      { id: "allow", project: "*", effect: "allow", resource: denied },
+      { id: "deny", project, effect: "deny", resource: { ...inside, access: "read" } },
+      { id: "other-project", project: `${project}-other`, effect: "deny", resource: denied },
+      { id: "write-only", project, effect: "deny", resource: inside },
+    ],
+  };
+  for (const access of ["read", "write"] as const) {
+    expect(
+      evaluatePermission(policy, project, { ...denied, access }, [], [directory]).decision,
+    ).toBe("deny");
+  }
+  expect(deniedPermissionPaths(policy, project, directory)).toEqual([directory, inside.path]);
+});
+
+test("version one permissions migrate without losing other policy settings", () => {
+  const policy = {
+    ...builtInPermissions,
+    environment: "inherit" as const,
+    rules: [{ id: "ask", project, effect: "ask" as const, resource: inside }],
+  };
+  expect(
+    validatePermissionPolicy({
+      ...policy,
+      version: 1,
+      runtimeApprovals: [
+        {
+          backend: "processcontainer",
+          runtimeHash: `sha256:${"a".repeat(64)}`,
+          approvedAt: "2026-11-06T00:00:00Z",
+        },
+      ],
+    }),
+  ).toEqual(policy);
+  for (const value of ["2", null, true]) {
+    expect(() => validatePermissionPolicy({ ...policy, version: value })).toThrow();
+  }
+});
+
 test("write denial allows a separately permitted read and read denial prevents writes", () => {
   const policy: PermissionPolicy = {
     ...builtInPermissions,
@@ -213,7 +266,7 @@ test("policies reject malformed documents and profiles do not discard invalid de
   for (const value of [
     null,
     {},
-    { ...builtInPermissions, version: 2 },
+    { ...builtInPermissions, version: 3 },
     { ...builtInPermissions, extra: true },
     { ...builtInPermissions, rules: [rule, rule] },
     { ...builtInPermissions, rules: [{ ...rule, resource: { ...inside, extra: true } }] },

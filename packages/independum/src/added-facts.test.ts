@@ -1,7 +1,8 @@
 import { machine, release, type } from "node:os";
+import { join } from "node:path";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { VERSION as piVersion } from "@earendil-works/pi-coding-agent";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
   addedFactPrompt,
   addedFactTexts,
@@ -11,6 +12,16 @@ import {
 } from "./added-facts.ts";
 import { changeTexts } from "./model-texts.ts";
 import { builtInSettings } from "./read-settings-change.ts";
+
+vi.mock("./create-sandbox.ts", () => ({
+  sandboxRuntime: () => ({
+    backend: "bubblewrap",
+    readonlyPaths: ["/"],
+    implicitAccess: "Private devices.",
+    environmentNames: [],
+    unavailable: null,
+  }),
+}));
 
 const timestamp = Date.parse("2026-11-05T14:14:00Z");
 const options = {
@@ -108,6 +119,38 @@ test("each disabled fact is absent and an edited fact is sent exactly as edited"
   expect(addedFactPrompt({ ...options, settings: { ...builtInSettings, texts: reset } })).toBe(
     addedFactPrompt(options),
   );
+});
+
+test("linux permission facts name denied paths and temporary masking and remain editable", () => {
+  const directory = join(process.cwd(), "state");
+  const denied = join(process.cwd(), "private");
+  const settings = structuredClone(builtInSettings);
+  settings.permissions.rules.push({
+    id: "private",
+    project: "*",
+    effect: "deny",
+    resource: { kind: "path", path: denied, scope: "tree", access: "read" },
+  });
+  const prompt = addedFactPrompt({ ...options, directory, settings });
+  expect(prompt).toContain(JSON.stringify([directory, denied]));
+  expect(prompt).toContain("can read everywhere except denied paths");
+  expect(prompt).toContain(
+    "On Linux, bubblewrap shows each denied folder as an empty private mount.",
+  );
+  expect(prompt).toContain("That empty view does not describe its actual contents.");
+  expect(prompt).toContain(
+    "Writes into a denied folder stay inside that command and disappear when it ends without reaching the host folder.",
+  );
+  expect(prompt).not.toContain("These paths are inaccessible.");
+  expect(prompt).not.toContain("requires approval before execution");
+  settings.texts =
+    changeTexts(addedFactTexts, {}, { "facts.permissions": "Denied folders: {deniedPaths}." }) ??
+    {};
+  expect(addedFactPrompt({ ...options, directory, settings })).toContain(
+    `Denied folders: ${JSON.stringify([directory, denied])}.`,
+  );
+  settings.disabledFacts = ["facts.permissions"];
+  expect(addedFactPrompt({ ...options, directory, settings })).not.toContain("Denied folders:");
 });
 
 test("the time prefix follows edits including an empty text", () => {
