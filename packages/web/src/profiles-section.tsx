@@ -4,7 +4,7 @@ import type {
   ProfileReference,
   ProfileResource,
 } from "independum/api-types";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { ChoiceGroup } from "./choice-group.tsx";
 import { PlaceBox } from "./place-box.tsx";
 import { PlaceNote } from "./place-frame.tsx";
@@ -15,6 +15,7 @@ import { ProfileEditor } from "./profile-editor.tsx";
 import { ProfileSelector } from "./profile-selector.tsx";
 import { TextButton } from "./text-button.tsx";
 import { TextField } from "./text-field.tsx";
+import { usePolling } from "./use-polling.ts";
 
 interface ProfilesSectionProps {
   chat: ChatState | undefined;
@@ -42,11 +43,7 @@ export function ProfilesSection({ chat, models }: ProfilesSectionProps): ReactEl
         setFailure(error instanceof Error ? error.message : "The profiles could not be loaded."),
       );
   }, [folder]);
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, 1000);
-    return () => clearInterval(timer);
-  }, [load]);
+  usePolling(load);
   const profile = list?.profiles.find(
     (entry) => entry.reference.id === selected?.id && entry.reference.scope === selected.scope,
   );

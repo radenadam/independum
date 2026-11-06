@@ -129,7 +129,7 @@ The maintainer holds an evaluation after a milestone, at regular times, and when
 - Native sandbox launches belong to `packages/independum/src/create-sandbox.ts`. Use only `@microsoft/mxc-sdk/v1` and disable telemetry on every operation. Project tools read system roots and write only granted paths. Always deny Independum's state folder to project commands and file tools. Project tools never fall back to unrestricted execution. Shell version queries also require the sandbox boundary. Protect project configuration with nested read-only grants so reads remain exact and writes fail. Refuse policies the selected backend cannot enforce, and never mask a denied file with successful empty contents. Linux denied folders use MXC's private masks. Native boundary tests check host contents and file creation before checking command output. The editable permission fact names denied paths and explains that Linux masks look empty and accept writes that disappear when the command ends without reaching the host folder. See decisions 0063 and 0067.
 
 - Every API route sits under `/api/`, where the server requires the access token and its own address, and rejects an origin other than its own when the request supplies one. See decision 0005.
-- The server listens on `127.0.0.1` only until network access and phone pairing exist.
+- Local control listens on `127.0.0.1`. The separate phone listener binds only one explicitly selected private address with supplied HTTPS, or `127.0.0.1` as a local HTTPS proxy backend. Phone credentials never grant local control, and proxy headers never establish trusted addresses or origins. Saved phone hashes use the account-only runtime protection of decision 0066. See decision 0068.
 - Never read, print, copy, or edit `~/.independum/auth.json`, `~/.independum/models.json`, or any `.env` file. They hold credentials, and their contents must stay out of every conversation.
 - Read chats in `~/.independum/sessions` whenever the work needs them, and test with real models through the app, which saves its chats there like any other. Never change a chat file by hand, because Pi owns its format.
 - Search with `git grep` or a search tool built on ripgrep, because both skip files that git ignores. Never search with `grep -r`, which reads ignored files such as `.env` and prints what they hold.
@@ -187,8 +187,8 @@ To review a Pi update with the maintainer:
 - Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration. Selected, active, and error text and the thinking mark may use `--signal`, and text on a filled signal button uses `--on-signal`.
 - Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion. JavaScript motion checks `prefersReducedMotion()` instead of a media query.
 - Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
-- A class that composes a class of another file never sets a property that the other sets, because the page can load the other file after it, and then the other wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
-- `pnpm check` enforces the token, motion, and composes rules through `scripts/check-styles.ts`.
+- Reuse a class from another CSS module by importing it and combining the classes in markup. Never use `composes` from another file, because the CSS module loader loses source paths and warns during builds. A combined class never sets a property that the imported class sets, because stylesheet order then decides which wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
+- `pnpm check` enforces the token, motion, and cross-file composition rules through `scripts/check-styles.ts`.
 
 ## Comments
 

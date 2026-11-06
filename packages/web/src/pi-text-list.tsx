@@ -6,6 +6,7 @@ import { Disclosure } from "./disclosure.tsx";
 import styles from "./pi-text-list.module.css";
 import { PlaceNote } from "./place-frame.tsx";
 import { SlotList } from "./slot-list.tsx";
+import toolStyles from "./tool-card.module.css";
 
 /** Properties of the list of the texts of Pi. */
 interface PiTextListProps {
@@ -20,8 +21,8 @@ export function PiTextList({ texts }: PiTextListProps): ReactElement {
   return (
     <div className={styles.list}>
       {groups.map((group) => (
-        <div key={group} className={styles.group}>
-          <h4 className={styles.heading}>{group}</h4>
+        <div key={group} className={toolStyles.setting}>
+          <h4 className={`${toolStyles.settingLabel} ${styles.heading}`}>{group}</h4>
           {texts
             .filter((text) => text.group === group)
             .map((text) => (

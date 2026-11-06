@@ -1,6 +1,6 @@
 # Address chats by id
 
-- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering new chat defaults, with pending inputs added in [0064](0064-queue-and-steer.md)
+- Status: accepted, with [decision 0061](0061-profiles-and-plain-settings.md) covering new chat defaults, with pending inputs added in [0064](0064-queue-and-steer.md), and phone authentication extended by [decision 0070](0070-phone-access-with-device-pairing.md)
 - Date: 2026-11-05
 
 ## Context

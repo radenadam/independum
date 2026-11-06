@@ -3,6 +3,7 @@ import { type ReactElement, useState } from "react";
 import styles from "./branch-switcher.module.css";
 import { fetchBranchChoices, selectChatBranch } from "./chat-api.ts";
 import { MenuList } from "./menu-list.tsx";
+import placeStyles from "./place-frame.module.css";
 import { PlaceRow } from "./place-row.tsx";
 import { Popover } from "./popover.tsx";
 
@@ -65,10 +66,10 @@ export function BranchSwitcher({
           note="Changing branches changes saved messages. Files keep their current state."
         >
           {chat.branchBlockedReason == null ? null : (
-            <p className={styles.note}>{chat.branchBlockedReason}</p>
+            <p className={`${placeStyles.note} ${styles.note}`}>{chat.branchBlockedReason}</p>
           )}
           {failure === undefined ? null : (
-            <p className={styles.note} role="status">
+            <p className={`${placeStyles.note} ${styles.note}`} role="status">
               {failure}
             </p>
           )}

@@ -8,7 +8,7 @@ An expression that throws, a protocol error, a missing target, or a returned che
 
 ## Preview
 
-`pnpm preview` runs the same UI and API as `pnpm dev`, with Pi's stand-in provider. It prints a loopback link with a new access token in its fragment and the temporary home path. Stop it with Ctrl+C to close the app and remove the temporary home. A forced process termination can leave temporary files in the system temporary directory.
+`pnpm preview` runs the same UI and API as `pnpm dev`, with Pi's stand-in provider. Development, preview, and QA commands first build the UI for the separate phone listener. Preview prints a loopback link with a new local access token in its fragment and the temporary home path. Stop it with Ctrl+C to close the app and remove the temporary home. A forced process termination can leave temporary files in the system temporary directory.
 
 | Flag | Effect |
 | --- | --- |
@@ -43,11 +43,14 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa hooks` | Script hook inventory, switches, model text editing, and 360 pixel layouts in both themes. |
 | `pnpm qa permissions` | Permission sections, denied paths and Linux masking, the exact environment name list, the confirmation before unrestricted mode, commands without startup approval, the order of approval choices, chat and project network approvals, revocation and renewed requests, denial, and 360 pixel layouts in both themes. Approval waiting requires a backend that can compile the project policy. |
 | `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |
+| `pnpm qa phone-pairing` | Isolated owner and phone profiles, a local HTTPS proxy fixture, the local QR image and its 360 pixel layouts in both themes, matching-code approval, reload, independent chat selection, self management, owner revocation, and cancellation. |
 | `pnpm qa archived` | Archived title tooltips inside Settings and full titles on a 360 pixel touch screen in both themes. |
 
 `pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, `compacted`, or `hooks`.
 
 Pass `--url` to use a preview that already runs and leave it running. Use the whole link printed by `pnpm preview`. That preview needs the fixture expected by the scenario. Without `--url`, QA starts a preview with the scenario's fixture and closes it when it ends. The preview flags in the table also work with `pnpm qa`, and an explicit fixture flag takes precedence over the scenario.
+
+A scenario object can add `phoneRoute: true` to enable an isolated loopback HTTPS proxy and phone backend. QA pins only that fixture's public test certificate in its browser processes and resolves `phone.test` to loopback. It installs no system trust and contacts no external route. This is browser evidence, not proof of real phone certificate trust or firewall behavior. The `--url` mode needs an already configured reachable private HTTPS route instead.
 
 ```sh
 pnpm qa session --url 'http://127.0.0.1:4871/?chat=CHAT_ID#token=TOKEN'
@@ -59,6 +62,8 @@ Each step can contain several fields. Fields run in the order below, followed by
 
 | Field | Value and effect |
 | --- | --- |
+| `client` | Select an already opened client by name. The first client is `owner`. Each other client has an isolated browser profile. |
+| `openClient` | `{ "name": "phone", "url": "expression" }` evaluates a URL in the current client and opens it in the named isolated client, then selects that client. It does not save the URL as a returned value, so pairing invitations stay out of the value log. Reusing a name retains that client's browser storage. |
 | `size` | `[width, height]` in CSS pixels. Widths below 500 enable mobile and touch emulation. |
 | `scale` | A positive device pixel ratio with `size` in the same step. The default is `1`. |
 | `scheme` | `light` or `dark` for the emulated system color scheme. |

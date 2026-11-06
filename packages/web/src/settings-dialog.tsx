@@ -6,11 +6,18 @@ import { IconButton } from "./icon-button.tsx";
 import { LoginsSection } from "./logins-section.tsx";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { NotificationsSection } from "./notifications-section.tsx";
+import { PhoneAccessSection } from "./phone-access-section.tsx";
 import { ProfilesSection } from "./profiles-section.tsx";
 import styles from "./settings-dialog.module.css";
 
 /** A section of the settings dialog. */
-export type SettingsSection = "logins" | "profiles" | "appearance" | "notifications" | "archived";
+export type SettingsSection =
+  | "logins"
+  | "profiles"
+  | "appearance"
+  | "notifications"
+  | "archived"
+  | "phone";
 
 /** Properties of the settings dialog. */
 interface SettingsDialogProps {
@@ -28,6 +35,7 @@ const titles: Record<SettingsSection, string> = {
   appearance: "Appearance",
   notifications: "Notifications",
   archived: "Archived chats",
+  phone: "Phone access",
 };
 const sections: SettingsSection[] = [
   "logins",
@@ -35,6 +43,7 @@ const sections: SettingsSection[] = [
   "appearance",
   "notifications",
   "archived",
+  "phone",
 ];
 
 /**
@@ -89,6 +98,7 @@ export function SettingsDialog({
             {section === "appearance" ? <AppearanceSection /> : null}
             {section === "notifications" ? <NotificationsSection /> : null}
             {section === "archived" ? <ArchivedSection /> : null}
+            {section === "phone" ? <PhoneAccessSection /> : null}
           </div>
         </div>
       )}

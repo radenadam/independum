@@ -21,8 +21,9 @@ export interface BrowserConnection {
 export async function connectBrowser(
   executable: string,
   directory: string,
+  options: { profileName?: string; certificatePin?: string } = {},
 ): Promise<BrowserConnection> {
-  const profile = join(directory, "profile");
+  const profile = join(directory, options.profileName ?? "profile");
   const diagnostics = join(directory, "browser.jsonl");
   const browser = spawn(
     executable,
@@ -37,6 +38,13 @@ export async function connectBrowser(
       `--user-data-dir=${profile}`,
       "--no-first-run",
       "--no-default-browser-check",
+      ...(options.certificatePin === undefined
+        ? []
+        : [
+            `--ignore-certificate-errors-spki-list=${options.certificatePin}`,
+            "--host-resolver-rules=MAP phone.test 127.0.0.1",
+            "--no-proxy-server",
+          ]),
       "about:blank",
     ],
     { stdio: ["ignore", "ignore", "pipe"], windowsHide: true },

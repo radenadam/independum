@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "build": "vite build",
     "check:types": "tsc --noEmit"
   },
   "dependencies": {

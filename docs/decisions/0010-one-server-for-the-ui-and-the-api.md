@@ -1,6 +1,6 @@
 # One server for the UI and the API
 
-- Status: accepted
+- Status: accepted, extended by [decision 0070](0070-phone-access-with-device-pairing.md) for a separate phone listener and UI builds
 - Date: 2026-10-24
 
 ## Context

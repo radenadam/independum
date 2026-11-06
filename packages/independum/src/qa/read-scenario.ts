@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import type { PreviewFixture } from "./create-preview-fixture.ts";
 
 export interface QaStep {
+  client?: string;
+  openClient?: { name: string; url: string };
   size?: [number, number];
   scale?: number;
   scheme?: "light" | "dark";
@@ -19,19 +21,22 @@ export interface QaStep {
 /** Reads and validates a scenario before starting the preview or browser. */
 export async function readScenario(
   path: string,
-): Promise<{ fixture: PreviewFixture; steps: QaStep[] }> {
+): Promise<{ fixture: PreviewFixture; steps: QaStep[]; hasPhoneRoute: boolean }> {
   const value: unknown = JSON.parse(await readFile(path, "utf8"));
   let fixture: PreviewFixture = "chats";
   let steps = value;
+  let hasPhoneRoute = false;
   if (isRecord(value)) {
     if (
-      Object.keys(value).some((key) => !["fixture", "steps"].includes(key)) ||
+      Object.keys(value).some((key) => !["fixture", "steps", "phoneRoute"].includes(key)) ||
+      (value.phoneRoute !== undefined && typeof value.phoneRoute !== "boolean") ||
       !["empty", "chats", "compacted", "hooks"].includes(String(value.fixture))
     ) {
       throw new Error("A scenario object needs a fixture and steps only.");
     }
     fixture = value.fixture as PreviewFixture;
     steps = value.steps;
+    hasPhoneRoute = value.phoneRoute === true;
   }
   if (!Array.isArray(steps) || steps.length === 0) {
     throw new Error("A scenario needs a nonempty list of steps.");
@@ -46,7 +51,7 @@ export async function readScenario(
       throw new Error(`Scenario step ${index + 1} has an unknown field or an invalid value.`);
     }
   }
-  return { fixture, steps: steps as QaStep[] };
+  return { fixture, steps: steps as QaStep[], hasPhoneRoute };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,6 +68,17 @@ function isPair(value: unknown): value is [number, number] {
 
 function isStepField(key: string, value: unknown): boolean {
   switch (key) {
+    case "client":
+      return typeof value === "string" && /^[a-z][a-z0-9-]*$/.test(value);
+    case "openClient":
+      return (
+        isRecord(value) &&
+        Object.keys(value).length === 2 &&
+        typeof value.name === "string" &&
+        /^[a-z][a-z0-9-]*$/.test(value.name) &&
+        typeof value.url === "string" &&
+        value.url.length > 0
+      );
     case "size":
       return isPair(value) && value.every((part) => Number.isInteger(part) && part > 0);
     case "scale":

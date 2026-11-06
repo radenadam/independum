@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { createInterface } from "node:readline/promises";
 import { createAccessToken } from "./create-access-token.ts";
 import { runHeadless } from "./run-headless.ts";
 
@@ -37,6 +38,22 @@ if (process.argv.length > 2) {
       );
     },
     serve: () => start(false),
+    ...(process.stdin.isTTY && process.stdout.isTTY
+      ? {
+          async confirmPairing(code: string, signal: AbortSignal): Promise<boolean> {
+            const terminal = createInterface({ input: process.stdin, output: process.stdout });
+            try {
+              const answer = await terminal.question(
+                "Type the matching code to approve, or press Enter to cancel: ",
+                { signal },
+              );
+              return answer === code;
+            } finally {
+              terminal.close();
+            }
+          },
+        }
+      : {}),
   });
 } else {
   await start(true);
@@ -60,7 +77,17 @@ async function start(isDevelopment: boolean): Promise<void> {
   // Commands of the agent can run in process groups of their own, so they end with
   // Independum instead of outliving it.
   process.once("exit", () => chat.stopAll());
-  const server = await startAppServer({ chat, models, directory, token, port, isDevelopment });
+  const server = await startAppServer({
+    chat,
+    models,
+    directory,
+    token,
+    port,
+    isDevelopment,
+    onPhoneStatus(message) {
+      process.stdout.write(`${message}\n`);
+    },
+  });
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.once(signal, async () => {
       await server.close();
@@ -70,5 +97,8 @@ async function start(isDevelopment: boolean): Promise<void> {
 
   if (isDevelopment) {
     process.stdout.write(`Independum is running. Open this link:\n${server.url}\n`);
+    process.stdout.write(
+      "Phone access is off. Open Phone access in Settings to connect a phone.\n",
+    );
   }
 }

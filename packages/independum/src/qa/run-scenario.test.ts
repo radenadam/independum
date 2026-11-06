@@ -67,6 +67,38 @@ test("scenario preserves input order and dispatches pointer coordinates", async 
   });
 });
 
+test("scenario opens isolated clients without recording their invitation urls", async () => {
+  await inScenarioDirectory(async (directory) => {
+    const ownerCalls: { method: string; parameters: Record<string, unknown> }[] = [];
+    const phoneCalls: { method: string; parameters: Record<string, unknown> }[] = [];
+    const owner = fakeBrowser(
+      { value: "https://phone.test/#pair=short-lived-fixture" },
+      ownerCalls,
+    );
+    const phone = fakeBrowser({ value: { phoneIsIsolated: true } }, phoneCalls);
+    const created: string[] = [];
+    await runScenario(
+      owner,
+      "http://127.0.0.1:4870",
+      [
+        { openClient: { name: "phone", url: "pairingLink()" }, run: "phoneCheck()", wait: 0 },
+        { client: "owner", text: "Owner input", wait: 0 },
+      ],
+      directory,
+      async (name) => {
+        created.push(name);
+        return phone;
+      },
+    );
+    expect(created).toEqual(["phone"]);
+    expect(phoneCalls.some((call) => call.method === "Page.navigate")).toBe(true);
+    expect(ownerCalls.at(-1)?.method).toBe("Input.insertText");
+    expect(await readFile(join(directory, "values.jsonl"), "utf8")).not.toContain(
+      "short-lived-fixture",
+    );
+  });
+});
+
 async function inScenarioDirectory(run: (directory: string) => Promise<void>): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "independum-run-test-"));
   try {

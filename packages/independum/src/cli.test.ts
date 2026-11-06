@@ -5,9 +5,10 @@ import { expect, test } from "vitest";
 
 const execute = promisify(execFile);
 
-test.each([["prompt", "--help"], ["wait", "--help"], ["server", "--help"], ["--version"]])(
-  "the cli entry stays quiet and offline for %j",
-  async (...argumentsList) => {
+test.each(["prompt", "wait", "server", "phone", "version"])(
+  "the cli entry stays quiet and offline for %s",
+  async (command) => {
+    const argumentsList = command === "version" ? ["--version"] : [command, "--help"];
     const result = await execute(
       process.execPath,
       [join(import.meta.dirname, "cli.ts"), ...argumentsList],

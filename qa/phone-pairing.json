@@ -1,0 +1,145 @@
+{
+  "fixture": "chats",
+  "phoneRoute": true,
+  "steps": [
+    { "size": [1440, 900], "go": true },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
+    },
+    {
+      "run": "(() => { sessionStorage.setItem('qa.ownerChat', new URL(location.href).searchParams.get('chat')); return { ownerHasChat: !!document.querySelector('textarea[aria-label=Message]') }; })()"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.textContent === 'Phone access')"
+    },
+    {
+      "run": "({ privateRouteEnabled: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Phone access is on at https://phone.test:') })",
+      "shot": "owner-phone-access"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Pair a device')"
+    },
+    {
+      "run": "(async () => { const image = document.querySelector('img[alt=\"Pairing QR code\"]'); await image.decode(); return { pairingQrVisible: image.naturalWidth > 0 && image.getBoundingClientRect().width >= 240, qrStaysInLocalResponse: image.src.startsWith('data:image/svg+xml,'), pairingAddressVisible: !!document.querySelector('dialog[aria-label=\"Pair a device\"] a') }; })()",
+      "shot": "owner-pairing-qr"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark",
+      "run": "({ darkQrFits: document.documentElement.scrollWidth <= 360 && document.querySelector('img[alt=\"Pairing QR code\"]').getBoundingClientRect().right <= 360 })",
+      "shot": "owner-qr-dark"
+    },
+    {
+      "scheme": "light",
+      "run": "({ lightQrFits: document.documentElement.scrollWidth <= 360 && document.querySelector('img[alt=\"Pairing QR code\"]').getBoundingClientRect().right <= 360 })",
+      "shot": "owner-qr-light"
+    },
+    { "size": [1440, 900], "scheme": "dark" },
+    {
+      "openClient": {
+        "name": "phone",
+        "url": "document.querySelector('dialog[aria-label=\"Pair a device\"] a').href"
+      },
+      "size": [360, 800],
+      "scheme": "dark"
+    },
+    {
+      "run": "({ fragmentRemoved: location.hash === '', pairingNeedsApproval: !!document.querySelector('dialog[aria-label=\"Pair this phone\"]') && !document.querySelector('textarea[aria-label=Message]'), darkPairingFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone-pairing-dark"
+    },
+    { "scheme": "light", "shot": "phone-pairing-light" },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent === 'Request pairing')"
+    },
+    {
+      "run": "({ phoneHasComparisonCode: /^\\d{6}$/.test(document.querySelector('output[aria-label=\"Comparison code\"]')?.textContent ?? ''), phoneStillWaitsForApproval: !document.querySelector('textarea[aria-label=Message]'), lightPairingFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone-comparison-light"
+    },
+    { "scheme": "dark", "shot": "phone-comparison-dark" },
+    {
+      "client": "owner",
+      "run": "({ ownerHasComparisonCode: /^\\d{6}$/.test(document.querySelector('output[aria-label=\"Comparison code\"]')?.textContent ?? ''), ownerNamesRequester: document.querySelector('dialog[aria-label=\"Pair a device\"]').innerText.includes('Phone browser requests access') })",
+      "shot": "owner-comparison"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=\"Pair a device\"] button')].find(button => button.textContent === 'Approve matching code')",
+      "wait": 2000
+    },
+    {
+      "client": "phone",
+      "run": "({ approvedPhoneShowsChat: !!document.querySelector('textarea[aria-label=Message]'), pairedPhoneFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "paired-phone-dark"
+    },
+    {
+      "run": "(() => { setTimeout(() => location.reload(), 0); return { pairedReloadRequested: true }; })()",
+      "wait": 2500
+    },
+    {
+      "run": "({ pairingSurvivesReload: !!document.querySelector('textarea[aria-label=Message]') && !document.querySelector('dialog[aria-label=\"Pair this phone\"]') })"
+    },
+    { "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))"
+    },
+    {
+      "run": "({ phoneChoosesOwnChat: document.querySelector('main header').innerText.trim() === 'Plan the first post.' })"
+    },
+    { "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.textContent === 'Phone access')"
+    },
+    {
+      "run": "({ phoneOnlyManagesItself: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Disconnect this browser') && !document.querySelector('dialog[aria-label=Settings]').innerText.includes('Pair a device'), phoneSettingsFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone-self-dark"
+    },
+    { "scheme": "light", "shot": "phone-self-light" },
+    {
+      "clickOn": "[...document.querySelectorAll('label')].find(label => label.textContent === 'New browser name').control"
+    },
+    { "text": "My phone" },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Save name')"
+    },
+    {
+      "client": "owner",
+      "run": "({ ownerKeepsItsChat: new URL(location.href).searchParams.get('chat') === sessionStorage.getItem('qa.ownerChat'), ownerSeesRenamedPhone: document.querySelector('dialog[aria-label=Settings]').innerText.includes('My phone') })"
+    },
+    {
+      "client": "phone",
+      "run": "(() => { setTimeout(() => location.assign('about:blank'), 0); return { phoneClosesItsStreams: true }; })()"
+    },
+    {
+      "client": "owner",
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Revoke')"
+    },
+    {
+      "run": "({ ownerRevokesOnePhone: document.querySelector('dialog[aria-label=Settings]').innerText.includes('No paired browsers.') })",
+      "shot": "owner-revoked-phone"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Pair a device')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=\"Pair a device\"] button')].find(button => button.textContent === 'Cancel pairing')"
+    },
+    {
+      "run": "({ pairingCancellationClosesDialog: !document.querySelector('dialog[aria-label=\"Pair a device\"][open]') })"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark",
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Turn phone access off')"
+    },
+    {
+      "run": "({ disabledPhoneAccess: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Phone access is off.'), phoneSetupFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "phone-setup-dark"
+    },
+    { "scheme": "light", "shot": "phone-setup-light" }
+  ]
+}

@@ -16,8 +16,10 @@ import {
   openPrivateRuntimeFile,
   privateRuntime,
   publishServer,
+  readPrivateRuntimeFile,
   readServer,
   removeServer,
+  writePrivateRuntimeFile,
 } from "./private-runtime.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
@@ -28,6 +30,19 @@ const connection = createTestConnection();
 function directory(): string {
   return join(parent, String(nextCase++));
 }
+
+test("private registry replacement preserves the old file when a bounded write is rejected", () => {
+  const folder = privateRuntime(directory());
+  const path = join(folder, "phones.json");
+  expect(readPrivateRuntimeFile(path)).toBeUndefined();
+  writePrivateRuntimeFile(path, "[]\n");
+  expect(readPrivateRuntimeFile(path)).toBe("[]\n");
+  expect(() => writePrivateRuntimeFile(path, "x".repeat(8193))).toThrow("size limit");
+  expect(readPrivateRuntimeFile(path)).toBe("[]\n");
+  linkSync(path, join(folder, "second-phone-link.json"));
+  expect(() => readPrivateRuntimeFile(path)).toThrow("unsafe");
+  expect(() => writePrivateRuntimeFile(path, "changed")).toThrow("unsafe");
+});
 
 test("a private token file round trips and orderly shutdown removes only its own instance", () => {
   const folder = directory();

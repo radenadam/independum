@@ -1,5 +1,6 @@
 import type { DiffHunk } from "independum/api-types";
 import type { ReactElement } from "react";
+import codeStyles from "./code-block.module.css";
 import styles from "./diff-view.module.css";
 
 /** Properties of a diff view. */
@@ -25,7 +26,7 @@ interface DiffRow {
  */
 export function DiffView({ path, hunks }: DiffViewProps): ReactElement {
   return (
-    <div className={styles.view} data-flush="true">
+    <div className={codeStyles.block} data-flush="true">
       <div className={styles.path}>{path}</div>
       <div className={styles.rows}>
         {rowsOf(hunks).map((row) => (

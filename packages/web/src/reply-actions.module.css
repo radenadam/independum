@@ -22,7 +22,6 @@
 }
 
 .note {
-  composes: note from "./place-frame.module.css";
   padding: 10px;
 }
 

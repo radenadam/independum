@@ -4,7 +4,7 @@ Decisions: [0008](../decisions/0008-login-and-first-launch.md), [0011](../decisi
 
 ## Settings dialog
 
-Settings opens over the working screen, with Logins, Profiles, Appearance, Notifications, and Archived chats. Escape, Close, or a click outside closes it. It fills a phone screen, where the section choices wrap without horizontal scrolling. Profiles opens the same agent editors used by Session and identifies the target profile and its files.
+Settings opens over the working screen, with Logins, Profiles, Appearance, Notifications, Archived chats, and Phone access. Escape, Close, or a click outside closes it. It fills a phone screen, where the section choices wrap without horizontal scrolling. Profiles opens the same agent editors used by Session and identifies the target profile and its files.
 
 Logins lists saved logins with Remove and Add a login. Without saved logins it opens the provider list directly. That list contains every provider Pi reports and searches provider names without case. A provider without a matching logo has no logo slot, as [decision 0060](../decisions/0060-omit-missing-provider-logos.md) sets out. Choosing a provider replaces the list with its account and API key methods when offered, with Back to providers above them. A provider without an available login method says it is configured outside Independum.
 
@@ -15,6 +15,18 @@ First launch offers Get started, which opens Logins, and Just look around, which
 Appearance chooses System, Light, or Dark. System follows the computer's theme, and browser local storage remembers the choice. There is no figure style selector. Notifications chooses Off or On for this browser and shows unsupported or denied permission states. [Notification behavior](chats.md#notifications) describes delivery and limits.
 
 Archived chats shows title, project, and last modification date. Titles and details wrap on touch screens. On a computer, their tooltips stay inside Settings so they appear over the dialog. Unarchive returns a chat to its project without opening it. Delete asks for confirmation and removes its retained files. The list reloads after either operation, including failure. A failed load displays a notice.
+
+## Phone access
+
+[Decision 0070](../decisions/0070-phone-access-with-device-pairing.md) defines the transport and pairing boundaries. Phone access starts off each launch, and only the local computer can enable or change it. A route I run explains private HTTPS proxies such as Tailscale Serve, the local backend target, authorization forwarding, and unbuffered event streams. This network lists current private adapter addresses and accepts supplied certificate and key paths. Its guidance explains phone certificate trust and never asks the user to dismiss warnings. Independum installs no route or trust root and does not verify that a configured route is private.
+
+After enabling, Pair a device opens a modal with a QR code beside the copyable one-use address and its expiry. The server generates the SVG locally through `uqr` and returns it only in the local invitation response. The image has black modules on white with a four-module quiet zone in both themes. It wraps beside the address at phone widths. The phone removes the invitation fragment from history and requests pairing with a browser name. Both screens show the same six-digit comparison code. Only Approve matching code on the computer grants access, and the claimant collects its own device credential. Pending attempts expire after two minutes. Closing the pairing dialog cancels that invitation by id.
+
+One boxed list shows paired browser names and last authenticated activity. Opening a row shows its pairing date and rename field. Revoke cuts that browser off immediately, including its open event streams. Disconnect all devices revokes every saved pairing. Browser names are supplied labels rather than verified hardware identities. Pairings stay saved across launches and after phone access is turned off. They grant no access while the listener is off.
+
+A phone sees only its own name, rename field, and Disconnect this browser in this section. It cannot enable access or manage another browser. After approval, normal addressed chat APIs let it choose its own chat independently of the computer. A reload retains its credential and chat choice. A revoked phone needs a new pairing link. A paired browser can drive the agent and its tools.
+
+[Interactive terminal pairing](headless.md#commands) shows the same invitation as a character QR code without requiring the desktop browser. Development reload continuity for listener configuration and pending attempts remains in [the roadmap](../roadmap.md). Phone credentials already survive development restarts. [Server](server.md#phone-listener) owns routes, persistent storage, and revocation mechanics.
 
 ## Tools and model texts
 

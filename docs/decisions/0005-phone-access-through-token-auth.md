@@ -1,6 +1,6 @@
 # Phone access through token auth
 
-- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies requests without an origin
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies requests without an origin, and [decision 0070](0070-phone-access-with-device-pairing.md), which replaces shared phone tokens with persistent revocable pairing over private HTTPS
 - Date: 2026-10-24
 
 ## Context

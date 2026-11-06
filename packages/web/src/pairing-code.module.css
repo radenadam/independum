@@ -1,0 +1,6 @@
+.code {
+  margin: 0;
+  color: var(--ink);
+  font: 500 28px var(--font-mono);
+  letter-spacing: 0.15em;
+}

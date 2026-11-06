@@ -79,6 +79,36 @@ test("prompt prints only the last assistant text and preserves the exact supplie
   });
 });
 
+test("phone pair uses local authority and interactive matching code approval", async () => {
+  const fixture = client();
+  const ordinaryRequest = fixture.request.getMockImplementation();
+  fixture.options.confirmPairing = vi.fn(async (code) => code === "123456");
+  fixture.request.mockImplementation(async (input, initialization) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/api/phone-access/invitation") {
+      return Response.json({
+        id: "pairing-one",
+        url: "https://phone.private/#pair=invitation",
+        expiresAt: Date.now() + 120000,
+      });
+    }
+    if (path === "/api/phone-access") {
+      return Response.json({ pairing: { id: "pairing-one", name: "Phone", code: "123456" } });
+    }
+    if (path === "/api/phone-access/approve") {
+      expect(JSON.parse(String(initialization?.body))).toEqual({
+        id: "pairing-one",
+        code: "123456",
+      });
+      return new Response(null, { status: 204 });
+    }
+    return ordinaryRequest?.(input, initialization) ?? Response.error();
+  });
+  expect(await fixture.run(["phone", "pair"])).toBe(0);
+  expect(fixture.stdout.join("")).toContain("Approved. The phone can now connect.");
+  expect(fixture.stderr).toEqual([]);
+});
+
 test("new prompts use the invoking project and accept an exact scoped profile", async () => {
   const fixture = client();
   expect(await fixture.run(["prompt", "Task.", "--profile", "project:build"])).toBe(0);
@@ -158,21 +188,25 @@ test.each([
   ["wait"],
   ["wait", "one", "--literal"],
   ["control"],
+  ["phone", "pair"],
 ])("invalid command %j fails before a connection", async (...argumentsList) => {
   const fixture = client();
   expect(await fixture.run(argumentsList)).toBe(2);
   expect(fixture.request).not.toHaveBeenCalled();
 });
 
-test.each([["prompt", "--help"], ["wait", "--help"], ["server", "--help"], ["--version"]])(
-  "help and version remain offline for %j",
-  async (...argumentsList) => {
-    const fixture = client();
-    expect(await fixture.run(argumentsList)).toBe(0);
-    expect(fixture.request).not.toHaveBeenCalled();
-    expect(fixture.stdout.join("")).not.toBe("");
-  },
-);
+test.each([
+  ["prompt", "--help"],
+  ["wait", "--help"],
+  ["server", "--help"],
+  ["phone", "--help"],
+  ["--version"],
+])("help and version remain offline for %j", async (...argumentsList) => {
+  const fixture = client();
+  expect(await fixture.run(argumentsList)).toBe(0);
+  expect(fixture.request).not.toHaveBeenCalled();
+  expect(fixture.stdout.join("")).not.toBe("");
+});
 
 test.each([
   ["failed", 1],

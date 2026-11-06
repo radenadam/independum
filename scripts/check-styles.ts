@@ -1,19 +1,11 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 import { runCheck } from "./run-check.ts";
 
 const tokenFile = "packages/web/src/theme.css";
 const colorLiteral = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/i;
 const reducedMotionGuard = /prefers-reduced-motion:\s*no-preference/;
-const composesFromFile = /composes:\s*([\w-]+)\s+from\s+"([^"]+)"/;
-// A shorthand sets its parts too, such as padding and padding-top.
-const shorthands = ["margin", "padding"];
 
-runCheck((files) =>
-  files
-    .filter((file) => file.endsWith(".css"))
-    .flatMap((file) => [...checkStylesheet(file), ...checkComposes(file)]),
-);
+runCheck((files) => files.filter((file) => file.endsWith(".css")).flatMap(checkStylesheet));
 
 // Blanking comments keeps every character at its position, so line numbers stay right.
 function readBlanked(file: string): string {
@@ -64,6 +56,11 @@ function findDeclarationProblems(
   if (file !== tokenFile && colorLiteral.test(value)) {
     problems.push(`Colors come from the tokens in ${tokenFile}.`);
   }
+  if (property === "composes" && /\bfrom\b/.test(value)) {
+    problems.push(
+      "Import the CSS module and combine its classes in markup instead of composing from a file.",
+    );
+  }
   const moves =
     property === "animation" ||
     property === "animation-name" ||
@@ -72,55 +69,4 @@ function findDeclarationProblems(
     problems.push("Motion belongs inside @media (prefers-reduced-motion: no-preference).");
   }
   return problems;
-}
-
-// A rule that composes a class of another file and sets a property that the class sets too wins or
-// loses by the order in which the page loads the two files, so it never sets one.
-function checkComposes(file: string): string[] {
-  const problems: string[] = [];
-  for (const rule of rulesOf(readBlanked(file))) {
-    const match = composesFromFile.exec(rule.body);
-    if (match === null) {
-      continue;
-    }
-    const [, name, path] = match;
-    const target = rulesOf(readBlanked(join(dirname(file), path ?? ""))).find(
-      (each) => each.selector === `.${name}`,
-    );
-    const taken = propertiesOf(target?.body ?? "");
-    for (const property of propertiesOf(rule.body)) {
-      if (taken.some((each) => isOverlap(each, property))) {
-        problems.push(
-          `${file}:${rule.line}: ${rule.selector} composes .${name} and sets ${property} too, so the order in which the page loads them decides.`,
-        );
-      }
-    }
-  }
-  return problems;
-}
-
-function rulesOf(css: string): { selector: string; body: string; line: number }[] {
-  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => {
-    const selector = (match[1] ?? "").trim();
-    const offset = (match.index ?? 0) + (match[1] ?? "").indexOf(selector);
-    return { selector, body: match[2] ?? "", line: css.slice(0, offset).split("\n").length };
-  });
-}
-
-function propertiesOf(body: string): string[] {
-  return body
-    .split(";")
-    .map((declaration) => declaration.slice(0, declaration.indexOf(":")).trim().toLowerCase())
-    .filter((property) => property !== "" && property !== "composes");
-}
-
-function isOverlap(first: string, second: string): boolean {
-  return (
-    first === second ||
-    shorthands.some(
-      (shorthand) =>
-        (first === shorthand && second.startsWith(`${shorthand}-`)) ||
-        (second === shorthand && first.startsWith(`${shorthand}-`)),
-    )
-  );
 }

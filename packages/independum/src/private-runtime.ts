@@ -12,7 +12,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { isMissingFile } from "./is-missing-file.ts";
 import { readServerUrl } from "./read-server-url.ts";
 
@@ -61,15 +61,7 @@ export function openPrivateRuntimeFile(path: string): number {
 /** Publishes a token only after its directory and file permissions pass verification. */
 export function publishServer(directory: string, connection: ServerConnection): () => void {
   const path = join(privateRuntime(directory), "server.json");
-  const staging = join(directory, "runtime", `server-${randomUUID()}.json`);
-  const descriptor = openPrivateRuntimeFile(staging);
-  try {
-    writeFileSync(descriptor, `${JSON.stringify(connection)}\n`);
-    fsyncSync(descriptor);
-  } finally {
-    closeSync(descriptor);
-  }
-  renameSync(staging, path);
+  writePrivateRuntimeFile(path, `${JSON.stringify(connection)}\n`);
   return () => {
     if (readServer(directory)?.serverId === connection.serverId) {
       unlinkSync(path);
@@ -77,12 +69,53 @@ export function publishServer(directory: string, connection: ServerConnection): 
   };
 }
 
+/** Reads a file after verifying its account-only directory and file permissions. */
+export function readPrivateRuntimeFile(path: string): string | undefined {
+  checkPrivate(dirname(path), true);
+  try {
+    checkPrivate(path, false);
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+  const descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  try {
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/** Atomically replaces a bounded account-only file without changing existing broad permissions. */
+export function writePrivateRuntimeFile(path: string, content: string): void {
+  if (Buffer.byteLength(content) > 8192) {
+    throw new Error("The private runtime file exceeds its size limit.");
+  }
+  readPrivateRuntimeFile(path);
+  const staging = join(dirname(path), `staging-${randomUUID()}.json`);
+  const descriptor = openPrivateRuntimeFile(staging);
+  try {
+    try {
+      writeFileSync(descriptor, content);
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
+    renameSync(staging, path);
+  } catch (error) {
+    unlinkSync(staging);
+    throw error;
+  }
+}
+
 /** Reads a bounded connection record only after verifying private ownership and permissions. */
 export function readServer(directory: string): ServerConnection | undefined {
   const path = join(directory, "runtime", "server.json");
+  let content: string | undefined;
   try {
-    checkPrivate(join(directory, "runtime"), true);
-    checkPrivate(path, false);
+    content = readPrivateRuntimeFile(path);
   } catch (error) {
     if (isMissingFile(error)) {
       return undefined;
@@ -91,14 +124,11 @@ export function readServer(directory: string): ServerConnection | undefined {
       `The private server record cannot be read securely. ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+  if (content === undefined) {
+    return undefined;
+  }
   try {
-    const descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-    let value: unknown;
-    try {
-      value = JSON.parse(readFileSync(descriptor, "utf8"));
-    } finally {
-      closeSync(descriptor);
-    }
+    const value: unknown = JSON.parse(content);
     if (
       typeof value !== "object" ||
       value === null ||
