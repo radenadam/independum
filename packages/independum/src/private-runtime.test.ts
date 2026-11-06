@@ -84,29 +84,96 @@ test.skipIf(process.platform === "win32")(
 );
 
 test.skipIf(process.platform !== "win32")(
-  "windows discovery rejects an extra account grant",
+  "windows creates private runtime permissions under inherited broad access",
   () => {
+    const ancestor = directory();
+    mkdirSync(ancestor);
+    const permissions = windowsPermissions();
+    permissions.set(ancestor, "D:P(A;OICI;FA;;;WD)(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)");
+    const folder = join(ancestor, "home");
+    mkdirSync(folder);
+    expect(permissions.read(folder)).toContain("(A;OICIID;FA;;;WD)");
+    publishServer(folder, connection);
+    expect(readServer(folder)).toEqual(connection);
+    const runtime = join(folder, "runtime");
+    for (const path of [runtime, join(runtime, "server.json")]) {
+      expect(permissions.read(path)).toMatch(/^O:(S-[\d-]+)D:P(?:AI)?\(A;(?:OICI)?;FA;;;\1\)$/);
+    }
+    expect(permissions.read(folder)).toContain("(A;OICIID;FA;;;WD)");
+  },
+);
+
+test.skipIf(process.platform !== "win32")(
+  "windows rejects an existing broad runtime directory without changing its permissions",
+  () => {
+    const folder = directory();
+    const runtime = privateRuntime(folder);
+    const permissions = windowsPermissions();
+    permissions.set(runtime, "D:P(A;OICI;FA;;;WD)");
+    const before = permissions.read(runtime);
+    expect(() => privateRuntime(folder)).toThrow(
+      "The runtime permissions must grant access only to the current account.",
+    );
+    expect(permissions.read(runtime)).toBe(before);
+  },
+);
+
+test.skipIf(process.platform !== "win32").each(["WD", "BA", "SY"])(
+  "windows discovery rejects an extra grant to %s",
+  (identity) => {
     const folder = directory();
     publishServer(folder, connection);
     const path = join(folder, "runtime", "server.json");
-    const koffi = createRequire(import.meta.url)("koffi") as typeof import("koffi");
-    const security = koffi.load("advapi32.dll");
-    const kernel = koffi.load("kernel32.dll");
-    const convert = security.func(
-      "bool __stdcall ConvertStringSecurityDescriptorToSecurityDescriptorW(const char16_t* text, uint32_t revision, _Out_ void** descriptor, void* length)",
-    );
-    const setSecurity = security.func(
-      "bool __stdcall SetFileSecurityW(const char16_t* path, uint32_t information, void* descriptor)",
-    );
-    const free = kernel.func("void* __stdcall LocalFree(void* memory)");
-    const descriptor: unknown[] = [null];
-    expect(convert("D:P(A;;FA;;;WD)", 1, descriptor, null)).toBe(true);
-    try {
-      expect(setSecurity(path, 0x80000004, descriptor[0])).toBe(true);
-      expect(() => readServer(folder)).toThrow("securely");
-      expect(readFileSync(path, "utf8")).toContain('"version":1');
-    } finally {
-      free(descriptor[0]);
-    }
+    const permissions = windowsPermissions();
+    const accountGrant = permissions.read(path).match(/\(A;;FA;;;[^)]+\)/)?.[0];
+    expect(accountGrant).toBeDefined();
+    permissions.set(path, `D:P${accountGrant}(A;;FA;;;${identity})`);
+    expect(() => readServer(folder)).toThrow("securely");
+    expect(readFileSync(path, "utf8")).toContain('"version":1');
   },
 );
+
+function windowsPermissions(): {
+  set(path: string, value: string): void;
+  read(path: string): string;
+} {
+  const koffi = createRequire(import.meta.url)("koffi") as typeof import("koffi");
+  const security = koffi.load("advapi32.dll");
+  const kernel = koffi.load("kernel32.dll");
+  const parse = security.func(
+    "bool __stdcall ConvertStringSecurityDescriptorToSecurityDescriptorW(const char16_t* text, uint32_t revision, _Out_ void** descriptor, void* length)",
+  );
+  const setSecurity = security.func(
+    "bool __stdcall SetFileSecurityW(const char16_t* path, uint32_t information, void* descriptor)",
+  );
+  const readSecurity = security.func(
+    "uint32_t __stdcall GetNamedSecurityInfoW(const char16_t* path, int objectType, uint32_t information, void* owner, void* group, void* access, void* audit, _Out_ void** descriptor)",
+  );
+  const stringify = security.func(
+    "bool __stdcall ConvertSecurityDescriptorToStringSecurityDescriptorW(void* descriptor, uint32_t revision, uint32_t information, _Out_ void** text, void* length)",
+  );
+  const free = kernel.func("void* __stdcall LocalFree(void* memory)");
+  return {
+    set(path, value) {
+      const descriptor: unknown[] = [null];
+      expect(parse(value, 1, descriptor, null)).toBe(true);
+      try {
+        expect(setSecurity(path, 0x80000004, descriptor[0])).toBe(true);
+      } finally {
+        free(descriptor[0]);
+      }
+    },
+    read(path) {
+      const descriptor: unknown[] = [null];
+      const text: unknown[] = [null];
+      expect(readSecurity(path, 1, 5, null, null, null, null, descriptor)).toBe(0);
+      try {
+        expect(stringify(descriptor[0], 1, 5, text, null)).toBe(true);
+        return String(koffi.decode(text[0], "char16_t", -1));
+      } finally {
+        free(text[0]);
+        free(descriptor[0]);
+      }
+    },
+  };
+}

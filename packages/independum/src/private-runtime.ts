@@ -38,17 +38,32 @@ export function privateRuntime(directory: string): string {
   return path;
 }
 
-/** Publishes a token only after its directory and file permissions pass verification. */
-export function publishServer(directory: string, connection: ServerConnection): () => void {
-  const path = join(privateRuntime(directory), "server.json");
-  const staging = join(directory, "runtime", `server-${randomUUID()}.json`);
+/** Opens a new runtime file with verified account-only permissions. */
+export function openPrivateRuntimeFile(path: string): number {
   const descriptor = openSync(
-    staging,
+    path,
     constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL,
     0o600,
   );
   try {
-    checkPrivate(staging, false);
+    if (process.platform === "win32") {
+      windowsPrivacy().secureFile(path);
+    }
+    checkPrivate(path, false);
+    return descriptor;
+  } catch (error) {
+    closeSync(descriptor);
+    unlinkSync(path);
+    throw error;
+  }
+}
+
+/** Publishes a token only after its directory and file permissions pass verification. */
+export function publishServer(directory: string, connection: ServerConnection): () => void {
+  const path = join(privateRuntime(directory), "server.json");
+  const staging = join(directory, "runtime", `server-${randomUUID()}.json`);
+  const descriptor = openPrivateRuntimeFile(staging);
+  try {
     writeFileSync(descriptor, `${JSON.stringify(connection)}\n`);
     fsyncSync(descriptor);
   } finally {
@@ -127,6 +142,7 @@ function checkPrivate(path: string, isDirectory: boolean): void {
 
 interface WindowsPrivacy {
   create(path: string): void;
+  secureFile(path: string): void;
   check(path: string, isDirectory: boolean): void;
 }
 
@@ -156,6 +172,15 @@ function windowsPrivacy(): WindowsPrivacy {
   );
   const getSecurity = security.func(
     "bool __stdcall GetFileSecurityW(const char16_t* path, uint32_t information, void* descriptor, uint32_t length, _Out_ uint32_t* required)",
+  );
+  const descriptorOwner = security.func(
+    "bool __stdcall GetSecurityDescriptorOwner(void* descriptor, _Out_ void** owner, _Out_ int32_t* isDefaulted)",
+  );
+  const descriptorAccess = security.func(
+    "bool __stdcall GetSecurityDescriptorDacl(void* descriptor, _Out_ int32_t* isPresent, _Out_ void** access, _Out_ int32_t* isDefaulted)",
+  );
+  const setSecurity = security.func(
+    "uint32_t __stdcall SetNamedSecurityInfoW(const char16_t* path, int objectType, uint32_t information, void* owner, void* group, void* access, void* audit)",
   );
   const createDirectory = kernel.func(
     "bool __stdcall CreateDirectoryW(const char16_t* path, void* attributes)",
@@ -188,6 +213,35 @@ function windowsPrivacy(): WindowsPrivacy {
   const rawDescriptorString = security.func(
     "bool __stdcall ConvertSecurityDescriptorToStringSecurityDescriptorW(void* descriptor, uint32_t revision, uint32_t information, _Out_ void** text, void* length)",
   );
+  function withPrivateDescriptor(isDirectory: boolean, apply: (descriptor: unknown) => void): void {
+    const descriptor: unknown[] = [null];
+    const flags = isDirectory ? "OICI" : "";
+    if (!parseDescriptor(`O:${identity}D:P(A;${flags};FA;;;${identity})`, 1, descriptor, null)) {
+      throw new Error("Private Windows permissions cannot be created.");
+    }
+    try {
+      apply(descriptor[0]);
+    } finally {
+      free(descriptor[0]);
+    }
+  }
+  function protect(path: string, descriptor: unknown): void {
+    const owner: unknown[] = [null];
+    const access: unknown[] = [null];
+    const isPresent = [0];
+    const isDefaulted = [0];
+    if (
+      !descriptorOwner(descriptor, owner, isDefaulted) ||
+      !descriptorAccess(descriptor, isPresent, access, isDefaulted) ||
+      isPresent[0] !== 1
+    ) {
+      throw new Error("Private Windows permissions cannot be inspected.");
+    }
+    const result = setSecurity(path, 1, 0x80000005, owner[0], null, access[0], null);
+    if (result !== 0) {
+      throw new Error(`Private Windows permissions cannot be set (Windows error ${result}).`);
+    }
+  }
   privacy = {
     create(path) {
       try {
@@ -198,23 +252,22 @@ function windowsPrivacy(): WindowsPrivacy {
           throw error;
         }
       }
-      const descriptor: unknown[] = [null];
-      if (!parseDescriptor(`O:${identity}D:P(A;OICI;FA;;;${identity})`, 1, descriptor, null)) {
-        throw new Error("Private Windows permissions cannot be created.");
-      }
-      try {
+      withPrivateDescriptor(true, (descriptor) => {
         const attributes = Buffer.alloc(koffi.sizeof(attributesType));
         koffi.encode(attributes, attributesType, {
           length: attributes.length,
-          descriptor: descriptor[0],
+          descriptor,
           inherit: 0,
         });
-        if (!createDirectory(path, attributes)) {
+        if (createDirectory(path, attributes)) {
+          protect(path, descriptor);
+        } else {
           lstatSync(path);
         }
-      } finally {
-        free(descriptor[0]);
-      }
+      });
+    },
+    secureFile(path) {
+      withPrivateDescriptor(false, (descriptor) => protect(path, descriptor));
     },
     check(path, isDirectory) {
       const size = [0];
@@ -233,11 +286,18 @@ function windowsPrivacy(): WindowsPrivacy {
         const entries = [...value.matchAll(/\(([^)]+)\)/g)];
         if (
           owner !== `O:${identity}` ||
-          (isDirectory && !value.includes("D:P")) ||
+          !value.includes("D:P") ||
           entries.length !== 1 ||
           !entries.every((entry) => {
             const fields = entry[1]?.split(";");
-            return fields?.[0] === "A" && fields[2] === "FA" && fields[5] === identity;
+            return (
+              fields?.[0] === "A" &&
+              fields[1] === (isDirectory ? "OICI" : "") &&
+              fields[2] === "FA" &&
+              fields[3] === "" &&
+              fields[4] === "" &&
+              fields[5] === identity
+            );
           })
         ) {
           throw new Error("The runtime permissions must grant access only to the current account.");

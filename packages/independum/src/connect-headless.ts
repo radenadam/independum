@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { closeSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { commandEnvironment } from "./command-environment.ts";
 import { HeadlessError } from "./headless-types.ts";
 import {
+  openPrivateRuntimeFile,
   privateRuntime,
   readServer,
   removeServer,
@@ -151,7 +152,7 @@ export async function connectHeadless(
     options.signal.throwIfAborted();
     let descriptor: number;
     try {
-      descriptor = openSync(lockPath, "wx", 0o600);
+      descriptor = openPrivateRuntimeFile(lockPath);
     } catch (error) {
       if (
         typeof error !== "object" ||
