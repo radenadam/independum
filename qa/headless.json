@@ -1,0 +1,40 @@
+{
+  "fixture": "chats",
+  "steps": [
+    { "size": [1440, 1000], "scheme": "light", "go": true },
+    {
+      "run": "(async () => { window.headlessRequest = async (path, body, headers = {}) => { const response = await fetch('/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); if (!response.ok) throw new Error('The headless QA request fails.'); return response.status === 204 ? null : response.json(); }; window.headlessOriginal = new URL(location.href).searchParams.get('chat'); const receipt = await window.headlessRequest('/prompt', { requestId: 'qa-headless-active', chatId: window.headlessOriginal, text: 'Check network permissions.', isLiteral: true }); window.headlessActive = receipt; const required = await window.headlessRequest('/operations/' + receipt.operationId + '/wait'); const settled = await window.headlessRequest('/operations/' + receipt.operationId + '/wait?onQuestion=wait'); return { selectedChatUnchanged: new URL(location.href).searchParams.get('chat') === window.headlessOriginal, approvalNamed: required.code === 'approvalRequired' && typeof required.toolCallId === 'string', finalTextAvailable: settled.text?.startsWith('Preview reply complete.') }; })()",
+      "wait": 500
+    },
+    {
+      "run": "(async () => { const agent = await window.headlessRequest('/chats/' + window.headlessOriginal + '/agent'); const profile = agent.configuration.profile; const body = { ...profile.document, profile: { ...profile.document.profile, settings: { ...profile.document.profile.settings, model: { providerId: 'faux', modelId: 'faux-typing' } } } }; const response = await fetch('/api/profiles/user/default?projectId=' + encodeURIComponent(profile.projectId), { method: 'PUT', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', 'If-Match': profile.revision }, body: JSON.stringify(body) }); if (!response.ok) throw new Error('The headless profile save fails.'); const state = await window.headlessRequest('/chats/' + window.headlessOriginal); window.headlessNew = await window.headlessRequest('/prompt', { requestId: 'qa-headless-new', project: state.folder, profile: { scope: 'user', id: 'default' }, text: 'Headless new task.', isLiteral: true }); await window.headlessRequest('/operations/' + window.headlessNew.operationId + '/wait?onQuestion=wait'); return { newChatIsDistinct: window.headlessNew.chatId !== window.headlessOriginal, originalStaysSelected: new URL(location.href).searchParams.get('chat') === window.headlessOriginal }; })()",
+      "wait": 500
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.innerText.trim() === 'Headless new task.')"
+    },
+    {
+      "run": "({ newChatVisible: new URL(location.href).searchParams.get('chat') === window.headlessNew.chatId && document.querySelector('main').innerText.includes('Headless new task.') })"
+    },
+    { "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Chat ID '))"
+    },
+    {
+      "run": "({ sourceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Source'), operationVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.operationId), submissionVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.submissionId) })",
+      "shot": "headless-source-desktop-light"
+    },
+    { "size": [360, 800], "scheme": "light" },
+    {
+      "run": "(() => { const heading = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source'); heading.scrollIntoView({ block: 'start' }); const panel = document.querySelector('aside [role=tabpanel]'); return { sourceVisible: heading.checkVisibility(), pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+      "shot": "headless-source-phone-light"
+    },
+    { "scheme": "dark", "shot": "headless-source-phone-dark" },
+    {
+      "run": "({ darkSourceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.operationId), phoneFits: document.documentElement.scrollWidth <= 360 })"
+    }
+  ]
+}

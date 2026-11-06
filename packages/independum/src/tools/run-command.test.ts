@@ -135,7 +135,6 @@ test.skipIf(process.platform !== "win32" || bash === undefined)(
     rmSync(folder, { recursive: true, force: true });
     expect(isRunning).toBe(false);
   },
-  20_000,
 );
 
 test("a command stops at its timeout and when its signal aborts", async () => {

@@ -4,6 +4,7 @@ import { Hono } from "hono";
 
 /** Settings that decide which requests may use the API, and the routes the API serves. */
 export interface ServerOptions {
+  identity?: { serverId: string; version: string; protocolVersion: number };
   token: string;
   addresses: string[];
   api: Hono;
@@ -31,7 +32,7 @@ export function createServer(options: ServerOptions): Hono {
     return undefined;
   });
 
-  server.get("/api/health", (context) => context.json({ status: "ok" }));
+  server.get("/api/health", (context) => context.json({ status: "ok", ...options.identity }));
   server.route("/api", options.api);
   return server;
 }

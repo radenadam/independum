@@ -6,7 +6,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 
 | Term | Meaning | Avoid |
 | --- | --- | --- |
-| Access token | The secret that lets a browser use the Independum server. It is new on every launch. | "password", "API key", "session key" |
+| Access token | The secret that lets a browser or headless client use the Independum server. It is new on every launch and has an account-only local discovery file. | "password", "API key", "session key" |
 | Add-on | A feature that the user adds to Independum, with the same visibility and controls as a built-in. Decision 0065 records the approved contract direction and its first script hook slice. | "plugin", "extension", "custom", "module" |
 | Added fact | A fact that Independum adds to a request, with a model text and its own switch, such as the time of a message or the chat folder. | "injection", "environment prompt" |
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
@@ -22,6 +22,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
 | Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
 | Follower | A client with the event stream of one chat open, which holds that chat's run alive. See [decision 0053](decisions/0058-address-chats-by-id.md). | "current client", "active browser" |
+| Headless mode | Commands for scripts and other agents that drive the existing server without opening a browser or terminal interface. | "print mode", "terminal mode" |
 | Hook | A configured script that observes or transforms a named event, with visible order, limits, failure policy, and invocation evidence. | "callback", "trigger" |
 | Hook invocation | One run of a hook with its captured input, output, accepted effect, and execution status. | "hook call", "hook log" |
 | Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
@@ -33,6 +34,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Model text | A text that Independum sends to the model, such as the system prompt, an added fact, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Session place and reset it to its built-in text. | "prompt string", "template", "copy" |
 | Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
 | Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
+| Operation | A waitable period of automatic agent work through Pi settlement, with durable submission and final entry references. | "turn", "task", "job" |
 | Permission rule | A profile rule that allows, asks for, or denies filesystem or network authority. | "command whitelist", "trust rule" |
 | Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
 | Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
@@ -54,6 +56,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Slot | A name in braces in a model text, such as `{id}`, where Independum puts a value when it sends the text. | "placeholder", "variable", "token" |
 | Step | One thing the agent does on its way to a reply, such as calling a tool. Each step sits in a box of its own, apart from the reply. | "action", "activity", "trace" |
 | Step group | The steps and thoughts between two texts of a reply, drawn as one box that folds them into one line and counts the steps. | "tool group", "activity block" |
+| Submission | One accepted input with its own id and the operation that covers its automatic work. Command line source metadata stays outside model context. | "request", "turn" |
 | Thought | What the model thinks before it acts or answers. It sits in a box like a step, but it is reasoning, not an action, so it is not a step. | "reasoning trace", "chain of thought" |
 | Turn | One model response to a request, with its text, thinking, and tool calls. A tool result can lead to another turn in the same reply. | "reply", "chat" |
 | User | A person who runs Independum and works with its agent. | "the customer", "the operator" |

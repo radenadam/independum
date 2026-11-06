@@ -4,9 +4,9 @@ Decisions: [0002](../decisions/0002-build-on-the-pi-sdk.md), [0003](../decisions
 
 ## Startup and access
 
-`cli.ts` uses `start-app-server.ts` to start one Node HTTP server at `127.0.0.1:4870`. Preview uses the same startup with an isolated home and a configurable port. Requests beginning with `/api/` go through Hono, and other requests go to Vite in middleware mode. Closing the server waits for every chat to stop before closing Vite and HTTP connections. Built static UI serving is not implemented. `dev.ts` watches server source and restarts after changed modification times, with a 100 millisecond delay. A development launch supplies one token across those restarts. [Browser QA](../browser-qa.md) describes preview and browser scenarios.
+`cli.ts` uses `start-app-server.ts` to start one Node HTTP server at `127.0.0.1:4870`. Preview uses the same startup with an isolated home and a configurable port. Requests beginning with `/api/` go through Hono. Development and preview send other requests to Vite in middleware mode. [Headless startup](headless.md) starts no Vite instance and serves an installed build from the web package's `dist` folder, or reports that the build is absent. Producing and distributing that build remains packaging work. Closing the server waits for every chat to stop before closing UI and HTTP connections. `dev.ts` watches server source and restarts after changed modification times, with a 100 millisecond delay. A development launch supplies one token across those restarts. [Browser QA](../browser-qa.md) describes preview and browser scenarios.
 
-The token comes from the development launcher or is randomly created. The CLI removes it from the environment before constructing chats and tools. It prints a link with the token in its fragment. The browser saves that token in local storage and removes the fragment from browser history. Every API call, including health and event streams, requires `Authorization: Bearer <token>`.
+The token comes from the development launcher or is randomly created. The CLI removes it from the environment before constructing chats and tools. A browser launch prints a link with the token in its fragment. The browser saves that token in local storage and removes the fragment from browser history. [Headless discovery](headless.md#storage-and-api) uses an account-only token file published after listening, and no headless output prints the token. Every API call, including health and event streams, requires `Authorization: Bearer <token>`.
 
 Access checks accept only the configured loopback and localhost hosts on the listening port. A supplied Origin must match one of their HTTP origins. An absent Origin is accepted. A wrong host or origin returns 403, and a missing or wrong token returns 401. Token comparison uses equal-length buffers and timing-safe equality. Network binding and phone pairing are absent.
 
@@ -31,6 +31,7 @@ The CLI uses `~/.independum`. Pi's model runtime owns `auth.json` for logins and
 | `outputs/<chatId>` | Retained cleaned Shell logs named from sanitized tool call ids. Deletion removes this folder. |
 | `pending-inputs/<chatId>.json` | Versioned pending inputs and idempotency receipts, atomically replaced. Restart restores remaining inputs held. Deletion removes the file. |
 | `requests/<chatId>.json` | The last captured raw provider payload. Deletion removes it. |
+| Headless records | Private server discovery and durable operation references, as [headless storage](headless.md#storage-and-api) describes. |
 
 The request save is asynchronous and overwrites the same file. Save errors are silent, and reads of missing or invalid data return null. It is best effort, not an ordered request archive. Archive moves only the session file and leaves retained output and request files in place. Background command ids, controls, ended command records, warming counts, and stream subscribers live only in memory. A restart does not resume processes. Thinking durations are custom entries in the Pi session. [Browser choices](settings.md) and [drafts](chats.md#drafts-and-export) use browser storage.
 
@@ -42,7 +43,7 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 
 | Method and path | Body | Success |
 | --- | --- | --- |
-| `GET /health` | None | `{ status: "ok" }`. |
+| `GET /health` | None | `{ status: "ok", serverId, version, protocolVersion: 1 }` for the listening app. |
 | `GET /providers` | None | `{ providers: ProviderSummary[] }`. Each has id, name, offered methods, and nullable login method and source. |
 | `DELETE /providers/:providerId/login` | None | Removes the saved login through Pi. |
 | `POST /logins` | `{ providerId, method }`, with method `apiKey` or `account` | 201 with `{ id }`. Unknown provider or unsupported method is 400. |
@@ -73,6 +74,7 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 | `PUT /chats/:id/archived` | `{ isArchived }`, a boolean | Archives or restores the file. |
 | `DELETE /chats/:id` | None | Removes an archived or unarchived chat and retained files. |
 | Configuration routes | Explicit resources and conditional saves | See [profiles](profiles.md#api) for their addresses and return codes. |
+| Headless routes | Explicit submissions and operation ids | See [headless API](headless.md#storage-and-api) for prompts, waits, and shutdown. |
 
 `ModelSummary` gives provider id and name, model id and name, API, base URL, context window, maximum output, nullable image and request byte limits, prices, price tiers, and cache durations. `AgentSummary` gives system prompt, Pi addition, added facts and knowledge cutoffs, model overrides and compaction settings, tool schemas and availability, shell choices, current and built-in limits and hand-back, model texts, Pi texts, environment values, and suggestions. Environment values are present for the authorized UI even though tool descriptions show only names.
 

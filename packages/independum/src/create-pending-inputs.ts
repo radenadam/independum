@@ -361,6 +361,11 @@ function isPendingFile(value: unknown, chatId: string): value is PendingFile {
         typeof input.text === "string" &&
         input.text.trim() !== "" &&
         typeof input.hasBrowserApprovals === "boolean" &&
+        (input.submission === undefined ||
+          (typeof input.submission === "object" &&
+            input.submission !== null &&
+            typeof input.submission.operationId === "string" &&
+            input.submission.submissionId === input.id)) &&
         typeof input.model?.providerId === "string" &&
         typeof input.model?.modelId === "string" &&
         (input.model?.thinkingLevel === null || typeof input.model?.thinkingLevel === "string") &&

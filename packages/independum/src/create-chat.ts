@@ -81,6 +81,7 @@ import { createSavedChats } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
 import { createScriptHooks, type ScriptHooks } from "./create-script-hooks.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
+import type { OperationResult } from "./headless-types.ts";
 import { type HookEvent, type HookSummary, hookModelTexts } from "./hook-contract.ts";
 import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
@@ -161,6 +162,7 @@ interface ChatRun {
   stopFollowing: () => void;
   isModelChosen: boolean;
   isReplying: boolean;
+  isSubmitting: boolean;
   isCompacting: boolean;
   compactionError: string | null;
   contextVersion: number;
@@ -204,6 +206,8 @@ export interface OpenChat {
   getHooks(): HookSummary;
   reloadHooks(): void;
   stopHook(id: string): boolean;
+  outcome(): OperationResult;
+  entryText(entryId: string): string | undefined;
   requestResourcePermission(id: string): Promise<boolean>;
   getResources(): ContextRevision;
   saveResource(id: string, fingerprint: string, content: string): Promise<ContextRevision>;
@@ -219,6 +223,7 @@ export interface OpenChat {
     previewId?: string,
     hasBrowserApprovals?: boolean,
     options?: InputOptions,
+    submission?: { operationId: string; submissionId: string },
   ): Promise<boolean>;
   removePending(id: string): boolean;
   resumePending(): Promise<void>;
@@ -233,6 +238,8 @@ export interface OpenChat {
 
 /** The independent chat runs and the projects with their chats. */
 export interface Chat {
+  hasWork(): boolean;
+  create(folder: string, profile?: ProfileReference): Promise<string | undefined>;
   approvals: Approvals;
   first(): Promise<string>;
   open(id: string): Promise<OpenChat | undefined>;
@@ -260,6 +267,7 @@ export interface Chat {
 
 /** Keeps independent chat runs and reopens saved chats through Pi. */
 export async function createChat({ models, directory, folder }: ChatOptions): Promise<Chat> {
+  let isStopping = false;
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(folder);
@@ -584,6 +592,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       run.isClosing ||
       run.listeners.size > 0 ||
       run.isReplying ||
+      run.isSubmitting ||
       run.isCompacting ||
       run.pendingNotes > 0 ||
       run.isDispatching ||
@@ -1540,6 +1549,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       isModelChosen:
         session.model !== undefined && created.modelFallbackMessage === undefined && isChosen,
       isReplying: false,
+      isSubmitting: false,
       hasBrowserApprovals: previous?.hasBrowserApprovals ?? false,
       isCompacting: false,
       compactionError: null,
@@ -2008,6 +2018,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       (desired.effectiveRevision !== run.configuration.effectiveRevision ||
         hasDifferentSelection) &&
       !run.isReplying &&
+      !run.isSubmitting &&
       !run.isCompacting &&
       !run.isClosing
     ) {
@@ -2061,8 +2072,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
 
   function canStart(run: ChatRun | undefined): run is ChatRun {
     return (
+      !isStopping &&
       run?.isModelChosen === true &&
       !run.isReplying &&
+      !run.isSubmitting &&
       !run.isCompacting &&
       run.rebuilding === undefined &&
       configurationIssues(run).length === 0
@@ -2109,6 +2122,20 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     }
     const agent = getAgent(run);
     return {
+      submissions: branch.flatMap((entry) => {
+        const data: unknown =
+          entry.type === "custom" && entry.customType === "independum-submission"
+            ? entry.data
+            : undefined;
+        return typeof data === "object" &&
+          data !== null &&
+          "operationId" in data &&
+          typeof data.operationId === "string" &&
+          "submissionId" in data &&
+          typeof data.submissionId === "string"
+          ? [{ operationId: data.operationId, submissionId: data.submissionId }]
+          : [];
+      }),
       chatId: session.sessionId ?? null,
       provider: model?.provider ?? null,
       model: model?.id ?? null,
@@ -2454,6 +2481,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             isEdited: input.command.text !== input.text,
           });
         }
+        if (input.submission !== undefined) {
+          run.session.sessionManager.appendCustomEntry("independum-submission", {
+            source: "commandLine",
+            ...input.submission,
+          });
+        }
         run.hasBrowserApprovals = input.hasBrowserApprovals;
         run.contextAbort = new AbortController();
         emitPending(run);
@@ -2466,7 +2499,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         } else {
           setReplying(run, true);
           run.session
-            .prompt(input.text, { expandPromptTemplates: false })
+            .prompt(input.text, {
+              expandPromptTemplates: false,
+              ...(input.submission === undefined ? {} : { source: "rpc" as const }),
+            })
             .then(() => {
               reconcileInputs(run);
               if (
@@ -2639,6 +2675,47 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         );
       },
       getState: () => getState(run),
+      outcome() {
+        const resource =
+          run.preparationError === undefined
+            ? undefined
+            : run.resources.resources.find((resource) => resource.state === "needsPermission");
+        const entry = run.session.sessionManager
+          .getBranch()
+          .findLast((entry) => entry.type === "message" && entry.message.role === "assistant");
+        const message = run.session.messages.findLast((message) => message.role === "assistant");
+        return {
+          status:
+            message?.role !== "assistant"
+              ? "failed"
+              : message.stopReason === "aborted"
+                ? "cancelled"
+                : message.stopReason === "length"
+                  ? "outputLimited"
+                  : message.stopReason === "error"
+                    ? "failed"
+                    : "completed",
+          finalEntryId: entry?.id ?? null,
+          ...(message?.role === "assistant" && message.errorMessage !== undefined
+            ? { message: message.errorMessage }
+            : {}),
+          ...(resource === undefined
+            ? {}
+            : {
+                code: "approvalRequired",
+                message: `The enabled context resource ${resource.id} requires approval.`,
+              }),
+        };
+      },
+      entryText(entryId) {
+        const entry = run.session.sessionManager.getEntry(entryId);
+        return entry?.type === "message" && entry.message.role === "assistant"
+          ? entry.message.content
+              .filter((part) => part.type === "text")
+              .map((part) => part.text)
+              .join("")
+          : undefined;
+      },
       getAgent: () => getAgent(run),
       getContext: () => getContext(run),
       close() {
@@ -2661,13 +2738,14 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         previewId,
         hasBrowserApprovals = false,
         options,
+        submission,
       ) {
         const id = run.session.sessionId;
         if (text.trim() === "") {
           throw new InputError("A message needs text.", "invalidInput", 400);
         }
         const inputOptions = options ?? {
-          id: randomUUID(),
+          id: submission?.submissionId ?? randomUUID(),
           expectedRevision: run.pending.state().revision,
           expectedLeafId: inputLeaf(run),
           delivery: "queue",
@@ -2678,6 +2756,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           previewId: previewId ?? null,
           hasBrowserApprovals,
           delivery: inputOptions.delivery,
+          submission,
         });
         const accepted = await mutateInput(run, async () => {
           if (run.pending.receipt(inputOptions.id, fingerprint) !== undefined) {
@@ -2713,6 +2792,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             async (captured, submitted) => {
               await reconcileRun(run);
               if (
+                isStopping ||
                 run.isClosing ||
                 run.isCompacting ||
                 configurationIssues(run).length > 0 ||
@@ -2720,7 +2800,15 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
               ) {
                 return false;
               }
-              await profiles.saveChoices(run.session.sessionId);
+              run.isSubmitting = true;
+              try {
+                await profiles.saveChoices(run.session.sessionId);
+              } finally {
+                run.isSubmitting = false;
+              }
+              if (isStopping || run.isClosing) {
+                return false;
+              }
               if (
                 options !== undefined &&
                 (inputOptions.expectedRevision !== run.pending.state().revision ||
@@ -2751,6 +2839,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                   },
                   hasBrowserApprovals,
                   command: captured.kind === "preview" ? captured : null,
+                  ...(submission === undefined ? {} : { submission }),
                 },
                 fingerprint,
               );
@@ -2865,6 +2954,27 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   }
 
   return {
+    hasWork: () =>
+      [...runs.values()].some(
+        (run) =>
+          run.isReplying ||
+          run.isSubmitting ||
+          run.isCompacting ||
+          run.isDispatching ||
+          (!run.pending.state().isPaused && run.pending.state().items.length > 0) ||
+          run.pendingNotes > 0 ||
+          background.listRunning(run.session.sessionId).length > 0,
+      ),
+    async create(newFolder, profile) {
+      const target = toFolder(newFolder);
+      if (!(await getProjects()).some((project) => project.folder === target)) {
+        return undefined;
+      }
+      const run = await openNew(target, profile);
+      const id = run.session.sessionId;
+      releaseIfIdle(run);
+      return id;
+    },
     async first() {
       const latest = (await listSaved()).find((saved) => folderOf(saved) === startFolder);
       if (latest !== undefined) {
@@ -3002,8 +3112,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       }));
     },
     async stopAll() {
+      isStopping = true;
       const failures: unknown[] = [];
       for (const run of runs.values()) {
+        run.isClosing = true;
         try {
           run.pending.pause("Held when the server stopped.");
         } catch (error) {

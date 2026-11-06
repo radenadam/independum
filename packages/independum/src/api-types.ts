@@ -380,6 +380,7 @@ export interface PendingInput {
   model: { providerId: string; modelId: string; thinkingLevel: string | null };
   hasBrowserApprovals: boolean;
   command: ComposePreview | null;
+  submission?: { operationId: string; submissionId: string };
 }
 
 /** The pending inputs and their durable revision, including a recovery failure. */
@@ -680,6 +681,7 @@ export interface TokenCounts {
 
 /** What the model of the open chat works with, as the Session place shows it. */
 export interface ContextSummary {
+  submissions?: { operationId: string; submissionId: string }[];
   chatId: string | null;
   provider: string | null;
   model: string | null;

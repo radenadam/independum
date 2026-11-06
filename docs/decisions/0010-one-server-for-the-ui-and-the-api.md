@@ -13,5 +13,7 @@ The `independum` server serves the UI and the API on one port, `4870`, in develo
 
 ## Consequences
 
+- [Decision 0066](0066-headless-mode.md) adds server startup without Vite. It serves an installed UI build, or reports its absence while the API remains available. Producing and distributing the build remains packaging work.
+
 - The browser sees one origin, so the server can accept API requests from its own origin only.
 - The terminal prints one link, and `pnpm dev` runs one server.

@@ -44,4 +44,4 @@ test("preview serves the app with token protection and isolates fixture logins",
     }
     await expect(access(preview.home)).rejects.toThrow();
   }
-}, 20000);
+});

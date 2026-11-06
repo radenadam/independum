@@ -13,5 +13,7 @@ Independum runs as a local Node.js server, started by the `independum` command. 
 
 ## Consequences
 
+- [Decision 0066](0066-headless-mode.md) adds server commands that open no browser and clients for scripts and other agents.
+
 - Users need only Node.js and a browser.
 - The server and the UI stay independent of any desktop shell, so one can wrap them later.

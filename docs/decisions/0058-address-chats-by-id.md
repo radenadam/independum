@@ -23,6 +23,8 @@ Decision 0051 gives every chat its own run, but the API still drives one open ch
 
 ## Consequences
 
+- [Decision 0066](0066-headless-mode.md) adds headless creation in an exact known project with an optional profile, without acquiring a source chat or changing a browser's choice.
+
 - A message names its destination even when another client opens a different chat or no client follows its destination.
 - Pi still owns the sessions, model choices, replies, and files. Independum adds only the client subscriptions, their lifetime, and the API addresses.
 - Empty chat ids last for the server's run. After a restart, a stale id falls back to the first chat through the browser's missing chat handler.
