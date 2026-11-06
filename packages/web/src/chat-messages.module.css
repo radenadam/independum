@@ -77,10 +77,14 @@
   margin-bottom: 0;
 }
 
-.error {
+.status {
   margin: 6px 0 0;
   font-size: 14px;
   line-height: 1.6;
+  color: var(--muted);
+}
+
+.status[data-tone="alert"] {
   color: var(--signal);
 }
 

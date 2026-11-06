@@ -3863,16 +3863,16 @@ function toChatMessage(
     role: "assistant",
     parts: partsOf(message.content, thinkingTimes),
     error: errorOf(message),
+    isStopped: message.stopReason === "aborted",
     timestamp: message.timestamp,
     durationMs: message.durationMs ?? null,
     commandEnd: null,
   };
 }
 
-// Pi reports a stopped reply with a technical message, so the chat shows a plain sentence instead.
 function errorOf(message: Extract<AgentMessage, { role: "assistant" }>): string | null {
   if (message.stopReason === "aborted") {
-    return "The reply was stopped.";
+    return "Stopped";
   }
   if (message.stopReason === "error") {
     return message.errorMessage ?? "The reply stopped early.";

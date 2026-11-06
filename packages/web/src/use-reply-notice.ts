@@ -44,6 +44,9 @@ export function useReplyNotice(
 
 /** Returns what a notification says about a reply that ended: the start of its text, or why it failed. */
 export function describeReplyEnd(reply: ChatMessage | undefined): string {
+  if (reply?.isStopped) {
+    return "Stopped";
+  }
   if (reply?.error) {
     return `The reply failed. ${reply.error}`;
   }

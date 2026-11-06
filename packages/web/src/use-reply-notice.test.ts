@@ -31,6 +31,12 @@ test("a failed reply says why", () => {
   );
 });
 
+test("a stopped reply reads as stopped instead of failed", () => {
+  expect(describeReplyEnd({ ...replyOf("Partial reply.", "Stopped"), isStopped: true })).toBe(
+    "Stopped",
+  );
+});
+
 test("a reply with only tool calls says that it is done", () => {
   expect(describeReplyEnd(replyOf(""))).toBe("The reply is done.");
 });
