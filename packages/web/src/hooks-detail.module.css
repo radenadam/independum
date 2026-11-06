@@ -5,3 +5,11 @@
 .name {
   overflow-wrap: anywhere;
 }
+
+.setting {
+  composes: setting from "./tool-card.module.css";
+}
+
+.settingLabel {
+  composes: settingLabel from "./tool-card.module.css";
+}

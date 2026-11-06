@@ -197,6 +197,7 @@ export interface ChatMessage {
   imageCount?: number;
   entryId?: string;
   isSteered?: boolean;
+  isStopped?: boolean;
   role: "user" | "assistant" | "note";
   parts: MessagePart[];
   error: string | null;

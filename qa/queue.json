@@ -126,7 +126,7 @@
       "wait": 100
     },
     {
-      "run": "(async () => { for (let attempt = 0; attempt < 150 && document.querySelector('button[aria-label=Stop]'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { heldVisible: document.body.innerText.includes('Held after Stop. Resume to send.'), resumeVisible: [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Resume sending'), removed: !document.body.innerText.includes('Remove this input.'), removalReportsNoFailure: !document.querySelector('[role=status]') }; })()",
+      "run": "(async () => { for (let attempt = 0; attempt < 150 && document.querySelector('button[aria-label=Stop]'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); const status = [...document.querySelectorAll('main p')].find(element => element.textContent === 'Stopped'); return { stoppedReplyVisible: !!status, stoppedReplyMuted: !!status && status.getAttribute('data-tone') === 'quiet', noAbortError: !document.querySelector('main').innerText.includes('This operation was aborted'), heldVisible: document.body.innerText.includes('Held after Stop. Resume to send.'), resumeVisible: [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Resume sending'), removed: !document.body.innerText.includes('Remove this input.'), removalReportsNoFailure: !document.querySelector('[role=status]') }; })()",
       "shot": "queue-held",
       "wait": 0
     },

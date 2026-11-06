@@ -13,7 +13,7 @@ import {
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { ChatEvent } from "./api-types.ts";
+import type { ChatEvent, ChatsEvent } from "./api-types.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
@@ -191,6 +191,43 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.restoreAllMocks());
+
+test.each(["aborted", "error"] as const)(
+  "a reply with stop reason %s keeps its model message and projects its display status",
+  async (stopReason) => {
+    const chat = await createChat({ models, directory, folder: launchFolder });
+    const opened = await openTestChat(chat);
+    const active = sessionAt(-1);
+    const message = fauxAssistantMessage("Partial reply.", {
+      stopReason,
+      errorMessage: "This operation was aborted",
+    });
+    const original = structuredClone(message);
+    const events: ChatEvent[] = [];
+    const chatEvents: ChatsEvent[] = [];
+    opened.subscribe((event) => events.push(event));
+    chat.subscribe((event) => chatEvents.push(event));
+    active.session.messages.push(message);
+    active.emit({ type: "message_end", message });
+    const expected = {
+      isStopped: stopReason === "aborted",
+      error: stopReason === "aborted" ? "Stopped" : original.errorMessage,
+    };
+    expect(events).toContainEqual({
+      type: "message",
+      message: expect.objectContaining(expected),
+    });
+    expect(opened.getState().messages.at(-1)).toMatchObject(expected);
+    active.emit({ type: "agent_settled", aborted: stopReason === "aborted" });
+    expect(chatEvents).toContainEqual({
+      type: "replyEnded",
+      chatId: opened.getState().id,
+      reply: expect.objectContaining(expected),
+    });
+    expect(active.session.messages.at(-1)).toEqual(original);
+    await chat.stopAll();
+  },
+);
 
 test("concurrent opens share one saved session and keep its reply tracked", async () => {
   const chat = await createChat({ models, directory, folder: launchFolder });

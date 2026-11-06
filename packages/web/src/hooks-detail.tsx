@@ -112,15 +112,18 @@ export function HooksDetail({ settings }: { settings: AgentSettings }): ReactEle
                 { name: "Last invocation", values: [invocations[0]?.status ?? "Never run"] },
               ]}
             />
-            <ChoiceGroup
-              label={`Failure policy of ${hook.id}`}
-              current={hook.onError ?? (hook.mode === "observe" ? "continue" : "stop")}
-              choices={[
-                { value: "stop", label: "Stop" },
-                { value: "continue", label: "Continue" },
-              ]}
-              onChoose={(onError) => changeHook(hook, { onError })}
-            />
+            <div className={styles.setting}>
+              <span className={styles.settingLabel}>When this hook fails</span>
+              <ChoiceGroup
+                label="When this hook fails"
+                current={hook.onError ?? (hook.mode === "observe" ? "continue" : "stop")}
+                choices={[
+                  { value: "stop", label: "Stop" },
+                  { value: "continue", label: "Continue" },
+                ]}
+                onChoose={(onError) => changeHook(hook, { onError })}
+              />
+            </div>
             {position === 0 ? null : (
               <TextButton
                 label={`Run ${hook.id} earlier`}
