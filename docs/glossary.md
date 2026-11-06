@@ -14,6 +14,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
 | Attachment | An explicitly uploaded original file retained for a prompt, delivered as inline text, an image, or saved file details. | "extracted document", "upload message" |
 | Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
+| Branch | One selected path of saved messages in a chat's Pi session tree. Changing it keeps files in their current state. | "version", "copy" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation" |
 | Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
@@ -43,9 +44,11 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Profile | A complete agent setup for one use case, stored in plain files and selected by a chat. User and project defaults affect new chats. | "preset", "configuration layer" |
 | Project | A folder that chats work in. The sidebar lists every project with its chats. | "workspace", "repo", "directory" |
 | Project instructions | Literal instruction files discovered from the registered project root through the chat folder, with configurable names and exact source capture. | "automatic imports", "rules file" |
+| Prompt variant | One submitted version of a prompt, with its own reply attempts and descendants. Editing creates another variant. | "revision", "draft" |
 | Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
 | Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
 | Reply | The answer to one prompt, which can span several model turns and their tool calls. | "response", "completion" |
+| Reply attempt | One execution of a prompt variant with a captured model and effort. Retrying creates another attempt. | "regeneration", "version" |
 | Request | The data sent to a model for one turn. The Session history reconstructs requests from saved assistant messages, so it is not a complete log of network requests. | "HTTP log", "reply" |
 | Sandbox | The operating system boundary that restricts a tool worker and its descendants while they run. | "job", "approval" |
 | Session | Everything a chat runs with: how its agent is set up, its context, and the parts of its last request. Its place in the side panel shows all of it, and each part opens on demand. | "agent place", "context place", "inspector" |

@@ -34,6 +34,19 @@
   field-sizing: content;
 }
 
+.editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.editing p {
+  margin: 0;
+}
+
 .field::placeholder {
   color: var(--muted);
 }

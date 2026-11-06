@@ -25,4 +25,4 @@ The maintainer approves queueing after a reply by default, an explicit steering 
 
 - This amends decisions 0013, 0016, 0051, 0058, and 0061. The pending API and storage contract live in the product pages.
 - Independum owns durable removable inputs because Pi only clears whole queues. It continues to use Pi's agent loop and does not clear or rebuild its queues to remove one message.
-- [Decision 0068](0068-message-attachments.md) adds attachments to pending inputs and handoff. Conversation branches remain subsequent work in `docs/roadmap.md`, governed by the approved design.
+- [Decision 0068](0068-message-attachments.md) adds attachments to pending inputs and handoff. [Decision 0069](0069-branches-in-a-chat.md) adds edit and retry through the same durable input contract. Forks remain subsequent work in `docs/roadmap.md`.

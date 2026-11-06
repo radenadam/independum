@@ -1,4 +1,5 @@
 import type {
+  BranchRequest,
   ChatEvent,
   ChatMessage,
   ChatState,
@@ -28,6 +29,7 @@ import {
   pinChat,
   removePendingInput,
   renameChat,
+  resubmitMessage,
   resumePendingInputs,
   sendMessage,
   startNewChat,
@@ -85,6 +87,7 @@ export function WorkingScreen({
   );
   const [notice, setNotice] = useState<string | undefined>();
   const [chatToDelete, setChatToDelete] = useState<ChatSummary | undefined>();
+  const [editRequest, setEditRequest] = useState<Parameters<typeof MessageBox>[0]["editRequest"]>();
   const [placeRequest, setPlaceRequest] = useState<PlaceRequest | undefined>();
   const [shownStep, setShownStep] = useState<ToolCalls["shown"]>();
   // Every chat runs on its own, so the sidebar shows each one that replies, and a reply that ends
@@ -261,6 +264,7 @@ export function WorkingScreen({
   }
 
   function open(id: string): void {
+    setEditRequest(undefined);
     setShownStep(undefined);
     setNotice(undefined);
     closeSidebarOnPhone();
@@ -409,12 +413,34 @@ export function WorkingScreen({
     }
   }
 
+  async function sendEdit(request: BranchRequest): Promise<void> {
+    if (chat === undefined || chat.model === null) {
+      throw new Error("Choose a model before resending an edit.");
+    }
+    await resubmitMessage(chat.id, request);
+    setEditRequest(undefined);
+  }
+
   useShortcut(shortcuts.newChat, () => startNew());
   useShortcut(shortcuts.sidebar, () => showSidebar(!isSidebarOpen));
   useShortcut(shortcuts.sidePanel, () => showPanel(!isPanelOpen));
   useShortcut(shortcuts.settings, openLogins);
 
   const isEmpty = chat !== undefined && chat.messages.length === 0 && !chat.isReplying;
+  const branchChat =
+    chat === undefined
+      ? undefined
+      : {
+          ...chat,
+          branchBlockedReason:
+            chat.isReplying || chat.isCompacting
+              ? "Wait for the chat to finish its current work before changing branches."
+              : chat.backgroundCommands.length > 0
+                ? "Stop background commands before changing branches."
+                : chat.pending.items.length > 0 || chat.pending.error !== null
+                  ? "Remove or deliver waiting messages before changing branches."
+                  : null,
+        };
   const saved = projects
     .flatMap((project) => project.chats)
     .find((candidate) => candidate.id === chat?.id);
@@ -494,6 +520,30 @@ export function WorkingScreen({
             </div>
             <div className={styles.messages}>
               <ChatMessages
+                chat={branchChat ?? chat}
+                models={models}
+                onOpenModels={loadModels}
+                onManageLogins={openLogins}
+                onEdit={(message) => {
+                  if (branchChat?.branchBlockedReason != null) {
+                    setNotice(branchChat.branchBlockedReason);
+                  } else if (message.entryId !== undefined) {
+                    setEditRequest({
+                      chatId: chat.id,
+                      sourceUserEntryId: message.entryId,
+                      text:
+                        message.submittedText ??
+                        message.parts
+                          .flatMap((part) => (part.type === "text" ? [part.text] : []))
+                          .join(""),
+                      expectedLeafId: chat.leafId,
+                      expectedRevision: chat.pending.revision,
+                      at: Date.now(),
+                      imageCount: message.imageCount ?? 0,
+                      attachments: message.attachments ?? [],
+                    });
+                  }
+                }}
                 contextApprovals={chat.contextApprovals ?? []}
                 chatId={chat.id}
                 messages={chat.messages}
@@ -510,6 +560,8 @@ export function WorkingScreen({
             <MessageBox
               attachmentSettings={chat.attachmentSettings}
               contextVersion={chat.contextVersion}
+              editRequest={editRequest}
+              onEditSend={sendEdit}
               chatId={chat.id}
               model={chat.model}
               thinking={chat.thinking}

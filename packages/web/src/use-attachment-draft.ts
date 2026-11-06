@@ -34,9 +34,11 @@ export function useAttachmentDraft(
   chatId: string | null,
   preparation: string,
   settings: AttachmentSettings | undefined,
+  editId?: string,
 ): AttachmentDraft {
   const [drafts, setDrafts] = useState<Record<string, DraftAttachment[]>>({});
-  const items = chatId === null ? [] : (drafts[chatId] ?? readAttachments(chatId));
+  const draftKey = JSON.stringify([chatId, editId]);
+  const items = chatId === null ? [] : (drafts[draftKey] ?? readAttachments(chatId, editId));
   const requests = JSON.stringify(
     items.flatMap((item) =>
       item.summary === undefined
@@ -48,15 +50,16 @@ export function useAttachmentDraft(
   const update = useCallback(
     (id: string, change: (current: DraftAttachment[]) => DraftAttachment[]): void => {
       setDrafts((current) => {
-        const next = change(current[id] ?? readAttachments(id));
+        const key = JSON.stringify([id, editId]);
+        const next = change(current[key] ?? readAttachments(id, editId));
         const retained = next.flatMap((item) =>
           item.summary === undefined ? [] : [{ summary: item.summary, isFile: item.isFile }],
         );
-        saveDraftAttachments(id, retained);
-        return { ...current, [id]: next };
+        saveDraftAttachments(id, retained, editId);
+        return { ...current, [key]: next };
       });
     },
-    [],
+    [editId],
   );
 
   useEffect(() => {
@@ -178,8 +181,8 @@ export function useAttachmentDraft(
   };
 }
 
-function readAttachments(chatId: string): DraftAttachment[] {
-  return readDraftAttachments(chatId).map(({ summary, isFile }) => ({
+function readAttachments(chatId: string, editId?: string): DraftAttachment[] {
+  return readDraftAttachments(chatId, editId).map(({ summary, isFile }) => ({
     key: summary.id,
     name: summary.name,
     summary,

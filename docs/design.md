@@ -23,6 +23,8 @@ The message box keeps waiting messages in one `BoxedList` above its field. Each 
 
 Attachments use filled `PlaceRow` tiles with their delivery form and an original image thumbnail where supported. Remove sits beside each tile. Its detail uses `ModalDialog`, with original facts and prepared model input in `PlaceSection` sections. The Attachment settings and shared Notes envelope open from Session and reuse the profile editors. [Decision 0068](decisions/0068-message-attachments.md) defines their behavior.
 
+An edited prompt or retried reply has a compact `PlaceRow` tile beneath it when alternatives exist. It says Prompt or Reply with the selected number and total. Its popover uses `MenuList`, with a check and signal color for the selected choice. The menu states that files keep their current state. Editing uses the message box with a plain note and Cancel edit icon. Retry choices use the existing model menu in a dialog. [Decision 0069](decisions/0069-branches-in-a-chat.md) defines their identities and saved paths.
+
 ## Color
 
 - Text uses `--ink`, or `--muted` for what is secondary. `--faint` is too light to read, so it draws only lines and decoration.

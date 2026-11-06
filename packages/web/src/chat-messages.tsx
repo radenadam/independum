@@ -1,7 +1,9 @@
 import type {
   ApprovalRequest,
   ChatMessage,
+  ChatState,
   MessagePart,
+  ModelSummary,
   ThinkingPart,
   ToolCallPart,
 } from "independum/api-types";
@@ -15,14 +17,17 @@ import {
 } from "react";
 import { ApprovalActions } from "./approval-actions.tsx";
 import { AttachmentList } from "./attachment-list.tsx";
+import { BranchSwitcher } from "./branch-switcher.tsx";
 import styles from "./chat-messages.module.css";
 import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
+import { describeThinking } from "./describe-thinking.ts";
 import { approvalOf } from "./describe-tool-call.ts";
 import { IconButton } from "./icon-button.tsx";
 import { MarkdownText } from "./markdown-text.tsx";
 import { MessageTime } from "./message-time.tsx";
 import { prefersReducedMotion } from "./prefers-reduced-motion.ts";
+import { ReplyActions } from "./reply-actions.tsx";
 import { StepGroup } from "./step-group.tsx";
 import { ThinkingMark } from "./thinking-mark.tsx";
 import { ThoughtBox } from "./thought-box.tsx";
@@ -31,6 +36,11 @@ import { type Typing, useTypedLength } from "./use-typed-length.ts";
 
 /** Properties of the chat messages. */
 interface ChatMessagesProps {
+  chat: ChatState;
+  models: ModelSummary[] | undefined;
+  onEdit: (message: ChatMessage) => void;
+  onOpenModels: () => void;
+  onManageLogins: () => void;
   contextApprovals?: ApprovalRequest[];
   chatId: string | null;
   messages: ChatMessage[];
@@ -50,6 +60,11 @@ const replyTyping: Typing = { charactersPerSecond: 90, isCatchingUp: true };
  * sends to the top, with room below it for the reply.
  */
 export function ChatMessages({
+  chat,
+  models,
+  onEdit,
+  onOpenModels,
+  onManageLogins,
   contextApprovals,
   chatId,
   messages,
@@ -62,13 +77,16 @@ export function ChatMessages({
   const spacer = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const [isEndBelow, setIsEndBelow] = useState(false);
-  const seen = useRef<{ chatId: string | null; userCount: number } | undefined>(undefined);
+  const seen = useRef<
+    { chatId: string | null; selectionId: string | null; userCount: number } | undefined
+  >(undefined);
   const isAnchored = useRef(false);
   // Messages that arrive after the chat opens rise or type into view, but the ones it opened with
   // do not.
-  const [opened, setOpened] = useState({ chatId, messageCount: messages.length });
-  if (opened.chatId !== chatId) {
-    setOpened({ chatId, messageCount: messages.length });
+  const selectionId = chat.branchSelectionId ?? null;
+  const [opened, setOpened] = useState({ chatId, selectionId, messageCount: messages.length });
+  if (opened.chatId !== chatId || opened.selectionId !== selectionId) {
+    setOpened({ chatId, selectionId, messageCount: messages.length });
   }
   const userCount = messages.filter((message) => message.role === "user").length;
 
@@ -78,8 +96,8 @@ export function ChatMessages({
     if (scrollerElement === null || spacerElement === null) {
       return;
     }
-    if (seen.current?.chatId !== chatId) {
-      seen.current = { chatId, userCount };
+    if (seen.current?.chatId !== chatId || seen.current.selectionId !== selectionId) {
+      seen.current = { chatId, selectionId, userCount };
       isAnchored.current = false;
       spacerElement.style.setProperty("--spacer-height", "0px");
       scrollerElement.scrollTop = scrollerElement.scrollHeight;
@@ -195,7 +213,7 @@ export function ChatMessages({
               const { message } = turn;
               return (
                 <li
-                  key={`user-${turn.index}`}
+                  key={`${selectionId}-user-${turn.index}`}
                   className={
                     turn.index >= opened.messageCount ? `${styles.user} ${styles.new}` : styles.user
                   }
@@ -234,7 +252,22 @@ export function ChatMessages({
                       label="Copy message"
                       tipAlign="end"
                     />
+                    {message.entryId === undefined ? null : (
+                      <IconButton
+                        icon="edit"
+                        label="Edit message"
+                        onClick={() => onEdit(message)}
+                      />
+                    )}
                   </div>
+                  {message.entryId === undefined ? null : (
+                    <BranchSwitcher
+                      chat={chat}
+                      sourceId={message.entryId}
+                      kind="prompt"
+                      count={chat.branches?.[message.entryId]?.prompt}
+                    />
+                  )}
                 </li>
               );
             }
@@ -246,8 +279,11 @@ export function ChatMessages({
               );
             }
             const isCurrent = isReplying && turnIndex === turns.length - 1;
+            const source = turns[turnIndex - 1];
+            const sourceId = source?.type === "prompt" ? source.message.entryId : undefined;
+            const first = turn.messages[0];
             return (
-              <li key={`reply-${turn.index}`} className={styles.reply}>
+              <li key={`${selectionId}-reply-${turn.index}`} className={styles.reply}>
                 <Reply
                   messages={turn.messages}
                   live={isCurrent ? reply : []}
@@ -255,7 +291,29 @@ export function ChatMessages({
                   isLive={isCurrent || turn.index + turn.messages.length > opened.messageCount}
                   isStreaming={isCurrent}
                   isLatest={turnIndex === turns.length - 1}
+                  actions={
+                    sourceId === undefined ||
+                    first === undefined ||
+                    first.entryId === undefined ? undefined : (
+                      <ReplyActions
+                        chat={chat}
+                        sourceId={sourceId}
+                        first={first}
+                        models={models}
+                        onOpenModels={onOpenModels}
+                        onManageLogins={onManageLogins}
+                      />
+                    )
+                  }
                 />
+                {sourceId === undefined || isCurrent ? null : (
+                  <BranchSwitcher
+                    chat={chat}
+                    sourceId={sourceId}
+                    kind="reply"
+                    count={chat.branches?.[sourceId]?.reply}
+                  />
+                )}
               </li>
             );
           }),
@@ -308,6 +366,7 @@ type ReplyRun =
 
 /** Properties of a reply. */
 interface ReplyProps {
+  actions?: ReactElement | undefined;
   messages: ChatMessage[];
   live: MessagePart[];
   tools: ToolCalls;
@@ -318,7 +377,15 @@ interface ReplyProps {
 
 // A reply holds every turn of the agent after one prompt, and the turn in progress, whose parts take
 // the keys they keep once its message arrives.
-function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyProps): ReactElement {
+function Reply({
+  messages,
+  live,
+  tools,
+  isLive,
+  isStreaming,
+  isLatest,
+  actions,
+}: ReplyProps): ReactElement {
   const body = useRef<HTMLDivElement>(null);
   const keyed = [
     ...messages.flatMap((message, at) =>
@@ -417,27 +484,38 @@ function Reply({ messages, live, tools, isLive, isStreaming, isLatest }: ReplyPr
         ) : null}
       </div>
       {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
-      {text === "" || isTyping ? null : (
+      {isTyping ? null : (
         <div className={styles.actions} data-latest={isLatest} data-copy="skip">
-          <CopyButton
-            text={text}
-            html={() => clipboardHtml(bodyNode())}
-            label="Copy reply"
-            tipAlign="start"
-            options={[
-              { label: "Copy as Markdown", content: () => ({ text }) },
-              {
-                label: "Copy as plain text",
-                content: () => ({ text: clipboardText(bodyNode(), "plain") }),
-              },
-            ]}
-          />
+          {text === "" ? null : (
+            <CopyButton
+              text={text}
+              html={() => clipboardHtml(bodyNode())}
+              label="Copy reply"
+              tipAlign="start"
+              options={[
+                { label: "Copy as Markdown", content: () => ({ text }) },
+                {
+                  label: "Copy as plain text",
+                  content: () => ({ text: clipboardText(bodyNode(), "plain") }),
+                },
+              ]}
+            />
+          )}
+          {actions}
           {first === undefined ? null : (
             <span className={styles.when}>
               <MessageTime timestamp={first.timestamp} durationMs={durationMs} />
             </span>
           )}
         </div>
+      )}
+      {first?.attempt === undefined || isTyping ? null : (
+        <p className={styles.attempt} data-copy="skip">
+          {first.attempt.modelId},{" "}
+          {first.attempt.thinkingLevel === null
+            ? "Unknown effort"
+            : describeThinking(first.attempt.thinkingLevel)}
+        </p>
       )}
     </>
   );

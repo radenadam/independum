@@ -42,6 +42,14 @@ export function findElement<Props>(
   throw new Error("The component does not contain that element.");
 }
 
+/** Clicks a labeled action in the output of a component. */
+export function clickAction(tree: ReactElement, label: string): void {
+  findElement<{ onClick: () => void }>(
+    tree,
+    (element) => element.props.label === label && typeof element.props.onClick === "function",
+  ).props.onClick();
+}
+
 /** Renders one function component from an element returned by its parent. */
 export function renderElement<Props>(element: ReactElement<Props>): ReactNode {
   if (typeof element.type !== "function") {

@@ -1,6 +1,7 @@
+import { getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { type Context, Hono } from "hono";
-import type { ChatsEvent, ModelPrices, ModelSummary } from "./api-types.ts";
+import type { ChatsEvent, InputModel, ModelPrices, ModelSummary } from "./api-types.ts";
 import { ConfigurationError, validateChatSettings } from "./configuration-schema.ts";
 import type { ApprovalPersistence } from "./create-approvals.ts";
 import type { Chat, OpenChat } from "./create-chat.ts";
@@ -270,29 +271,46 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   active.post("/messages", async (context) => {
     const body = await contextBody(context);
+    const isBranch = body.kind === "edit" || body.kind === "retry";
     if (
-      body.kind !== "send" ||
+      (body.kind !== "send" && !isBranch) ||
       typeof body.id !== "string" ||
       !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.id) ||
       !Number.isSafeInteger(body.expectedRevision) ||
       (body.expectedRevision as number) < 0 ||
       (body.expectedLeafId !== null && typeof body.expectedLeafId !== "string") ||
-      (body.delivery !== "queue" && body.delivery !== "steer") ||
+      (!isBranch && body.delivery !== "queue" && body.delivery !== "steer") ||
       Object.keys(body).some(
         (key) =>
-          ![
-            "kind",
-            "id",
-            "expectedRevision",
-            "expectedLeafId",
-            "delivery",
-            "text",
-            "interpretation",
-            "previewId",
-            "approvalMode",
-            "attachmentIds",
-            "fileAttachmentIds",
-          ].includes(key),
+          !(
+            isBranch
+              ? [
+                  "kind",
+                  "id",
+                  "expectedRevision",
+                  "expectedLeafId",
+                  "sourceUserEntryId",
+                  "sourceAssistantEntryId",
+                  "model",
+                  "text",
+                  "approvalMode",
+                  "attachmentIds",
+                  "fileAttachmentIds",
+                ]
+              : [
+                  "kind",
+                  "id",
+                  "expectedRevision",
+                  "expectedLeafId",
+                  "delivery",
+                  "text",
+                  "interpretation",
+                  "previewId",
+                  "approvalMode",
+                  "attachmentIds",
+                  "fileAttachmentIds",
+                ]
+          ).includes(key),
       )
     ) {
       return context.json(
@@ -313,6 +331,69 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
         { code: "invalidAttachment", error: "Attachment ids must be arrays of strings." },
         400,
       );
+    }
+    if (isBranch) {
+      if (
+        typeof body.sourceUserEntryId !== "string" ||
+        (body.kind === "edit" &&
+          (typeof body.text !== "string" || body.sourceAssistantEntryId !== undefined)) ||
+        (body.kind === "retry" &&
+          (typeof body.sourceAssistantEntryId !== "string" ||
+            body.text !== undefined ||
+            body.attachmentIds !== undefined ||
+            body.fileAttachmentIds !== undefined)) ||
+        !isInputModel(body.model) ||
+        (body.approvalMode !== undefined &&
+          body.approvalMode !== "browser" &&
+          body.approvalMode !== "headless")
+      ) {
+        return context.json(
+          {
+            code: "invalidInput",
+            error:
+              "An edit or retry needs a saved prompt, a model choice, and its exact starting state.",
+          },
+          400,
+        );
+      }
+      return inputResponse(context, async () => {
+        const accepted = await context.get("chat").resubmit({
+          id: body.id as string,
+          kind: body.kind as "edit" | "retry",
+          sourceUserEntryId: body.sourceUserEntryId as string,
+          expectedRevision: body.expectedRevision as number,
+          expectedLeafId: body.expectedLeafId as string | null,
+          model: body.model as InputModel | null,
+          hasBrowserApprovals: body.approvalMode === "browser",
+          ...(typeof body.text === "string" ? { text: body.text } : {}),
+          ...(body.attachmentIds === undefined
+            ? {}
+            : { attachmentIds: body.attachmentIds as string[] }),
+          ...(body.fileAttachmentIds === undefined
+            ? {}
+            : { fileAttachmentIds: body.fileAttachmentIds as string[] }),
+          ...(typeof body.sourceAssistantEntryId === "string"
+            ? { sourceAssistantEntryId: body.sourceAssistantEntryId }
+            : {}),
+        });
+        if (!accepted) {
+          return context.json(
+            {
+              code: "chatUnavailable",
+              error: "The chat configuration needs repair before this input can be accepted.",
+            },
+            409,
+          );
+        }
+        return context.json(
+          {
+            inputId: body.id,
+            state: context.get("chat").inputState(body.id as string),
+            revision: context.get("chat").getState().pending.revision,
+          },
+          202,
+        );
+      });
     }
     if (
       typeof body.text !== "string" ||
@@ -348,7 +429,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
               id: body.id,
               expectedRevision: body.expectedRevision as number,
               expectedLeafId: body.expectedLeafId,
-              delivery: body.delivery,
+              delivery: body.delivery as "queue" | "steer",
               attachmentIds: (body.attachmentIds as string[] | undefined) ?? [],
               fileAttachmentIds: (body.fileAttachmentIds as string[] | undefined) ?? [],
             },
@@ -379,6 +460,65 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       return contextFailure(context, error, "The message cannot be sent.", 409);
     }
   });
+
+  active.get("/branches", (context) =>
+    inputResponse(context, async () => {
+      const source = context.req.query("sourceUserEntryId");
+      const kind = context.req.query("kind");
+      if (source === undefined || (kind !== "prompt" && kind !== "reply")) {
+        return context.json(
+          {
+            code: "invalidInput",
+            error: "Branch choices need a saved prompt and a prompt or reply kind.",
+          },
+          400,
+        );
+      }
+      return context.json({ choices: context.get("chat").branchChoices(source, kind) });
+    }),
+  );
+  active.post("/branch", (context) =>
+    inputResponse(context, async () => {
+      const body = await contextBody(context);
+      if (
+        Object.keys(body).some(
+          (key) =>
+            ![
+              "sourceUserEntryId",
+              "targetId",
+              "kind",
+              "expectedRevision",
+              "expectedLeafId",
+            ].includes(key),
+        ) ||
+        typeof body.sourceUserEntryId !== "string" ||
+        typeof body.targetId !== "string" ||
+        (body.kind !== "prompt" && body.kind !== "reply") ||
+        !Number.isSafeInteger(body.expectedRevision) ||
+        (body.expectedRevision as number) < 0 ||
+        (body.expectedLeafId !== null && typeof body.expectedLeafId !== "string")
+      ) {
+        return context.json(
+          {
+            code: "invalidInput",
+            error:
+              "A branch selection needs its saved prompt, target, kind, revision, and leaf id.",
+          },
+          400,
+        );
+      }
+      await context
+        .get("chat")
+        .selectBranch(
+          body.sourceUserEntryId,
+          body.targetId,
+          body.kind,
+          body.expectedRevision as number,
+          body.expectedLeafId,
+        );
+      return context.body(null, 204);
+    }),
+  );
 
   active.delete("/pending/:inputId", (context) =>
     inputResponse(context, async () => {
@@ -534,6 +674,23 @@ function inputFailure(context: Context, error: InputError): Response {
   return context.json({ code: error.code, error: error.message }, error.status);
 }
 
+function isInputModel(value: unknown): value is InputModel | null {
+  if (value === null) {
+    return true;
+  }
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.keys(value).every((key) => ["providerId", "modelId", "thinkingLevel"].includes(key)) &&
+    "providerId" in value &&
+    typeof value.providerId === "string" &&
+    "modelId" in value &&
+    typeof value.modelId === "string" &&
+    "thinkingLevel" in value &&
+    typeof value.thinkingLevel === "string"
+  );
+}
+
 async function inputResponse(
   context: Context,
   mutation: () => Promise<Response>,
@@ -592,6 +749,7 @@ function summaryOf(
     };
   }
   return {
+    thinkingLevels: getSupportedThinkingLevels(model),
     providerId: model.provider,
     providerName,
     id: model.id,

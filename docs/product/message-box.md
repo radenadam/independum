@@ -14,6 +14,10 @@ An empty chat shows the message box near the middle of the screen. Once it has m
 
 The floating surface lists waiting messages in one boxed list above the field, with at most three rows visible before scrolling. Each row shows the text and what happens next: Sends after this reply, Steers this reply at its next step, Sending now, or the exact reason it is held, followed by Resume to send while Resume is available. A row opens, with a chevron, its exact text, delivery boundary, captured model and effort, and held reason. Remove sits beside each row until handoff. The menu note names Enter and Ctrl+Enter only where a keyboard is likely. Resume sending explicitly releases held delivery. Submitting another prompt keeps delivery held. Waiting messages stay with their chat across navigation and server restart. The server and its files call them pending inputs.
 
+## Editing a prompt
+
+Edit message loads the saved submitted text into the existing field and preserves the ordinary draft. A note says that sending creates another branch. Cancel edit restores the ordinary draft. Submission uses the expected branch from when editing began, so another browser's selection produces a conflict and keeps the edit. Submitted command text stays literal. Retained attachments and file path choices load into the attachment list, where sources can be removed or added. Cancel restores the ordinary draft and its attachments. Saved inline image blocks remain attached, including an image-only legacy prompt. [The branch decision](../decisions/0069-branches-in-a-chat.md) defines the saved paths.
+
 ## Slash commands
 
 [Context controls](context.md#commands) defines command choices, editable previews, built-in actions, source capture, and literal slash input.

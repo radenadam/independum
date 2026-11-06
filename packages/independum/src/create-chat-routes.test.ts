@@ -14,10 +14,12 @@ import {
 } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Hono } from "hono";
-import { afterAll, expect, test } from "vitest";
+import { afterAll, expect, test, vi } from "vitest";
 import type {
   AgentSummary,
   ArchivedChatSummary,
+  BranchChoice,
+  BranchRequest,
   ChatEvent,
   ChatMessage,
   ChatState,
@@ -1425,3 +1427,380 @@ function expectEmptyChat(state: ChatState): void {
   expect(state.folder).toBe(startFolder);
   expect(state.isReplying).toBe(false);
 }
+
+async function settledBranch(): Promise<ChatState> {
+  let state: ChatState | undefined;
+  await vi.waitFor(async () => {
+    state = (await (await routes.request(chatPath(""))).json()) as ChatState;
+    expect(state.isReplying).toBe(false);
+    expect(state.pending.items).toHaveLength(0);
+  });
+  if (state === undefined) {
+    throw new Error("The chat did not settle.");
+  }
+  return state;
+}
+
+async function branchRequest(
+  input: Partial<BranchRequest>,
+): Promise<{ response: Response; body: Record<string, unknown> }> {
+  const state = (await (await routes.request(chatPath(""))).json()) as ChatState;
+  const body = {
+    id: randomUUID(),
+    expectedRevision: state.pending.revision,
+    expectedLeafId: state.leafId,
+    model: null,
+    ...input,
+  };
+  return {
+    response: await routes.request(chatPath("/messages"), {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify(body),
+    }),
+    body,
+  };
+}
+
+async function selectAlternative(
+  sourceUserEntryId: string,
+  targetId: string,
+  kind: "prompt" | "reply",
+): Promise<Response> {
+  const state = (await (await routes.request(chatPath(""))).json()) as ChatState;
+  return post(chatPath("/branch"), {
+    sourceUserEntryId,
+    targetId,
+    kind,
+    expectedRevision: state.pending.revision,
+    expectedLeafId: state.leafId,
+  });
+}
+
+test("edits and retries preserve original paths and saved descendant selections", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  faux.setResponses([fauxAssistantMessage("Original answer.")]);
+  await sendAndReadReply("Original prompt");
+  const original = await settledBranch();
+  const prompt = original.messages[0]?.entryId ?? "";
+  const reply = original.messages[1]?.entryId ?? "";
+  faux.setResponses([fauxAssistantMessage("Descendant answer.")]);
+  await sendAndReadReply("Continue the original");
+  await settledBranch();
+  faux.setResponses([fauxAssistantMessage("Edited answer.")]);
+  const edit = await branchRequest({
+    kind: "edit",
+    sourceUserEntryId: prompt,
+    text: "/literal edited prompt",
+  });
+  expect(edit.response.status).toBe(202);
+  const edited = await settledBranch();
+  expect(edited.messages.map(textOf)).toEqual(["/literal edited prompt", "Edited answer."]);
+  const editedId = edited.messages[0]?.entryId ?? "";
+  expect(edited.branches?.[editedId]?.prompt).toEqual({ selected: 2, count: 2 });
+  expect((await selectAlternative(editedId, prompt, "prompt")).status).toBe(204);
+  expect((await settledBranch()).messages.map(textOf)).toEqual([
+    "Original prompt",
+    "Original answer.",
+    "Continue the original",
+    "Descendant answer.",
+  ]);
+  faux.setResponses([fauxAssistantMessage("Retried answer.")]);
+  const retry = await branchRequest({
+    kind: "retry",
+    sourceUserEntryId: prompt,
+    sourceAssistantEntryId: reply,
+  });
+  expect(retry.response.status).toBe(202);
+  const retried = await settledBranch();
+  expect(retried.messages.map(textOf)).toEqual(["Original prompt", "Retried answer."]);
+  const retryId = retried.messages[0]?.entryId ?? "";
+  expect(retried.branches?.[retryId]?.reply).toEqual({ selected: 2, count: 2 });
+  expect(retried.messages[1]?.attempt).toMatchObject({
+    providerId: "faux",
+    modelId: "faux-thinker",
+  });
+  expect((await selectAlternative(retryId, prompt, "reply")).status).toBe(204);
+  const restored = await settledBranch();
+  expect(restored.messages.map(textOf)).toContain("Continue the original");
+  expect((await selectAlternative(prompt, editedId, "prompt")).status).toBe(204);
+  expect((await selectAlternative(editedId, prompt, "prompt")).status).toBe(204);
+  expect((await settledBranch()).messages.map(textOf)).toContain("Continue the original");
+  const saved = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  expect(saved.lastRequest).toBeNull();
+  const reopened = SessionManager.open(saved.files.chat ?? "");
+  expect(
+    reopened
+      .buildSessionContext()
+      .messages.filter((message) => message.role === "user")
+      .map((message) =>
+        typeof message.content === "string"
+          ? message.content
+          : message.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join(""),
+      ),
+  ).toEqual(["Original prompt", "Continue the original"]);
+  expect(
+    reopened
+      .getEntries()
+      .filter((entry) => entry.type === "message" && entry.message.role === "user"),
+  ).toHaveLength(4);
+  expect(reopened.buildSessionContext().messages.some((message) => message.role === "custom")).toBe(
+    false,
+  );
+  const choices = (await (
+    await routes.request(chatPath(`/branches?sourceUserEntryId=${prompt}&kind=reply`))
+  ).json()) as { choices: BranchChoice[] };
+  expect(choices.choices.map((choice) => choice.id)).toEqual([prompt, retryId]);
+});
+
+test("branch submissions are idempotent and reject stale state and invalid reply choices", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  faux.setResponses([fauxAssistantMessage("Saved answer.")]);
+  await sendAndReadReply("Saved prompt");
+  const state = await settledBranch();
+  const sourceUserEntryId = state.messages[0]?.entryId ?? "";
+  const sourceAssistantEntryId = state.messages[1]?.entryId ?? "";
+  const request = { kind: "retry", sourceUserEntryId, sourceAssistantEntryId } as const;
+  expect(
+    (await branchRequest({ ...request, expectedRevision: state.pending.revision + 1 })).response
+      .status,
+  ).toBe(409);
+  expect(
+    (await branchRequest({ ...request, sourceAssistantEntryId: "wrong" })).response.status,
+  ).toBe(404);
+  expect(
+    (
+      await branchRequest({
+        ...request,
+        model: { providerId: "faux", modelId: "faux-thinker", thinkingLevel: "not-supported" },
+      })
+    ).response.status,
+  ).toBe(400);
+  expect((await branchRequest({ ...request, text: "Replacement" })).response.status).toBe(400);
+  faux.setResponses([fauxAssistantMessage("Retry once.")]);
+  const accepted = await branchRequest(request);
+  expect(accepted.response.status).toBe(202);
+  await settledBranch();
+  const repeat = await routes.request(chatPath("/messages"), {
+    method: "POST",
+    headers: json,
+    body: JSON.stringify(accepted.body),
+  });
+  expect(repeat.status).toBe(202);
+  expect(
+    (
+      await routes.request(chatPath("/messages"), {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          ...accepted.body,
+          model: { providerId: "faux", modelId: "faux-thinker", thinkingLevel: "low" },
+        }),
+      })
+    ).status,
+  ).toBe(409);
+  const saved = (await (await routes.request(chatPath("/context"))).json()) as ContextSummary;
+  expect(
+    SessionManager.open(saved.files.chat ?? "")
+      .getEntries()
+      .filter((entry) => entry.type === "message" && entry.message.role === "user"),
+  ).toHaveLength(2);
+});
+
+test("retry keeps legacy inline images and validates explicit choices without changing the prompt", async () => {
+  const manager = SessionManager.create(startFolder, join(directory, "sessions"));
+  manager.appendModelChange("faux", "faux-thinker");
+  manager.appendThinkingLevelChange("low");
+  const image = {
+    type: "image",
+    mimeType: "image/png",
+    data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  } as const;
+  const sourceUserEntryId = manager.appendMessage({
+    role: "user",
+    content: [image],
+    timestamp: Date.now(),
+  });
+  const sourceAssistantEntryId = manager.appendMessage({
+    ...fauxAssistantMessage("An image answer."),
+    provider: "faux",
+    model: "faux-thinker",
+  });
+  chatId = manager.getSessionId();
+  let receivedImage = false;
+  faux.setResponses([
+    (context) => {
+      const prompt = context.messages.findLast((message) => message.role === "user");
+      receivedImage =
+        Array.isArray(prompt?.content) &&
+        prompt.content.some((part) => part.type === "image" && part.data === image.data);
+      return fauxAssistantMessage("Retried image.");
+    },
+  ]);
+  expect(
+    (
+      await branchRequest({
+        kind: "retry",
+        sourceUserEntryId,
+        sourceAssistantEntryId,
+        model: { providerId: "faux", modelId: "faux-thinker", thinkingLevel: "high" },
+      })
+    ).response.status,
+  ).toBe(202);
+  const state = await settledBranch();
+  expect(receivedImage).toBe(true);
+  expect(state.messages[0]).toMatchObject({ imageCount: 1, submittedText: "" });
+  expect(state.messages[1]?.attempt?.thinkingLevel).toBe("high");
+  const saved = SessionManager.open(manager.getSessionFile() ?? "");
+  expect(
+    saved
+      .getEntries()
+      .flatMap((entry) =>
+        entry.type === "message" && entry.message.role === "user"
+          ? [
+              typeof entry.message.content === "string"
+                ? []
+                : entry.message.content.filter((part) => part.type === "image"),
+            ]
+          : [],
+      ),
+  ).toEqual([[image], [image]]);
+});
+
+test("branch mutations refuse running replies and held pending work", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  faux.setResponses([fauxAssistantMessage("Saved answer.")]);
+  await sendAndReadReply("Saved branch prompt");
+  const saved = await settledBranch();
+  const sourceUserEntryId = saved.messages[0]?.entryId ?? "";
+  const sourceAssistantEntryId = saved.messages[1]?.entryId ?? "";
+  const waiting = Promise.withResolvers<AssistantMessage>();
+  faux.setResponses([() => waiting.promise]);
+  await post(chatPath("/messages"), { text: "Keep working" });
+  await vi.waitFor(async () =>
+    expect(((await (await routes.request(chatPath(""))).json()) as ChatState).isReplying).toBe(
+      true,
+    ),
+  );
+  expect(
+    (await branchRequest({ kind: "retry", sourceUserEntryId, sourceAssistantEntryId })).response
+      .status,
+  ).toBe(409);
+  expect((await selectAlternative(sourceUserEntryId, sourceUserEntryId, "reply")).status).toBe(409);
+  await post(chatPath("/messages"), { text: "Waiting work" });
+  const stopped = post(chatPath("/stop"), {});
+  waiting.resolve(fauxAssistantMessage("Finished current work."));
+  await stopped;
+  const held = (await (await routes.request(chatPath(""))).json()) as ChatState;
+  expect(held.pending.isPaused).toBe(true);
+  expect(held.pending.items).toHaveLength(1);
+  expect(
+    (await branchRequest({ kind: "edit", sourceUserEntryId, text: "Edited while held" })).response
+      .status,
+  ).toBe(409);
+  await routes.request(chatPath(`/pending/${held.pending.items[0]?.id ?? ""}`), {
+    method: "DELETE",
+  });
+});
+
+test("selecting a user-only alternative preserves its literal leaf after reopening", async () => {
+  const manager = SessionManager.create(startFolder, join(directory, "sessions"));
+  manager.appendModelChange("faux", "faux-thinker");
+  manager.appendThinkingLevelChange("low");
+  const original = manager.appendMessage({
+    role: "user",
+    content: "Interrupted prompt",
+    timestamp: Date.now(),
+  });
+  chatId = manager.getSessionId();
+  faux.setResponses([fauxAssistantMessage("Edited reply.")]);
+  expect(
+    (
+      await branchRequest({
+        kind: "edit",
+        sourceUserEntryId: original,
+        text: "Edited interrupted prompt",
+      })
+    ).response.status,
+  ).toBe(202);
+  const edited = await settledBranch();
+  expect(
+    (await selectAlternative(edited.messages[0]?.entryId ?? "", original, "prompt")).status,
+  ).toBe(204);
+  expect((await settledBranch()).messages.map(textOf)).toEqual(["Interrupted prompt"]);
+  const reopened = SessionManager.open(manager.getSessionFile() ?? "");
+  expect(
+    reopened.buildSessionContext().messages.filter((message) => message.role === "user"),
+  ).toHaveLength(1);
+  faux.setResponses([fauxAssistantMessage("Continued.")]);
+  await sendAndReadReply("Continue this path");
+  expect((await settledBranch()).messages.map(textOf)).toEqual([
+    "Interrupted prompt",
+    "Continue this path",
+    "Continued.",
+  ]);
+});
+
+test("retry uses the original model and effort with current agent settings", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  await put(chatPath("/thinking"), { level: "low" });
+  faux.setResponses([fauxAssistantMessage("Original setup.")]);
+  await sendAndReadReply("//literal saved prompt");
+  const original = await settledBranch();
+  expect(
+    (await putProfileSettings({ texts: { systemPrompt: "Current retry setup." } })).status,
+  ).toBe(200);
+  await chooseModel("faux", "faux-model");
+  let currentPrompt = "";
+  faux.setResponses([
+    (context) => {
+      currentPrompt = getCurrentSystemPrompt(context.messages);
+      return fauxAssistantMessage("Current setup.");
+    },
+  ]);
+  expect(
+    (
+      await branchRequest({
+        kind: "retry",
+        sourceUserEntryId: original.messages[0]?.entryId ?? "",
+        sourceAssistantEntryId: original.messages[1]?.entryId ?? "",
+      })
+    ).response.status,
+  ).toBe(202);
+  const retried = await settledBranch();
+  expect(retried.messages.map(textOf)).toEqual(["/literal saved prompt", "Current setup."]);
+  expect(currentPrompt).toContain("Current retry setup.");
+  expect(retried.messages[1]?.attempt).toEqual({
+    providerId: "faux",
+    modelId: "faux-thinker",
+    thinkingLevel: "low",
+  });
+  expect(textOf(retried.messages[0])).toBe("/literal saved prompt");
+  await putProfileSettings({ texts: { systemPrompt: null } });
+});
+
+test("changing model while editing keeps the captured input boundary valid", async () => {
+  await startNew();
+  await chooseModel("faux", "faux-thinker");
+  faux.setResponses([fauxAssistantMessage("First choice.")]);
+  await sendAndReadReply("Choose before resending");
+  const original = await settledBranch();
+  await chooseModel("faux", "faux-model");
+  faux.setResponses([fauxAssistantMessage("Changed choice.")]);
+  expect(
+    (
+      await branchRequest({
+        kind: "edit",
+        sourceUserEntryId: original.messages[0]?.entryId ?? "",
+        text: "Edited with another model",
+        expectedRevision: original.pending.revision,
+        expectedLeafId: original.leafId,
+      })
+    ).response.status,
+  ).toBe(202);
+  expect((await settledBranch()).messages[1]?.attempt?.modelId).toBe("faux-model");
+});

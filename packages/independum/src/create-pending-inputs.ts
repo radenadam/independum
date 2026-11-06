@@ -382,7 +382,9 @@ function isPendingFile(value: unknown, chatId: string): value is PendingFile {
         ["waiting", "handingOff", "held"].includes(input.state) &&
         (input.reason === null || typeof input.reason === "string") &&
         typeof input.text === "string" &&
-        (input.text.trim() !== "" || (input.attachmentIds?.length ?? 0) > 0) &&
+        (input.text.trim() !== "" ||
+          (input.attachmentIds?.length ?? 0) > 0 ||
+          input.branch !== undefined) &&
         (input.attachmentIds === undefined ||
           (Array.isArray(input.attachmentIds) &&
             input.attachmentIds.every((id) => typeof id === "string"))) &&
@@ -406,6 +408,13 @@ function isPendingFile(value: unknown, chatId: string): value is PendingFile {
                 (source.encoding === null ||
                   ["utf-8", "utf-16le", "utf-16be"].includes(source.encoding)),
             ))) &&
+        (input.branch === undefined ||
+          (typeof input.branch === "object" &&
+            input.branch !== null &&
+            (input.branch.kind === "edit" || input.branch.kind === "retry") &&
+            typeof input.branch.sourceUserEntryId === "string" &&
+            (input.branch.sourceAssistantEntryId === undefined ||
+              typeof input.branch.sourceAssistantEntryId === "string"))) &&
         typeof input.hasBrowserApprovals === "boolean" &&
         (input.submission === undefined ||
           (typeof input.submission === "object" &&

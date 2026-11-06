@@ -1,6 +1,8 @@
 import type {
   AgentSummary,
   ArchivedChatSummary,
+  BranchChoice,
+  BranchRequest,
   ChatConfiguration,
   ChatEvent,
   ChatState,
@@ -169,6 +171,50 @@ export async function sendMessage(
     },
   });
   await expectSuccess(response, "The message was not sent.");
+}
+
+/** Accepts an edit or retry without expanding its already submitted text again. */
+export async function resubmitMessage(id: string, input: BranchRequest): Promise<void> {
+  const { hasBrowserApprovals: _hasBrowserApprovals, ...body } = input;
+  await expectSuccess(
+    await requestApi(chatPath(id, "/messages"), { body: { ...body, approvalMode: "browser" } }),
+    "The branch could not start.",
+  );
+}
+
+/** Loads alternatives only when their tile opens. */
+export async function fetchBranchChoices(
+  id: string,
+  sourceId: string,
+  kind: "prompt" | "reply",
+): Promise<BranchChoice[]> {
+  const result = await readResponse<{ choices: BranchChoice[] }>(
+    await requestApi(
+      chatPath(id, `/branches?sourceUserEntryId=${encodeURIComponent(sourceId)}&kind=${kind}`),
+    ),
+  );
+  return result.choices;
+}
+
+/** Selects a saved descendant path at the expected shared state. */
+export async function selectChatBranch(
+  chat: ChatState,
+  sourceId: string,
+  targetId: string,
+  kind: "prompt" | "reply",
+): Promise<void> {
+  await expectSuccess(
+    await requestApi(chatPath(chat.id, "/branch"), {
+      body: {
+        sourceUserEntryId: sourceId,
+        targetId,
+        kind,
+        expectedRevision: chat.pending.revision,
+        expectedLeafId: chat.leafId,
+      },
+    }),
+    "The branch could not be selected.",
+  );
 }
 
 /** Returns a complete state after a conflicting submission. */

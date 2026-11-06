@@ -8,7 +8,7 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai";
 import { expect, test, vi } from "vitest";
-import type { ChatState, InputDelivery, InputOptions } from "./api-types.ts";
+import type { BranchRequest, ChatState, InputDelivery, InputOptions } from "./api-types.ts";
 import { validateUserSettings } from "./configuration-schema.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
@@ -19,6 +19,10 @@ import { builtInAttachments } from "./read-attachment-settings.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("input-delivery");
+const pixel = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
 
 async function setup(inputLimits?: { images: { maxPerRequest: number } }) {
   const directory = join(parent, randomUUID());
@@ -99,10 +103,7 @@ test("waiting messages carry each attachment form through steer and follow-up ha
     { attachments: { ...builtInAttachments, resizeImages: false } },
     chats.profiles.profile(reference, projectIdOf(folder)).revision,
   );
-  const pixel = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-    "base64",
-  );
+
   const sources = [];
   for (const [name, mimeType, bytes] of [
     ["note.txt", "text/plain", Buffer.from("Attached text.\r\n")],
@@ -206,6 +207,167 @@ test("waiting messages carry each attachment form through steer and follow-up ha
   }
 });
 
+test("edits and retries retain attachment sources and file choices without duplicating images", async () => {
+  const { chats, chat, faux, models, directory, folder } = await setup();
+  const sources = [
+    await chat.uploadAttachment("note.txt", "text/plain", new Response("Attached text.\r\n").body),
+    await chat.uploadAttachment("pixel.png", "image/png", new Response(new Uint8Array(pixel)).body),
+  ];
+  const ids = sources.map((source) => source.id);
+  const textId = ids[0] ?? "";
+  const imageId = ids[1] ?? "";
+  const retainedForms = [
+    [textId, true],
+    [imageId, false],
+  ];
+  let retriedImages = 0;
+  faux.setResponses([
+    fauxAssistantMessage("Original."),
+    fauxAssistantMessage("Resent."),
+    (context) => {
+      const prompt = context.messages.findLast((message) => message.role === "user");
+      retriedImages = Array.isArray(prompt?.content)
+        ? prompt.content.filter((part) => part.type === "image").length
+        : 0;
+      return fauxAssistantMessage("Retried.");
+    },
+    fauxAssistantMessage("Changed attachments."),
+  ]);
+  async function settled(id: string): Promise<ChatState> {
+    await vi.waitFor(() => expect(chat.inputState(id)).toBe("delivered"));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    return chat.getState();
+  }
+  function request(): Pick<BranchRequest, "id" | "expectedRevision" | "expectedLeafId" | "model"> {
+    const options = optionsFor(chat);
+    return {
+      id: options.id,
+      expectedRevision: options.expectedRevision,
+      expectedLeafId: options.expectedLeafId,
+      model: null,
+    };
+  }
+  try {
+    const original = { ...optionsFor(chat), attachmentIds: ids, fileAttachmentIds: [textId] };
+    expect(await chat.send("", "literal", undefined, false, original)).toBe(true);
+    const first = (await settled(original.id)).messages[0]?.entryId ?? "";
+    const edit = { ...request(), kind: "edit", sourceUserEntryId: first, text: "" } as const;
+    expect(await chat.resubmit(edit)).toBe(true);
+    expect(chat.getState().pending.items[0]).toMatchObject({
+      attachmentIds: ids,
+      fileAttachmentIds: [textId],
+      branch: { kind: "edit" },
+    });
+    const resent = await settled(edit.id);
+    const source = resent.messages[0]?.entryId ?? "";
+    expect(resent.messages[0]?.attachments?.map((attachment) => attachment.id)).toEqual(ids);
+    expect(resent.messages[0]?.imageCount).toBe(0);
+    const retry = {
+      ...request(),
+      kind: "retry",
+      sourceUserEntryId: source,
+      sourceAssistantEntryId: resent.messages[1]?.entryId ?? "",
+    } as const;
+    await expect(chat.resubmit({ ...retry, attachmentIds: [] })).rejects.toMatchObject({
+      status: 400,
+    });
+    expect(await chat.resubmit(retry)).toBe(true);
+    const retried = await settled(retry.id);
+    expect(
+      retried.messages[0]?.attachments?.map((attachment) => [attachment.id, attachment.isFile]),
+    ).toEqual(retainedForms);
+    expect(retriedImages).toBe(1);
+    const added = await chat.uploadAttachment(
+      "added.txt",
+      "text/plain",
+      new Response("New inline text.").body,
+    );
+    const changed: BranchRequest = {
+      ...request(),
+      kind: "edit",
+      sourceUserEntryId: retried.messages[0]?.entryId ?? "",
+      text: "/literal edit",
+      attachmentIds: [textId, added.id],
+      fileAttachmentIds: [],
+    };
+    const routes = createChatRoutes(chats, models);
+    const response = await routes.request(`/chats/${retried.id}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(changed),
+    });
+    expect(response.status).toBe(202);
+    const final = await settled(changed.id);
+    expect(
+      final.messages[0]?.attachments?.map((attachment) => [attachment.id, attachment.isFile]),
+    ).toEqual([
+      [textId, false],
+      [added.id, false],
+    ]);
+    expect(final.messages[0]?.submittedText).toBe("/literal edit");
+    const invalid = await routes.request(`/chats/${final.id}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        ...request(),
+        kind: "retry",
+        sourceUserEntryId: final.messages[0]?.entryId,
+        sourceAssistantEntryId: final.messages[1]?.entryId,
+        attachmentIds: [],
+      }),
+    });
+    expect(invalid.status).toBe(400);
+    await chat.stop();
+    const heldRetry: BranchRequest = {
+      ...request(),
+      kind: "retry",
+      sourceUserEntryId: final.messages[0]?.entryId ?? "",
+      sourceAssistantEntryId: final.messages[1]?.entryId ?? "",
+    };
+    expect(await chat.resubmit(heldRetry)).toBe(true);
+    await chats.stopAll();
+    const reopened = await createChat({ models, directory, folder });
+    try {
+      const selected = await reopened.open(final.id);
+      if (selected === undefined) {
+        throw new Error("The attachment branch did not reopen.");
+      }
+      expect(selected.getState().pending.items).toMatchObject([
+        {
+          attachmentIds: changed.attachmentIds,
+          fileAttachmentIds: [],
+          state: "held",
+          branch: { kind: "retry" },
+        },
+      ]);
+      faux.setResponses([fauxAssistantMessage("Resumed branch.")]);
+      await selected.resumePending();
+      await vi.waitFor(() => expect(selected.inputState(heldRetry.id)).toBe("delivered"));
+      await vi.waitFor(() => expect(selected.getState().isReplying).toBe(false));
+      expect(
+        selected.getState().messages[0]?.attachments?.map((attachment) => attachment.id),
+      ).toEqual(changed.attachmentIds);
+      const state = selected.getState();
+      await selected.selectBranch(
+        state.messages[0]?.entryId ?? "",
+        first,
+        "prompt",
+        state.pending.revision,
+        state.leafId,
+      );
+      expect(
+        selected
+          .getState()
+          .messages[0]?.attachments?.map((attachment) => [attachment.id, attachment.isFile]),
+      ).toEqual(retainedForms);
+    } finally {
+      await reopened.stopAll();
+    }
+  } finally {
+    await chats.stopAll();
+  }
+});
+
 test("attachment-only waiting inputs remain readable without approvals after restart", async () => {
   const { chats, chat, faux, models, directory, folder } = await setup();
   const source = await chat.uploadAttachment(
@@ -288,10 +450,7 @@ test("attachment routes bound uploads and reject missing sources and empty file 
 
 test("image limits include retained history before forwarding a request", async () => {
   const { chats, chat, faux } = await setup({ images: { maxPerRequest: 1 } });
-  const pixel = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
-    "base64",
-  );
+
   const source = await chat.uploadAttachment(
     "history.png",
     "image/png",

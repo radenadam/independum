@@ -1,0 +1,10 @@
+.switcher {
+  position: relative;
+  width: min(100%, 360px);
+  margin-top: 8px;
+}
+
+.note {
+  composes: note from "./place-frame.module.css";
+  padding: 10px;
+}

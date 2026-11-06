@@ -58,6 +58,7 @@ export interface ProviderSummary {
  * requests go, its limits, its prices, and how long its provider keeps the prompt cache.
  */
 export interface ModelSummary {
+  thinkingLevels?: string[];
   providerId: string;
   providerName: string;
   id: string;
@@ -191,6 +192,9 @@ export interface RunningCommand {
  */
 export interface ChatMessage {
   attachments?: AttachmentPreview[];
+  attempt?: InputModel | undefined;
+  submittedText?: string;
+  imageCount?: number;
   entryId?: string;
   isSteered?: boolean;
   role: "user" | "assistant" | "note";
@@ -204,6 +208,9 @@ export interface ChatMessage {
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
   attachmentSettings?: AttachmentSettings;
+  branchSelectionId?: string | null;
+  branches?: Record<string, { prompt: BranchCount; reply: BranchCount }>;
+  branchBlockedReason?: string | null;
   pending: PendingInputsState;
   leafId: string | null;
   whileReplying: InputDelivery;
@@ -372,11 +379,52 @@ export interface UserSettingsDocument {
 /** The boundary at which a pending input reaches Pi. */
 export type InputDelivery = "queue" | "steer";
 
+/** The model and exact effort captured for one input. */
+export interface InputModel {
+  providerId: string;
+  modelId: string;
+  thinkingLevel: string | null;
+}
+
+/** The saved prompt that an edit or retry branches from. */
+export interface BranchInput {
+  kind: "edit" | "retry";
+  sourceUserEntryId: string;
+  sourceAssistantEntryId?: string;
+}
+
+/** The position of the selected prompt or reply among its alternatives. */
+export interface BranchCount {
+  selected: number;
+  count: number;
+}
+
+/** One saved prompt variant or reply attempt in creation order. */
+export interface BranchChoice {
+  id: string;
+  label: string;
+  detail: string;
+  isCurrent: boolean;
+}
+
+/** A durable edit or retry with its expected shared chat state. */
+export interface BranchRequest extends BranchInput {
+  attachmentIds?: string[];
+  fileAttachmentIds?: string[];
+  id: string;
+  expectedRevision: number;
+  expectedLeafId: string | null;
+  model: InputModel | null;
+  text?: string;
+  hasBrowserApprovals?: boolean;
+}
+
 /** A durable submission that Pi has not saved as a user message. */
 export interface PendingInput {
   attachmentIds?: string[];
   fileAttachmentIds?: string[];
   attachments?: AttachmentSummary[];
+  branch?: BranchInput;
   id: string;
   sequence: number;
   createdAt: number;
@@ -384,7 +432,7 @@ export interface PendingInput {
   state: "waiting" | "handingOff" | "held";
   reason: string | null;
   text: string;
-  model: { providerId: string; modelId: string; thinkingLevel: string | null };
+  model: InputModel;
   hasBrowserApprovals: boolean;
   command: ComposePreview | null;
   submission?: { operationId: string; submissionId: string };

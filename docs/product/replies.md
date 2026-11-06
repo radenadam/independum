@@ -24,6 +24,8 @@ A background command's completion note shows the text sent to the model, includi
 
 The user message copy button copies its text. A completed reply with text offers formatted HTML with Markdown as the plain text clipboard content, plus explicit Markdown and plain text choices. Reply copying excludes step boxes, thoughts, notes, controls, timestamps, and errors. It joins only the text parts. The action appears after streaming and typing finish and shows the reply's start time and duration when known.
 
+User messages offer Edit message beside Copy. A completed reply to a user prompt has one Reply actions menu for all its turns, including a reply that only reports an error. Retry preserves its submitted prompt and starts another attempt using current agent settings. Retry with another model or effort opens a dialog whose choices stay local until submission. Every saved attempt shows its model and recorded effort, or Unknown effort. Prompt and reply alternatives use [the branch tiles](chats.md#branches). Notes do not acquire a retry for an unrelated earlier prompt.
+
 Selection copying supplies Markdown and HTML while omitting marked step boxes and controls. A selection inside a code block keeps the browser's native copying. Code blocks have their own copy control.
 
 [Attachments](attachments.md) show beside user text as delivery tiles. Copy message includes their names and inline text. Attachment controls, previews, and harness details stay outside reply copying and selection copying.

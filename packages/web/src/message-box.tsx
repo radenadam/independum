@@ -1,5 +1,7 @@
 import type {
+  AttachmentPreview,
   AttachmentSettings,
+  BranchRequest,
   ChatState,
   ComposePreview,
   ContextRevision,
@@ -13,7 +15,7 @@ import { builtInSlashCommands } from "independum/read-context-settings";
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
 import { AttachmentList } from "./attachment-list.tsx";
 import { changeInputDelivery, composeMessage, fetchResources, runSlashAction } from "./chat-api.ts";
-import { readDraft, saveDraft } from "./chat-draft.ts";
+import { type ChatDraft, readDraft, saveDraft } from "./chat-draft.ts";
 import { ChoiceGroup } from "./choice-group.tsx";
 import { CommandPreview } from "./command-preview.tsx";
 import { ContextMeter } from "./context-meter.tsx";
@@ -48,6 +50,19 @@ const deliveryLabels: Record<InputDelivery, string> = {
 interface MessageBoxProps {
   contextVersion?: number;
   attachmentSettings?: AttachmentSettings | undefined;
+  editRequest?:
+    | {
+        chatId: string;
+        sourceUserEntryId: string;
+        text: string;
+        expectedLeafId: string | null;
+        expectedRevision: number;
+        at: number;
+        imageCount: number;
+        attachments?: AttachmentPreview[];
+      }
+    | undefined;
+  onEditSend?: (request: BranchRequest) => Promise<void>;
   chatId: string | null;
   model: ChatState["model"];
   thinking: ChatState["thinking"];
@@ -88,6 +103,8 @@ interface MessageBoxProps {
 export function MessageBox({
   contextVersion,
   attachmentSettings,
+  editRequest,
+  onEditSend,
   chatId,
   model,
   thinking,
@@ -113,7 +130,7 @@ export function MessageBox({
   runningCount,
   onOpenCommands,
 }: MessageBoxProps): ReactElement {
-  const [draft, setDraft] = useState(() => ({ chatId, text: readDraft(chatId) }));
+  const [draft, setDraft] = useState(() => ({ chatId, ...readDraft(chatId) }));
   const [preview, setPreview] = useState<ComposePreview | undefined>();
   const [catalog, setCatalog] = useState<ContextRevision | undefined>();
   const [commandFailure, setCommandFailure] = useState<string | undefined>();
@@ -124,6 +141,7 @@ export function MessageBox({
     chatId,
     `${model?.providerId}/${model?.id}/${contextVersion ?? ""}/${JSON.stringify(attachmentSettings)}`,
     attachmentSettings,
+    draft.chatId === chatId ? draft.edit?.id : readDraft(chatId).edit?.id,
   );
   const picker = useRef<HTMLInputElement>(null);
   const submission = useRef<
@@ -142,7 +160,7 @@ export function MessageBox({
   currentChat.current = chatId;
   // Each chat keeps its own draft, so opening another chat swaps the text in the field.
   if (draft.chatId !== chatId) {
-    setDraft({ chatId, text: readDraft(chatId) });
+    setDraft({ chatId, ...readDraft(chatId) });
     setPreview(undefined);
     setIsCommandMenuOpen(false);
     setCatalog(undefined);
@@ -154,7 +172,9 @@ export function MessageBox({
   );
   const field = useRef<HTMLTextAreaElement>(null);
   const isReady =
-    (draft.text.trim() !== "" || attachmentDraft.items.length > 0) &&
+    (draft.text.trim() !== "" ||
+      attachmentDraft.items.length > 0 ||
+      (draft.edit?.imageCount ?? 0) > 0) &&
     attachmentDraft.isReady &&
     model !== null &&
     !isSubmitting;
@@ -165,6 +185,39 @@ export function MessageBox({
           (candidate) => candidate.providerId === model.providerId && candidate.id === model.id,
         )?.name ?? model.id);
   const project = projects.find((candidate) => candidate.folder === folder);
+
+  useEffect(() => {
+    if (editRequest === undefined || editRequest.chatId !== chatId) {
+      return;
+    }
+    const current = readDraft(chatId);
+    draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
+    submission.current = undefined;
+    const next: ChatDraft = {
+      version: 1,
+      text: editRequest.text,
+      attachments: (editRequest.attachments ?? []).map(
+        ({ id, name, mimeType, bytes, textBytes, kind, encoding, isFile }) => ({
+          summary: { id, name, mimeType, bytes, textBytes, kind, encoding },
+          isFile,
+        }),
+      ),
+      edit: {
+        id: crypto.randomUUID(),
+        sourceUserEntryId: editRequest.sourceUserEntryId,
+        expectedLeafId: editRequest.expectedLeafId,
+        expectedRevision: editRequest.expectedRevision,
+        ordinaryText: current.edit?.ordinaryText ?? current.text,
+        ordinaryAttachments: current.edit?.ordinaryAttachments ?? current.attachments,
+        imageCount: editRequest.imageCount,
+      },
+    };
+    saveDraft(chatId, next);
+    setDraft((current) => (current.chatId === chatId ? { chatId, ...next } : current));
+    setPreview(undefined);
+    setIsCommandMenuOpen(false);
+    field.current?.focus();
+  }, [editRequest, chatId]);
 
   // The field takes the cursor whenever another chat opens, when a keyboard is likely.
   useEffect(() => {
@@ -200,8 +253,32 @@ export function MessageBox({
 
   function changeDraft(text: string): void {
     draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
-    setDraft({ chatId, text });
-    saveDraft(chatId, text);
+    const next = { ...draft, ...readDraft(chatId), text };
+    setDraft(next);
+    saveDraft(chatId, next);
+  }
+
+  function addAttachments(files: File[]): void {
+    draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
+    attachmentDraft.add(files);
+  }
+
+  function finishEdit(): ChatDraft {
+    draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
+    submission.current = undefined;
+    const edit = readDraft(chatId).edit;
+    const next: ChatDraft = {
+      version: 1,
+      text: edit?.ordinaryText ?? "",
+      attachments: edit?.ordinaryAttachments ?? [],
+      edit: null,
+    };
+    saveDraft(chatId, next);
+    setDraft((current) => (current.chatId === chatId ? { chatId, ...next } : current));
+    if (currentChat.current === chatId) {
+      setCommandFailure(undefined);
+    }
+    return next;
   }
 
   async function submit(mode: InputDelivery = delivery): Promise<void> {
@@ -213,6 +290,60 @@ export function MessageBox({
     setCommandFailure(undefined);
     setIsSubmitting(true);
     try {
+      const attachmentIds = attachmentDraft.items.flatMap((item) =>
+        item.summary === undefined ? [] : [item.summary.id],
+      );
+      const fileAttachmentIds = attachmentDraft.items.flatMap((item) =>
+        item.isFile && item.summary !== undefined ? [item.summary.id] : [],
+      );
+      const attachmentIdentity = JSON.stringify([
+        attachmentIds,
+        fileAttachmentIds,
+        draft.edit?.id,
+        draft.edit === null ? null : [model, thinking?.level ?? "off"],
+      ]);
+      const attachmentKeys = attachmentDraft.items.map((item) => item.key);
+      if (draft.edit !== null) {
+        if (onEditSend === undefined || !isReady || model === null) {
+          return;
+        }
+        const previous = submission.current;
+        const inputId =
+          previous?.chatId === chatId &&
+          previous.text === text &&
+          previous.attachments === attachmentIdentity
+            ? previous.id
+            : crypto.randomUUID();
+        submission.current = {
+          chatId,
+          text,
+          previewId: "",
+          delivery: mode,
+          id: inputId,
+          attachments: attachmentIdentity,
+        };
+        await onEditSend({
+          id: inputId,
+          kind: "edit",
+          sourceUserEntryId: draft.edit.sourceUserEntryId,
+          expectedRevision: draft.edit.expectedRevision,
+          expectedLeafId: draft.edit.expectedLeafId,
+          text,
+          attachmentIds,
+          fileAttachmentIds,
+          model: {
+            providerId: model.providerId,
+            modelId: model.id,
+            thinkingLevel: thinking?.level ?? "off",
+          },
+        });
+        attachmentDraft.clear(chatId, attachmentKeys);
+        submission.current = undefined;
+        if ((draftVersions.current.get(chatId) ?? 0) === version) {
+          finishEdit();
+        }
+        return;
+      }
       const composed = preview?.chatId === chatId ? preview : await composeMessage(chatId, text);
       if (composed.kind === "action") {
         const result = await runSlashAction(chatId, composed.id);
@@ -244,14 +375,6 @@ export function MessageBox({
         return;
       }
       const submitted = preview === undefined ? composed.text : text;
-      const attachmentIds = attachmentDraft.items.flatMap((item) =>
-        item.summary === undefined ? [] : [item.summary.id],
-      );
-      const fileAttachmentIds = attachmentDraft.items.flatMap((item) =>
-        item.isFile && item.summary !== undefined ? [item.summary.id] : [],
-      );
-      const attachmentIdentity = JSON.stringify([attachmentIds, fileAttachmentIds]);
-      const attachmentKeys = attachmentDraft.items.map((item) => item.key);
       const previous = submission.current;
       const inputId =
         previous?.chatId === chatId &&
@@ -273,8 +396,8 @@ export function MessageBox({
       attachmentDraft.clear(chatId, attachmentKeys);
       submission.current = undefined;
       if ((draftVersions.current.get(chatId) ?? 0) === version) {
-        saveDraft(chatId, "");
-        setDraft((current) => (current.chatId === chatId ? { chatId, text: "" } : current));
+        saveDraft(chatId, { ...readDraft(chatId), text: "" });
+        setDraft((current) => (current.chatId === chatId ? { ...current, text: "" } : current));
         if (currentChat.current === chatId) {
           setPreview(undefined);
         }
@@ -414,13 +537,13 @@ export function MessageBox({
               setCommandFailure("Folders cannot be attached. Choose files instead.");
               return;
             }
-            attachmentDraft.add([...event.dataTransfer.files]);
+            addAttachments([...event.dataTransfer.files]);
           }}
           onPaste={(event) => {
             const files = [...event.clipboardData.files];
             if (files.length > 0) {
               event.preventDefault();
-              attachmentDraft.add(files);
+              addAttachments(files);
               const plain = event.clipboardData.getData("text/plain");
               if (plain !== "") {
                 const start = field.current?.selectionStart ?? draft.text.length;
@@ -440,12 +563,30 @@ export function MessageBox({
             <AttachmentList
               chatId={chatId}
               items={attachmentDraft.items}
-              onRemove={attachmentDraft.remove}
-              onChooseFile={attachmentDraft.chooseFile}
+              onRemove={(key) => {
+                draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
+                attachmentDraft.remove(key);
+              }}
+              onChooseFile={(key, isFile) => {
+                draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
+                attachmentDraft.chooseFile(key, isFile);
+              }}
             />
           )}
           {attachmentDraft.error === undefined ? null : (
             <p className={styles.commandNotice}>{attachmentDraft.error}</p>
+          )}
+          {draft.edit === null ? null : (
+            <div className={styles.editing}>
+              <p>Editing this prompt creates another branch.</p>
+              <IconButton
+                icon="close"
+                label="Cancel edit"
+                onClick={() => {
+                  finishEdit();
+                }}
+              />
+            </div>
           )}
           <textarea
             ref={field}
@@ -457,7 +598,8 @@ export function MessageBox({
             onChange={(event) => {
               changeDraft(event.target.value);
               setIsCommandMenuOpen(
-                preview === undefined &&
+                draft.edit === null &&
+                  preview === undefined &&
                   event.target.value.startsWith("/") &&
                   !event.target.value.startsWith("//"),
               );
@@ -472,7 +614,7 @@ export function MessageBox({
               hidden
               aria-label="Attachment files"
               onChange={(event) => {
-                attachmentDraft.add([...(event.target.files ?? [])]);
+                addAttachments([...(event.target.files ?? [])]);
                 event.target.value = "";
               }}
             />
