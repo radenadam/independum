@@ -77,7 +77,7 @@ export function publishServer(directory: string, connection: ServerConnection): 
   };
 }
 
-/** Reads a bounded connection record only after verifying account ownership and permissions. */
+/** Reads a bounded connection record only after verifying private ownership and permissions. */
 export function readServer(directory: string): ServerConnection | undefined {
   const path = join(directory, "runtime", "server.json");
   try {
@@ -194,29 +194,43 @@ function windowsPrivacy(): WindowsPrivacy {
   if (!openToken(currentProcess(), 8, token)) {
     throw new Error("The current Windows account cannot be verified.");
   }
-  const required = [0];
-  tokenInformation(token[0], 1, null, 0, required);
-  const information = Buffer.alloc(required[0] ?? 0);
+  let identity: string;
+  let defaultOwner: string;
   try {
-    if (!tokenInformation(token[0], 1, information, information.length, required)) {
-      throw new Error("The current Windows account cannot be read.");
-    }
+    identity = tokenIdentity(1);
+    defaultOwner = tokenIdentity(4);
   } finally {
     closeHandle(token[0]);
   }
-  const text: unknown[] = [null];
-  if (!sidString(koffi.decode(information, "void*"), text)) {
-    throw new Error("The current Windows identity cannot be read.");
+  function tokenIdentity(informationClass: number): string {
+    const required = [0];
+    tokenInformation(token[0], informationClass, null, 0, required);
+    const information = Buffer.alloc(required[0] ?? 0);
+    if (!tokenInformation(token[0], informationClass, information, information.length, required)) {
+      throw new Error("The current Windows account cannot be read.");
+    }
+    return identityOf(koffi.decode(information, "void*"));
   }
-  const identity = String(koffi.decode(text[0], "char16_t", -1));
-  free(text[0]);
+  function identityOf(sid: unknown): string {
+    const text: unknown[] = [null];
+    if (!sidString(sid, text)) {
+      throw new Error("The current Windows identity cannot be read.");
+    }
+    try {
+      return String(koffi.decode(text[0], "char16_t", -1));
+    } finally {
+      free(text[0]);
+    }
+  }
   const rawDescriptorString = security.func(
     "bool __stdcall ConvertSecurityDescriptorToStringSecurityDescriptorW(void* descriptor, uint32_t revision, uint32_t information, _Out_ void** text, void* length)",
   );
   function withPrivateDescriptor(isDirectory: boolean, apply: (descriptor: unknown) => void): void {
     const descriptor: unknown[] = [null];
     const flags = isDirectory ? "OICI" : "";
-    if (!parseDescriptor(`O:${identity}D:P(A;${flags};FA;;;${identity})`, 1, descriptor, null)) {
+    if (
+      !parseDescriptor(`O:${defaultOwner}D:P(A;${flags};FA;;;${identity})`, 1, descriptor, null)
+    ) {
       throw new Error("Private Windows permissions cannot be created.");
     }
     try {
@@ -276,16 +290,21 @@ function windowsPrivacy(): WindowsPrivacy {
       if (!getSecurity(path, 5, descriptor, descriptor.length, size)) {
         throw new Error("Private Windows permissions cannot be verified.");
       }
+      const owner: unknown[] = [null];
+      const isDefaulted = [0];
+      if (!descriptorOwner(descriptor, owner, isDefaulted)) {
+        throw new Error("Private Windows permissions cannot be inspected.");
+      }
+      const ownerIdentity = identityOf(owner[0]);
       const pointer: unknown[] = [null];
       if (!rawDescriptorString(descriptor, 1, 5, pointer, null)) {
         throw new Error("Private Windows permissions cannot be inspected.");
       }
       try {
         const value = String(koffi.decode(pointer[0], "char16_t", -1));
-        const owner = value.slice(0, value.indexOf("D:"));
         const entries = [...value.matchAll(/\(([^)]+)\)/g)];
         if (
-          owner !== `O:${identity}` ||
+          (ownerIdentity !== identity && ownerIdentity !== defaultOwner) ||
           !value.includes("D:P") ||
           entries.length !== 1 ||
           !entries.every((entry) => {

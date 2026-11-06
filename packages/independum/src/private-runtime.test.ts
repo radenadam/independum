@@ -97,7 +97,7 @@ test.skipIf(process.platform !== "win32")(
     expect(readServer(folder)).toEqual(connection);
     const runtime = join(folder, "runtime");
     for (const path of [runtime, join(runtime, "server.json")]) {
-      expect(permissions.read(path)).toMatch(/^O:(S-[\d-]+)D:P(?:AI)?\(A;(?:OICI)?;FA;;;\1\)$/);
+      expect(permissions.read(path)).toMatch(/^O:[^:]+D:P(?:AI)?\(A;(?:OICI)?;FA;;;S-[\d-]+\)$/);
     }
     expect(permissions.read(folder)).toContain("(A;OICIID;FA;;;WD)");
   },
