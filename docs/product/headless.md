@@ -47,7 +47,7 @@ Only known projects are accepted, as in the browser. An empty chat id remains pr
 
 Prompt flags are `--profile ID`, `--profile user:ID`, `--profile project:ID`, `--text-file PATH`, `--text-file -`, `--literal`, `--no-wait`, and `--on-question fail` or `--on-question wait`. Wait also accepts `--on-question`. A profile selects only a new chat. Exactly one positional or file text source is required. Accepted text retains its whitespace. Stdin is read through EOF. No file reference syntax is inferred.
 
-Normal prompt commands and skills use the shared captured expansion once. Literal input bypasses it. Executable slash actions require the later headless command service and currently fail with code `2`. The first stage does not accept images, delivery mode, streaming, or configuration transfer flags.
+Normal prompt commands and skills use the shared captured expansion once. Literal input bypasses it. Executable slash actions require the later headless command service and currently fail with code `2`. Headless prompts carry no attachments in this checkpoint. The first stage does not accept attachment, delivery mode, streaming, or configuration transfer flags.
 
 Successful plain final output contains only the last assistant message's text blocks and a final newline when needed. Thinking and tool results stay in the chat. A no-wait prompt prints two lines, `chat CHAT_ID` and `operation OPERATION_ID`. JSON final output defaults to `chatId`, `operationId`, and `text`. Selected fields can also read submission, state, final entry, question, and tool call references. There is no initial transcript or catalog.
 

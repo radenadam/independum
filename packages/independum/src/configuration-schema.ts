@@ -316,6 +316,7 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
     "hooks",
     "disabledHooks",
     "hookOrder",
+    "attachments",
     "model",
     "thinkingLevel",
     "modelOverrides",

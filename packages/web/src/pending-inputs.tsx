@@ -1,5 +1,6 @@
 import type { PendingInput, PendingInputsState } from "independum/api-types";
 import { type ReactElement, useState } from "react";
+import { AttachmentList } from "./attachment-list.tsx";
 import { BoxedList } from "./boxed-list.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MenuList } from "./menu-list.tsx";
@@ -9,10 +10,12 @@ import { TextButton } from "./text-button.tsx";
 
 /** Draws the waiting messages, what happens to each next, and the actions that change them. */
 export function PendingInputs({
+  chatId,
   pending,
   onRemove,
   onResume,
 }: {
+  chatId?: string | null;
   pending: PendingInputsState;
   onRemove: (id: string) => Promise<void>;
   onResume: () => Promise<void>;
@@ -53,8 +56,11 @@ export function PendingInputs({
             <BoxedList
               entries={pending.items.map((item) => ({
                 key: item.id,
-                name: item.text,
-                detail: detailOf(item, canResume),
+                name:
+                  item.text ||
+                  item.attachments?.map((source) => source.name).join(", ") ||
+                  "Attachments",
+                detail: `${detailOf(item, canResume)}${(item.attachmentIds?.length ?? 0) > 0 ? `. ${item.attachmentIds?.length} attachments` : ""}`,
                 onOpen: () => setOpened(item.id),
                 trailing:
                   item.state === "handingOff" ? null : (
@@ -76,6 +82,17 @@ export function PendingInputs({
         <Popover label="Waiting message" place="above" onClose={() => setOpened(undefined)}>
           <div className={styles.detail}>
             <p>{input.text}</p>
+            {chatId == null ? null : (
+              <AttachmentList
+                chatId={chatId}
+                items={(input.attachments ?? []).map((summary) => ({
+                  key: summary.id,
+                  name: summary.name,
+                  summary,
+                  isFile: input.fileAttachmentIds?.includes(summary.id) ?? false,
+                }))}
+              />
+            )}
             <p>
               {input.delivery === "steer"
                 ? "Steers this reply. The model reads it when its current tool calls finish, before it writes again."

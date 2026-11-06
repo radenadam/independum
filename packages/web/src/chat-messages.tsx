@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import { ApprovalActions } from "./approval-actions.tsx";
+import { AttachmentList } from "./attachment-list.tsx";
 import styles from "./chat-messages.module.css";
 import { clipboardHtml, clipboardText } from "./clipboard-content.ts";
 import { CopyButton } from "./copy-button.tsx";
@@ -200,13 +201,39 @@ export function ChatMessages({
                   }
                   data-user
                 >
-                  <p className={styles.bubble}>{textOf(message.parts)}</p>
+                  {textOf(message.parts) === "" ? null : (
+                    <p className={styles.bubble}>{textOf(message.parts)}</p>
+                  )}
+                  {chatId === null ? null : (
+                    <AttachmentList
+                      chatId={chatId}
+                      items={(message.attachments ?? []).map((preview) => ({
+                        key: preview.id,
+                        name: preview.name,
+                        summary: preview,
+                        preview,
+                        isFile: preview.isFile,
+                      }))}
+                    />
+                  )}
                   {message.isSteered ? <p className={styles.when}>Sent during a reply</p> : null}
                   <div className={styles.actions} data-copy="skip">
                     <span className={styles.when}>
                       <MessageTime timestamp={message.timestamp} durationMs={null} />
                     </span>
-                    <CopyButton text={textOf(message.parts)} label="Copy message" tipAlign="end" />
+                    <CopyButton
+                      text={[
+                        textOf(message.parts),
+                        ...(message.attachments ?? []).map(
+                          (attachment) =>
+                            `${attachment.name}${attachment.kind === "text" && !attachment.isFile ? `\n${attachment.text ?? ""}` : ""}`,
+                        ),
+                      ]
+                        .filter(Boolean)
+                        .join("\n\n")}
+                      label="Copy message"
+                      tipAlign="end"
+                    />
                   </div>
                 </li>
               );

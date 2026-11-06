@@ -37,6 +37,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa settings` | Logins, missing provider logos, and appearance. |
 | `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |
 | `pnpm qa queue` | Queue and steer ordering, removable waiting inputs, stop and resume, captured choices, and 360 pixel layouts in both themes. |
+| `pnpm qa attachments` | Picker, paste, drop, text, images, binary files, delivery forms, image limitations, original and prepared details, waiting attachments, stop and resume, and both phone themes. |
 | `pnpm qa context` | Command preview and submission, resource controls, duplicate instruction sources, and phone layouts in both themes. |
 | `pnpm qa hooks` | Script hook inventory, switches, model text editing, and 360 pixel layouts in both themes. |
 | `pnpm qa permissions` | Permission sections, denied paths and Linux masking, the exact environment name list, the confirmation before unrestricted mode, commands without startup approval, the order of approval choices, chat and project network approvals, revocation and renewed requests, denial, and 360 pixel layouts in both themes. Approval waiting requires a backend that can compile the project policy. |

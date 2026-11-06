@@ -190,6 +190,7 @@ export interface RunningCommand {
  * agent, such as the end of a background command.
  */
 export interface ChatMessage {
+  attachments?: AttachmentPreview[];
   entryId?: string;
   isSteered?: boolean;
   role: "user" | "assistant" | "note";
@@ -202,6 +203,7 @@ export interface ChatMessage {
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
+  attachmentSettings?: AttachmentSettings;
   pending: PendingInputsState;
   leafId: string | null;
   whileReplying: InputDelivery;
@@ -228,6 +230,8 @@ export interface ChatState {
 export interface AgentSummary {
   deniedPaths?: string[];
   hooks?: HookSummary;
+  attachments?: AttachmentSettings;
+  builtInAttachments?: AttachmentSettings;
   chatPermissionApprovals?: ChatPermissionApproval[];
   protectedConfigurationPaths?: string[];
   piSections?: Record<string, string | null>;
@@ -370,6 +374,9 @@ export type InputDelivery = "queue" | "steer";
 
 /** A durable submission that Pi has not saved as a user message. */
 export interface PendingInput {
+  attachmentIds?: string[];
+  fileAttachmentIds?: string[];
+  attachments?: AttachmentSummary[];
   id: string;
   sequence: number;
   createdAt: number;
@@ -393,6 +400,8 @@ export interface PendingInputsState {
 
 /** The identity and starting state of one message submission. */
 export interface InputOptions {
+  attachmentIds?: string[];
+  fileAttachmentIds?: string[];
   id: string;
   expectedRevision: number;
   expectedLeafId: string | null;
@@ -504,6 +513,7 @@ export interface CompactionSettings {
 
 /** The resolved runtime settings of a profile with user facts about models. */
 export interface Settings extends HookConfiguration {
+  attachments: AttachmentSettings;
   context: ContextSettings;
   permissions: PermissionPolicy;
   modelOverrides: Record<string, Record<string, ModelOverrides>>;
@@ -516,6 +526,38 @@ export interface Settings extends HookConfiguration {
   handBackSeconds: number;
   environment: Record<string, string>;
   texts: Record<string, EditedText>;
+}
+
+/** Limits and preparation choices for explicitly attached files. */
+export interface AttachmentSettings {
+  maxCount: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  maxTextBytes: number;
+  maxTotalTextBytes: number;
+  includeDetails: boolean;
+  resizeImages: boolean;
+}
+
+/** An original attachment retained independently of its prepared model input. */
+export interface AttachmentSummary {
+  id: string;
+  name: string;
+  mimeType: string;
+  bytes: number;
+  kind: "text" | "image" | "file";
+  encoding: "utf-8" | "utf-16le" | "utf-16be" | null;
+  textBytes: number;
+}
+
+/** The exact prepared input and any reason an attachment cannot be sent. */
+export interface AttachmentPreview extends AttachmentSummary {
+  text?: string;
+  isFile: boolean;
+  modelText: string;
+  image: ToolImage | null;
+  notice: string | null;
+  error: string | null;
 }
 
 /** Profile controls for discovered resources and Pi additions. */

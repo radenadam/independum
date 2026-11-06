@@ -150,6 +150,57 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
 
   active.get("/context", (context) => context.json(context.get("chat").getContext()));
 
+  active.post("/attachments", (context) =>
+    inputResponse(context, async () => {
+      const name = context.req.query("name") ?? "";
+      const mimeType =
+        (context.req.header("Content-Type") ?? "application/octet-stream")
+          .split(";")[0]
+          ?.trim()
+          .toLowerCase() ?? "application/octet-stream";
+      const limit = context.get("chat").getAgent().attachments?.maxFileBytes;
+      const declared = context.req.header("Content-Length");
+      if (limit !== undefined && declared !== undefined && Number(declared) > limit) {
+        throw new InputError(
+          `The attachment exceeds the ${limit} byte file limit.`,
+          "attachmentTooLarge",
+          413,
+        );
+      }
+      return context.json(
+        await context.get("chat").uploadAttachment(name, mimeType, context.req.raw.body),
+        201,
+      );
+    }),
+  );
+  active.get("/attachments/:attachmentId", (context) =>
+    inputResponse(context, async () => {
+      return context.json(
+        await context
+          .get("chat")
+          .previewAttachment(
+            context.req.param("attachmentId"),
+            context.req.query("form") === "file",
+          ),
+      );
+    }),
+  );
+  active.get("/attachments/:attachmentId/content", (context) =>
+    inputResponse(context, async () => {
+      const { summary, bytes } = context
+        .get("chat")
+        .attachmentSource(context.req.param("attachmentId"));
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          "Content-Type": summary.kind === "image" ? summary.mimeType : "application/octet-stream",
+          "Content-Disposition": `${summary.kind === "image" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(summary.name).replaceAll("'", "%27")}`,
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "no-store",
+        },
+      });
+    }),
+  );
+
   active.get("/resources", (context) => context.json(context.get("chat").getResources()));
   active.post("/resources/:resourceId/approval", (context) => {
     const opened = context.get("chat");
@@ -239,6 +290,8 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
             "interpretation",
             "previewId",
             "approvalMode",
+            "attachmentIds",
+            "fileAttachmentIds",
           ].includes(key),
       )
     ) {
@@ -250,7 +303,21 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
         400,
       );
     }
-    if (typeof body.text !== "string" || body.text.trim() === "") {
+    if (
+      [body.attachmentIds, body.fileAttachmentIds].some(
+        (ids) =>
+          ids !== undefined && (!Array.isArray(ids) || ids.some((id) => typeof id !== "string")),
+      )
+    ) {
+      return context.json(
+        { code: "invalidAttachment", error: "Attachment ids must be arrays of strings." },
+        400,
+      );
+    }
+    if (
+      typeof body.text !== "string" ||
+      (body.text.trim() === "" && ((body.attachmentIds as string[] | undefined)?.length ?? 0) === 0)
+    ) {
       return context.json({ error: "A message needs text." }, 400);
     }
     if (
@@ -282,6 +349,8 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
               expectedRevision: body.expectedRevision as number,
               expectedLeafId: body.expectedLeafId,
               delivery: body.delivery,
+              attachmentIds: (body.attachmentIds as string[] | undefined) ?? [],
+              fileAttachmentIds: (body.fileAttachmentIds as string[] | undefined) ?? [],
             },
           ))
       ) {

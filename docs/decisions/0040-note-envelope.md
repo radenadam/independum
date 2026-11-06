@@ -1,6 +1,6 @@
 # Note envelope
 
-- Status: accepted
+- Status: accepted, with the shared envelope moved to Notes by [decision 0068](0068-message-attachments.md)
 - Date: 2026-10-29
 
 ## Context

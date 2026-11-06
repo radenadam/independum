@@ -26,6 +26,8 @@ The user message copy button copies its text. A completed reply with text offers
 
 Selection copying supplies Markdown and HTML while omitting marked step boxes and controls. A selection inside a code block keeps the browser's native copying. Code blocks have their own copy control.
 
+[Attachments](attachments.md) show beside user text as delivery tiles. Copy message includes their names and inline text. Attachment controls, previews, and harness details stay outside reply copying and selection copying.
+
 ## Code
 
 - [Reply assembly and selection copying](../../packages/web/src/chat-messages.tsx), [clipboard conversion](../../packages/web/src/clipboard-content.ts), and [Markdown rendering](../../packages/web/src/markdown-text.tsx).

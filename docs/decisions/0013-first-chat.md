@@ -19,6 +19,8 @@ With logins working, the next step is a chat from the browser. The maintainer ch
 
 ## Consequences
 
+- [Decision 0068](0068-message-attachments.md) adds attachment-only prompts and retained source files.
+
 - Replies, retries, errors, and compaction are Pi's. A wrong key shows up as the error of the first reply.
 - Tests run a whole chat against Pi's fake provider from `@earendil-works/pi-ai`, so `pnpm check` stays offline. That package is a dev dependency pinned to the version Pi uses, and Dependabot updates both in one pull request.
 - The system prompt and Pi's additions are not visible in the UI yet. Showing them comes with built-ins.

@@ -1,4 +1,5 @@
 import { addedFactTexts } from "./added-facts.ts";
+import { attachmentTextList } from "./attachment-texts.ts";
 import { contextTexts } from "./context-texts.ts";
 import { hookFailureText } from "./hook-texts.ts";
 import { defineText, type ModelText } from "./model-texts.ts";
@@ -32,6 +33,7 @@ export const allTexts: ModelText[] = [
   ...contextTexts,
   ...compactionTexts,
   ...addedFactTexts,
+  ...attachmentTextList,
   ...readTextList,
   ...fingerprintTextList,
   ...fileTextList,

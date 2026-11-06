@@ -9,6 +9,7 @@ import type {
 import { hookEvents, readScriptHooks } from "./hook-contract.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
 import { builtInPermissions, validatePermissionPolicy } from "./permission-policy.ts";
+import { builtInAttachments, readAttachmentSettings } from "./read-attachment-settings.ts";
 import { builtInContext, readContextSettings } from "./read-context-settings.ts";
 
 export const handBackRange: { min: number; max: number } = { min: 5, max: 86_400 };
@@ -16,6 +17,7 @@ const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 
 /** The settings that Independum starts with, which a reset goes back to. */
 export const builtInSettings: Settings = {
+  attachments: builtInAttachments,
   context: builtInContext,
   hooks: [],
   disabledHooks: [],
@@ -53,6 +55,7 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
           "hooks",
           "disabledHooks",
           "hookOrder",
+          "attachments",
           "modelOverrides",
           "compaction",
           "shell",
@@ -75,6 +78,13 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
   if ("hooks" in fields) {
     try {
       change.hooks = readScriptHooks(fields.hooks);
+    } catch {
+      isValid = false;
+    }
+  }
+  if ("attachments" in fields) {
+    try {
+      change.attachments = readAttachmentSettings(fields.attachments);
     } catch {
       isValid = false;
     }

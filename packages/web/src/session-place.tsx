@@ -15,6 +15,7 @@ import {
   SystemPromptDetail,
   ToolsDetail,
 } from "./agent-details.tsx";
+import { AttachmentSettingsDetail, NotesDetail } from "./attachment-settings-detail.tsx";
 import { ChatDetail } from "./chat-detail.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { ColumnHandle } from "./column-handle.tsx";
@@ -75,7 +76,9 @@ interface View {
           | "compactionSettings"
           | "resources"
           | "permissions"
-          | "hooks";
+          | "hooks"
+          | "attachments"
+          | "notes";
       };
   text: string;
 }
@@ -348,6 +351,23 @@ function Overview({
       )}
       <PlaceSection heading="Context">
         <PlaceRow
+          label="Attachments"
+          isCurrent={current === "attachments"}
+          onOpen={() =>
+            onOpen({
+              key: "attachments",
+              title: "Attachments",
+              link: { kind: "attachments" },
+              text: "",
+            })
+          }
+        />
+        <PlaceRow
+          label="Notes"
+          isCurrent={current === "notes"}
+          onOpen={() => onOpen({ key: "notes", title: "Notes", link: { kind: "notes" }, text: "" })}
+        />
+        <PlaceRow
           label="Context controls"
           glance="Instructions, skills, slash commands, and Pi"
           isCurrent={current === "resources"}
@@ -421,6 +441,10 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
   switch (link.kind) {
     case "hooks":
       return <HooksDetail settings={settings} />;
+    case "attachments":
+      return <AttachmentSettingsDetail settings={settings} />;
+    case "notes":
+      return <NotesDetail settings={settings} />;
     case "resources":
       return <ContextResourcesDetail settings={settings} />;
     case "profile":

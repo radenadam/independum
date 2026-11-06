@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { getCurrentSystemMessage, validateToolArguments } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
@@ -30,6 +30,8 @@ import { allTexts, systemPromptText } from "./agent-texts.ts";
 import type {
   AgentSummary,
   ArchivedChatSummary,
+  AttachmentPreview,
+  AttachmentSummary,
   ChatEvent,
   ChatMessage,
   ChatOverrides,
@@ -61,6 +63,7 @@ import {
   createApprovals,
   type PermissionApprovalSave,
 } from "./create-approvals.ts";
+import { type AttachmentPosition, createAttachments } from "./create-attachments.ts";
 import { createCommandPreviews } from "./create-command-previews.ts";
 import { type ContextPermissions, createContextPermissions } from "./create-context-permissions.ts";
 import {
@@ -69,6 +72,7 @@ import {
   inputFingerprint,
   listPendingChats,
   type PendingInputs,
+  pendingAttachmentIds,
 } from "./create-pending-inputs.ts";
 import {
   createProfileStore,
@@ -202,6 +206,13 @@ export interface ChatOptions {
 
 /** A chat held by an API request, with a separate subscription for each follower. */
 export interface OpenChat {
+  uploadAttachment(
+    name: string,
+    mimeType: string,
+    body: ReadableStream<Uint8Array> | null,
+  ): Promise<AttachmentSummary>;
+  attachmentSource(id: string): { summary: AttachmentSummary; path: string; bytes: Buffer };
+  previewAttachment(id: string, isFile: boolean): Promise<AttachmentPreview>;
   inputState(id: string): string | undefined;
   getHooks(): HookSummary;
   reloadHooks(): void;
@@ -272,6 +283,19 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(folder);
   const existingChats = [...(await savedChats.list()), ...(await savedChats.listArchived())];
+  const attachments = createAttachments(
+    join(dirname(directory), `${basename(directory)}-attachments`),
+  );
+  const retainedAttachments = new Set<string>();
+  for (const saved of existingChats) {
+    for (const entry of SessionManager.open(saved.path, sessionDirectory).getEntries()) {
+      if (entry.type === "custom" && entry.customType === "independum-input") {
+        for (const id of (entry.data as { attachmentIds?: string[] }).attachmentIds ?? []) {
+          retainedAttachments.add(id);
+        }
+      }
+    }
+  }
   const profiles = await createProfileStore(
     directory,
     [...new Set([startFolder, ...existingChats.map((saved) => toFolder(saved.cwd || folder))])],
@@ -287,6 +311,14 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   const savedRequests = createSavedRequests(join(directory, "requests"));
   const previews = createCommandPreviews();
   const pendingInputs = new Map<string, PendingInputs>();
+  try {
+    for (const id of pendingAttachmentIds(join(directory, "pending-inputs"))) {
+      retainedAttachments.add(id);
+    }
+    attachments.expire(retainedAttachments);
+  } catch {
+    // Cleanup retains every source when a reference file cannot be read safely.
+  }
   function pendingFor(manager: SessionManager): PendingInputs {
     const id = manager.getSessionId();
     let pending = pendingInputs.get(id);
@@ -507,6 +539,33 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   }
   const listeners = new Set<(event: ChatsEvent) => void>();
   const runs = new Map<string, ChatRun>();
+  const attachmentCleanup = setInterval(
+    () => {
+      expireUnusedAttachments().catch(() => undefined);
+    },
+    60 * 60 * 1000,
+  );
+  attachmentCleanup.unref();
+
+  async function expireUnusedAttachments(): Promise<void> {
+    const saved = [...(await savedChats.list()), ...(await savedChats.listArchived())];
+    const retained = pendingAttachmentIds(join(directory, "pending-inputs"));
+    for (const run of runs.values()) {
+      for (const id of retainedFor(run)) {
+        retained.add(id);
+      }
+    }
+    for (const chat of saved) {
+      for (const entry of SessionManager.open(chat.path, sessionDirectory).getEntries()) {
+        if (entry.type === "custom" && entry.customType === "independum-input") {
+          for (const id of (entry.data as { attachmentIds?: string[] }).attachmentIds ?? []) {
+            retained.add(id);
+          }
+        }
+      }
+    }
+    attachments.expire(retained);
+  }
   const stoppingChats = new Set<string>();
   const pendingOpens = new Map<string, Promise<ChatRun | undefined>>();
   // Pi keeps setup entries in memory until the first message, so an empty chat keeps its manager
@@ -543,6 +602,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const savedTimes = readThinkingTimes(run);
     const streaming = run.isReplying ? session.agent.state.streamingMessage : undefined;
     return {
+      attachmentSettings: run.configuration.settings.attachments,
       pending: run.pending.state(),
       leafId: inputLeaf(run),
       whileReplying: profiles.user().document?.messages?.whileReplying ?? "queue",
@@ -987,6 +1047,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             message.isSteered =
               marker?.type === "custom" &&
               (marker.data as { isSteered?: boolean }).isSteered === true;
+            if (marker?.type === "custom") {
+              showAttachments(run, message, event.message, marker.data);
+            }
           }
           emitFor(run, { type: "message", message });
         }
@@ -1172,7 +1235,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     }
     const piSettings = SettingsManager.inMemory({
       compaction: piCompactionSettings(configuration.settings),
-      images: { autoResize: !configuration.settings.context.pi.disabled.includes("imageResize") },
+      // Attachment handoff prepares images before both prompt and steering delivery.
+      images: { autoResize: false },
     });
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionFolder,
@@ -1602,6 +1666,27 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       if (run.preparationError !== undefined) {
         throw new Error(run.preparationError);
       }
+      if (requestModel.input.includes("image")) {
+        let total = 0;
+        for (const message of context.messages) {
+          const count = Array.isArray(message.content)
+            ? message.content.filter((part) => part.type === "image").length
+            : 0;
+          total += count;
+          const limit = requestModel.inputLimits?.images?.maxPerMessage;
+          if (limit !== undefined && count > limit) {
+            throw new Error(
+              `The message has ${count} images and the model accepts at most ${limit}.`,
+            );
+          }
+        }
+        const limit = requestModel.inputLimits?.images?.maxPerRequest;
+        if (limit !== undefined && total > limit) {
+          throw new Error(
+            `The request has ${total} images and the model accepts at most ${limit}.`,
+          );
+        }
+      }
       const usedContext = run.preparedContext ?? run.resources;
       const previousContext = manager
         .getBranch()
@@ -1725,6 +1810,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     return {
       protectedConfigurationPaths: [join(folder, ".independum")],
       deniedPaths: deniedPermissionPaths(configuration.settings.permissions, folder, directory),
+      attachments: settings.get().attachments,
+      builtInAttachments: builtInSettings.attachments,
       configuration: {
         profile: configuration.profile,
         choices: configuration.choices,
@@ -2318,11 +2405,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const entries = run.session.sessionManager.getBranch();
     const messages = entries.filter((entry) => entry.type === "message");
     const steered = new Set<string>();
+    const inputMetadata = new Map<string, unknown>();
+    let metadata: unknown;
     let isSteered = false;
     for (const entry of entries) {
       if (entry.type === "custom" && entry.customType === "independum-input") {
         isSteered = (entry.data as { isSteered?: boolean }).isSteered === true;
+        metadata = entry.data;
       } else if (entry.type === "message" && entry.message.role === "user") {
+        inputMetadata.set(entry.id, metadata);
+        metadata = undefined;
         if (isSteered) {
           steered.add(entry.id);
         }
@@ -2341,10 +2433,77 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         return message;
       }
       used.add(entry.id);
+      showAttachments(run, message, entry.message, inputMetadata.get(entry.id));
       return {
         ...message,
         entryId: entry.id,
         ...(steered.has(entry.id) ? { isSteered: true } : {}),
+      };
+    });
+  }
+
+  function showAttachments(
+    run: ChatRun,
+    shown: ChatMessage,
+    canonical: AgentMessage,
+    data: unknown,
+  ): void {
+    if (
+      shown.role !== "user" ||
+      canonical.role !== "user" ||
+      typeof data !== "object" ||
+      data === null
+    ) {
+      return;
+    }
+    const input = data as {
+      receivesImages?: boolean;
+      text?: string;
+      attachments?: AttachmentSummary[];
+      attachmentPositions?: AttachmentPosition[];
+    };
+    if (input.attachments === undefined || input.attachmentPositions === undefined) {
+      return;
+    }
+    const content = canonical.content;
+    const text =
+      typeof content === "string"
+        ? content
+        : content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("");
+    const images =
+      typeof content === "string" ? [] : content.filter((part) => part.type === "image");
+    shown.parts = [{ type: "text", text: input.text ?? "" }];
+    shown.attachments = input.attachments.map((summary, index) => {
+      const position = input.attachmentPositions?.[index];
+      let error: string | null = null;
+      let inlineText = "";
+      try {
+        const original = attachments.source(
+          summary.id,
+          run.session.sessionId,
+          input.attachments?.map((source) => source.id),
+        );
+        if (summary.kind === "text" && !position?.isFile) {
+          inlineText = new TextDecoder(summary.encoding ?? "utf-8").decode(original.bytes);
+        }
+      } catch (failure) {
+        error = messageOf(failure);
+      }
+      const image = position?.imageIndex == null ? null : (images[position.imageIndex] ?? null);
+      return {
+        ...summary,
+        isFile: position?.isFile ?? false,
+        modelText: position === undefined ? "" : text.slice(position.start, position.end),
+        image,
+        error,
+        notice:
+          summary.kind === "image" && input.receivesImages === false
+            ? "This model receives the image details, but not its pixels."
+            : null,
+        text: inlineText,
       };
     });
   }
@@ -2450,6 +2609,20 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         if (level !== undefined) {
           run.session.setThinkingLevel(level);
         }
+        const prepared = await attachments.prepare(
+          input.text,
+          input.attachmentIds ?? [],
+          input.fileAttachmentIds ?? [],
+          run.session.sessionId,
+          {
+            ...run.configuration.settings.attachments,
+            resizeImages:
+              run.configuration.settings.attachments.resizeImages &&
+              !run.configuration.settings.context.pi.disabled.includes("imageResize"),
+          },
+          createModelTexts(() => run.configuration.settings.texts),
+          selected,
+        );
         if (
           run.pending.state().isPaused ||
           run.isClosing ||
@@ -2472,6 +2645,11 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           delivery: input.delivery,
           isSteered: isTurnBoundary,
           text: input.text,
+          attachmentIds: input.attachmentIds ?? [],
+          fileAttachmentIds: input.fileAttachmentIds ?? [],
+          attachments: input.attachments ?? [],
+          attachmentPositions: prepared.positions,
+          receivesImages: selected.input.includes("image"),
           model: input.model,
         });
         if (input.command !== null) {
@@ -2491,7 +2669,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         run.contextAbort = new AbortController();
         emitPending(run);
         if (isTurnBoundary) {
-          const result = await run.session.steer(input.text);
+          const result = await run.session.steer(prepared.text, prepared.images);
           if (result === "handled") {
             run.pending.handled(input.id);
             emitPending(run);
@@ -2499,7 +2677,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         } else {
           setReplying(run, true);
           run.session
-            .prompt(input.text, {
+            .prompt(prepared.text, {
+              images: prepared.images,
               expandPromptTemplates: false,
               ...(input.submission === undefined ? {} : { source: "rpc" as const }),
             })
@@ -2537,9 +2716,58 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
   }
 
+  function retainedFor(run: ChatRun): string[] {
+    return run.session.sessionManager
+      .getEntries()
+      .flatMap((entry) =>
+        entry.type === "custom" && entry.customType === "independum-input"
+          ? ((entry.data as { attachmentIds?: string[] }).attachmentIds ?? [])
+          : [],
+      );
+  }
+
   function handleOf(run: ChatRun): OpenChat {
     let isClosed = false;
     return {
+      async uploadAttachment(name, mimeType, body) {
+        await reconcileRun(run);
+        if (run.isClosing || configurationIssues(run).length > 0) {
+          throw new InputError(
+            "The chat configuration needs repair before uploading.",
+            "chatUnavailable",
+          );
+        }
+        const configuration = profiles.resolve(run.session.sessionId, run.folder);
+        return attachments.upload(
+          run.session.sessionId,
+          name,
+          mimeType,
+          body,
+          configuration.settings.attachments.maxFileBytes,
+        );
+      },
+      attachmentSource(id) {
+        return attachments.source(id, run.session.sessionId, retainedFor(run));
+      },
+      async previewAttachment(id, isFile) {
+        await reconcileRun(run);
+        const current = profiles.resolve(run.session.sessionId, run.folder);
+        return attachments.preview(
+          id,
+          run.session.sessionId,
+          isFile,
+          {
+            ...current.settings.attachments,
+            resizeImages:
+              current.settings.attachments.resizeImages &&
+              !current.settings.context.pi.disabled.includes("imageResize"),
+          },
+          createModelTexts(() => current.settings.texts),
+          run.isModelChosen ? run.session.model : undefined,
+          1,
+          retainedFor(run),
+        );
+      },
       inputState(id) {
         return (
           run.pending.state().items.find((input) => input.id === id)?.state ??
@@ -2741,7 +2969,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         submission,
       ) {
         const id = run.session.sessionId;
-        if (text.trim() === "") {
+        const attachmentIds = options?.attachmentIds ?? [];
+        const fileAttachmentIds = options?.fileAttachmentIds ?? [];
+        if (text.trim() === "" && attachmentIds.length === 0) {
           throw new InputError("A message needs text.", "invalidInput", 400);
         }
         const inputOptions = options ?? {
@@ -2757,6 +2987,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           hasBrowserApprovals,
           delivery: inputOptions.delivery,
           submission,
+          attachmentIds,
+          fileAttachmentIds,
         });
         const accepted = await mutateInput(run, async () => {
           if (run.pending.receipt(inputOptions.id, fingerprint) !== undefined) {
@@ -2827,8 +3059,40 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
               if (selected === undefined) {
                 return false;
               }
+              const sources = attachments.validate(
+                attachmentIds,
+                fileAttachmentIds,
+                id,
+                desired.settings.attachments,
+              );
+              await attachments.prepare(
+                submitted,
+                attachmentIds,
+                fileAttachmentIds,
+                id,
+                {
+                  ...desired.settings.attachments,
+                  resizeImages:
+                    desired.settings.attachments.resizeImages &&
+                    !desired.settings.context.pi.disabled.includes("imageResize"),
+                },
+                createModelTexts(() => desired.settings.texts),
+                selected,
+              );
+              if (
+                run.pending.state().revision !== inputOptions.expectedRevision &&
+                options !== undefined
+              ) {
+                throw new InputError(
+                  "The waiting messages changed before acceptance. Review and send again.",
+                  "staleInputState",
+                );
+              }
               run.pending.accept(
                 {
+                  attachmentIds,
+                  fileAttachmentIds,
+                  attachments: sources,
                   id: inputOptions.id,
                   delivery: inputOptions.delivery,
                   text: submitted,
@@ -3098,11 +3362,19 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       if (saved === undefined) {
         return undefined;
       }
-      const messages =
-        saved.path === ""
-          ? []
-          : SessionManager.open(saved.path, sessionDirectory).buildSessionContext().messages;
-      return markdownOf(summaryOf(saved).title, messages);
+      const run = await acquire(id);
+      if (run === undefined) {
+        return undefined;
+      }
+      try {
+        return markdownOf(
+          summaryOf(saved).title,
+          visibleMessages(run, readThinkingTimes(run)),
+          run.session.messages,
+        );
+      } finally {
+        close(run);
+      }
     },
     async getArchived() {
       return (await listArchived()).map((saved) => ({
@@ -3113,6 +3385,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     },
     async stopAll() {
       isStopping = true;
+      clearInterval(attachmentCleanup);
       const failures: unknown[] = [];
       for (const run of runs.values()) {
         run.isClosing = true;
@@ -3173,20 +3446,34 @@ function toFolder(path: string): string {
 // Writes a chat as Markdown, with a heading for each prompt and for each reply, which names the
 // model that wrote it.
 // A turn of the agent that only called tools has no text, so it gets no heading.
-function markdownOf(title: string, messages: AgentMessage[]): string {
+function markdownOf(title: string, shownMessages: ChatMessage[], messages: AgentMessage[]): string {
   const parts = [`# ${title}`];
-  for (const message of messages) {
-    const shown = toChatMessage(message);
-    const text = (shown?.parts ?? [])
-      .flatMap((part) => (part.type === "text" ? [part.text] : []))
-      .join("");
+  for (const shown of shownMessages) {
+    const message = messages.find(
+      (message) => message.timestamp === shown.timestamp && message.role === shown.role,
+    );
+    const text = shown.parts.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
+    const attachmentText = (shown.attachments ?? [])
+      .map((attachment) => {
+        const delivery =
+          attachment.isFile || attachment.kind === "file"
+            ? attachment.modelText === ""
+              ? "No model input"
+              : "File path included"
+            : attachment.kind === "image"
+              ? "Image"
+              : "Text included";
+        return `${attachment.name} (${delivery})${attachment.kind === "text" && !attachment.isFile ? `\n\n${attachment.text ?? ""}` : ""}`;
+      })
+      .join("\n\n");
     if (
       shown !== undefined &&
       shown.role !== "note" &&
-      (text.trim() !== "" || shown.error !== null)
+      (text.trim() !== "" || attachmentText !== "" || shown.error !== null)
     ) {
-      const heading = message.role === "assistant" ? `Agent (${message.model})` : "You";
-      const body = shown.error === null ? text : `${text}\n\n*${shown.error}*`;
+      const heading = message?.role === "assistant" ? `Agent (${message.model})` : "You";
+      const content = [text, attachmentText].filter(Boolean).join("\n\n");
+      const body = shown.error === null ? content : `${content}\n\n*${shown.error}*`;
       parts.push(`## ${heading}`, body.trim());
     }
   }

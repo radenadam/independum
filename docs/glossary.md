@@ -12,6 +12,7 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
 | Approval | A user's explicit decision that grants requested access once or saves it for the chosen scope within the permission policy. | "confirmation", "trust" |
 | Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
+| Attachment | An explicitly uploaded original file retained for a prompt, delivered as inline text, an image, or saved file details. | "extracted document", "upload message" |
 | Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
 | Built-in | A feature that ships with Independum. | "core feature", "default feature" |
 | Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation" |

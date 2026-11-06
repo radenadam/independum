@@ -35,6 +35,7 @@ import {
   validateUserSettings,
 } from "./configuration-schema.ts";
 import { serializePermissionPath } from "./permission-policy.ts";
+import { readAttachmentSettings } from "./read-attachment-settings.ts";
 import { readContextSettings } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { subscribeTo } from "./subscribe-to.ts";
@@ -398,6 +399,7 @@ export async function createProfileStore(
       ...document?.profile.settings?.compaction,
     };
     settings.context = readContextSettings(document?.profile.settings?.context ?? {});
+    settings.attachments = readAttachmentSettings(document?.profile.settings?.attachments ?? {});
     if (document?.systemPrompt !== null && document?.systemPrompt !== undefined) {
       settings.texts.systemPrompt = {
         text: document.systemPrompt,

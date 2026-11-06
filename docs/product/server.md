@@ -80,6 +80,8 @@ The exact response fields and nullable values are in [api-types.ts](../../packag
 
 `ContextSummary` gives chat and model ids, window size and use, reserve, token counts and cost, last reply usage, message and call counts, dates, branch entries without file fingerprints, last raw request, detected parts, reconstructed requests and pending changes, warming count, and file paths. `SettingsChange` changes the tool choices, added fact switches, model overrides, compaction, and model texts of an explicitly addressed profile. Knowledge cutoffs belong to user settings. Its `tool` field changes one named tool, and its `texts` field patches by id with a string or null for reset. [Tool settings](tools.md#shared-contract) and [text editing](settings.md#tools-and-model-texts) define validation.
 
+[Attachment routes](attachments.md#api) also live under `/api/chats/:id`. Send accepts attachment source ids and explicit file path choices, including attachment-only input. Chat state includes effective attachment settings and delivered source previews. Waiting inputs include source references and original display metadata. [Attachment storage](attachments.md#storage-and-grants) retains originals independently of Pi's canonical prepared messages.
+
 ## Streams
 
 Streams are server-sent events whose `data` is one JSON event, read with fetch so the token header can be sent. They carry no event id or replay cursor. Disconnecting a browser unsubscribes without stopping a chat. The UI retries dropped chat streams after 1.5 seconds and treats 401 as an expired link.
