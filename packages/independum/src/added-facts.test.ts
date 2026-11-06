@@ -121,7 +121,7 @@ test("each disabled fact is absent and an edited fact is sent exactly as edited"
   );
 });
 
-test("permission facts name denied paths and linux masking and remain editable", () => {
+test("linux permission facts name denied paths and temporary masking and remain editable", () => {
   const directory = join(process.cwd(), "state");
   const denied = join(process.cwd(), "private");
   const settings = structuredClone(builtInSettings);
@@ -134,7 +134,14 @@ test("permission facts name denied paths and linux masking and remain editable",
   const prompt = addedFactPrompt({ ...options, directory, settings });
   expect(prompt).toContain(JSON.stringify([directory, denied]));
   expect(prompt).toContain("can read everywhere except denied paths");
-  expect(prompt).toContain("bubblewrap shows denied folders as empty");
+  expect(prompt).toContain(
+    "On Linux, bubblewrap shows each denied folder as an empty private mount.",
+  );
+  expect(prompt).toContain("That empty view does not describe its actual contents.");
+  expect(prompt).toContain(
+    "Writes into a denied folder stay inside that command and disappear when it ends without reaching the host folder.",
+  );
+  expect(prompt).not.toContain("These paths are inaccessible.");
   expect(prompt).not.toContain("requires approval before execution");
   settings.texts =
     changeTexts(addedFactTexts, {}, { "facts.permissions": "Denied folders: {deniedPaths}." }) ??

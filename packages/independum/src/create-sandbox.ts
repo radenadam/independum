@@ -99,7 +99,7 @@ export function sandboxRuntime(
   };
 }
 
-/** Compiles grants and refuses denied files that bubblewrap would mask with empty content. */
+/** Compiles grants and refuses denial policies that the backend cannot enforce. */
 export function sandboxRequest(
   launch: SandboxLaunch,
   command: string,

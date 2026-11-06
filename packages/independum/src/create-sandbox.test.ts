@@ -125,18 +125,21 @@ test("native sandbox reads outside links and keeps detached descendant writes re
   const target = join(outsideFolder, "sentinel.txt");
   writeFileSync(target, "linked sentinel");
   const created = `${outside}-created`;
+  const completed = join(project, "child-completed.txt");
   symlinkSync(outsideFolder, linked, process.platform === "win32" ? "junction" : "dir");
+  // Ignored streams require opening `/dev/null`, which the read-only system root can block.
   const result = await execute(
     launch,
     project,
-    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(join(linked, "sentinel.txt"))}, 'utf8')); } catch { process.stdout.write('link denied\\n'); } const child = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(`const fs = require('node:fs'); for (const path of ${JSON.stringify([outside, created, join(linked, "sentinel.txt")])}) { try { fs.writeFileSync(path, 'escaped'); } catch {} }`)}], { detached: true, stdio: 'ignore' }); child.on('error', error => { throw error; }); child.on('exit', code => { process.stdout.write('child ' + code); });`,
+    `const fs = require('node:fs'); process.stdout.write(fs.readFileSync(${JSON.stringify(join(linked, "sentinel.txt"))}, 'utf8')); const child = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(`const fs = require('node:fs'); for (const path of ${JSON.stringify([outside, created, join(linked, "sentinel.txt")])}) { try { fs.writeFileSync(path, 'escaped'); } catch {} } fs.writeFileSync(${JSON.stringify(completed)}, 'completed');`)}], { detached: true, stdio: 'inherit' }); child.on('error', error => { throw error; }); child.on('exit', code => { process.stdout.write('child ' + code); });`,
   );
   expect(readFileSync(outside, "utf8")).toBe("outside sentinel");
   expect(readFileSync(target, "utf8")).toBe("linked sentinel");
   expect(existsSync(created)).toBe(false);
-  expect(result.exitCode).toBe(0);
+  expect(result.exitCode, result.error).toBe(0);
   expect(result.output).toContain("linked sentinel");
   expect(result.output).toContain("child 0");
+  expect(readFileSync(completed, "utf8")).toBe("completed");
 }, 30_000);
 
 test("native file write grants leave neighboring files read-only", async (context) => {
@@ -210,7 +213,7 @@ test("sandbox runtime grants system roots for reading without writable outside p
   }
 });
 
-test("linux masks denied folders while keeping project configuration read-only", () => {
+test("linux permits denied folder masks and refuses false denied file contents", () => {
   const { project } = createTestProject(root);
   const directory = join(project, ".independum");
   mkdirSync(directory);
@@ -221,11 +224,13 @@ test("linux masks denied folders while keeping project configuration read-only",
       unavailable: null,
     },
     paths: [{ kind: "path", path: project, scope: "tree", access: "write" }],
+    readonlyPaths: [directory],
     deniedPaths: [directory],
     network: false,
   };
   const request = sandboxRequest(launch, "never executed", project, {});
   expect(request.filesystem?.deniedPaths).toEqual([directory]);
+  expect(request.filesystem?.readonlyPaths).toContain(directory);
   const deniedFile = join(project, "private.txt");
   writeFileSync(deniedFile, "private");
   launch.deniedPaths = [deniedFile];
@@ -238,24 +243,39 @@ test("linux masks denied folders while keeping project configuration read-only",
   );
 });
 
-test("native sandbox denies reads and writes of the independum state folder", async (context) => {
+test("native sandbox keeps the denied state folder private and unchanged on the host", async (context) => {
   const { project, launch } = await supported(context);
-  const configuration = launch.deniedPaths[0];
-  if (configuration === undefined) {
-    throw new Error("The native test requires a denied state folder.");
-  }
+  const configuration = join(project, ".independum");
+  mkdirSync(configuration);
+  launch.deniedPaths = [configuration];
   const policy = join(configuration, "settings.json");
+  const created = join(configuration, "created.txt");
   writeFileSync(policy, "private sentinel");
-  const result = await execute(
-    launch,
-    project,
-    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(policy)}, 'utf8')); } catch { process.stdout.write('read denied '); } try { fs.mkdirSync(${JSON.stringify(configuration)}, { recursive: true }); fs.writeFileSync(${JSON.stringify(policy)}, 'widened'); process.stdout.write('ALLOWED'); } catch (error) { process.stdout.write('denied ' + error.code); }`,
-  );
-  expect(result.output).toContain("denied");
-  expect(result.output).not.toContain("ALLOWED");
+  const command = sandboxCommand(process.execPath, [
+    "-e",
+    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(policy)}, 'utf8')); } catch { process.stdout.write('read denied '); } for (const path of ${JSON.stringify([policy, created])}) { try { fs.writeFileSync(path, 'widened'); process.stdout.write('ALLOWED '); } catch (error) { process.stdout.write('write denied ' + error.code + ' '); } }`,
+  ]);
+  const result = await captureSandbox(sandboxRequest(launch, command, project, environment));
+  expect(readFileSync(policy, "utf8")).toBe("private sentinel");
+  expect(existsSync(created)).toBe(false);
+  expect(result.exitCode, result.error).toBe(0);
   expect(result.output).toContain("read denied");
   expect(result.output).not.toContain("private sentinel");
-  expect(readFileSync(policy, "utf8")).toBe("private sentinel");
+  if (launch.runtime.backend === "bubblewrap") {
+    expect(result.output.match(/ALLOWED /g)).toHaveLength(2);
+    const next = await execute(
+      launch,
+      project,
+      `process.stdout.write(JSON.stringify(require('node:fs').readdirSync(${JSON.stringify(configuration)})));`,
+    );
+    expect(readFileSync(policy, "utf8")).toBe("private sentinel");
+    expect(existsSync(created)).toBe(false);
+    expect(next.exitCode, next.error).toBe(0);
+    expect(next.output).toBe("[]");
+  } else {
+    expect(result.output).not.toContain("ALLOWED");
+    expect(result.output.match(/write denied /g)).toHaveLength(2);
+  }
 }, 30_000);
 
 test("native sandbox denies loopback access without a network grant", async (context) => {
