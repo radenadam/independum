@@ -32,6 +32,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa switch-chats` | Opening another chat while the original reply finishes in the background, and preserving independent chat ids through the URL and API. |
 | `pnpm qa model-menu` | The model search and changing thinking effort while the menu keeps its opening position. |
 | `pnpm qa session` | The side panel, Session place, its conversation, and a wide panel after window resizing. |
+| `pnpm qa headless` | An addressed prompt, immediate unmet approval reporting, a new chat with a selected profile, independent browser selection, and command line Source details at desktop and 360 pixel widths in both themes. |
 | `pnpm qa compacted` | A saved compaction, its summary, and keeping the chat end in view when the panel opens. |
 | `pnpm qa settings` | Logins, missing provider logos, and appearance. |
 | `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |

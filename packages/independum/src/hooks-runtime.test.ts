@@ -9,10 +9,11 @@ import {
 } from "@earendil-works/pi-ai";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { expect, test, vi } from "vitest";
-import type { ChatEvent } from "./api-types.ts";
+import type { ChatEvent, InputOptions } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { createOperations } from "./create-operations.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
 import type { HookEvent, ScriptHook } from "./hook-contract.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
@@ -217,7 +218,7 @@ test("hook routes bind invocation reads stop and revision checks to the addresse
   }
 });
 
-test.each(["queue", "steer"] as const)(
+test.each(["queue", "steer", "headless"] as const)(
   "%s delivery invokes input once per message with captured choices and command text",
   async (delivery) => {
     vi.mocked(executeScriptHook).mockImplementation(async (_hook, input) => ({
@@ -229,7 +230,9 @@ test.each(["queue", "steer"] as const)(
       error: "",
       exitCode: 0,
     }));
-    const { chats, opened, faux, folder, sent } = await setup("input");
+    const { chats, opened, faux, folder, sent, directory } = await setup("input");
+    const operations = createOperations(chats, directory, "hook-server");
+    let operationId: string | undefined;
     const entered = Promise.withResolvers<void>();
     const finish = Promise.withResolvers<void>();
     faux.setResponses([
@@ -249,19 +252,30 @@ test.each(["queue", "steer"] as const)(
       writeFileSync(source, "---\ndescription: Review data.\n---\nCaptured $1.");
       const preview = opened.compose("/review result", "commands");
       const state = opened.getState();
-      const options = {
+      const options: InputOptions = {
         id: randomUUID(),
-        delivery,
+        delivery: delivery === "steer" ? "steer" : "queue",
         expectedRevision: state.pending.revision,
         expectedLeafId: state.leafId,
       };
+      const requestId = options.id;
       async function submit(): Promise<boolean> {
+        if (delivery === "headless") {
+          const accepted = await operations.prompt({
+            requestId,
+            chatId: state.id,
+            text: "/review result",
+          });
+          operationId = accepted.operationId;
+          options.id = accepted.submissionId;
+          return true;
+        }
         return opened.send(preview.text, "commands", preview.id, false, options);
       }
       expect(await submit()).toBe(true);
       expect(await submit()).toBe(true);
       const captured = opened.getState().pending.items.find((input) => input.id === options.id);
-      expect(captured?.command).toEqual(preview);
+      expect(captured?.command?.text).toBe(preview.text);
       expect(await opened.send("Remove me", "literal")).toBe(true);
       const removable = opened.getState().pending.items.find((input) => input.text === "Remove me");
       expect(opened.removePending(removable?.id ?? "")).toBe(true);
@@ -271,6 +285,12 @@ test.each(["queue", "steer"] as const)(
       finish.resolve();
       await vi.waitFor(() => expect(opened.inputState(options.id)).toBe("delivered"));
       await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+      if (operationId !== undefined) {
+        expect(await operations.wait(operationId, "fail")).toMatchObject({
+          status: "completed",
+          text: "Next answer.",
+        });
+      }
       expect(await submit()).toBe(true);
       const invocations = opened.getHooks().invocations;
       expect(invocations.map((record) => record.input.data.text)).toEqual([
@@ -283,7 +303,7 @@ test.each(["queue", "steer"] as const)(
           id: captured?.model.modelId,
           thinkingLevel: captured?.model.thinkingLevel,
         },
-        data: { source: "interactive" },
+        data: { source: delivery === "headless" ? "rpc" : "interactive" },
       });
       expect(invocations[1]?.input.data.streamingBehavior).toBe(
         delivery === "steer" ? "steer" : undefined,
@@ -299,6 +319,7 @@ test.each(["queue", "steer"] as const)(
       });
     } finally {
       finish.resolve();
+      operations.close();
       opened.close();
       await chats.stopAll();
     }
@@ -308,25 +329,44 @@ test.each(["queue", "steer"] as const)(
 test("restart holds accepted inputs until resume and invokes input only at delivery", async () => {
   replaceWith({ text: "Delivered after restart.", images: [] });
   const { chats, opened, models, directory, folder } = await setup("input");
-  expect(await opened.send("Held input", "literal")).toBe(true);
+  const operations = createOperations(chats, directory, "first-server");
+  const accepted = await operations.prompt({
+    requestId: "restart",
+    chatId: opened.getState().id,
+    text: "Held input",
+    isLiteral: true,
+  });
   const id = opened.getState().id;
   await chats.stopAll();
+  operations.close();
   expect(opened.getHooks().invocations).toHaveLength(0);
   const reopened = await createChat({ models, directory, folder });
+  const recovered = createOperations(reopened, directory, "next-server");
   const restored = await reopened.open(id);
   if (restored === undefined) {
     throw new Error("The waiting hook input did not reopen.");
   }
   try {
     expect(restored.getState().pending.isPaused).toBe(true);
+    expect(await recovered.show(accepted.operationId)).toMatchObject({
+      status: "interrupted",
+      code: "serverRestarted",
+    });
     expect(restored.getHooks().invocations).toHaveLength(0);
     await restored.resumePending();
     await vi.waitFor(() => expect(restored.getState().pending.items).toHaveLength(0));
     await vi.waitFor(() => expect(restored.getState().isReplying).toBe(false));
     expect(restored.getHooks().invocations).toMatchObject([
-      { input: { data: { text: "Held input" } }, accepted: { text: "Delivered after restart." } },
+      {
+        input: { data: { text: "Held input", source: "rpc" } },
+        accepted: { text: "Delivered after restart." },
+      },
+    ]);
+    expect(restored.getContext().submissions).toEqual([
+      { operationId: accepted.operationId, submissionId: accepted.submissionId },
     ]);
   } finally {
+    recovered.close();
     restored.close();
     await reopened.stopAll();
   }

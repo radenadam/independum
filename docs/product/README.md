@@ -10,6 +10,7 @@ These pages describe the current implementation. Start with the area that change
 - [Hooks](hooks.md): script events, ordered effects, profile settings, sandbox execution, and evidence.
 - [Profiles](profiles.md): plain configuration files, ownership, migration, resolution, and live edits.
 - [Permissions](permissions.md): profile policy, runtime acceptance, approvals, and enforced tool access.
+- [Headless mode](headless.md): prompts, blocking waits, server lifecycle, private discovery, and short command output.
 - [Settings](settings.md): logins, browser choices, tool controls, model texts, and texts of Pi.
 - [Tools](tools.md): the shared contract and the six built-in tools.
 - [Server](server.md): chat lifecycle, storage, API routes and payloads, access control, and model input.

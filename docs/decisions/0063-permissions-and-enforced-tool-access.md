@@ -43,6 +43,8 @@ The native regression test reads an existing sentinel, attempts to overwrite it,
 
 ## Consequences
 
+- [Decision 0066](0066-headless-mode.md) maps unmet headless approvals to process exit code `7` with their operation and tool references. An explicit wait choice uses the existing browser approval lifecycle and never grants authority automatically.
+
 - This amends decisions 0029, 0035, 0036, 0041, 0042, 0044, 0045, 0048, 0054, and 0061.
 - The implementation includes the adapter, Shell, file workers, explicit approval lifetimes and their API, profile policy, and Session inspection with revocation. A rule tester, dedicated rule editing routes, and the remaining native adversarial coverage stay on the roadmap.
 - Default Shell policy uses a writable project and nested read-only configuration on Linux, macOS, and Windows. System read roots and the denied state directory follow decision 0067. Linux project tools run with the folder masks described by decision 0067. The raw SDK mask keeps host contents private and unchanged, but permits private writes inside the sandbox.

@@ -34,6 +34,15 @@ export function ChatDetail({ folder, context }: ChatDetailProps): ReactElement {
           ]}
         />
       </PlaceSection>
+      {(context.submissions?.length ?? 0) === 0 ? null : (
+        <PlaceSection heading="Source">
+          {context.submissions?.map((submission) => (
+            <PlaceNote key={submission.submissionId}>
+              Command line submission {submission.submissionId}. Operation {submission.operationId}.
+            </PlaceNote>
+          ))}
+        </PlaceSection>
+      )}
       <PlaceSection heading="Chat file">
         <PlaceNote>
           Pi writes each message, change of settings, and compaction of this chat to this file, a

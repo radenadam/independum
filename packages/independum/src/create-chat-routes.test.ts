@@ -1335,6 +1335,90 @@ test("a new chat adjusts its carried thinking level when choosing a model that c
   });
 });
 
+test.each(["none", "queue", "steer"] as const)(
+  "a reply stays running through its tool call and final text with %s delivery",
+  async (delivery) => {
+    expect((await startNew()).status).toBe(201);
+    expect((await chooseModel("faux-slow", "slow-model")).status).toBe(204);
+    const started = Promise.withResolvers<void>();
+    const continueReply = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    const path = "running-reply.txt";
+    writeFileSync(join(startFolder, path), "The tool result.");
+    const finalText = "The tool finishes before this final text.";
+    slow.setResponses([
+      async () => {
+        started.resolve();
+        await continueReply.promise;
+        return callTool("Read", { path });
+      },
+      async () => {
+        entered.resolve();
+        await finish.promise;
+        return fauxAssistantMessage(finalText);
+      },
+      fauxAssistantMessage("The waiting message is answered."),
+    ]);
+    const events = followEventStream<ChatEvent>(await routes.request(chatPath("/events")));
+    await events.next();
+    try {
+      expect((await post(chatPath("/messages"), { text: "Run a tool and reply" })).status).toBe(
+        202,
+      );
+      await started.promise;
+      if (delivery !== "none") {
+        expect(
+          (await post(chatPath("/messages"), { text: "Waiting message", delivery })).status,
+        ).toBe(202);
+      }
+      continueReply.resolve();
+      await entered.promise;
+      const state = (await (await routes.request(chatPath(""))).json()) as ChatState;
+      expect(state.isReplying).toBe(true);
+      expect(
+        state.pending.items.filter((input) => input.state === "waiting").map((input) => input.text),
+      ).toEqual(delivery === "queue" ? ["Waiting message"] : []);
+      expect(state.messages.filter((message) => message.isSteered)).toHaveLength(
+        delivery === "steer" ? 1 : 0,
+      );
+      finish.resolve();
+      let text = "";
+      let hasToolResult = false;
+      let isReplying = false;
+      for (let event = await events.next(); ; event = await events.next()) {
+        if (event.type === "toolResult") {
+          expect(isReplying).toBe(true);
+          expect(event.result).toMatchObject({ isError: false, text: "1\tThe tool result." });
+          hasToolResult = true;
+        } else if (event.type === "replyDelta" && event.partType === "text") {
+          expect(isReplying).toBe(true);
+          text += event.delta;
+        } else if (event.type === "state") {
+          expect(event.state.isReplying).toBe(true);
+        } else if (event.type === "replying" && !event.isReplying) {
+          expect(hasToolResult).toBe(true);
+          expect(text).toBe(finalText);
+          break;
+        } else if (event.type === "replying") {
+          isReplying = event.isReplying;
+        }
+      }
+      if (delivery === "queue") {
+        expect(await readTurn(events)).toContain("The waiting message is answered.");
+      }
+      expect(((await (await routes.request(chatPath(""))).json()) as ChatState).isReplying).toBe(
+        false,
+      );
+    } finally {
+      continueReply.resolve();
+      finish.resolve();
+      await post(chatPath("/stop"), {});
+      await events.close();
+    }
+  },
+);
+
 function expectEmptyChat(state: ChatState): void {
   expect(state.model).toBeNull();
   expect(state.messages).toEqual([]);

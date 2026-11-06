@@ -8,11 +8,291 @@ import type { ProfileBundle, ProfileReference } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { createOperations, type Operations, type OperationView } from "./create-operations.ts";
 import { builtInPermissions } from "./permission-policy.ts";
+import { runHeadless } from "./run-headless.ts";
+import { startAppServer } from "./start-app-server.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
 const folder = createTestFolder("profile-runtime");
 let nextId = 0;
+
+test("headless prompts queue during a browser reply and wait through their own settlement", async () => {
+  const { chats, chat, faux, directory } = await setup();
+  const entered = Array.from({ length: 3 }, () => Promise.withResolvers<void>());
+  const finished = Array.from({ length: 3 }, () => Promise.withResolvers<void>());
+  faux.setResponses([
+    ...entered.map((boundary, index) => async () => {
+      boundary.resolve();
+      await finished[index]?.promise;
+      return index === 1
+        ? fauxAssistantMessage([fauxToolCall("CheckCommand", { id: 1 })], { stopReason: "toolUse" })
+        : fauxAssistantMessage(index === 0 ? "Browser answer." : "First headless answer.");
+    }),
+    fauxAssistantMessage("Second headless answer."),
+  ]);
+  const operations = createOperations(chats, directory, "headless-server");
+  try {
+    await chat.send("Browser prompt.");
+    await entered[0]?.promise;
+    const first = await submitHeadless(operations, chat, "First headless prompt.");
+    const second = await operations.prompt({
+      requestId: "driver-two",
+      chatId: chat.getState().id,
+      text: "Second headless prompt.",
+    });
+    expect(
+      chat
+        .getState()
+        .pending.items.filter((input) => input.state === "waiting")
+        .map((input) => input.text),
+    ).toEqual(["First headless prompt.", "Second headless prompt."]);
+    let hasFinished = false;
+    const waiting = operations.wait(first.operationId, "fail").then((result) => {
+      hasFinished = true;
+      return result;
+    });
+    finished[0]?.resolve();
+    await entered[1]?.promise;
+    expect(hasFinished).toBe(false);
+    expect((await operations.show(second.operationId)).status).toBe("running");
+    finished[1]?.resolve();
+    await entered[2]?.promise;
+    expect(hasFinished).toBe(false);
+    finished[2]?.resolve();
+    expect(await waiting).toMatchObject({ status: "completed", text: "First headless answer." });
+    expect(await operations.wait(second.operationId, "fail")).toMatchObject({
+      status: "completed",
+      text: "Second headless answer.",
+    });
+    expect(chat.getContext().submissions).toEqual([
+      { operationId: first.operationId, submissionId: first.submissionId },
+      { operationId: second.operationId, submissionId: second.submissionId },
+    ]);
+  } finally {
+    for (const boundary of finished) {
+      boundary.resolve();
+    }
+    operations.close();
+    await chats.stopAll();
+  }
+});
+
+test("headless waiting messages stay held after stop and support removal and explicit resume", async () => {
+  const { chats, chat, faux, directory } = await setup();
+  const entered = Promise.withResolvers<void>();
+  const finished = Promise.withResolvers<void>();
+  faux.setResponses([
+    async () => {
+      entered.resolve();
+      await finished.promise;
+      return fauxAssistantMessage("Stopped browser answer.");
+    },
+    fauxAssistantMessage("Resumed headless answer."),
+    fauxAssistantMessage("Later headless answer."),
+  ]);
+  const operations = createOperations(chats, directory, "headless-server");
+  try {
+    await chat.send("Browser prompt.");
+    await entered.promise;
+    const first = await submitHeadless(operations, chat, "Waiting headless prompt.");
+    const removable = await operations.prompt({
+      requestId: "remove",
+      chatId: chat.getState().id,
+      text: "Remove this prompt.",
+    });
+    expect(chat.removePending(removable.submissionId)).toBe(true);
+    expect(await operations.wait(removable.operationId, "fail")).toMatchObject({
+      status: "cancelled",
+    });
+    const stopped = chat.stop();
+    finished.resolve();
+    await stopped;
+    const later = await operations.prompt({
+      requestId: "later",
+      chatId: chat.getState().id,
+      text: "Later headless prompt.",
+    });
+    expect(chat.getState().pending.items.map((input) => input.state)).toEqual(["held", "held"]);
+    expect((await operations.wait(first.operationId, "fail", undefined, 1)).status).toBe("running");
+    await chat.resumePending();
+    expect(await operations.wait(first.operationId, "fail")).toMatchObject({
+      status: "completed",
+      text: "Resumed headless answer.",
+    });
+    expect(await operations.wait(later.operationId, "fail")).toMatchObject({
+      status: "completed",
+      text: "Later headless answer.",
+    });
+  } finally {
+    finished.resolve();
+    operations.close();
+    await chats.stopAll();
+  }
+});
+
+test("prompt and a later wait reach the listening server and its saved pi session", async () => {
+  const { chats, chat, faux, directory, project, models } = await setup();
+  faux.setResponses([fauxAssistantMessage("The transported answer.")]);
+  const server = await startAppServer({
+    chat: chats,
+    models,
+    directory,
+    token: "private-end-to-end-test-token-that-must-not-print",
+    port: 0,
+    isDevelopment: false,
+  });
+  const output: string[] = [];
+  const errors: string[] = [];
+  const options = {
+    directory,
+    folder: project,
+    stdin: async () => "",
+    stdout: (text: string) => {
+      output.push(text);
+    },
+    stderr: (text: string) => {
+      errors.push(text);
+    },
+  };
+  try {
+    expect(
+      await runHeadless(["prompt", "Task.", "--chat", chat.getState().id, "--no-wait"], options),
+    ).toBe(0);
+    const operationId = output.join("").split("\n")[1]?.slice("operation ".length) ?? "";
+    output.length = 0;
+    expect(await runHeadless(["wait", operationId], options)).toBe(0);
+    expect(output).toEqual(["The transported answer.\n"]);
+    expect(errors).toEqual([]);
+  } finally {
+    await server.close();
+  }
+});
+
+test("headless work uses the selected profile and saves source without adding model instructions", async () => {
+  const { chats, chat, faux, directory, project, reference } = await setup();
+  let captured = "";
+  faux.setResponses([
+    (context) => {
+      captured = JSON.stringify(context);
+      return fauxAssistantMessage("Final headless answer.");
+    },
+  ]);
+  const operations = createOperations(chats, directory, "headless-server");
+  try {
+    const browserId = chat.getState().id;
+    const accepted = await operations.prompt({
+      requestId: "driver-one",
+      text: "  Exact headless input.\n",
+      project,
+      profile: reference,
+    });
+    const completed = await operations.wait(accepted.operationId, "fail");
+    expect(completed).toMatchObject({ status: "completed", text: "Final headless answer." });
+    expect(chat.getState().id).toBe(browserId);
+    expect(accepted.chatId).not.toBe(browserId);
+    const opened = await chats.open(accepted.chatId);
+    expect(opened?.getContext().submissions).toEqual([
+      { operationId: accepted.operationId, submissionId: accepted.submissionId },
+    ]);
+    opened?.close();
+    expect(captured).toContain("The research prompt.");
+    expect(captured).toContain("  Exact headless input.\\n");
+    expect(captured).not.toContain(accepted.operationId);
+    expect(captured).not.toContain(accepted.submissionId);
+    operations.close();
+    const recovered = createOperations(chats, directory, "next-server");
+    expect(await recovered.show(accepted.operationId)).toMatchObject({
+      status: "completed",
+      text: "Final headless answer.",
+    });
+    recovered.close();
+  } finally {
+    operations.close();
+    await chats.stopAll();
+  }
+});
+
+test.each(["length", "aborted"] as const)(
+  "headless settlement preserves the pi stop reason %s",
+  async (stopReason) => {
+    const { chats, chat, faux, directory } = await setup();
+    faux.setResponses([fauxAssistantMessage("Partial text.", { stopReason })]);
+    const operations = createOperations(chats, directory, "headless-server");
+    try {
+      const accepted = await submitHeadless(operations, chat, "Task.");
+      expect(await operations.wait(accepted.operationId, "fail")).toMatchObject({
+        status: stopReason === "length" ? "outputLimited" : "cancelled",
+        text: "Partial text.",
+      });
+    } finally {
+      operations.close();
+      await chats.stopAll();
+    }
+  },
+);
+
+for (const onQuestion of ["fail", "wait"] as const) {
+  test(`headless permissions use the shared tool result with question handling ${onQuestion}`, async (context) => {
+    const { chats, chat, faux, directory, project } = await setup();
+    faux.setResponses([
+      fauxAssistantMessage(
+        [
+          fauxToolCall("Write", {
+            path: join(project, "..", "outside.txt"),
+            content: "Outside write.",
+          }),
+        ],
+        { stopReason: "toolUse" },
+      ),
+      fauxAssistantMessage("The write needs approval."),
+    ]);
+    const operations = createOperations(chats, directory, "headless-server");
+    try {
+      const unavailable = chat.getAgent().fileSandbox?.unavailable;
+      if (unavailable !== undefined && unavailable !== null) {
+        context.skip(unavailable);
+      }
+      const accepted = await operations.prompt({
+        requestId: "permission-task",
+        text: "Write the requested file.",
+        chatId: chat.getState().id,
+        onQuestion,
+      });
+      if (onQuestion === "fail") {
+        expect(await operations.wait(accepted.operationId, "fail")).toMatchObject({
+          code: "approvalRequired",
+        });
+        expect(chats.approvals.pending()).toEqual([]);
+      } else {
+        await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+        const question = chats.approvals.pending()[0];
+        expect(await operations.wait(accepted.operationId, "fail")).toMatchObject({
+          status: "waitingForInput",
+          questionId: question?.id,
+        });
+        expect(
+          await chats.approvals.resolve(question?.id ?? "", question?.revision ?? "", "deny"),
+        ).toBe(200);
+        expect(await operations.wait(accepted.operationId, "wait")).toMatchObject({
+          status: "completed",
+        });
+      }
+      await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    } finally {
+      operations.close();
+      await chats.stopAll();
+    }
+  });
+}
+
+async function submitHeadless(
+  operations: Operations,
+  chat: OpenChat,
+  text: string,
+): Promise<OperationView> {
+  return operations.prompt({ requestId: "driver-one", text, chatId: chat.getState().id });
+}
 
 test("context controls keep saved literal filenames visible while a reply waits for approval", async () => {
   const created = await setup();
