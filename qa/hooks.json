@@ -10,7 +10,7 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Hooks') && button.innerText.includes('configured'))"
     },
     {
-      "run": "({ everyHookVisible: ['observeRequest', 'guardCommands'].every(name => document.querySelector('aside [role=tabpanel]').innerText.includes(name)), exactCounts: document.querySelector('aside [role=tabpanel]').innerText.includes('2 configured. 2 enabled.'), policiesVisible: ['Stop', 'Continue'].every(label => [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === label)), reloadVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Reload scripts') })",
+      "run": "({ everyHookVisible: ['observeRequest', 'guardCommands'].every(name => document.querySelector('aside [role=tabpanel]').innerText.includes(name)), exactCounts: document.querySelector('aside [role=tabpanel]').innerText.includes('2 configured. 2 enabled.'), policiesLabeled: document.querySelectorAll('aside fieldset[aria-label=\"When this hook fails\"]').length === 2 && [...document.querySelectorAll('aside fieldset[aria-label=\"When this hook fails\"]')].every(field => field.previousElementSibling?.innerText === 'When this hook fails' && ['Stop', 'Continue'].every(label => [...field.querySelectorAll('button')].some(button => button.innerText.trim() === label))), reloadVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Reload scripts') })",
       "shot": "hooks-detail"
     },
     { "clickOn": "document.querySelector('button[aria-label=\"Use guardCommands\"]')" },
@@ -27,9 +27,13 @@
     { "clickOn": "document.querySelector('dialog button[aria-label=Close]')" },
     { "size": [360, 800], "scheme": "light" },
     {
-      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, hookSwitchReachable: !!document.querySelector('button[aria-label=\"Use observeRequest\"]') })",
+      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, hookSwitchReachable: !!document.querySelector('button[aria-label=\"Use observeRequest\"]'), failureLabelVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('When this hook fails') })",
       "shot": "hooks-phone-light"
     },
-    { "scheme": "dark", "shot": "hooks-phone-dark" }
+    {
+      "scheme": "dark",
+      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, failureLabelVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('When this hook fails') })",
+      "shot": "hooks-phone-dark"
+    }
   ]
 }
