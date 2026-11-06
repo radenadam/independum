@@ -8,9 +8,9 @@ import { isMissingFile } from "./is-missing-file.ts";
 /** An input mutation that cannot apply to the current durable state. */
 export class InputError extends Error {
   code: string;
-  status: 400 | 409 | 500;
+  status: 400 | 404 | 409 | 413 | 422 | 500;
 
-  constructor(message: string, code: string, status: 400 | 409 | 500 = 409) {
+  constructor(message: string, code: string, status: InputError["status"] = 409) {
     super(message);
     this.code = code;
     this.status = status;
@@ -283,17 +283,8 @@ export function listPendingChats(
   directory: string,
   savedIds: Set<string>,
 ): { id: string; folder: string; name: string; modified: number; isArchived: boolean }[] {
-  let names: string[];
-  try {
-    names = readdirSync(directory);
-  } catch (error) {
-    if (isMissingFile(error)) {
-      return [];
-    }
-    throw error;
-  }
-  return names
-    .filter((name) => /^[a-f0-9-]+\.json$/i.test(name) && !savedIds.has(name.slice(0, -5)))
+  return pendingNames(directory)
+    .filter((name) => !savedIds.has(name.slice(0, -5)))
     .flatMap((name) => {
       const path = join(directory, name);
       let file: unknown;
@@ -328,6 +319,38 @@ export function listPendingChats(
     });
 }
 
+/** Collects retained attachment references and refuses cleanup when pending data needs repair. */
+export function pendingAttachmentIds(directory: string): Set<string> {
+  const retained = new Set<string>();
+  for (const name of pendingNames(directory)) {
+    const value: unknown = JSON.parse(readFileSync(join(directory, name), "utf8"));
+    if (!isPendingFile(value, name.slice(0, -5))) {
+      throw new InputError(
+        "Waiting messages need repair before attachment cleanup.",
+        "pendingInvalid",
+        500,
+      );
+    }
+    for (const input of value.items) {
+      for (const id of input.attachmentIds ?? []) {
+        retained.add(id);
+      }
+    }
+  }
+  return retained;
+}
+
+function pendingNames(directory: string): string[] {
+  try {
+    return readdirSync(directory).filter((name) => /^[a-f0-9-]+\.json$/i.test(name));
+  } catch (error) {
+    if (isMissingFile(error)) {
+      return [];
+    }
+    throw error;
+  }
+}
+
 function isPendingFile(value: unknown, chatId: string): value is PendingFile {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -359,7 +382,30 @@ function isPendingFile(value: unknown, chatId: string): value is PendingFile {
         ["waiting", "handingOff", "held"].includes(input.state) &&
         (input.reason === null || typeof input.reason === "string") &&
         typeof input.text === "string" &&
-        input.text.trim() !== "" &&
+        (input.text.trim() !== "" || (input.attachmentIds?.length ?? 0) > 0) &&
+        (input.attachmentIds === undefined ||
+          (Array.isArray(input.attachmentIds) &&
+            input.attachmentIds.every((id) => typeof id === "string"))) &&
+        (input.fileAttachmentIds === undefined ||
+          (Array.isArray(input.fileAttachmentIds) &&
+            input.fileAttachmentIds.every((id) => typeof id === "string"))) &&
+        (input.attachments === undefined ||
+          (Array.isArray(input.attachments) &&
+            input.attachments.every(
+              (source) =>
+                typeof source === "object" &&
+                source !== null &&
+                typeof source.id === "string" &&
+                typeof source.name === "string" &&
+                typeof source.mimeType === "string" &&
+                ["text", "image", "file"].includes(source.kind) &&
+                Number.isSafeInteger(source.bytes) &&
+                source.bytes >= 0 &&
+                Number.isSafeInteger(source.textBytes) &&
+                source.textBytes >= 0 &&
+                (source.encoding === null ||
+                  ["utf-8", "utf-16le", "utf-16be"].includes(source.encoding)),
+            ))) &&
         typeof input.hasBrowserApprovals === "boolean" &&
         (input.submission === undefined ||
           (typeof input.submission === "object" &&

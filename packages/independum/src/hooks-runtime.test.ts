@@ -31,7 +31,7 @@ async function setup(event: HookEvent, additionalEvents: HookEvent[] = []) {
   const models = await createModelRuntime(state);
   const faux = fauxProvider({
     provider: `hook-test-${nextId}`,
-    models: [{ id: "model" }, { id: "other" }],
+    models: [{ id: "model", input: ["text", "image"] }, { id: "other" }],
   });
   models.registerNativeProvider(faux.provider);
   await models.setRuntimeApiKey(faux.provider.id, "test-key");
@@ -91,6 +91,7 @@ async function setup(event: HookEvent, additionalEvents: HookEvent[] = []) {
             ...additionalEvents.map((event, index) => ({ ...hook, id: `script${index}`, event })),
           ],
           compaction: { isEnabled: false, reserveTokens: 0, keepRecentTokens: 0 },
+          attachments: { resizeImages: false },
         },
       },
       systemPrompt: "Base prompt.",
@@ -219,13 +220,16 @@ test("hook routes bind invocation reads stop and revision checks to the addresse
 });
 
 test.each(["queue", "steer", "headless"] as const)(
-  "%s delivery invokes input once per message with captured choices and command text",
+  "%s delivery invokes input once with captured choices command text and attachments",
   async (delivery) => {
     vi.mocked(executeScriptHook).mockImplementation(async (_hook, input) => ({
       output: JSON.stringify({
         apiVersion: 1,
         action: "replace",
-        replacement: { text: `Accepted ${String(input.data.text)}`, images: [] },
+        replacement: {
+          text: `Accepted ${String(input.data.text)}`,
+          images: input.data.images ?? [],
+        },
       }),
       error: "",
       exitCode: 0,
@@ -244,7 +248,31 @@ test.each(["queue", "steer", "headless"] as const)(
       fauxAssistantMessage("Next answer."),
     ]);
     try {
-      expect(await opened.send("Start", "literal")).toBe(true);
+      const pixel =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+      const attachmentIds: string[] = [];
+      if (delivery !== "headless") {
+        for (const [name, mimeType, bytes] of [
+          ["note.txt", "text/plain", Buffer.from("Hook attachment.\r\n")],
+          ["pixel.png", "image/png", Buffer.from(pixel, "base64")],
+        ] as const) {
+          const source = await opened.uploadAttachment(
+            name,
+            mimeType,
+            new Response(new Uint8Array(bytes)).body,
+          );
+          attachmentIds.push(source.id);
+        }
+      }
+      expect(
+        await opened.send("Start", "literal", undefined, false, {
+          id: randomUUID(),
+          delivery: "queue",
+          expectedRevision: opened.getState().pending.revision,
+          expectedLeafId: opened.getState().leafId,
+          attachmentIds,
+        }),
+      ).toBe(true);
       await entered.promise;
       const commands = join(folder, ".independum", "commands");
       mkdirSync(commands, { recursive: true });
@@ -257,6 +285,7 @@ test.each(["queue", "steer", "headless"] as const)(
         delivery: delivery === "steer" ? "steer" : "queue",
         expectedRevision: state.pending.revision,
         expectedLeafId: state.leafId,
+        attachmentIds,
       };
       const requestId = options.id;
       async function submit(): Promise<boolean> {
@@ -294,9 +323,19 @@ test.each(["queue", "steer", "headless"] as const)(
       expect(await submit()).toBe(true);
       const invocations = opened.getHooks().invocations;
       expect(invocations.map((record) => record.input.data.text)).toEqual([
-        "Start",
-        "Captured result.",
+        delivery === "headless" ? "Start" : expect.stringContaining("Start\n\n"),
+        delivery === "headless"
+          ? "Captured result."
+          : expect.stringContaining("Captured result.\n\n"),
       ]);
+      for (const invocation of invocations) {
+        if (delivery !== "headless") {
+          expect(invocation.input.data.text).toContain("Hook attachment.\r\n");
+          expect(invocation.input.data.images).toEqual([
+            { type: "image", mimeType: "image/png", data: pixel },
+          ]);
+        }
+      }
       expect(invocations[1]?.input).toMatchObject({
         model: {
           providerId: captured?.model.providerId,
@@ -313,7 +352,12 @@ test.each(["queue", "steer", "headless"] as const)(
         messages: expect.arrayContaining([
           expect.objectContaining({
             role: "user",
-            content: expect.arrayContaining([{ type: "text", text: "Accepted Captured result." }]),
+            content: expect.arrayContaining([
+              { type: "text", text: `Accepted ${String(invocations[1]?.input.data.text)}` },
+              ...(delivery === "headless"
+                ? []
+                : [{ type: "image", mimeType: "image/png", data: pixel }]),
+            ]),
           }),
         ]),
       });

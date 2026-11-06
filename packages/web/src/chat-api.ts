@@ -373,6 +373,7 @@ export async function startNewChat(id: string, folder?: string): Promise<string>
   return ((await response.json()) as { id: string }).id;
 }
 
-function chatPath(id: string, part: string): string {
+/** Builds an API address for one explicitly selected chat. */
+export function chatPath(id: string, part: string): string {
   return `/api/chats/${encodeURIComponent(id)}${part}`;
 }

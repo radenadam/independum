@@ -51,6 +51,8 @@ The approval binds the copied input, tool call, chat branch, resource identities
 
 The existing authenticated API protects these routes with its token, host, and origin checks. No approval creates a synthetic user message. Permission context and result templates are editable model texts in the Permissions group. Their fact switches change context only.
 
+[Attachment uploads](attachments.md#storage-and-grants) use the system read boundary without saving approvals. Their store stays outside the denied state folder. Saved ask and deny rules still apply to tool reads of uploads.
+
 ## Current limits
 
 - Shell protects project configuration with nested read-only grants on every system. The state folder remains denied. Existing contents remain readable and writes fail. The adapter creates the project `.independum` directory before compiling its read-only protection. Explicit approved paths can grant configuration writes.

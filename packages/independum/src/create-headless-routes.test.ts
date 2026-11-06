@@ -83,6 +83,8 @@ test("prompt validates all fields before passing exact input to the shared servi
     { text: "Task." },
     { requestId: "one", text: "" },
     { requestId: "one", text: "Task.", unknown: true },
+    { requestId: "one", text: "Task.", attachmentIds: ["upload"] },
+    { requestId: "one", text: "Task.", fileAttachmentIds: ["upload"] },
     { requestId: "one", text: "Task.", chatId: "one", project: "project" },
     { requestId: "one", text: "Task.", onQuestion: "allow" },
     { requestId: "one", text: "Task.", profile: { scope: "user", id: "../bad" } },

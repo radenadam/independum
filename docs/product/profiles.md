@@ -20,6 +20,8 @@ Profile settings permit `model`, `thinkingLevel`, `shell`, `disabledTools`, `dis
 
 Chat overrides use the same model and effort shapes. An absent override follows the profile. An explicit model null leaves the chat without a selected model. Empty chats save their choices with the first accepted prompt.
 
+Profiles also own [attachment settings](attachments.md#settings-and-model-input) under `settings.attachments`. Attachment and Notes texts use the existing model text file.
+
 JSON accepts a leading byte order mark but rejects comments, duplicate keys, unknown fields, trailing commas, and unsupported versions. Diagnostics identify a file and JSON pointer. `SYSTEM.md` preserves line endings and its final newline, and its body is never interpreted as a file path. Only the explicit skills, commands, and resource paths of [context controls](context.md) are loaded. Only explicitly configured hooks execute code, through the hook sandbox gate. Reading a profile never executes its scripts.
 
 ## Editors and application

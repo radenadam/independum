@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
   type AssistantMessage,
   fauxAssistantMessage,
@@ -13,17 +13,30 @@ import { validateUserSettings } from "./configuration-schema.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
+import { projectIdOf } from "./create-profile-store.ts";
+import { evaluatePermission } from "./permission-policy.ts";
+import { builtInAttachments } from "./read-attachment-settings.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("input-delivery");
 
-async function setup() {
+async function setup(inputLimits?: { images: { maxPerRequest: number } }) {
   const directory = join(parent, randomUUID());
   const folder = join(directory, "project");
   mkdirSync(folder, { recursive: true });
   const models = await createModelRuntime(directory);
   const provider = `input-${randomUUID()}`;
-  const faux = fauxProvider({ provider, models: [{ id: "first" }, { id: "second" }] });
+  const faux = fauxProvider({
+    provider,
+    models: [
+      {
+        id: "first",
+        input: ["text", "image"],
+        ...(inputLimits === undefined ? {} : { inputLimits }),
+      },
+      { id: "second" },
+    ],
+  });
   models.registerNativeProvider(faux.provider);
   await models.setRuntimeApiKey(provider, "test-key");
   const chats = await createChat({ models, directory, folder });
@@ -76,6 +89,232 @@ function prompts(state: ChatState): string[] {
       message.parts.map((part) => (part.type === "text" ? part.text : "")).join(""),
     );
 }
+
+test("waiting messages carry each attachment form through steer and follow-up handoff", async () => {
+  const { chats, chat, faux, directory, folder } = await setup();
+  const reference = { scope: "user", id: "default" } as const;
+  await chats.changeSettings(
+    reference,
+    projectIdOf(folder),
+    { attachments: { ...builtInAttachments, resizeImages: false } },
+    chats.profiles.profile(reference, projectIdOf(folder)).revision,
+  );
+  const pixel = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const sources = [];
+  for (const [name, mimeType, bytes] of [
+    ["note.txt", "text/plain", Buffer.from("Attached text.\r\n")],
+    ["pixel.png", "image/png", pixel],
+    ["paper.pdf", "application/pdf", Buffer.from("%PDF-1.7\nSaved bytes.")],
+  ] as const) {
+    sources.push(
+      await chat.uploadAttachment(name, mimeType, new Response(new Uint8Array(bytes)).body),
+    );
+  }
+  const policy = chat.getAgent().permissions;
+  if (policy === undefined) {
+    throw new Error("The attachment policy is missing.");
+  }
+  expect(policy.savedApprovals).toHaveLength(0);
+  for (const source of sources) {
+    const resource = {
+      kind: "path",
+      path: chat.attachmentSource(source.id).path,
+      scope: "file",
+      access: "read",
+    } as const;
+    expect(resource.path).toBe(
+      join(parent, `${basename(directory)}-attachments`, source.id, "content"),
+    );
+    expect(evaluatePermission(policy, folder, resource, [], [directory]).decision).toBe("allow");
+    expect(
+      evaluatePermission(policy, folder, { ...resource, access: "write" }, [], [directory])
+        .decision,
+    ).toBe("ask");
+    for (const effect of ["ask", "deny"] as const) {
+      expect(
+        evaluatePermission(
+          { ...policy, rules: [{ id: "upload", effect, project: folder, resource }] },
+          folder,
+          resource,
+          [],
+          [directory],
+        ).decision,
+      ).toBe(effect);
+    }
+    expect(
+      evaluatePermission(
+        policy,
+        folder,
+        { ...resource, path: join(directory, "private.txt") },
+        [],
+        [directory],
+      ).decision,
+    ).toBe("deny");
+  }
+  const held = holdReply(
+    fauxAssistantMessage([fauxToolCall("CheckCommand", { id: 1 })], { stopReason: "toolUse" }),
+  );
+  faux.setResponses([
+    held.receive,
+    fauxAssistantMessage("Steered."),
+    fauxAssistantMessage("Queued."),
+  ]);
+  try {
+    await send(chat, "Start");
+    await held.entered;
+    for (const delivery of ["queue", "steer"] as const) {
+      await chat.send(`Attached ${delivery}`, "literal", undefined, false, {
+        ...optionsFor(chat, delivery),
+        attachmentIds: sources.map((source) => source.id),
+      });
+    }
+    expect(
+      chat
+        .getState()
+        .pending.items.filter((input) => (input.attachmentIds?.length ?? 0) > 0)
+        .map((input) => input.attachments?.map((source) => source.kind)),
+    ).toEqual([
+      ["text", "image", "file"],
+      ["text", "image", "file"],
+    ]);
+    held.finish();
+    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    const sent = chat
+      .getState()
+      .messages.filter((message) => (message.attachments?.length ?? 0) > 0);
+    expect(sent.map((message) => message.parts)).toEqual([
+      [{ type: "text", text: "Attached steer" }],
+      [{ type: "text", text: "Attached queue" }],
+    ]);
+    for (const prompt of sent) {
+      expect(prompt.attachments?.[1]?.image?.data).toBe(pixel.toString("base64"));
+      expect(prompt.attachments?.[0]?.modelText).toContain("Attached text.\r\n");
+      expect(prompt.attachments?.[2]?.modelText).toContain("Path:");
+    }
+    const exported = await chats.exportMarkdown(chat.getState().id);
+    expect(exported).toContain("paper.pdf (File path included)");
+    expect(exported).toContain("Attached text.\r\n");
+    expect(exported).not.toContain(chat.attachmentSource(sources[0]?.id ?? "").path);
+    expect(exported).not.toContain(pixel.toString("base64"));
+  } finally {
+    held.finish();
+    await chats.stopAll();
+  }
+});
+
+test("attachment-only waiting inputs remain readable without approvals after restart", async () => {
+  const { chats, chat, faux, models, directory, folder } = await setup();
+  const source = await chat.uploadAttachment(
+    "result.txt",
+    "text/plain",
+    new Response("Retained result.").body,
+  );
+  await chat.stop();
+  const input = { ...optionsFor(chat), attachmentIds: [source.id] };
+  expect(await chat.send("", "literal", undefined, false, input)).toBe(true);
+  await chats.stopAll();
+  const reopened = await createChat({ models, directory, folder });
+  const selected = await reopened.open(chat.getState().id);
+  if (selected === undefined) {
+    throw new Error("The attachment-only chat did not reopen.");
+  }
+  try {
+    expect(selected.getState().pending.items).toMatchObject([
+      { text: "", attachmentIds: [source.id], state: "held" },
+    ]);
+    expect(selected.getAgent().permissions?.savedApprovals).toHaveLength(0);
+    expect(selected.attachmentSource(source.id).bytes.toString()).toBe("Retained result.");
+    faux.setResponses([fauxAssistantMessage("Read the retained input.")]);
+    await selected.resumePending();
+    await vi.waitFor(() => expect(selected.inputState(input.id)).toBe("delivered"));
+    await vi.waitFor(() => expect(selected.getState().isReplying).toBe(false));
+    expect(selected.getState().messages[0]?.attachments?.[0]?.text).toBe("Retained result.");
+  } finally {
+    await reopened.stopAll();
+  }
+});
+
+test("attachment routes bound uploads and reject missing sources and empty file input", async () => {
+  const { chats, chat, models } = await setup();
+  const routes = createChatRoutes(chats, models);
+  const path = `/chats/${chat.getState().id}`;
+  try {
+    const response = await routes.request(`${path}/attachments?name=paper.pdf`, {
+      method: "POST",
+      headers: { "content-type": "application/pdf" },
+      body: "%PDF-1.7\n",
+    });
+    expect(response.status).toBe(201);
+    const source = (await response.json()) as { id: string };
+    const content = await routes.request(`${path}/attachments/${source.id}/content`);
+    expect(content.headers.get("content-disposition")).toBe(
+      "attachment; filename*=UTF-8''paper.pdf",
+    );
+    expect(content.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await content.text()).toBe("%PDF-1.7\n");
+    expect((await routes.request(`${path}/attachments/${randomUUID()}`)).status).toBe(404);
+    expect(
+      (await routes.request(`${path}/attachments?name=../file`, { method: "POST", body: "bad" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await routes.request(`${path}/attachments?name=large`, {
+          method: "POST",
+          headers: { "content-length": String(100 * 1024 * 1024) },
+          body: "small",
+        })
+      ).status,
+    ).toBe(413);
+    const missing = await routes.request(`${path}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "send",
+        ...optionsFor(chat),
+        text: "",
+        attachmentIds: [randomUUID()],
+      }),
+    });
+    expect(missing.status).toBe(404);
+  } finally {
+    await chats.stopAll();
+  }
+});
+
+test("image limits include retained history before forwarding a request", async () => {
+  const { chats, chat, faux } = await setup({ images: { maxPerRequest: 1 } });
+  const pixel = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "base64",
+  );
+  const source = await chat.uploadAttachment(
+    "history.png",
+    "image/png",
+    new Response(new Uint8Array(pixel)).body,
+  );
+  faux.setResponses([fauxAssistantMessage("One image."), fauxAssistantMessage("Must not run.")]);
+  try {
+    const first = { ...optionsFor(chat), attachmentIds: [source.id] };
+    expect(await chat.send("First", "literal", undefined, false, first)).toBe(true);
+    await vi.waitFor(() => expect(chat.inputState(first.id)).toBe("delivered"));
+    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    const second = { ...optionsFor(chat), attachmentIds: [source.id] };
+    expect(await chat.send("Second", "literal", undefined, false, second)).toBe(true);
+    await vi.waitFor(() =>
+      expect(
+        chat.getState().messages.some((message) => message.error?.includes("request has 2 images")),
+      ).toBe(true),
+    );
+    expect(faux.state.callCount).toBe(1);
+  } finally {
+    await chats.stopAll();
+  }
+});
 
 test("steers follow the tool batch one per boundary and precede queued prompts in order", async () => {
   const { chats, chat, faux } = await setup();

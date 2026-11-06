@@ -3,6 +3,7 @@ import { thinkingLevels } from "independum/api-types";
 import { type ReactElement, useState } from "react";
 import { AddedFactsDetail } from "./added-facts-detail.tsx";
 import { SystemPromptDetail, ToolsDetail } from "./agent-details.tsx";
+import { AttachmentSettingsDetail, NotesDetail } from "./attachment-settings-detail.tsx";
 import { CodeWell } from "./code-well.tsx";
 import { CompactionDetail } from "./compaction-detail.tsx";
 import { ConfigurationIssues } from "./configuration-issues.tsx";
@@ -182,6 +183,8 @@ export function ProfileEditor({
           </PlaceSection>
           <SystemPromptDetail settings={settings} />
           <ToolsDetail settings={settings} />
+          <AttachmentSettingsDetail settings={settings} />
+          <NotesDetail settings={settings} />
           <AddedFactsDetail settings={settings} />
           <ContextResourcesDetail settings={settings} />
           <ModelDetail

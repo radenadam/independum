@@ -26,6 +26,8 @@ Decision 0014 put the chat list in a margin and kept the Margin style of decisio
 
 ## Consequences
 
+- [Decision 0068](0068-message-attachments.md) adds attachment tiles, previews, and separate Attachments and Notes editors.
+
 - Decision 0014 is superseded. The Margin direction of decision 0009 now covers only the welcome screen and the login screens.
 - The working screen gets its own components. `CommandButton`, `ScreenLayout`, and `PickList` stay for the Margin screens.
 - Formatting Markdown needs a dependency, and so do the provider logos.

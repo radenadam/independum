@@ -22,9 +22,11 @@ Archive removes the pin and moves the session file out of the sidebar. Unarchive
 
 [Headless prompts](headless.md) create chats without changing a browser's selected chat. The chat detail in Session adds a Source section for command line submissions, with submission and operation ids from custom Pi entries. These entries never enter model messages.
 
-Drafts use browser local storage, keyed by chat id as `independum.draft.<id>`. Switching chats swaps the draft. Durable acceptance removes submitted text only if no newer draft replaces it. A failed send preserves the exact submitted text or any newer draft. Drafts do not travel through the server and do not synchronize live between browsers. A null chat id has no saved draft.
+Drafts use browser local storage, keyed by chat id as `independum.draft.<id>`. Version 1 holds text and attachment references with display metadata and explicit file path choices. Existing literal text drafts migrate into this record. Switching chats swaps the draft. Durable acceptance removes submitted text only if no newer draft replaces it. A failed send preserves the exact submitted text or any newer draft. Drafts do not travel through the server and do not synchronize live between browsers. A null chat id has no saved draft.
 
 Export downloads Markdown for an unarchived saved chat. It uses the messages in Pi's built context, so compacted messages may be absent. The title is the first heading, user text is under You, and assistant text is under Agent with its model id. Errors follow the text in italics. It omits thoughts, tool calls, tool results, notes, and turns without text or an error. It is not a full session backup.
+
+[Attachment drafts](attachments.md#storage-and-grants) never store file content or base64 images. Export includes attachment names, delivery forms, and inline text from the selected path. It excludes attachment storage paths and image bytes.
 
 ## Notifications
 

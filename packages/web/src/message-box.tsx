@@ -1,4 +1,5 @@
 import type {
+  AttachmentSettings,
   ChatState,
   ComposePreview,
   ContextRevision,
@@ -10,6 +11,7 @@ import type {
 } from "independum/api-types";
 import { builtInSlashCommands } from "independum/read-context-settings";
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
+import { AttachmentList } from "./attachment-list.tsx";
 import { changeInputDelivery, composeMessage, fetchResources, runSlashAction } from "./chat-api.ts";
 import { readDraft, saveDraft } from "./chat-draft.ts";
 import { ChoiceGroup } from "./choice-group.tsx";
@@ -30,6 +32,7 @@ import { ProviderLogo } from "./provider-logo.tsx";
 import { describeShortcut, hasShortcutModifier, shortcuts } from "./shortcut.ts";
 import { StatusLabel } from "./status-label.tsx";
 import { TextField } from "./text-field.tsx";
+import { useAttachmentDraft } from "./use-attachment-draft.ts";
 import { useTooltip } from "./use-tooltip.tsx";
 
 /** A menu that opens from the message box. */
@@ -43,6 +46,8 @@ const deliveryLabels: Record<InputDelivery, string> = {
 
 /** Properties of the message box. */
 interface MessageBoxProps {
+  contextVersion?: number;
+  attachmentSettings?: AttachmentSettings | undefined;
   chatId: string | null;
   model: ChatState["model"];
   thinking: ChatState["thinking"];
@@ -61,6 +66,8 @@ interface MessageBoxProps {
     previewId: string | undefined,
     delivery: InputDelivery,
     inputId: string,
+    attachmentIds: string[],
+    fileAttachmentIds: string[],
   ) => Promise<void>;
   onSlashAction: (action: string, argumentsText: string, newChatId?: string) => void;
   onStop: () => void;
@@ -79,6 +86,8 @@ interface MessageBoxProps {
  * under it, which a new chat can change.
  */
 export function MessageBox({
+  contextVersion,
+  attachmentSettings,
   chatId,
   model,
   thinking,
@@ -111,8 +120,21 @@ export function MessageBox({
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [delivery, setDelivery] = useState(whileReplying);
+  const attachmentDraft = useAttachmentDraft(
+    chatId,
+    `${model?.providerId}/${model?.id}/${contextVersion ?? ""}/${JSON.stringify(attachmentSettings)}`,
+    attachmentSettings,
+  );
+  const picker = useRef<HTMLInputElement>(null);
   const submission = useRef<
-    | { chatId: string; text: string; previewId: string; delivery: InputDelivery; id: string }
+    | {
+        chatId: string;
+        text: string;
+        previewId: string;
+        delivery: InputDelivery;
+        id: string;
+        attachments: string;
+      }
     | undefined
   >(undefined);
   const draftVersions = useRef(new Map<string | null, number>());
@@ -131,7 +153,11 @@ export function MessageBox({
     menu === "model" ? undefined : "Choose a model and its thinking effort",
   );
   const field = useRef<HTMLTextAreaElement>(null);
-  const isReady = draft.text.trim() !== "" && model !== null && !isSubmitting;
+  const isReady =
+    (draft.text.trim() !== "" || attachmentDraft.items.length > 0) &&
+    attachmentDraft.isReady &&
+    model !== null &&
+    !isSubmitting;
   const modelName =
     model === null
       ? "Choose a model"
@@ -218,9 +244,20 @@ export function MessageBox({
         return;
       }
       const submitted = preview === undefined ? composed.text : text;
+      const attachmentIds = attachmentDraft.items.flatMap((item) =>
+        item.summary === undefined ? [] : [item.summary.id],
+      );
+      const fileAttachmentIds = attachmentDraft.items.flatMap((item) =>
+        item.isFile && item.summary !== undefined ? [item.summary.id] : [],
+      );
+      const attachmentIdentity = JSON.stringify([attachmentIds, fileAttachmentIds]);
+      const attachmentKeys = attachmentDraft.items.map((item) => item.key);
       const previous = submission.current;
       const inputId =
-        previous?.chatId === chatId && previous.text === submitted && previous.delivery === mode
+        previous?.chatId === chatId &&
+        previous.text === submitted &&
+        previous.delivery === mode &&
+        previous.attachments === attachmentIdentity
           ? previous.id
           : crypto.randomUUID();
       const submittedPreviewId = previous?.id === inputId ? previous.previewId : composed.id;
@@ -230,8 +267,10 @@ export function MessageBox({
         previewId: submittedPreviewId,
         delivery: mode,
         id: inputId,
+        attachments: attachmentIdentity,
       };
-      await onSend(submitted, submittedPreviewId, mode, inputId);
+      await onSend(submitted, submittedPreviewId, mode, inputId, attachmentIds, fileAttachmentIds);
+      attachmentDraft.clear(chatId, attachmentKeys);
       submission.current = undefined;
       if ((draftVersions.current.get(chatId) ?? 0) === version) {
         saveDraft(chatId, "");
@@ -360,8 +399,54 @@ export function MessageBox({
             />
           </Popover>
         ) : null}
-        <div className={styles.box}>
-          <PendingInputs pending={pending} onRemove={onRemovePending} onResume={onResumePending} />
+        <fieldset
+          className={styles.box}
+          aria-label="Message box"
+          onDragOver={(event) => {
+            if (event.dataTransfer.types.includes("Files")) {
+              event.preventDefault();
+            }
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const entries = [...event.dataTransfer.items];
+            if (entries.some((item) => item.webkitGetAsEntry?.()?.isDirectory)) {
+              setCommandFailure("Folders cannot be attached. Choose files instead.");
+              return;
+            }
+            attachmentDraft.add([...event.dataTransfer.files]);
+          }}
+          onPaste={(event) => {
+            const files = [...event.clipboardData.files];
+            if (files.length > 0) {
+              event.preventDefault();
+              attachmentDraft.add(files);
+              const plain = event.clipboardData.getData("text/plain");
+              if (plain !== "") {
+                const start = field.current?.selectionStart ?? draft.text.length;
+                const end = field.current?.selectionEnd ?? start;
+                changeDraft(draft.text.slice(0, start) + plain + draft.text.slice(end));
+              }
+            }
+          }}
+        >
+          <PendingInputs
+            chatId={chatId}
+            pending={pending}
+            onRemove={onRemovePending}
+            onResume={onResumePending}
+          />
+          {chatId === null ? null : (
+            <AttachmentList
+              chatId={chatId}
+              items={attachmentDraft.items}
+              onRemove={attachmentDraft.remove}
+              onChooseFile={attachmentDraft.chooseFile}
+            />
+          )}
+          {attachmentDraft.error === undefined ? null : (
+            <p className={styles.commandNotice}>{attachmentDraft.error}</p>
+          )}
           <textarea
             ref={field}
             className={styles.field}
@@ -380,6 +465,23 @@ export function MessageBox({
             onKeyDown={onFieldKey}
           />
           <div className={styles.tools}>
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              aria-label="Attachment files"
+              onChange={(event) => {
+                attachmentDraft.add([...(event.target.files ?? [])]);
+                event.target.value = "";
+              }}
+            />
+            <IconButton
+              icon="add"
+              label="Add attachment"
+              tipSide="above"
+              onClick={() => picker.current?.click()}
+            />
             <span className={styles.anchor}>
               <button
                 type="button"
@@ -486,7 +588,7 @@ export function MessageBox({
               onClick={() => submit()}
             />
           </div>
-        </div>
+        </fieldset>
         <div className={styles.under}>
           {isEmpty ? (
             <span className={styles.anchor}>

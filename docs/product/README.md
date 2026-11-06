@@ -4,6 +4,7 @@ These pages describe the current implementation. Start with the area that change
 
 - [Chats](chats.md): sidebar, drafts, export, notifications, and independent runs.
 - [Message box](message-box.md): sending, model choice, thinking effort, and the context meter.
+- [Attachments](attachments.md): original sources, delivery forms, preparation, limits, and storage access.
 - [Context controls](context.md): project resources, slash commands, Pi additions, and replacement compaction.
 - [Replies](replies.md): text, thoughts, steps, groups, notes, and copying.
 - [Side panel](side-panel.md): tabs, Session, its figure and conversation, Commands, and details.

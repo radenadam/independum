@@ -366,6 +366,8 @@ export function WorkingScreen({
     previewId: string | undefined,
     delivery: import("independum/api-types").InputDelivery,
     inputId: string,
+    attachmentIds: string[],
+    fileAttachmentIds: string[],
   ): Promise<void> {
     setNotice(undefined);
     try {
@@ -380,6 +382,8 @@ export function WorkingScreen({
           expectedRevision: chat.pending.revision,
           expectedLeafId: chat.leafId,
           delivery,
+          attachmentIds,
+          fileAttachmentIds,
         },
         previewId,
       );
@@ -504,6 +508,8 @@ export function WorkingScreen({
             ) : null}
             <HookActivity chat={chat} />
             <MessageBox
+              attachmentSettings={chat.attachmentSettings}
+              contextVersion={chat.contextVersion}
               chatId={chat.id}
               model={chat.model}
               thinking={chat.thinking}

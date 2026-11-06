@@ -21,6 +21,8 @@ A section is never a box of its own. A card is never used for one thing alone, b
 
 The message box keeps waiting messages in one `BoxedList` above its field. Each row opens its details as one button with the chevron of a tile, and its remove button sits beside it until handoff. A tile would vanish there, because the floating layer and a tile share one fill in the light theme. Its delivery menu opens from Choose queue or steer and uses `ChoiceGroup`, and held delivery has a Resume sending `TextButton` beside the list heading, so it never looks like Send. Send and Stop remain separate during a reply. [Decision 0064](decisions/0064-queue-and-steer.md) defines the boundaries and keys.
 
+Attachments use filled `PlaceRow` tiles with their delivery form and an original image thumbnail where supported. Remove sits beside each tile. Its detail uses `ModalDialog`, with original facts and prepared model input in `PlaceSection` sections. The Attachment settings and shared Notes envelope open from Session and reuse the profile editors. [Decision 0068](decisions/0068-message-attachments.md) defines their behavior.
+
 ## Color
 
 - Text uses `--ink`, or `--muted` for what is secondary. `--faint` is too light to read, so it draws only lines and decoration.
