@@ -109,9 +109,11 @@ export async function connectHeadless(
     let connection: ServerConnection | undefined;
     try {
       connection = readServer(options.directory);
-    } catch {
+    } catch (error) {
       throw new HeadlessError(
-        "The private server record cannot be read securely.",
+        error instanceof Error
+          ? error.message
+          : "The private server record cannot be read securely.",
         "privateRecordDenied",
         4,
       );
@@ -139,9 +141,9 @@ export async function connectHeadless(
   let runtime: string;
   try {
     runtime = privateRuntime(options.directory);
-  } catch {
+  } catch (error) {
     throw new HeadlessError(
-      "The private runtime directory cannot be secured.",
+      `The private runtime directory cannot be secured. ${error instanceof Error ? error.message : String(error)}`,
       "privateRecordDenied",
       4,
     );
@@ -160,7 +162,11 @@ export async function connectHeadless(
         !("code" in error) ||
         error.code !== "EEXIST"
       ) {
-        throw new HeadlessError("The server startup lock cannot be created.", "startupFailed", 5);
+        throw new HeadlessError(
+          `The server startup lock cannot be created. ${error instanceof Error ? error.message : String(error)}`,
+          "startupFailed",
+          5,
+        );
       }
       const pid = Number(readFileSync(lockPath, "utf8"));
       if (Number.isSafeInteger(pid) && pid > 0) {

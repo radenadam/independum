@@ -10,7 +10,7 @@ vi.mock("node:module", { spy: true });
 const folder = createTestFolder("private-runtime-windows");
 
 test("windows verifies elevated token ownership without granting access to its owner group", async () => {
-  const identity = "S-1-5-21-123-456-789-1001";
+  const identity = "S-1-5-21-123-456-789-500";
   const defaultOwner = "S-1-5-32-544";
   const runtime = join(folder, "runtime");
   const values = new Map<unknown, string>();
@@ -18,6 +18,7 @@ test("windows verifies elevated token ownership without granting access to its o
   let extraGrant = "";
   const native = {
     getCurrentProcess: vi.fn(),
+    getLastError: vi.fn(() => 122),
     closeHandle: vi.fn(),
     localFree: vi.fn(),
     openProcessToken: vi.fn((_process: unknown, _access: number, token: unknown[]) => {
@@ -44,6 +45,46 @@ test("windows verifies elevated token ownership without granting access to its o
       text[0] = sid;
       return true;
     }),
+    convertStringSidToSidW: vi.fn((text: string, sid: unknown[]) => {
+      sid[0] =
+        new Map([
+          ["LA", identity],
+          ["BA", defaultOwner],
+          ["SY", "S-1-5-18"],
+          ["WD", "S-1-1-0"],
+        ]).get(text) ?? text;
+      return true;
+    }),
+    lookupAccountSidW: vi.fn(
+      (
+        _system: unknown,
+        sid: string,
+        name: Buffer | null,
+        nameLength: number[],
+        domain: Buffer | null,
+        domainLength: number[],
+      ) => {
+        const account = (
+          {
+            [defaultOwner]: ["BUILTIN", "Administrators"],
+            "S-1-5-18": ["NT AUTHORITY", "SYSTEM"],
+            "S-1-1-0": ["", "Everyone"],
+            [identity]: ["LOCAL", "Administrator"],
+          } as Record<string, [string, string]>
+        )[sid];
+        if (account === undefined) {
+          return false;
+        }
+        nameLength[0] = account[1].length + 1;
+        domainLength[0] = account[0].length + 1;
+        if (name === null || domain === null) {
+          return false;
+        }
+        name.write(`${account[1]}\0`, "utf16le");
+        domain.write(`${account[0]}\0`, "utf16le");
+        return true;
+      },
+    ),
     convertStringSecurityDescriptorToSecurityDescriptorW: vi.fn(
       (text: string, _revision: number, descriptor: unknown[]) => {
         descriptor[0] = text;
@@ -61,7 +102,7 @@ test("windows verifies elevated token ownership without granting access to its o
         required[0] = 8;
         values.set(
           descriptor,
-          `O:${owner}D:P(A;${path === runtime ? "OICI" : ""};FA;;;${identity})${extraGrant}`,
+          `O:${owner}D:P(A;${path === runtime ? "OICI" : ""};FA;;;LA)${extraGrant}`,
         );
         return descriptor !== null;
       },
@@ -73,12 +114,17 @@ test("windows verifies elevated token ownership without granting access to its o
       return true;
     }),
     getSecurityDescriptorDacl: vi.fn(
-      (descriptor: string, isPresent: number[], access: unknown[]) => {
+      (descriptor: unknown, isPresent: number[], access: unknown[]) => {
+        const value = values.get(descriptor) ?? String(descriptor);
         isPresent[0] = 1;
-        access[0] = descriptor.slice(descriptor.indexOf("D:"));
+        access[0] = value.slice(value.indexOf("D:"));
         return true;
       },
     ),
+    getAce: vi.fn((access: string, index: number, entry: unknown[]) => {
+      entry[0] = [...access.matchAll(/\(([^)]+)\)/g)][index]?.[1];
+      return true;
+    }),
     setNamedSecurityInfoW: vi.fn(() => 0),
     createDirectoryW: vi.fn((path: string) => {
       mkdirSync(path);
@@ -106,11 +152,20 @@ test("windows verifies elevated token ownership without granting access to its o
     struct: vi.fn(),
     sizeof: vi.fn(() => 24),
     encode: vi.fn(),
-    decode(pointer: unknown) {
+    decode(pointer: unknown, offset: unknown) {
+      if (offset === 4) {
+        const mask = String(pointer).split(";")[2];
+        return mask === "FA" ? 0x1f01ff : Number(mask);
+      }
+      if (Buffer.isBuffer(pointer) && offset === "char16_t") {
+        return pointer.toString("utf16le").replace(/\0.*$/, "");
+      }
       return values.get(pointer) ?? pointer;
     },
   })) as unknown as NodeRequire);
-  const { publishServer, readServer } = await import("./private-runtime.ts");
+  const { openPrivateRuntimeFile, privateRuntime, publishServer, readServer } = await import(
+    "./private-runtime.ts"
+  );
   vi.stubGlobal("process", { ...process, platform: "win32" });
   try {
     const connection = createTestConnection();
@@ -140,13 +195,35 @@ test("windows verifies elevated token ownership without granting access to its o
     owner = "S-1-5-21-123-456-789-1002";
     expect(() => readServer(folder)).toThrow("securely");
     owner = "BA";
-    for (const group of ["WD", "BA", "SY"]) {
+    for (const [group, account] of [
+      ["WD", "S-1-1-0 (Everyone)"],
+      ["BA", "S-1-5-32-544 (BUILTIN\\Administrators)"],
+      ["SY", "S-1-5-18 (NT AUTHORITY\\SYSTEM)"],
+    ]) {
       extraGrant = `(A;;FA;;;${group})`;
-      expect(() => readServer(folder)).toThrow("securely");
+      expect(() => readServer(folder)).toThrow(
+        `allows ${account}, access mask 0x001f01ff, inherited no, flags none.`,
+      );
     }
+    extraGrant = "(D;ID;0x12;;;BA)(A;;0x10;;;S-1-5-32-9999)";
+    expect(() => readServer(folder)).toThrow(
+      "Entry 2 denies S-1-5-32-544 (BUILTIN\\Administrators), access mask 0x00000012, inherited yes, flags ID.",
+    );
+    expect(() => readServer(folder)).toThrow(
+      "Entry 3 allows S-1-5-32-9999, access mask 0x00000010, inherited no, flags none.",
+    );
     extraGrant = "";
     close();
     expect(readServer(folder)).toBeUndefined();
+    native.setNamedSecurityInfoW.mockReturnValueOnce(5);
+    native.getLastError.mockReturnValue(999);
+    expect(() => openPrivateRuntimeFile(join(runtime, "unwritten.json"))).toThrow(
+      "The Windows call SetNamedSecurityInfoW failed (Windows error 5).",
+    );
+    native.createDirectoryW.mockReturnValueOnce(false);
+    expect(() => privateRuntime(join(folder, "denied"))).toThrow(
+      "The Windows call CreateDirectoryW failed (Windows error 999).",
+    );
   } finally {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

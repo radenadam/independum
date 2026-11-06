@@ -1,9 +1,24 @@
-import { chmodSync, linkSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { expect, test, vi } from "vitest";
+import { connectHeadless } from "./connect-headless.ts";
 import { createTestConnection } from "./create-test-connection.ts";
-import { privateRuntime, publishServer, readServer, removeServer } from "./private-runtime.ts";
+import {
+  openPrivateRuntimeFile,
+  privateRuntime,
+  publishServer,
+  readServer,
+  removeServer,
+} from "./private-runtime.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("private-runtime");
@@ -97,7 +112,9 @@ test.skipIf(process.platform !== "win32")(
     expect(readServer(folder)).toEqual(connection);
     const runtime = join(folder, "runtime");
     for (const path of [runtime, join(runtime, "server.json")]) {
-      expect(permissions.read(path)).toMatch(/^O:[^:]+D:P(?:AI)?\(A;(?:OICI)?;FA;;;S-[\d-]+\)$/);
+      expect(permissions.read(path)).toMatch(
+        /^O:[^:]+D:P(?:AI)?\(A;(?:OICI)?;FA;;;(?:S-[\d-]+|LA|LG)\)$/,
+      );
     }
     expect(permissions.read(folder)).toContain("(A;OICIID;FA;;;WD)");
   },
@@ -112,7 +129,7 @@ test.skipIf(process.platform !== "win32")(
     permissions.set(runtime, "D:P(A;OICI;FA;;;WD)");
     const before = permissions.read(runtime);
     expect(() => privateRuntime(folder)).toThrow(
-      "The runtime permissions must grant access only to the current account.",
+      "The runtime permissions must grant access only to the current account",
     );
     expect(permissions.read(runtime)).toBe(before);
   },
@@ -129,7 +146,87 @@ test.skipIf(process.platform !== "win32").each(["WD", "BA", "SY"])(
     expect(accountGrant).toBeDefined();
     permissions.set(path, `D:P${accountGrant}(A;;FA;;;${identity})`);
     expect(() => readServer(folder)).toThrow("securely");
+    expect(() => readServer(folder)).toThrow(
+      identity === "BA" ? "S-1-5-32-544" : identity === "SY" ? "S-1-5-18" : "S-1-1-0",
+    );
     expect(readFileSync(path, "utf8")).toContain('"version":1');
+  },
+);
+
+test.skipIf(process.platform !== "win32")(
+  "windows reports every rejected entry with its sid name mask and inheritance",
+  () => {
+    const folder = directory();
+    const runtime = privateRuntime(folder);
+    const permissions = windowsPermissions();
+    const before = permissions.read(runtime);
+    permissions.set(
+      runtime,
+      "D:P(D;OICI;0x2;;;SY)(A;OICI;FA;;;BA)(A;OICIID;FR;;;WD)(A;OICI;0x10;;;S-1-5-32-9999)",
+    );
+    try {
+      let message = "";
+      try {
+        privateRuntime(folder);
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      expect(message).toMatch(
+        /Entry \d+ denies S-1-5-18 \([^)]+\), access mask 0x00000002, inherited no, flags OICI\./,
+      );
+      expect(message).toMatch(
+        /Entry \d+ allows S-1-5-32-544 \([^)]+\), access mask 0x001f01ff, inherited no, flags OICI\./,
+      );
+      expect(message).toMatch(
+        /Entry \d+ allows S-1-1-0 \([^)]+\), access mask 0x00120089, inherited yes, flags OICIID\./,
+      );
+      expect(message).toContain(
+        "allows S-1-5-32-9999, access mask 0x00000010, inherited no, flags OICI.",
+      );
+    } finally {
+      permissions.set(runtime, before);
+    }
+  },
+);
+
+test.skipIf(process.platform !== "win32")(
+  "windows failures identify calls and codes through file creation and headless startup",
+  async () => {
+    const folder = directory();
+    mkdirSync(folder);
+    const permissions = windowsPermissions();
+    const before = permissions.read(folder);
+    permissions.set(folder, "D:P(D;OIIO;WD;;;OW)(A;OICI;FA;;;WD)");
+    const path = join(folder, "unwritten.json");
+    try {
+      expect(() => openPrivateRuntimeFile(path)).toThrow(
+        "The Windows call SetNamedSecurityInfoW failed (Windows error 5).",
+      );
+      expect(existsSync(path)).toBe(false);
+      permissions.set(folder, "D:P(D;;0x4;;;WD)(A;;FA;;;WD)");
+      const failure = "The Windows call CreateDirectoryW failed (Windows error 5).";
+      expect(() => privateRuntime(folder)).toThrow(failure);
+      const request = vi.fn<typeof fetch>();
+      const launch = vi.fn();
+      await expect(
+        connectHeadless({
+          directory: folder,
+          folder,
+          start: "auto",
+          request,
+          launch,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toMatchObject({
+        message: `The private runtime directory cannot be secured. ${failure}`,
+        code: "privateRecordDenied",
+        exitCode: 4,
+      });
+      expect(request).not.toHaveBeenCalled();
+      expect(launch).not.toHaveBeenCalled();
+    } finally {
+      permissions.set(folder, before);
+    }
   },
 );
 

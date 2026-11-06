@@ -86,6 +86,8 @@ Plain failed output goes to stderr with its operation reference and contains no 
 
 `~/.independum/runtime/server.json` is the private token record. Its exact fields and protection are defined in [decision 0066](../decisions/0066-headless-mode.md). The server removes only its own record on orderly shutdown. A startup lock serializes automatic launches. A crashed lock is removed only when its recorded writer no longer exists. An occupied port, invalid private record, authentication error, or protocol mismatch never causes an unrelated listener to be replaced.
 
+Windows permission errors identify rejected entries by SID and resolved account name, allow or deny type, numeric access mask, and inheritance. SID comparisons expand Windows abbreviations before checking the current account. Native failures name the Win32 call and its error code. Discovery and startup retain these details without reading token contents into an error.
+
 `~/.independum/operations.jsonl` records accepted and settled operations with version `1`. Records contain lifecycle facts, request argument hashes, chat and submission references, and the final Pi entry id. Every acknowledged append is flushed. Unfinished records become interrupted on restart, and a partial trailing journal record is discarded before another append. No prompt is resubmitted. Output is read from the referenced Pi entry, including after later chat activity or restart. Deleting or archiving the chat can make that output unavailable.
 
 | Method and path | Contract |
