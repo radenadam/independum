@@ -59,7 +59,7 @@ const shellTexts = {
     section: "parameter",
     label: "access",
     builtIn:
-      "Additional filesystem and network access for this command and its descendants. Access outside the project may require user approval.",
+      "Additional filesystem and network access for this command and its descendants. Writes outside the project and network access may require user approval. Reads need no approval unless a permission rule requires it. Denied paths remain inaccessible.",
     slots: {},
   }),
   accessPaths: defineText({

@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, realpathSync, statSync } from "node:fs";
-import { dirname, isAbsolute } from "node:path";
+import { isAbsolute } from "node:path";
 import type { Readable } from "node:stream";
-import { fileURLToPath } from "node:url";
 import {
   type ContainerRequest,
   getPlatformSupport,
@@ -17,7 +16,7 @@ import {
   type PathAccess,
 } from "./permission-policy.ts";
 
-/** A complete runtime baseline whose hash binds approval to the effective backend and grants. */
+/** The system read boundary and runtime identity of a concrete backend. */
 export interface SandboxRuntime {
   backend: "processcontainer" | "seatbelt" | "bubblewrap";
   support: PlatformSupport;
@@ -43,7 +42,6 @@ export function sandboxRuntime(
   executable: string,
   environment: "minimal" | "inherit",
   environmentNames: string[],
-  isFileWorker = false,
 ): SandboxRuntime {
   const backend: SandboxRuntime["backend"] =
     process.platform === "win32"
@@ -70,32 +68,17 @@ export function sandboxRuntime(
   }
   const candidates =
     process.platform === "win32"
-      ? [process.env.SystemRoot, dirname(executable)]
-      : [
-          "/usr",
-          "/bin",
-          "/sbin",
-          "/lib",
-          "/lib64",
-          "/etc/ld.so.cache",
-          "/etc/localtime",
-          dirname(executable),
-        ];
-  if (isFileWorker) {
-    candidates.push(fileURLToPath(new URL("..", import.meta.url)));
-    candidates.push(fileURLToPath(new URL("../../../node_modules", import.meta.url)));
-  }
+      ? [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].map((drive) => `${drive}:\\`)
+      : ["/"];
   const readonlyPaths = [
     ...new Set(
-      candidates
-        .filter((path): path is string => path !== undefined && existsSync(path))
-        .map((path) => realpathSync.native(path)),
+      candidates.filter((path) => existsSync(path)).map((path) => realpathSync.native(path)),
     ),
   ].sort();
   const implicitAccess =
     process.platform === "win32"
-      ? "Windows also makes files readable by application packages available to the program. Programs can open windows. Clipboard access and simulated keyboard and mouse input are blocked. No writable temporary folder outside the project is included."
-      : "The sandbox also supplies operating system startup access and private devices. No host control socket or writable temporary folder outside the project is included.";
+      ? "Every available drive root is readable except denied paths. Programs can open windows. Clipboard access and simulated keyboard and mouse input are blocked. No writable temporary folder outside the project is included."
+      : "The system root is readable except denied paths. The sandbox supplies private devices. No writable temporary folder outside the project is included.";
   const identity = statSync(executable);
   const baseline = {
     package: "@microsoft/mxc-sdk@1.0.1/v1",
@@ -116,7 +99,7 @@ export function sandboxRuntime(
   };
 }
 
-/** Compiles only representable grants and never uses bubblewrap denial masking. */
+/** Compiles grants and refuses denied files that bubblewrap would mask with empty content. */
 export function sandboxRequest(
   launch: SandboxLaunch,
   command: string,
@@ -149,9 +132,12 @@ export function sandboxRequest(
         containsPermissionPath(allowed, denied) || containsPermissionPath(denied, allowed),
     ),
   );
-  if (launch.runtime.backend === "bubblewrap" && deniedPaths.length > 0) {
+  if (
+    launch.runtime.backend === "bubblewrap" &&
+    deniedPaths.some((path) => !existsSync(path) || !statSync(path).isDirectory())
+  ) {
     throw new Error(
-      "Bubblewrap cannot enforce these overlapping exclusions without masking denied paths. This invocation is refused because masking can report a successful empty read.",
+      "Bubblewrap requires existing denied folders. Masking a denied file can report a successful empty read, so this invocation is refused.",
     );
   }
   const request: ContainerRequest = {

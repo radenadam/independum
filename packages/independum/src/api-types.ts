@@ -224,6 +224,7 @@ export interface ChatState {
  * settings that a reset goes back to.
  */
 export interface AgentSummary {
+  deniedPaths?: string[];
   chatPermissionApprovals?: ChatPermissionApproval[];
   protectedConfigurationPaths?: string[];
   piSections?: Record<string, string | null>;

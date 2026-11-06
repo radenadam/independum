@@ -22,6 +22,7 @@ import type { ModelTexts } from "./model-texts.ts";
 import {
   canonicalPermissionPath,
   containsPermissionPath,
+  deniedPermissionPaths,
   evaluatePermission,
   hasSavedPermissionApproval,
   type PathAccess,
@@ -112,10 +113,17 @@ export function permissionTool(
         }
         const project = resolve(context.cwd);
         const location = canonicalPermissionPath(project, project);
+        if (containsPermissionPath(options.directory, project)) {
+          throw new Error(
+            options.texts.fill(permissionTexts.rule, {
+              reason: "The project folder is inside Independum's denied state folder.",
+            }),
+          );
+        }
         if (tool.name === "Shell") {
           mkdirSync(join(project, ".independum"), { recursive: true });
         }
-        const protectedPaths = [resolve(options.directory), join(project, ".independum")];
+        const protectedPaths = [join(project, ".independum")];
         let resources: PermissionResource[];
         try {
           resources = requestedResources(tool.name, input, project);
@@ -135,7 +143,6 @@ export function permissionTool(
             tool.name === "Shell" ? (options.shell?.path ?? process.execPath) : process.execPath,
             tool.name === "Shell" ? policy.environment : "minimal",
             Object.keys(environment),
-            tool.name !== "Shell",
           );
         }
         const runtime = currentRuntime();
@@ -143,14 +150,16 @@ export function permissionTool(
         const required: PermissionResource[] = [];
         const matchingRules = new Map<string, PermissionRule>();
         for (const resource of resources) {
-          const result = evaluatePermission(policy, project, resource, protectedPaths);
+          const result = evaluatePermission(policy, project, resource, protectedPaths, [
+            options.directory,
+          ]);
           for (const rule of result.matches) {
             matchingRules.set(rule.id, rule);
           }
           if (result.decision === "deny") {
             throw new Error(
               options.texts.fill(permissionTexts.rule, {
-                reason: result.matches.map((rule) => rule.id).join(", "),
+                reason: result.reason,
               }),
             );
           }
@@ -206,10 +215,10 @@ export function permissionTool(
             path: canonicalPermissionPath(resource.path, project),
           })),
           readonlyPaths: readonlyPaths.map((path) => canonicalPermissionPath(path, project)),
-          deniedPaths: [],
+          deniedPaths: deniedPermissionPaths(policy, project, options.directory),
           network: resources.some((resource) => resource.kind === "network"),
         };
-        applyRuleExclusions(launch, options, project, paths);
+        applyRuleExclusions(launch, options, policy, project, paths);
         const folder =
           tool.name === "Shell"
             ? resolve(project, typeof input.workdir === "string" ? input.workdir : ".")
@@ -226,15 +235,6 @@ export function permissionTool(
             options.texts.fill(permissionTexts.unavailable, {
               reason: error instanceof Error ? error.message : "Sandbox setup failed.",
             }),
-          );
-        }
-        const hasRuntime = policy.runtimeApprovals.some(
-          (approval) =>
-            approval.backend === runtime.backend && approval.runtimeHash === runtime.runtimeHash,
-        );
-        if (!hasRuntime) {
-          reasons.push(
-            "The program needs to read its installation folders and operating system files to start.",
           );
         }
         function currentIdentities(): string[] {
@@ -286,7 +286,7 @@ export function permissionTool(
           }
         }
         let isAllowed = true;
-        if (required.length > 0 || !hasRuntime) {
+        if (required.length > 0) {
           if (!options.isInteractive(chatId)) {
             return {
               content: [{ type: "text", text: options.texts.get(permissionTexts.required) }],
@@ -305,13 +305,8 @@ export function permissionTool(
               project,
               resources: [...baseline, ...resources],
               requiredResources: required,
-              needsRuntimeApproval: !hasRuntime,
               persistences:
-                options.saveApproval === undefined
-                  ? ["once"]
-                  : required.length === 0
-                    ? ["once", "runtime"]
-                    : ["once", "chat", "project"],
+                options.saveApproval === undefined ? ["once"] : ["once", "chat", "project"],
               restrictions: launch.deniedPaths,
               readonlyPaths,
               matchingRules: [...matchingRules.values()],
@@ -334,7 +329,6 @@ export function permissionTool(
                 binding: options.revision,
                 project,
                 resources: persistence === "project" ? required : [],
-                ...(hasRuntime ? {} : { runtime }),
                 isCurrent,
               });
               if (saved !== undefined) {
@@ -562,17 +556,10 @@ async function fileWorker(
   signal: AbortSignal | undefined,
 ): Promise<Awaited<ReturnType<ToolDefinition["execute"]>>> {
   const worker = fileURLToPath(new URL("./run-file-operation.ts", import.meta.url));
-  const resolver = new URL("./file-worker-resolver.ts", import.meta.url).href;
   const end = await captureSandbox(
     sandboxRequest(
       launch,
-      sandboxCommand(globalThis.process.execPath, [
-        "--preserve-symlinks",
-        "--preserve-symlinks-main",
-        "--import",
-        resolver,
-        worker,
-      ]),
+      sandboxCommand(globalThis.process.execPath, [worker]),
       dirname(worker),
       environment,
     ),
@@ -596,10 +583,11 @@ async function fileWorker(
 function applyRuleExclusions(
   launch: SandboxLaunch,
   options: PermissionToolsOptions,
+  policy: PermissionPolicy,
   project: string,
   explicit: PathAccess[],
 ): void {
-  for (const rule of options.settings.permissions.rules) {
+  for (const rule of policy.rules) {
     if (
       rule.effect === "allow" ||
       rule.resource.kind !== "path" ||
@@ -635,7 +623,7 @@ function applyRuleExclusions(
           }),
         );
       }
-    } else {
+    } else if (rule.effect === "ask") {
       launch.deniedPaths.push(path);
     }
   }

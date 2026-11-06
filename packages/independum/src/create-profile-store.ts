@@ -314,7 +314,7 @@ export async function createProfileStore(
 
   function profiles(projectId: string): ProfileResource[] {
     const result: ProfileResource[] = [];
-    for (const scope of ["user", "project"] as const) {
+    for (const scope of projectId === "" ? (["user"] as const) : (["user", "project"] as const)) {
       const root = scope === "user" ? directory : join(folderOf(projectId), ".independum");
       const path = join(root, "profiles");
       checkConfigurationPath(root, path);
@@ -610,6 +610,36 @@ export async function createProfileStore(
     }
     initializationIssues = error.issues;
   });
+
+  const migrated = new Set<string>();
+  for (const projectId of ["", ...projectFolders.keys()]) {
+    for (const resource of profiles(projectId)) {
+      if (migrated.has(resource.path) || resource.document === null || resource.issues.length > 0) {
+        continue;
+      }
+      migrated.add(resource.path);
+      const original = parseConfigurationJson(
+        resource.files?.["profile.json"] ?? "{}",
+        join(resource.path, "profile.json"),
+      ) as { settings?: { permissions?: { version?: unknown } } };
+      if (original.settings?.permissions?.version !== 1) {
+        continue;
+      }
+      const root =
+        resource.reference.scope === "user" ? directory : join(folderOf(projectId), ".independum");
+      await replace(
+        root,
+        () => profile(resource.reference, projectId),
+        resource.revision,
+        () => [
+          {
+            path: join(resource.path, "profile.json"),
+            content: jsonConfiguration(resource.document?.profile),
+          },
+        ],
+      );
+    }
+  }
 
   return {
     user,

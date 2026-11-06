@@ -80,6 +80,7 @@ import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import {
+  deniedPermissionPaths,
   evaluatePermission,
   type PermissionPolicy,
   permissionResourceIdentity,
@@ -289,7 +290,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           ...configuration.settings,
           permissions: {
             ...configuration.settings.permissions,
-            runtimeApprovals: [],
             savedApprovals: [],
           },
         },
@@ -304,7 +304,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     binding,
     project,
     resources,
-    runtime,
     isCurrent,
   }: PermissionApprovalSave): Promise<PermissionPolicy> {
     const current = profiles.resolve(chatId, folder);
@@ -316,19 +315,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       throw new Error("The profile changed before the approval could be saved.");
     }
     const permissions = structuredClone(current.settings.permissions);
-    if (
-      runtime !== undefined &&
-      !permissions.runtimeApprovals.some(
-        (approval) =>
-          approval.backend === runtime.backend && approval.runtimeHash === runtime.runtimeHash,
-      )
-    ) {
-      permissions.runtimeApprovals.push({
-        backend: runtime.backend,
-        runtimeHash: runtime.runtimeHash,
-        approvedAt: new Date().toISOString(),
-      });
-    }
     for (const resource of resources) {
       permissions.savedApprovals.push({
         id: randomUUID(),
@@ -338,7 +324,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         approvedAt: new Date().toISOString(),
       });
     }
-    if (resources.length === 0 && runtime === undefined) {
+    if (resources.length === 0) {
       return permissions;
     }
     const bundle = current.profile.document;
@@ -1464,7 +1450,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
-      protectedConfigurationPaths: [directory, join(folder, ".independum")],
+      protectedConfigurationPaths: [join(folder, ".independum")],
+      deniedPaths: deniedPermissionPaths(configuration.settings.permissions, folder, directory),
       configuration: {
         profile: configuration.profile,
         choices: configuration.choices,
@@ -1532,7 +1519,6 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         process.execPath,
         "minimal",
         Object.keys(commandEnvironment("minimal", {})),
-        true,
       ),
       minimalEnvironmentNames,
       environmentSuggestions,

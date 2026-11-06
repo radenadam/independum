@@ -334,7 +334,7 @@ function validateRuntimeSettings(value: unknown, file: string, pointer = "/setti
   validateRuntimeFields(fields, file, pointer);
   if (fields.permissions !== undefined) {
     try {
-      validatePermissionPolicy(fields.permissions);
+      fields.permissions = validatePermissionPolicy(fields.permissions);
     } catch (error) {
       throw new ConfigurationError(
         error instanceof Error ? error.message : "Invalid permission policy.",

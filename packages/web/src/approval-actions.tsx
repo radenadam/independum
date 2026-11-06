@@ -50,11 +50,6 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
       label: "Always for this project",
       meaning: `Always for this project saves this access for this project in ${profile}, the agent setup that this chat uses.`,
     },
-    {
-      persistence: "runtime",
-      label: `Allow for every chat of ${profile}`,
-      meaning: `Allow for every chat of ${profile}, the agent setup that this chat uses, remembers this startup access until the program or what it needs to start changes.`,
-    },
   ];
   const choices = allChoices.filter((choice) => persistences.includes(choice.persistence));
   const saving = choices.filter(
@@ -62,11 +57,6 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
   );
   const meanings = [
     ...choices.map((choice) => choice.meaning),
-    ...(saving.length > 0 && approval.needsRuntimeApproval === true
-      ? [
-          `${listFormat.format(saving.map((choice) => choice.label))} also remember the startup access for every chat of ${profile}.`,
-        ]
-      : []),
     ...(saving.length > 0
       ? ["A remembered choice applies only when a command asks for the same access."]
       : []),
@@ -97,7 +87,7 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
 
   return (
     <div className={styles.approval} aria-busy={isSaving}>
-      <strong>{headingOf(approval, required)}</strong>
+      <strong>{headingOf(required)}</strong>
       {[...new Set(approval.reasons)].map((reason) => (
         <PlaceNote key={reason}>{reason}</PlaceNote>
       ))}
@@ -105,23 +95,13 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
         <PermissionResource key={JSON.stringify(resource)} resource={resource} />
       ))}
       {command === undefined ? null : <CodeBlock language="shell" code={command} isFlush />}
-      {approval.needsRuntimeApproval !== true || approval.runtime === undefined ? null : (
-        <Disclosure label="Folders the program needs to start">
-          <CodeWell
-            code={approval.runtime.readonlyPaths.join("\n")}
-            copyLabel="Copy startup folders"
-          />
-          <PlaceNote>{approval.runtime.implicitAccess}</PlaceNote>
-          <Disclosure label="Sandbox engine and startup details">
-            <CodeWell
-              code={JSON.stringify(approval.runtime, null, 2)}
-              copyLabel="Copy startup details"
-            />
-          </Disclosure>
-        </Disclosure>
-      )}
       {approval.runtime === undefined ? null : (
         <Disclosure label="All access for this command">
+          <PlaceNote>The command can read everywhere except the denied paths below.</PlaceNote>
+          <CodeWell
+            code={approval.runtime.readonlyPaths.join("\n")}
+            copyLabel="Copy system read roots"
+          />
           {approval.project === undefined ? null : (
             <>
               <PlaceNote>Project folder</PlaceNote>
@@ -149,7 +129,10 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
           )}
           {!approval.restrictions?.length ? null : (
             <>
-              <PlaceNote>The command cannot access these paths.</PlaceNote>
+              <PlaceNote>
+                The command cannot access these paths. Linux shows denied folders as empty, which
+                does not describe their actual contents.
+              </PlaceNote>
               <CodeWell code={approval.restrictions.join("\n")} copyLabel="Copy blocked paths" />
             </>
           )}
@@ -187,7 +170,7 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
 }
 
 // The heading names each kind of access in the order of the reasons below it.
-function headingOf(approval: ApprovalRequest, required: ApprovalRequest["resources"]): string {
+function headingOf(required: ApprovalRequest["resources"]): string {
   const names = new Set([
     ...required.map((resource) =>
       resource.kind === "network"
@@ -196,7 +179,6 @@ function headingOf(approval: ApprovalRequest, required: ApprovalRequest["resourc
           ? "folder access"
           : "file access",
     ),
-    ...(approval.needsRuntimeApproval === true ? ["startup access"] : []),
   ]);
   const text = listFormat.format(names);
   return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;

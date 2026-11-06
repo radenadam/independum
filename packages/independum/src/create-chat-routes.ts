@@ -32,7 +32,7 @@ export function createChatRoutes(chat: Chat, models: ModelRuntime): Hono {
       !("persistence" in body) ||
       typeof body.revision !== "string" ||
       (body.decision !== "allow" && body.decision !== "deny") ||
-      !["once", "chat", "project", "runtime"].includes(String(body.persistence))
+      !["once", "chat", "project"].includes(String(body.persistence))
     ) {
       return context.json(
         { error: "An approval requires its revision, allow or deny, and a supported lifetime." },

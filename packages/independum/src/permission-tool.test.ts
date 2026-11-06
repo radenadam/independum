@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "@earendil-works/pi-ai";
 import {
@@ -8,7 +8,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
 import { createApprovals, type PermissionApprovalSave } from "./create-approvals.ts";
-import { type SandboxLaunch, sandboxRequest, sandboxRuntime } from "./create-sandbox.ts";
+import { captureSandbox, type SandboxLaunch, sandboxRequest } from "./create-sandbox.ts";
 import { createModelTexts } from "./model-texts.ts";
 import {
   canonicalPermissionPath,
@@ -34,6 +34,14 @@ vi.mock("./create-sandbox.ts", async (importOriginal) => {
       unavailable: null,
     })),
     sandboxRequest: vi.fn(() => ({ command: "validated" })),
+    captureSandbox: vi.fn(async () => ({
+      output: JSON.stringify({
+        result: { content: [{ type: "text", text: "worker result" }], details: {} },
+      }),
+      error: "",
+      exitCode: 0,
+      warnings: [],
+    })),
   };
 });
 
@@ -114,17 +122,7 @@ function persistApprovals(options: Parameters<typeof permissionTool>[1]): void {
   async function saveApproval({
     project,
     resources,
-    runtime,
   }: PermissionApprovalSave): Promise<PermissionPolicy> {
-    if (runtime !== undefined) {
-      options.settings.permissions.runtimeApprovals = [
-        {
-          backend: runtime.backend,
-          runtimeHash: runtime.runtimeHash,
-          approvedAt: new Date().toISOString(),
-        },
-      ];
-    }
     for (const resource of resources) {
       options.settings.permissions.savedApprovals.push({
         id: String(options.settings.permissions.savedApprovals.length),
@@ -182,7 +180,13 @@ test("approval binds a copy of the exact input and makes the launch grant availa
 test("denial and policy changes never call the underlying tool", async () => {
   for (const hasChanged of [false, true]) {
     const { tool, context, options, effect, changeRevision } = fixture();
-    const execution = tool.execute("call", { command: "never" }, undefined, undefined, context);
+    const execution = tool.execute(
+      "call",
+      { command: "never", access: { network: true } },
+      undefined,
+      undefined,
+      context,
+    );
     const pending = options.approvals.pending()[0];
     if (hasChanged) {
       changeRevision();
@@ -211,9 +215,9 @@ test.each(["chat", "project"] as const)(
   async (persistence) => {
     const { tool, context, options, effect } = fixture();
     persistApprovals(options);
-    const path = join(options.directory, "outside.txt");
+    const path = join(context.cwd, "..", "outside.txt");
     writeFileSync(path, "sentinel");
-    const resource = { kind: "path", path, scope: "file", access: "read" } as const;
+    const resource = { kind: "path", path, scope: "file", access: "write" } as const;
     effect.mockImplementation(async () => {
       expect(options.launches.get("first")?.paths).toContainEqual({
         ...resource,
@@ -282,55 +286,80 @@ test("new calls stop using an unrestricted profile when its revision changes", a
   expect(effect).not.toHaveBeenCalled();
 });
 
-test("file tools authorize before image detection, content reads, and name discovery", async () => {
-  const { context, options } = fixture();
-  const outside = join(parent, "outside.txt");
-  writeFileSync(outside, "not supplied to approval");
+test("local commands and outside reads need no startup approval", async () => {
+  const { tool, context, options, effect } = fixture(false);
+  const outside = join(context.cwd, "..", "readable.txt");
+  writeFileSync(outside, "readable");
+  await tool.execute("local", { command: "local" }, undefined, undefined, context);
+  await tool.execute(
+    "read",
+    { command: "read", access: { paths: [{ path: outside, scope: "file", access: "read" }] } },
+    undefined,
+    undefined,
+    context,
+  );
+  expect(effect).toHaveBeenCalledTimes(2);
+  expect(options.approvals.pending()).toEqual([]);
+});
+
+test("the state folder stays denied even under explicit allow rules and saved approvals", async () => {
+  const { tool, context, options, effect } = fixture();
+  const file = join(options.directory, "private.txt");
+  writeFileSync(file, "private");
+  for (const access of ["read", "write"] as const) {
+    const resource = { kind: "path", path: file, scope: "file", access } as const;
+    options.settings.permissions.rules = [{ id: "allow", project: "*", effect: "allow", resource }];
+    options.approvals.remember(
+      context.sessionManager.getSessionId(),
+      options.revision,
+      context.cwd,
+      [resource],
+    );
+    await expect(
+      tool.execute(
+        "blocked",
+        { command: "blocked", access: { paths: [resource] } },
+        undefined,
+        undefined,
+        context,
+      ),
+    ).rejects.toThrow("state folder is denied");
+  }
+  expect(effect).not.toHaveBeenCalled();
+  expect(options.approvals.pending()).toEqual([]);
+});
+
+test("a project inside the state folder refuses before creating project configuration", async () => {
+  const { tool, options, context, effect } = fixture();
+  await expect(
+    tool.execute("private-project", { command: "blocked" }, undefined, undefined, {
+      ...context,
+      cwd: options.directory,
+    }),
+  ).rejects.toThrow("inside Independum's denied state folder");
+  expect(existsSync(join(options.directory, ".independum"))).toBe(false);
+  expect(effect).not.toHaveBeenCalled();
+});
+
+test("read runs an outside file worker without approval and refuses the state folder before reading", async () => {
+  const { context, options } = fixture(false);
   const { createReadTool } = await import("./tools/create-read-tool.ts");
   const read = permissionTool(
     createReadTool({ texts: options.texts, getLimits: () => options.settings.outputLimits }),
     options,
   );
-  const execution = read.execute("read", { path: outside }, undefined, undefined, context);
-  await vi.waitFor(() => expect(options.approvals.pending()).toHaveLength(1));
-  const pending = options.approvals.pending()[0];
-  expect(JSON.stringify(pending)).not.toContain("not supplied to approval");
-  const result = expect(execution).resolves.toMatchObject({ details: { outcome: "denied" } });
-  await options.approvals.resolve(pending?.id ?? "", pending?.revision ?? "", "deny");
-  await result;
-});
-
-test("startup approval is reused for the profile until the runtime changes or approval is removed", async () => {
-  const { tool, context, options, effect } = fixture();
-  persistApprovals(options);
-  const first = tool.execute("first", { command: "first" }, undefined, undefined, context);
-  const approval = options.approvals.pending()[0];
-  expect(approval?.persistences).toEqual(["once", "runtime"]);
-  expect(
-    await options.approvals.resolve(
-      approval?.id ?? "",
-      approval?.revision ?? "",
-      "allow",
-      "runtime",
-    ),
-  ).toBe(200);
-  await first;
-  options.isInteractive = vi.fn(() => false);
-  await tool.execute("second", { command: "second" }, undefined, undefined, context);
-  expect(effect).toHaveBeenCalledTimes(2);
-  const runtime = sandboxRuntime(process.execPath, "minimal", []);
-  vi.mocked(sandboxRuntime).mockReturnValueOnce({
-    ...runtime,
-    runtimeHash: `sha256:${"c".repeat(64)}`,
-  });
-  expect(
-    (await tool.execute("changed", { command: "changed" }, undefined, undefined, context)).details,
-  ).toMatchObject({ outcome: "approvalRequired" });
-  options.settings.permissions.runtimeApprovals = [];
-  expect(
-    (await tool.execute("removed", { command: "removed" }, undefined, undefined, context)).details,
-  ).toMatchObject({ outcome: "approvalRequired" });
-  expect(effect).toHaveBeenCalledTimes(2);
+  const outside = join(context.cwd, "..", "outside.txt");
+  writeFileSync(outside, "outside");
+  const result = await read.execute("outside", { path: outside }, undefined, undefined, context);
+  expect(result.content).toEqual([{ type: "text", text: "worker result" }]);
+  expect(options.approvals.pending()).toEqual([]);
+  const calls = vi.mocked(captureSandbox).mock.calls.length;
+  const privateFile = join(options.directory, "private.txt");
+  writeFileSync(privateFile, "private");
+  await expect(
+    read.execute("private", { path: privateFile }, undefined, undefined, context),
+  ).rejects.toThrow("state folder is denied");
+  expect(vi.mocked(captureSandbox).mock.calls).toHaveLength(calls);
 });
 
 test.each(["chat", "project"] as const)(
@@ -389,37 +418,32 @@ test.each(["chat", "project"] as const)(
   },
 );
 
-test.each(["runtime", "network"] as const)(
-  "removing %s approval invalidates a waiting operation",
-  async (kind) => {
-    const { tool, context, options, effect } = fixture();
-    const runtime = sandboxRuntime(process.execPath, "minimal", []);
-    const resource = { kind: "network" } as const;
-    persistApprovals(options);
-    await options.saveApproval?.({
-      chatId: context.sessionManager.getSessionId(),
-      folder: context.cwd,
-      binding: options.revision,
-      project: context.cwd,
-      resources: kind === "network" ? [resource] : [],
-      ...(kind === "runtime" ? { runtime } : {}),
-      isCurrent: () => true,
-    });
-    const execution = tool.execute(
-      "waiting",
-      { command: "waiting", access: { network: true } },
-      undefined,
-      undefined,
-      context,
-    );
-    const failed = expect(execution).rejects.toThrow("no longer valid");
-    const approval = options.approvals.pending()[0];
-    options.settings.permissions.runtimeApprovals = [];
-    options.settings.permissions.savedApprovals = [];
-    expect(
-      await options.approvals.resolve(approval?.id ?? "", approval?.revision ?? "", "allow"),
-    ).toBe(409);
-    await failed;
-    expect(effect).not.toHaveBeenCalled();
-  },
-);
+test("removing a saved approval invalidates a waiting operation", async () => {
+  const { tool, context, options, effect } = fixture();
+  persistApprovals(options);
+  const file = join(context.cwd, "..", "approved.txt");
+  writeFileSync(file, "original");
+  await options.saveApproval?.({
+    chatId: context.sessionManager.getSessionId(),
+    folder: context.cwd,
+    binding: options.revision,
+    project: context.cwd,
+    resources: [{ kind: "path", path: file, scope: "file", access: "write" }],
+    isCurrent: () => true,
+  });
+  const execution = tool.execute(
+    "waiting",
+    { command: "waiting", access: { network: true } },
+    undefined,
+    undefined,
+    context,
+  );
+  const failed = expect(execution).rejects.toThrow("no longer valid");
+  const approval = options.approvals.pending()[0];
+  options.settings.permissions.savedApprovals = [];
+  expect(
+    await options.approvals.resolve(approval?.id ?? "", approval?.revision ?? "", "allow"),
+  ).toBe(409);
+  await failed;
+  expect(effect).not.toHaveBeenCalled();
+});

@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
-import { machine, release, type } from "node:os";
+import { homedir, machine, release, type } from "node:os";
 import { join } from "node:path";
 import { type AgentSession, VERSION as piVersion } from "@earendil-works/pi-coding-agent";
 import type { AddedFactSummary, Settings } from "./api-types.ts";
 import { commandEnvironment } from "./command-environment.ts";
 import { sandboxRuntime } from "./create-sandbox.ts";
 import { createModelTexts, defineText, type ModelText } from "./model-texts.ts";
+import { deniedPermissionPaths } from "./permission-policy.ts";
 import { findShell } from "./tools/find-shell.ts";
 
 type AgentMessage = AgentSession["messages"][number];
@@ -84,7 +85,7 @@ const permissions = defineText({
   section: "prompt",
   label: "In project mode when the sandbox is available",
   builtIn:
-    "Permission mode: project.\nProject folder: {project}.\nTool workers require {backend}. Project files are readable and writable, subject to permission rules and protected configuration paths.\nShell excludes protected configuration paths unless access to them is approved. Additional filesystem and network access is decided by the permission policy. Shell can request it through its access parameter.\nThe runtime baseline requires approval before execution. Commands use the {environment} environment policy. Running commands retain their launch authority. Policies that the backend cannot enforce refuse before execution.\nRuntime access: {runtime}.\nRestrictions: {restrictions}.",
+    "Permission mode: project.\nProject folder: {project}.\nTool workers require {backend}. Commands and file tools can read everywhere except denied paths, subject to permission rules. Writes are limited to the project, subject to permission rules and protected configuration paths. Writes outside the project and network access require approval unless the permission policy allows them. Shell can request access through its access parameter.\nDenied paths: {deniedPaths}. These paths are inaccessible. On Linux, bubblewrap shows denied folders as empty. That empty view does not describe their actual contents. Independum's state folder stays denied even when access is approved.\nProject .independum stays read-only unless a write is explicitly approved. Commands use the {environment} environment policy. Running commands retain their launch authority. Policies that the backend cannot enforce refuse before execution.\nRuntime access: {runtime}.\nRestrictions: {restrictions}.",
   slots: {
     project: { meaning: "The project folder.", example: "C:/work/project" },
     backend: {
@@ -93,12 +94,16 @@ const permissions = defineText({
     },
     environment: { meaning: "The environment policy.", example: "minimal" },
     runtime: {
-      meaning: "The installation grants and implicit platform baseline for Shell and file workers.",
-      example: "Read-only installation paths and the operating system runtime baseline.",
+      meaning: "The system read roots and platform access of tool workers.",
+      example: "Read-only system roots and private devices.",
+    },
+    deniedPaths: {
+      meaning: "The state folder and active folders or files denied by the profile.",
+      example: '["C:/Users/person/.independum", "C:/private"]',
     },
     restrictions: {
-      meaning: "The active resource rules and protected configuration paths.",
-      example: "Project .independum and the harness state folder.",
+      meaning: "The active resource rules and read-only project configuration paths.",
+      example: "Project .independum.",
     },
   },
 });
@@ -186,22 +191,20 @@ export function summarizeAddedFacts({
             backend: permissionRuntime.backend,
             environment: settings.permissions.environment,
             runtime: JSON.stringify({
-              shell: permissionRuntime.readonlyPaths,
-              fileWorkers: sandboxRuntime(
-                process.execPath,
-                "minimal",
-                Object.keys(commandEnvironment("minimal", {})),
-                true,
-              ).readonlyPaths,
+              readonlyPaths: permissionRuntime.readonlyPaths,
               implicitAccess: permissionRuntime.implicitAccess,
               environmentNames: permissionRuntime.environmentNames,
             }),
+            deniedPaths: JSON.stringify(
+              deniedPermissionPaths(
+                settings.permissions,
+                folder,
+                directory ?? join(homedir(), ".independum"),
+              ),
+            ),
             restrictions: JSON.stringify({
               rules: settings.permissions.rules,
-              protectedPaths: [
-                join(folder, ".independum"),
-                ...(directory === undefined ? [] : [directory]),
-              ],
+              protectedPaths: [join(folder, ".independum")],
             }),
           })
         : null,
