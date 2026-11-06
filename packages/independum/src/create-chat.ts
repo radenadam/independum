@@ -72,7 +72,6 @@ import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import {
-  canonicalPermissionPath,
   evaluatePermission,
   type PermissionPolicy,
   permissionResourceIdentity,
@@ -404,7 +403,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           sessionFolder,
           {
             kind: "path",
-            path: canonicalPermissionPath(path, sessionFolder),
+            path,
             scope,
             access,
           },
@@ -1419,7 +1418,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       piTexts: summarizePiTexts(lastRequest ?? null),
       environment: settings.get().environment,
       permissions: readablePermissionPolicy(settings.get().permissions),
-      permissionProject: canonicalPermissionPath(folder, folder),
+      permissionProject: folder,
       sandbox: sandboxRuntime(
         findShell(configuration.settings.shell ?? undefined, true)?.path ?? process.execPath,
         settings.get().permissions.environment,

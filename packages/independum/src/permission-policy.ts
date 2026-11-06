@@ -175,9 +175,10 @@ export function hasSavedPermissionApproval(
   resource: PermissionResource,
 ): boolean {
   const identity = permissionResourceIdentity(resource);
+  const location = canonicalPermissionPath(project, project);
   return policy.savedApprovals.some(
     (approval) =>
-      canonicalPermissionPath(approval.project, project) === project &&
+      canonicalPermissionPath(approval.project, project) === location &&
       approval.identity === identity &&
       permissionResourceIdentity(approval.resource) === identity,
   );
@@ -250,7 +251,10 @@ export function permissionPathIdentity(path: string): Stats | undefined {
 
 /** Compares whole components after canonicalization. */
 export function containsPermissionPath(parent: string, child: string): boolean {
-  const difference = relative(parent, child);
+  const difference = relative(
+    canonicalPermissionPath(parent, parent),
+    canonicalPermissionPath(child, child),
+  );
   return (
     difference === "" ||
     (difference !== ".." && !difference.startsWith(`..${sep}`) && !isAbsolute(difference))
@@ -297,33 +301,39 @@ export function evaluatePermission(
   if (policy.mode === "unrestricted") {
     return { decision: "allow", matches: [], reason: "Unrestricted account authority." };
   }
+  const location = canonicalPermissionPath(project, project);
+  const requested =
+    resource.kind === "network"
+      ? resource
+      : { ...resource, path: canonicalPermissionPath(resource.path, project) };
   const isProtected =
-    resource.kind === "path" &&
-    resource.access === "write" &&
+    requested.kind === "path" &&
+    requested.access === "write" &&
     protectedPaths.some(
       (path) =>
-        containsPermissionPath(path, resource.path) || containsPermissionPath(resource.path, path),
+        containsPermissionPath(canonicalPermissionPath(path, project), requested.path) ||
+        containsPermissionPath(requested.path, canonicalPermissionPath(path, project)),
     );
   const matches = policy.rules.filter((rule) => {
-    if (rule.project !== "*" && canonicalPermissionPath(rule.project, project) !== project) {
+    if (rule.project !== "*" && canonicalPermissionPath(rule.project, project) !== location) {
       return false;
     }
     const target = rule.resource;
-    if (target.kind === "network" || resource.kind === "network") {
-      return target.kind === resource.kind;
+    if (target.kind === "network" || requested.kind === "network") {
+      return target.kind === requested.kind;
     }
     const path = canonicalPermissionPath(target.path, project);
     const isOverlapping =
-      (path === resource.path && (target.scope === "tree" || resource.scope === "file")) ||
-      (target.scope === "tree" && containsPermissionPath(path, resource.path)) ||
-      (resource.scope === "tree" &&
+      (path === requested.path && (target.scope === "tree" || requested.scope === "file")) ||
+      (target.scope === "tree" && containsPermissionPath(path, requested.path)) ||
+      (requested.scope === "tree" &&
         rule.effect !== "allow" &&
-        containsPermissionPath(resource.path, path));
+        containsPermissionPath(requested.path, path));
     return (
       isOverlapping &&
       (rule.effect === "deny"
-        ? target.access === "read" || resource.access === "write"
-        : target.access === "write" || resource.access === "read")
+        ? target.access === "read" || requested.access === "write"
+        : target.access === "write" || requested.access === "read")
     );
   });
   const decision = ["deny", "ask", "allow"] as const;
@@ -347,7 +357,7 @@ export function evaluatePermission(
             : "A saved rule allows this access.",
     };
   }
-  const isInside = resource.kind === "path" && containsPermissionPath(project, resource.path);
+  const isInside = requested.kind === "path" && containsPermissionPath(location, requested.path);
   return {
     decision: isInside ? "allow" : "ask",
     matches,

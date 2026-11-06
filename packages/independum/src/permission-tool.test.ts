@@ -10,7 +10,11 @@ import { expect, test, vi } from "vitest";
 import { createApprovals, type PermissionApprovalSave } from "./create-approvals.ts";
 import { type SandboxLaunch, sandboxRequest, sandboxRuntime } from "./create-sandbox.ts";
 import { createModelTexts } from "./model-texts.ts";
-import { type PermissionPolicy, permissionResourceIdentity } from "./permission-policy.ts";
+import {
+  canonicalPermissionPath,
+  type PermissionPolicy,
+  permissionResourceIdentity,
+} from "./permission-policy.ts";
 import { permissionTool } from "./permission-tool.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
@@ -42,7 +46,7 @@ function fixture(isInteractive = true): {
   effect: ReturnType<typeof vi.fn>;
   changeRevision: () => void;
 } {
-  const { directory, project } = createTestProject(parent);
+  const { directory, project } = createTestProject(parent, true);
   const state = join(directory, ".independum");
   mkdirSync(state);
   const manager = SessionManager.inMemory(project);
@@ -76,7 +80,20 @@ function fixture(isInteractive = true): {
       description: "Test tool.",
       parameters: Type.Object({
         command: Type.String(),
-        access: Type.Optional(Type.Object({ network: Type.Boolean() })),
+        access: Type.Optional(
+          Type.Object({
+            network: Type.Optional(Type.Boolean()),
+            paths: Type.Optional(
+              Type.Array(
+                Type.Object({
+                  path: Type.String(),
+                  scope: Type.Union([Type.Literal("file"), Type.Literal("tree")]),
+                  access: Type.Union([Type.Literal("read"), Type.Literal("write")]),
+                }),
+              ),
+            ),
+          }),
+        ),
       }),
       execute: effect,
     },
@@ -142,10 +159,15 @@ test("approval binds a copy of the exact input and makes the launch grant availa
   const execution = tool.execute("call", input, undefined, undefined, context);
   const pending = options.approvals.pending()[0];
   expect(pending?.input).toEqual(input);
+  expect(pending?.project).toBe(context.cwd);
+  expect(pending?.readonlyPaths).toEqual([join(context.cwd, ".independum")]);
+  expect(pending?.resources[0]).toMatchObject({ path: context.cwd });
   input.command = "changed later";
   effect.mockImplementation(async () => {
     expect(options.launches.get("call")).toMatchObject({ network: true });
-    expect(options.launches.get("call")?.readonlyPaths).toEqual([join(context.cwd, ".independum")]);
+    expect(options.launches.get("call")?.readonlyPaths).toEqual([
+      canonicalPermissionPath(join(context.cwd, ".independum"), context.cwd),
+    ]);
     return { content: [], details: {} };
   });
   expect(await options.approvals.resolve(pending?.id ?? "", pending?.revision ?? "", "allow")).toBe(
@@ -183,6 +205,56 @@ test("denial and policy changes never call the underlying tool", async () => {
     expect(effect).not.toHaveBeenCalled();
   }
 });
+
+test.each(["chat", "project"] as const)(
+  "saved %s path grants keep the supplied spelling and compare real locations",
+  async (persistence) => {
+    const { tool, context, options, effect } = fixture();
+    persistApprovals(options);
+    const path = join(options.directory, "outside.txt");
+    writeFileSync(path, "sentinel");
+    const resource = { kind: "path", path, scope: "file", access: "read" } as const;
+    effect.mockImplementation(async () => {
+      expect(options.launches.get("first")?.paths).toContainEqual({
+        ...resource,
+        path: canonicalPermissionPath(path, context.cwd),
+      });
+      return { content: [], details: {} };
+    });
+    const input = { command: "read", access: { paths: [resource] } };
+    const execution = tool.execute("first", input, undefined, undefined, context);
+    const pending = options.approvals.pending()[0];
+    expect(pending?.project).toBe(context.cwd);
+    expect(pending?.requiredResources).toEqual([resource]);
+    expect(
+      await options.approvals.resolve(
+        pending?.id ?? "",
+        pending?.revision ?? "",
+        "allow",
+        persistence,
+      ),
+    ).toBe(200);
+    await execution;
+    const grants =
+      persistence === "project"
+        ? options.settings.permissions.savedApprovals
+        : options.approvals.saved(context.sessionManager.getSessionId());
+    expect(grants[0]).toMatchObject({ project: context.cwd, resource });
+    effect.mockImplementation(async () => ({ content: [], details: {} }));
+    options.isInteractive = vi.fn(() => false);
+    await tool.execute(
+      "again",
+      {
+        ...input,
+        access: { paths: [{ ...resource, path: canonicalPermissionPath(path, context.cwd) }] },
+      },
+      undefined,
+      undefined,
+      context,
+    );
+    expect(effect).toHaveBeenCalledTimes(2);
+  },
+);
 
 test("disabled tools and unavailable enforcement refuse before effects", async () => {
   const { tool, context, options, effect } = fixture();

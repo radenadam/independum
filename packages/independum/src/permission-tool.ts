@@ -110,14 +110,12 @@ export function permissionTool(
             throw new Error(options.texts.fill(permissionTexts.unavailable, { reason }));
           }
         }
-        const project = canonicalPermissionPath(context.cwd, context.cwd);
+        const project = resolve(context.cwd);
+        const location = canonicalPermissionPath(project, project);
         if (tool.name === "Shell") {
           mkdirSync(join(project, ".independum"), { recursive: true });
         }
-        const protectedPaths = [
-          canonicalPermissionPath(options.directory, project),
-          canonicalPermissionPath(join(project, ".independum"), project),
-        ];
+        const protectedPaths = [resolve(options.directory), join(project, ".independum")];
         let resources: PermissionResource[];
         try {
           resources = requestedResources(tool.name, input, project);
@@ -203,8 +201,11 @@ export function permissionTool(
             : [];
         const launch: SandboxLaunch = {
           runtime,
-          paths: [...baseline, ...paths],
-          readonlyPaths,
+          paths: [...baseline, ...paths].map((resource) => ({
+            ...resource,
+            path: canonicalPermissionPath(resource.path, project),
+          })),
+          readonlyPaths: readonlyPaths.map((path) => canonicalPermissionPath(path, project)),
           deniedPaths: [],
           network: resources.some((resource) => resource.kind === "network"),
         };
@@ -273,7 +274,7 @@ export function permissionTool(
                 options.policy?.(chatId, context.cwd) ?? settings.permissions,
               ) === approvalState &&
               JSON.stringify(options.approvals.saved(chatId)) === chatApprovalState &&
-              canonicalPermissionPath(context.cwd, context.cwd) === project &&
+              canonicalPermissionPath(context.cwd, context.cwd) === location &&
               JSON.stringify(resources) ===
                 JSON.stringify(requestedResources(tool.name, input, project)) &&
               JSON.stringify(identities) === JSON.stringify(currentIdentities()) &&
@@ -446,14 +447,15 @@ function requestedResources(
   const resources: PermissionResource[] = [];
   if (name !== "Shell") {
     const target = canonicalPermissionPath(String(input.path), project);
-    let path = target;
+    let path = resolve(project, String(input.path));
     for (;;) {
-      const identity = permissionPathIdentity(path);
+      const location = canonicalPermissionPath(path, project);
+      const identity = permissionPathIdentity(location);
       if (identity !== undefined) {
-        if (path === target && identity.isDirectory()) {
+        if (location === target && identity.isDirectory()) {
           throw new Error("The file tools require a file path, not a folder.");
         }
-        if (path === target && (identity.isSymbolicLink() || identity.nlink > 1)) {
+        if (location === target && (identity.isSymbolicLink() || identity.nlink > 1)) {
           throw new Error("The file identity is linked and cannot be isolated safely.");
         }
         break;
@@ -463,14 +465,14 @@ function requestedResources(
     resources.push({
       kind: "path",
       path,
-      scope: path === target ? "file" : "tree",
+      scope: canonicalPermissionPath(path, project) === target ? "file" : "tree",
       access: name === "Read" ? "read" : "write",
     });
   } else {
     if (input.workdir !== undefined) {
       resources.push({
         kind: "path",
-        path: canonicalPermissionPath(String(input.workdir), project),
+        path: resolve(project, String(input.workdir)),
         scope: "tree",
         access: "read",
       });
@@ -479,8 +481,8 @@ function requestedResources(
       const access = input.access as { paths?: Omit<PathAccess, "kind">[]; network?: boolean };
       for (const entry of access.paths ?? []) {
         validatePermissionResource({ kind: "path", ...entry });
-        const path = canonicalPermissionPath(entry.path, project);
-        const identity = permissionPathIdentity(path);
+        const path = resolve(project, entry.path);
+        const identity = permissionPathIdentity(canonicalPermissionPath(path, project));
         if (
           identity === undefined ||
           (entry.scope === "file" ? !identity.isFile() : !identity.isDirectory())
@@ -601,7 +603,9 @@ function applyRuleExclusions(
     if (
       rule.effect === "allow" ||
       rule.resource.kind !== "path" ||
-      (rule.project !== "*" && canonicalPermissionPath(rule.project, project) !== project)
+      (rule.project !== "*" &&
+        canonicalPermissionPath(rule.project, project) !==
+          canonicalPermissionPath(project, project))
     ) {
       continue;
     }

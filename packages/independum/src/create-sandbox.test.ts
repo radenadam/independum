@@ -18,12 +18,12 @@ import {
   sandboxRuntime,
 } from "./create-sandbox.ts";
 import { createModelTexts } from "./model-texts.ts";
-import { containsPermissionPath } from "./permission-policy.ts";
+import { canonicalPermissionPath, containsPermissionPath } from "./permission-policy.ts";
 import { permissionTool } from "./permission-tool.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { createEditTool } from "./tools/create-edit-tool.ts";
 import { createReadTool } from "./tools/create-read-tool.ts";
-import { createTestFolder } from "./tools/create-test-folder.ts";
+import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 import { createWriteTool } from "./tools/create-write-tool.ts";
 import { findShell } from "./tools/find-shell.ts";
 import { runCommand } from "./tools/run-command.ts";
@@ -92,16 +92,18 @@ async function supported(
 test("native sandbox permits project writes and rejects outside reads and writes", async (context) => {
   const { project, outside, launch } = await supported(context);
   const file = join(project, "inside.txt");
+  const created = `${outside}-created`;
   const result = await execute(
     launch,
     project,
-    `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(file)}, 'inside'); for (const action of [() => fs.readFileSync(${JSON.stringify(outside)}), () => fs.writeFileSync(${JSON.stringify(outside)}, 'changed')]) { try { action(); process.stdout.write('ALLOWED'); } catch (error) { process.stdout.write(error.code + '\\n'); } }`,
+    `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(file)}, 'inside'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(outside)}, 'utf8')); } catch (error) { process.stdout.write('read denied ' + error.code); } for (const path of ${JSON.stringify([outside, created])}) { try { fs.writeFileSync(path, 'changed'); } catch {} }`,
   );
-  expect(result.output).not.toContain("ALLOWED");
-  expect(result.output).not.toContain("outside sentinel");
-  expect(result.output.trim().split("\n")).toHaveLength(2);
-  expect(readFileSync(file, "utf8")).toBe("inside");
   expect(readFileSync(outside, "utf8")).toBe("outside sentinel");
+  expect(existsSync(created)).toBe(false);
+  expect(result.exitCode).toBe(0);
+  expect(result.output).toMatch(/^read denied [A-Z]+$/);
+  expect(result.output).not.toContain("outside sentinel");
+  expect(readFileSync(file, "utf8")).toBe("inside");
 }, 30_000);
 
 test("native sandbox rejects project links to outside files and keeps detached descendants restricted", async (context) => {
@@ -111,15 +113,19 @@ test("native sandbox rejects project links to outside files and keeps detached d
   mkdirSync(outsideFolder, { recursive: true });
   const target = join(outsideFolder, "sentinel.txt");
   writeFileSync(target, "linked sentinel");
+  const created = `${outside}-created`;
   symlinkSync(outsideFolder, linked, process.platform === "win32" ? "junction" : "dir");
   const result = await execute(
     launch,
     project,
-    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(join(linked, "sentinel.txt"))}, 'utf8')); } catch (error) { process.stdout.write('link denied\\n'); } const child = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(`try { require('node:fs').writeFileSync(${JSON.stringify(outside)}, 'escaped'); process.exit(99); } catch { process.exit(0); }`)}], { detached: true, stdio: 'ignore' }); child.on('exit', code => { process.stdout.write('child ' + code); });`,
+    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(join(linked, "sentinel.txt"))}, 'utf8')); } catch { process.stdout.write('link denied\\n'); } const child = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(`const fs = require('node:fs'); for (const path of ${JSON.stringify([outside, created, join(linked, "sentinel.txt")])}) { try { fs.writeFileSync(path, 'escaped'); } catch {} }`)}], { detached: true, stdio: 'ignore' }); child.on('error', error => { throw error; }); child.on('exit', code => { process.stdout.write('child ' + code); });`,
   );
+  expect(readFileSync(outside, "utf8")).toBe("outside sentinel");
+  expect(readFileSync(target, "utf8")).toBe("linked sentinel");
+  expect(existsSync(created)).toBe(false);
+  expect(result.exitCode).toBe(0);
   expect(result.output).toContain("link denied");
   expect(result.output).toContain("child 0");
-  expect(readFileSync(outside, "utf8")).toBe("outside sentinel");
 }, 30_000);
 
 test("native file grants expose the approved file without exposing its neighbor", async (context) => {
@@ -156,16 +162,18 @@ test("native nested readonly configuration permits reads and rejects writes insi
 }, 30_000);
 
 test("linux compiles nested readonly configuration without denied mounts", () => {
-  const project = join(root, "readonly-policy");
-  mkdirSync(project);
+  const { project } = createTestProject(root, true);
   const configuration = join(project, ".independum");
   mkdirSync(configuration);
   const runtime = sandboxRuntime(process.execPath, "minimal", Object.keys(environment));
   const request = sandboxRequest(
     {
       runtime: { ...runtime, backend: "bubblewrap", unavailable: null },
-      paths: [{ kind: "path", path: project, scope: "tree", access: "write" }],
-      readonlyPaths: [configuration],
+      paths: [
+        { kind: "path", path: project, scope: "tree", access: "write" },
+        { kind: "path", path: configuration, scope: "tree", access: "write" },
+      ],
+      readonlyPaths: [canonicalPermissionPath(configuration, project)],
       deniedPaths: [],
       network: false,
     },
@@ -173,8 +181,10 @@ test("linux compiles nested readonly configuration without denied mounts", () =>
     project,
     environment,
   );
-  expect(request.filesystem?.readwritePaths).toContain(project);
-  expect(request.filesystem?.readonlyPaths).toContain(configuration);
+  expect(request.filesystem?.readwritePaths).toEqual([project]);
+  expect(request.filesystem?.readonlyPaths).toContain(
+    canonicalPermissionPath(configuration, project),
+  );
   expect(request.filesystem?.deniedPaths).toEqual([]);
 });
 

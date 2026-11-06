@@ -10,6 +10,8 @@ Mode is `project` or `unrestricted`. Environment is `minimal` or `inherit`. Unre
 
 Rules match canonical paths by component. Deny precedes ask, which precedes allow. The fallback allows project files and asks for outside paths and network access. A protected configuration write requires an explicit approval even when an allow rule matches. The chosen approval lifetime applies to that exact resource and identity. A missing target resolves through its nearest existing ancestor. New file creation can require that whole parent tree, and the approval shows it. UNC paths also require network authority. File tools reject device paths, alternate data streams, unsafe Windows suffix aliases, folders, and known hard links.
 
+Project and resource comparisons resolve both paths to their real locations, including directory junctions, Windows short names, and linked temporary folders. Approval previews, saved grants, and the project display keep the supplied path spelling. Native requests use canonical locations captured before approval. File fingerprints also use canonical locations because their paths identify files across aliases.
+
 The exact minimal environment names are published by [command-environment.ts](../../packages/independum/src/command-environment.ts) and shown in Session. Explicit Shell variables apply after inheritance. The access token is removed last. File workers use minimal inheritance without profile variables. No outside writable temporary directory is granted automatically.
 
 ## Enforcement and runtime acceptance
@@ -51,6 +53,7 @@ The existing authenticated API protects these routes with its token, host, and o
 
 - Shell protects configuration with nested read-only grants on every system. Existing contents remain readable and writes fail. The adapter creates the project `.independum` directory before compiling its read-only protection. Explicit approved paths can grant configuration writes.
 - Linux refuses overlapping read denials because bubblewrap implements denied paths by masking. Its default project policy uses no such denial.
+- Bubblewrap supplies a private `/tmp` before mounting granted paths. An ungranted write there can succeed inside the sandbox without changing the host. Native boundary tests check host sentinels and the absence of newly created outside files, including writes by detached descendants. Reads must still refuse and granted project writes must reach the host.
 - Compilation of write-only rule exclusions remains unfinished and those invocations refuse.
 - The rule tester, dedicated rule editing routes, richer rule match presentation, and remaining native adversarial tests are unfinished. [The roadmap](../roadmap.md) tracks them.
 - Native enforcement depends on platform support and successful launch. Unsupported hosts and setup failures refuse without fallback. The user can deliberately choose unrestricted mode in the selected profile.

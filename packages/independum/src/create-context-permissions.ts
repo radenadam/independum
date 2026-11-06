@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
+import { join, resolve } from "node:path";
 import type { Approvals, PermissionApprovalSave } from "./create-approvals.ts";
 import {
   canonicalPermissionPath,
@@ -9,7 +9,7 @@ import {
   type PathAccess,
   type PermissionPolicy,
   permissionApprovalState,
-  permissionPathIdentity,
+  permissionResourceIdentity,
 } from "./permission-policy.ts";
 
 /** Permission dependencies for one chat's context discovery. */
@@ -43,22 +43,12 @@ export function createContextPermissions(options: ContextPermissionsOptions): Co
   const grants: { resource: PathAccess; binding: string }[] = [];
 
   function resourceOf(path: string, scope: "file" | "tree", access: "read" | "write"): PathAccess {
-    return { kind: "path", path: canonicalPermissionPath(path, options.project), scope, access };
+    return { kind: "path", path: resolve(options.project, path), scope, access };
   }
 
   function binding(resource: PathAccess): string {
-    let ancestor = resource.path;
-    while (permissionPathIdentity(ancestor) === undefined) {
-      ancestor = dirname(ancestor);
-    }
-    const information = permissionPathIdentity(ancestor);
     return JSON.stringify({
-      resource,
-      canonical: canonicalPermissionPath(resource.path, options.project),
-      ancestor,
-      device: information?.dev,
-      inode: information?.ino,
-      created: information?.birthtimeMs,
+      identity: permissionResourceIdentity(resource),
       revision: options.revision(),
       branch: options.branch(),
     });
@@ -66,8 +56,8 @@ export function createContextPermissions(options: ContextPermissionsOptions): Co
 
   function evaluation(resource: PathAccess): ReturnType<typeof evaluatePermission> {
     return evaluatePermission(options.policy(), options.project, resource, [
-      canonicalPermissionPath(options.directory, options.project),
-      canonicalPermissionPath(join(options.project, ".independum"), options.project),
+      options.directory,
+      join(options.project, ".independum"),
     ]);
   }
 
@@ -90,7 +80,8 @@ export function createContextPermissions(options: ContextPermissionsOptions): Co
       (grant) =>
         grant.binding === binding(grant.resource) &&
         (grant.resource.access === "write" || access === "read") &&
-        (grant.resource.path === resource.path
+        (canonicalPermissionPath(grant.resource.path, options.project) ===
+        canonicalPermissionPath(resource.path, options.project)
           ? grant.resource.scope === "tree" || scope === "file"
           : grant.resource.scope === "tree" &&
             containsPermissionPath(grant.resource.path, resource.path)),

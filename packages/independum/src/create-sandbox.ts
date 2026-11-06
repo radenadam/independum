@@ -11,7 +11,11 @@ import {
   probe,
   spawn,
 } from "@microsoft/mxc-sdk/v1";
-import { containsPermissionPath, type PathAccess } from "./permission-policy.ts";
+import {
+  canonicalPermissionPath,
+  containsPermissionPath,
+  type PathAccess,
+} from "./permission-policy.ts";
 
 /** A complete runtime baseline whose hash binds approval to the effective backend and grants. */
 export interface SandboxRuntime {
@@ -128,7 +132,13 @@ export function sandboxRequest(
   const readonlyPaths = [...launch.runtime.readonlyPaths, ...(launch.readonlyPaths ?? [])];
   const readwritePaths: string[] = [];
   for (const resource of launch.paths) {
-    if (resource.access === "write" && launch.readonlyPaths?.includes(resource.path) === true) {
+    const path = canonicalPermissionPath(resource.path, folder);
+    if (
+      resource.access === "write" &&
+      launch.readonlyPaths?.some(
+        (readonly) => canonicalPermissionPath(readonly, folder) === path,
+      ) === true
+    ) {
       continue;
     }
     (resource.access === "write" ? readwritePaths : readonlyPaths).push(resource.path);

@@ -14,7 +14,7 @@ import {
   permissionResourceIdentity,
   validatePermissionPolicy,
 } from "./permission-policy.ts";
-import { createTestFolder } from "./tools/create-test-folder.ts";
+import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
 const folder = canonicalPermissionPath(createTestFolder("permission-policy"), process.cwd());
 const project = join(folder, "project");
@@ -35,6 +35,71 @@ test("project defaults use components and ask for outside paths and network", ()
   ]) {
     expect(evaluatePermission(builtInPermissions, project, resource, []).decision).toBe("ask");
   }
+});
+
+test("project rules and protected paths compare real locations without changing saved paths", () => {
+  const { project } = createTestProject(folder, true);
+  const physical = canonicalPermissionPath(project, project);
+  const protectedPath = join(project, ".independum");
+  const rule: PermissionRule = {
+    id: "project-rule",
+    project,
+    effect: "deny",
+    resource: { ...inside, path: join(project, "new.txt") },
+  };
+  const policy = { ...builtInPermissions, rules: [rule] };
+  for (const root of [project, physical]) {
+    for (const path of [rule.resource, { ...inside, path: join(physical, "new.txt") }]) {
+      expect(evaluatePermission(policy, root, path, []).decision).toBe("deny");
+    }
+    expect(containsPermissionPath(root, join(project, "missing", "file.txt"))).toBe(true);
+    expect(containsPermissionPath(root, join(physical, "missing", "file.txt"))).toBe(true);
+    expect(
+      evaluatePermission(builtInPermissions, root, { ...inside, path: "new.txt" }, []).decision,
+    ).toBe("allow");
+    expect(
+      evaluatePermission(
+        builtInPermissions,
+        root,
+        { ...inside, path: join(physical, ".independum", "profile.json") },
+        [protectedPath],
+      ).decision,
+    ).toBe("ask");
+  }
+  expect(policy.rules[0]).toBe(rule);
+  expect(rule.project).toBe(project);
+  expect(rule.resource).toMatchObject({ path: join(project, "new.txt") });
+});
+
+test("saved approvals match either project spelling and retain their identity limits", () => {
+  const { project, directory } = createTestProject(folder, true);
+  const path = join(directory, "outside.txt");
+  writeFileSync(path, "sentinel");
+  const resource: PathAccess = { kind: "path", path, scope: "file", access: "read" };
+  const policy = {
+    ...builtInPermissions,
+    savedApprovals: [
+      {
+        id: "alias",
+        project,
+        resource,
+        identity: permissionResourceIdentity(resource),
+        approvedAt: new Date().toISOString(),
+      },
+    ],
+  };
+  for (const root of [project, canonicalPermissionPath(project, project)]) {
+    expect(hasSavedPermissionApproval(policy, root, resource)).toBe(true);
+    expect(
+      hasSavedPermissionApproval(policy, root, {
+        ...resource,
+        path: canonicalPermissionPath(path, project),
+      }),
+    ).toBe(true);
+    expect(hasSavedPermissionApproval(policy, root, { ...resource, access: "write" })).toBe(false);
+    expect(hasSavedPermissionApproval(policy, root, { ...resource, scope: "tree" })).toBe(false);
+  }
+  expect(policy.savedApprovals[0]).toMatchObject({ project, resource: { path } });
 });
 
 test("saved path approvals ignore parameter order but never widen access or follow replaced identities", () => {

@@ -1,4 +1,4 @@
-import { mkdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { createApprovals } from "./create-approvals.ts";
@@ -19,7 +19,7 @@ function fixture(): {
   external: string;
   changeRevision: () => void;
 } {
-  const { directory, project } = createTestProject(parent);
+  const { directory, project } = createTestProject(parent, true);
   const external = join(directory, "external");
   mkdirSync(external);
   const policy = structuredClone(builtInPermissions);
@@ -133,6 +133,28 @@ test("denial cancellation and changed profile revisions grant no context access"
     }
     expect(permissions.check(external, "tree")).toBe(false);
   }
+});
+
+test("context tree grants match real locations and expire when their junction changes", async () => {
+  const { permissions, approvals, external, options } = fixture();
+  mkdirSync(options.profileDirectory);
+  const alias = join(options.profileDirectory, "alias");
+  symlinkSync(external, alias, "junction");
+  const source = join(external, "source.md");
+  writeFileSync(source, "Original.");
+  const waiting = permissions.request(alias, "tree", "read");
+  const approval = approvals.pending()[0];
+  expect(approval?.resources).toEqual([
+    { kind: "path", path: alias, scope: "tree", access: "read" },
+  ]);
+  expect(await approvals.resolve(approval?.id ?? "", approval?.revision ?? "", "allow")).toBe(200);
+  expect(await waiting).toBe(true);
+  expect(permissions.check(source, "file")).toBe(true);
+  expect(permissions.check(join(alias, "source.md"), "file")).toBe(true);
+  unlinkSync(alias);
+  symlinkSync(options.profileDirectory, alias, "junction");
+  expect(permissions.check(source, "file")).toBe(false);
+  expect(permissions.check(alias, "tree")).toBe(false);
 });
 
 test("context grants expire when an approved identity is replaced and deny rules beat grants", async () => {

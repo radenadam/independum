@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SessionManager, type ToolDefinition } from "@earendil-works/pi-coding-agent";
@@ -8,9 +8,9 @@ import { expect, test } from "vitest";
 import { commandEnvironment } from "./command-environment.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import type { FileOperation } from "./run-file-operation.ts";
-import { createTestFolder } from "./tools/create-test-folder.ts";
+import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
-const folder = createTestFolder("file-worker-startup");
+const { project: folder } = createTestProject(createTestFolder("file-worker-startup"), true);
 const worker = new URL("./run-file-operation.ts", import.meta.url);
 const resolver = new URL("./file-worker-resolver.ts", import.meta.url);
 const deniedRealpath = `
@@ -149,20 +149,23 @@ test("file worker preserves fingerprints, diffs, and images without javascript r
   }
   const file = join(folder, "text.txt");
   writeFileSync(file, "first\nsecond\n");
+  const physical = realpathSync.native(file);
   expect(call("Read", { path: file })).toMatchObject({
     content: [{ type: "text", text: "1\tfirst\n2\tsecond" }],
-    details: { fingerprint: { file } },
+    details: { fingerprint: { file: physical } },
   });
   writeFileSync(file, "first\nchanged\n");
   // biome-ignore lint/style/useNamingConvention: Edit names its model-facing parameters.
   const edited = call("Edit", { path: file, old_string: "changed", new_string: "third" });
-  expect(edited).toMatchObject({ details: { added: 1, removed: 1, fingerprint: { file } } });
+  expect(edited).toMatchObject({
+    details: { added: 1, removed: 1, fingerprint: { file: physical } },
+  });
   expect(edited.content[0]).toMatchObject({
     type: "text",
     text: expect.stringContaining("changed since this chat last saw it, at line 2"),
   });
   expect(call("Write", { path: file, content: "last\n" })).toMatchObject({
-    details: { isNew: false, added: 1, removed: 2, fingerprint: { file } },
+    details: { isNew: false, added: 1, removed: 2, fingerprint: { file: physical } },
   });
   expect(readFileSync(file, "utf8")).toBe("last\n");
   const image = join(folder, "image.png");
@@ -175,6 +178,11 @@ test("file worker preserves fingerprints, diffs, and images without javascript r
   );
   expect(call("Read", { path: image })).toMatchObject({
     content: [{ type: "text" }, { type: "image", mimeType: "image/png" }],
-    details: { kind: "image", width: 1, height: 1, fingerprint: { file: image } },
+    details: {
+      kind: "image",
+      width: 1,
+      height: 1,
+      fingerprint: { file: realpathSync.native(image) },
+    },
   });
 }, 30_000);

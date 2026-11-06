@@ -1,5 +1,5 @@
-import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { expect, test, vi } from "vitest";
 import { addedFactTexts } from "./added-facts.ts";
@@ -69,6 +69,10 @@ test("project approvals survive restart and removing one blocks the next resourc
     );
     const policy = opened?.getAgent().permissions;
     expect(policy?.savedApprovals).toHaveLength(1);
+    expect(policy?.savedApprovals[0]).toMatchObject({
+      project,
+      resource: { path: source },
+    });
     if (policy === undefined) {
       throw new Error("The profile needs a permission policy.");
     }
@@ -319,13 +323,10 @@ test("context routes reject malformed bodies and repeated new actions return the
   await chats.stopAll();
 });
 
-async function setup(isLinked = false) {
+async function setup(isLinked = true) {
   nextId += 1;
-  const created = createTestProject(folder);
-  const root = isLinked ? join(folder, `linked-${basename(created.directory)}`) : created.directory;
-  if (isLinked) {
-    symlinkSync(created.directory, root, "junction");
-  }
+  const created = createTestProject(folder, isLinked);
+  const root = created.directory;
   const directory = join(root, "state");
   mkdirSync(directory);
   const project = join(root, "project");
