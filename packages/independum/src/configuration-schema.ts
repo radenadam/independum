@@ -151,8 +151,26 @@ export function validateProfileId(id: string): void {
 
 /** Validates a user settings document without dropping unknown fields. */
 export function validateUserSettings(value: unknown, file: string): UserSettingsDocument {
-  const fields = documentOf(value, file, ["defaultProfile", "knowledgeCutoffs"]);
+  const fields = documentOf(value, file, ["defaultProfile", "knowledgeCutoffs", "messages"]);
   referenceOf(fields.defaultProfile, file, "/defaultProfile", true);
+  if (fields.messages !== undefined) {
+    const messages = fields.messages;
+    if (
+      typeof messages !== "object" ||
+      messages === null ||
+      Array.isArray(messages) ||
+      Object.keys(messages).some((key) => key !== "whileReplying") ||
+      ("whileReplying" in messages &&
+        messages.whileReplying !== "queue" &&
+        messages.whileReplying !== "steer")
+    ) {
+      throw new ConfigurationError(
+        "Expected a whileReplying choice of queue or steer.",
+        file,
+        "/messages",
+      );
+    }
+  }
   if (
     fields.knowledgeCutoffs !== undefined &&
     readSettingsChange({ knowledgeCutoffs: fields.knowledgeCutoffs }) === undefined

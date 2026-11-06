@@ -4,11 +4,15 @@ Decisions: [0013](../decisions/0013-first-chat.md), [0016](../decisions/0016-wor
 
 ## Composition
 
-The field stays editable during a reply, but sending requires nonempty trimmed text, a chosen model, and an idle agent. There is no queue or steering control. Sending clears the [draft](chats.md#drafts-and-export) and restores its exact text if the API call fails. Without a model, Send toggles the model menu.
+The field stays editable during a reply, but sending requires nonempty trimmed text, a chosen model, and no submission already awaiting acceptance. [Decision 0064](../decisions/0064-queue-and-steer.md) adds queue and steering delivery. Sending clears the [draft](chats.md#drafts-and-export) after durable acceptance if no newer text replaces it. Failure preserves the submitted draft or any newer draft. Without a model, Send toggles the model menu.
 
-Enter sends when `hasKeyboard` detects hover support. Shift+Enter and Enter on a touch device insert a line break. An active composition event does not send. Escape in the field stops a running reply. The Send icon becomes Stop while the agent replies. A newly opened chat focuses the field when a keyboard is likely.
+Enter sends when `hasKeyboard` detects hover support. Shift+Enter and Enter on a touch device insert a line break. An active composition event does not send. Escape in the field stops a running reply. Send stays beside Stop while the agent replies, and its tooltip names what it does then, Queue after this reply or Steer this reply, with Enter. Enter uses Queue after this reply by default. The Choose queue or steer menu saves either choice in user settings. Ctrl+Enter uses the other choice during a reply, and a Mac uses Cmd. `describeShortcut` writes a named key such as Enter as it is and a letter in capitals. A steer waits for the current turn and its tool calls. A newly opened chat focuses the field when a keyboard is likely.
 
 An empty chat shows the message box near the middle of the screen. Once it has messages, the box sits below them. The folder under it is selectable only while the chat is empty. Choosing a folder starts an empty chat in that project. The same row shows the count of running Shell calls and background commands, and opens Commands.
+
+## Waiting messages
+
+The floating surface lists waiting messages in one boxed list above the field, with at most three rows visible before scrolling. Each row shows the text and what happens next: Sends after this reply, Steers this reply at its next step, Sending now, or the exact reason it is held, followed by Resume to send while Resume is available. A row opens, with a chevron, its exact text, delivery boundary, captured model and effort, and held reason. Remove sits beside each row until handoff. The menu note names Enter and Ctrl+Enter only where a keyboard is likely. Resume sending explicitly releases held delivery. Submitting another prompt keeps delivery held. Waiting messages stay with their chat across navigation and server restart. The server and its files call them pending inputs.
 
 ## Slash commands
 

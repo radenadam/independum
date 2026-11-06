@@ -3,13 +3,16 @@ import type {
   ComposePreview,
   ContextRevision,
   ContextSummary,
+  InputDelivery,
   ModelSummary,
+  PendingInputsState,
   ProjectSummary,
 } from "independum/api-types";
 import { builtInSlashCommands } from "independum/read-context-settings";
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react";
-import { composeMessage, fetchResources, runSlashAction } from "./chat-api.ts";
+import { changeInputDelivery, composeMessage, fetchResources, runSlashAction } from "./chat-api.ts";
 import { readDraft, saveDraft } from "./chat-draft.ts";
+import { ChoiceGroup } from "./choice-group.tsx";
 import { CommandPreview } from "./command-preview.tsx";
 import { ContextMeter } from "./context-meter.tsx";
 import { describeThinking } from "./describe-thinking.ts";
@@ -21,14 +24,22 @@ import { MenuList } from "./menu-list.tsx";
 import styles from "./message-box.module.css";
 import { ModelMenu } from "./model-menu.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
+import { PendingInputs } from "./pending-inputs.tsx";
 import { Popover } from "./popover.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
+import { describeShortcut, hasShortcutModifier, shortcuts } from "./shortcut.ts";
 import { StatusLabel } from "./status-label.tsx";
 import { TextField } from "./text-field.tsx";
 import { useTooltip } from "./use-tooltip.tsx";
 
 /** A menu that opens from the message box. */
-type Menu = "model" | "folder";
+type Menu = "model" | "folder" | "delivery";
+
+// The send button and the choice of delivery name what a message sent during a reply does.
+const deliveryLabels: Record<InputDelivery, string> = {
+  queue: "Queue after this reply",
+  steer: "Steer this reply",
+};
 
 /** Properties of the message box. */
 interface MessageBoxProps {
@@ -41,7 +52,16 @@ interface MessageBoxProps {
   projects: ProjectSummary[];
   isEmpty: boolean;
   isReplying: boolean;
-  onSend: (text: string, previewId?: string) => Promise<void>;
+  pending: PendingInputsState;
+  whileReplying: InputDelivery;
+  onRemovePending: (id: string) => Promise<void>;
+  onResumePending: () => Promise<void>;
+  onSend: (
+    text: string,
+    previewId: string | undefined,
+    delivery: InputDelivery,
+    inputId: string,
+  ) => Promise<void>;
   onSlashAction: (action: string, argumentsText: string, newChatId?: string) => void;
   onStop: () => void;
   onOpenModels: () => void;
@@ -68,6 +88,10 @@ export function MessageBox({
   projects,
   isEmpty,
   isReplying,
+  pending,
+  whileReplying,
+  onRemovePending,
+  onResumePending,
   onSend,
   onSlashAction,
   onStop,
@@ -86,6 +110,14 @@ export function MessageBox({
   const [commandFailure, setCommandFailure] = useState<string | undefined>();
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [delivery, setDelivery] = useState(whileReplying);
+  const submission = useRef<
+    | { chatId: string; text: string; previewId: string; delivery: InputDelivery; id: string }
+    | undefined
+  >(undefined);
+  const draftVersions = useRef(new Map<string | null, number>());
+  const currentChat = useRef(chatId);
+  currentChat.current = chatId;
   // Each chat keeps its own draft, so opening another chat swaps the text in the field.
   if (draft.chatId !== chatId) {
     setDraft({ chatId, text: readDraft(chatId) });
@@ -99,7 +131,7 @@ export function MessageBox({
     menu === "model" ? undefined : "Choose a model and its thinking effort",
   );
   const field = useRef<HTMLTextAreaElement>(null);
-  const isReady = draft.text.trim() !== "" && model !== null && !isReplying;
+  const isReady = draft.text.trim() !== "" && model !== null && !isSubmitting;
   const modelName =
     model === null
       ? "Choose a model"
@@ -114,6 +146,7 @@ export function MessageBox({
       field.current?.focus();
     }
   }, [chatId]);
+  useEffect(() => setDelivery(whileReplying), [whileReplying]);
   useEffect(() => {
     if (chatId === null || (context !== undefined && context.chatId !== chatId)) {
       return;
@@ -140,12 +173,14 @@ export function MessageBox({
   }
 
   function changeDraft(text: string): void {
+    draftVersions.current.set(chatId, (draftVersions.current.get(chatId) ?? 0) + 1);
     setDraft({ chatId, text });
     saveDraft(chatId, text);
   }
 
-  async function submit(): Promise<void> {
+  async function submit(mode: InputDelivery = delivery): Promise<void> {
     const text = draft.text;
+    const version = draftVersions.current.get(chatId) ?? 0;
     if (isSubmitting || chatId === null) {
       return;
     }
@@ -182,15 +217,29 @@ export function MessageBox({
       if (!isReady) {
         return;
       }
-      changeDraft("");
-      await onSend(preview === undefined ? composed.text : text, composed.id).catch(
-        (error: unknown) => {
-          saveDraft(chatId, text);
-          setDraft((current) => (current.chatId === chatId ? { chatId, text } : current));
-          throw error;
-        },
-      );
-      setPreview(undefined);
+      const submitted = preview === undefined ? composed.text : text;
+      const previous = submission.current;
+      const inputId =
+        previous?.chatId === chatId && previous.text === submitted && previous.delivery === mode
+          ? previous.id
+          : crypto.randomUUID();
+      const submittedPreviewId = previous?.id === inputId ? previous.previewId : composed.id;
+      submission.current = {
+        chatId,
+        text: submitted,
+        previewId: submittedPreviewId,
+        delivery: mode,
+        id: inputId,
+      };
+      await onSend(submitted, submittedPreviewId, mode, inputId);
+      submission.current = undefined;
+      if ((draftVersions.current.get(chatId) ?? 0) === version) {
+        saveDraft(chatId, "");
+        setDraft((current) => (current.chatId === chatId ? { chatId, text: "" } : current));
+        if (currentChat.current === chatId) {
+          setPreview(undefined);
+        }
+      }
     } catch (error) {
       setCommandFailure(
         error instanceof Error ? error.message : "The command cannot be submitted.",
@@ -205,10 +254,21 @@ export function MessageBox({
       event.key === "Enter" &&
       !event.shiftKey &&
       !event.nativeEvent.isComposing &&
-      hasKeyboard()
+      !event.altKey &&
+      (hasKeyboard() || hasShortcutModifier(event))
     ) {
       event.preventDefault();
-      submit();
+      submit(
+        hasShortcutModifier(event) && isReplying
+          ? delivery === "queue"
+            ? "steer"
+            : "queue"
+          : delivery,
+      );
+    } else if (event.key === "Escape" && (menu !== undefined || isCommandMenuOpen)) {
+      event.preventDefault();
+      setMenu(undefined);
+      setIsCommandMenuOpen(false);
     } else if (event.key === "Escape" && isReplying) {
       event.preventDefault();
       onStop();
@@ -301,6 +361,7 @@ export function MessageBox({
           </Popover>
         ) : null}
         <div className={styles.box}>
+          <PendingInputs pending={pending} onRemove={onRemovePending} onResume={onResumePending} />
           <textarea
             ref={field}
             className={styles.field}
@@ -354,6 +415,54 @@ export function MessageBox({
             </span>
             <span className={styles.space} />
             <ContextMeter context={context} onOpen={onOpenContext} />
+            <span className={styles.anchor}>
+              <IconButton
+                icon="menu"
+                label="Choose queue or steer"
+                tipSide="above"
+                isExpanded={menu === "delivery"}
+                onClick={() => toggleMenu("delivery")}
+              />
+              {menu !== "delivery" ? null : (
+                <Popover
+                  label="Queue or steer"
+                  place={isEmpty ? "below" : "above"}
+                  onClose={() => setMenu(undefined)}
+                >
+                  <ChoiceGroup
+                    label="Send during a reply"
+                    choices={[
+                      { value: "queue", label: deliveryLabels.queue },
+                      { value: "steer", label: deliveryLabels.steer },
+                    ]}
+                    current={delivery}
+                    onChoose={(mode) => {
+                      changeInputDelivery(mode).then(
+                        () => setDelivery(mode),
+                        (error: unknown) =>
+                          setCommandFailure(
+                            error instanceof Error
+                              ? error.message
+                              : "The delivery mode could not be saved.",
+                          ),
+                      );
+                    }}
+                  />
+                  <p className={styles.commandNotice}>
+                    Queue after this reply sends a message once the agent finishes its current work.
+                  </p>
+                  <p className={styles.commandNotice}>
+                    Steer this reply sends it to the model when its current tool calls finish,
+                    before it writes again.
+                  </p>
+                  <p className={styles.commandNotice}>
+                    {hasKeyboard()
+                      ? `Enter and the send button use the chosen one. ${describeShortcut(shortcuts.otherDelivery)} uses the other one.`
+                      : "The send button uses the chosen one."}
+                  </p>
+                </Popover>
+              )}
+            </span>
             {isReplying ? (
               <IconButton
                 icon="stop"
@@ -365,18 +474,17 @@ export function MessageBox({
                 isFilled
                 onClick={onStop}
               />
-            ) : (
-              <IconButton
-                icon="send"
-                label="Send"
-                keyName="Enter"
-                tipSide="above"
-                tipAlign="end"
-                isRound
-                isFilled={isReady}
-                onClick={submit}
-              />
-            )}
+            ) : null}
+            <IconButton
+              icon="send"
+              label={isReplying ? deliveryLabels[delivery] : "Send"}
+              keyName="Enter"
+              tipSide="above"
+              tipAlign="end"
+              isRound
+              isFilled={isReady}
+              onClick={() => submit()}
+            />
           </div>
         </div>
         <div className={styles.under}>

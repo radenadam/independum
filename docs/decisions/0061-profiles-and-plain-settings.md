@@ -1,6 +1,6 @@
 # Profiles and plain settings
 
-- Status: accepted, with the remaining work listed in `docs/roadmap.md`
+- Status: accepted, with the remaining work listed in `docs/roadmap.md`, with the user message preference defined in [decision 0064](0064-queue-and-steer.md)
 - Date: 2026-11-05
 
 ## Context

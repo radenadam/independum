@@ -55,4 +55,5 @@ In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, an
 | Thought | What the model thinks before it acts or answers. It sits in a box like a step, but it is reasoning, not an action, so it is not a step. | "reasoning trace", "chain of thought" |
 | Turn | One model response to a request, with its text, thinking, and tool calls. A tool result can lead to another turn in the same reply. | "reply", "chat" |
 | User | A person who runs Independum and works with its agent. | "the customer", "the operator" |
+| Waiting message | A durably accepted prompt held outside Pi until its queue or steering boundary, with its captured model and effort. The server and its files still call it a pending input. | "queued message", "draft" |
 | Working screen | The screen where the user works with the agent, with the sidebar, the chat, and the side panel. | "main screen", "dashboard", "cockpit" |

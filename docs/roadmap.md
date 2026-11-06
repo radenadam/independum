@@ -14,7 +14,8 @@ The 0.5 checkpoint of [decision 0057](decisions/0057-versions-and-checkpoints.md
 - Complete resource interactions: expose nested chat folders under a separately registered project root, invoke skills from the catalog, open an exact skill from its built-in slash action, add full command provenance to saved message actions, and validate the long catalog and request history in browser QA. Profile scope owns resource paths and settings.
 - Hooks, and the contract for add-ons that built-in tools share (decision 0006).
 - Complete [permissions](product/permissions.md): compile write-only rule exclusions as exact grants where the backend permits them. Run approved shell version queries inside the sandbox and show their verified results. Add the Session rule tester, dedicated rule editing routes, explicit approval events, complete rule match details, and the remaining native tests for file races, host sockets, alternate socket families, simultaneous grants, and background authority. Verify native enforcement and the approval UI on supported Windows, macOS, and Linux hosts. Tell the model in a Shell result when the sandbox denied an access, where the platform reports it, such as through MXC denial capture on Windows, because today the model sees only the error of the program.
-- Queue and steer, attachments, and edit, resend, and retry with branches.
+- Attachments from the approved conversation design: picker, paste, drop, original byte retention, exact file read grants through approvals, editable attachment texts, limits, and visible delivery forms. Queue and steer with stop and resume ships in [decision 0064](decisions/0064-queue-and-steer.md).
+- Edit and resend, retry, and fork with Pi branches from the approved conversation design: retained attachment sources, stable prompt variants and reply attempts, saved descendant selections, and the filled tile switcher. Retry uses current agent settings and a fork leaves its source running.
 - A headless mode for scripts and other agents, with full control and output that costs few tokens.
 - Review the added facts of [decision 0054](decisions/0054-added-facts.md) in the running app with the maintainer, including phone width and the texts and switches of the request.
 - A last pass of the whole checkpoint with `pnpm qa` and real models, before the version drops its `-dev` suffix.
@@ -37,6 +38,7 @@ The 0.5 checkpoint of [decision 0057](decisions/0057-versions-and-checkpoints.md
 
 Ask the maintainer when the related work starts, then record each answer as a decision.
 
+- The UI and the glossary call a message accepted during a reply a waiting message. Should the code, the API routes, and the `pending-inputs` folder take that name too?
 - Which places come after Session and Commands in the side panel, such as a terminal, a browser, files, or forking a chat, and how does each one look? See decisions 0016, 0030, and 0048.
 - How does the user open a folder that is not a project yet?
 - What does the contract for built-ins and add-ons cover: tools, prompt pieces, message injections, UI, settings? Is an add-on code, configuration, or both? See decision 0006.

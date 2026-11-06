@@ -19,6 +19,8 @@ Each surface below means one thing everywhere. When something new needs a look, 
 
 A section is never a box of its own. A card is never used for one thing alone, because its border only answers where one of many ends and the next begins. A list never runs from edge to edge with lines between its rows, so rows that belong together sit in one box.
 
+The message box keeps waiting messages in one `BoxedList` above its field. Each row opens its details as one button with the chevron of a tile, and its remove button sits beside it until handoff. A tile would vanish there, because the floating layer and a tile share one fill in the light theme. Its delivery menu opens from Choose queue or steer and uses `ChoiceGroup`, and held delivery has a Resume sending `TextButton` beside the list heading, so it never looks like Send. Send and Stop remain separate during a reply. [Decision 0064](decisions/0064-queue-and-steer.md) defines the boundaries and keys.
+
 ## Color
 
 - Text uses `--ink`, or `--muted` for what is secondary. `--faint` is too light to read, so it draws only lines and decoration.

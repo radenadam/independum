@@ -37,6 +37,9 @@ export function ProfileEditor({
   onChanged,
 }: ProfileEditorProps): ReactElement {
   const context: ChatState = chat ?? {
+    pending: { revision: 0, isPaused: false, items: [], error: null },
+    leafId: null,
+    whileReplying: "queue",
     id: "profile-editor",
     folder: "",
     model: null,

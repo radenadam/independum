@@ -189,6 +189,8 @@ export interface RunningCommand {
  * agent, such as the end of a background command.
  */
 export interface ChatMessage {
+  entryId?: string;
+  isSteered?: boolean;
   role: "user" | "assistant" | "note";
   parts: MessagePart[];
   error: string | null;
@@ -199,6 +201,9 @@ export interface ChatMessage {
 
 /** The whole chat, as the UI receives it when it connects and whenever the chat changes. */
 export interface ChatState {
+  pending: PendingInputsState;
+  leafId: string | null;
+  whileReplying: InputDelivery;
   contextApprovals?: ApprovalRequest[];
   id: string;
   folder: string;
@@ -353,6 +358,40 @@ export interface UserSettingsDocument {
   formatVersion: 1;
   defaultProfile: ProfileReference;
   knowledgeCutoffs?: Settings["knowledgeCutoffs"];
+  messages?: { whileReplying?: InputDelivery };
+}
+
+/** The boundary at which a pending input reaches Pi. */
+export type InputDelivery = "queue" | "steer";
+
+/** A durable submission that Pi has not saved as a user message. */
+export interface PendingInput {
+  id: string;
+  sequence: number;
+  createdAt: number;
+  delivery: InputDelivery;
+  state: "waiting" | "handingOff" | "held";
+  reason: string | null;
+  text: string;
+  model: { providerId: string; modelId: string; thinkingLevel: string | null };
+  hasBrowserApprovals: boolean;
+  command: ComposePreview | null;
+}
+
+/** The pending inputs and their durable revision, including a recovery failure. */
+export interface PendingInputsState {
+  revision: number;
+  isPaused: boolean;
+  items: PendingInput[];
+  error: string | null;
+}
+
+/** The identity and starting state of one message submission. */
+export interface InputOptions {
+  id: string;
+  expectedRevision: number;
+  expectedLeafId: string | null;
+  delivery: InputDelivery;
 }
 
 /** The default profile for new chats in one project. */
@@ -692,6 +731,7 @@ export type ChatsEvent =
 /** One change to a chat, as its followers receive it. */
 export type ChatEvent =
   | { type: "state"; state: ChatState }
+  | { type: "pending"; chatId: string; leafId: string | null; pending: PendingInputsState }
   | {
       type: "contextChanged";
       state: Pick<ChatState, "contextVersion" | "isCompacting" | "compactionError">;

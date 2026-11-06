@@ -87,6 +87,11 @@ test("message routes default to headless approval delivery and require an explic
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
+        kind: "send",
+        id: crypto.randomUUID(),
+        delivery: "queue",
+        expectedRevision: opened?.getState().pending.revision,
+        expectedLeafId: opened?.getState().leafId,
         text: "Test",
         ...(approvalMode === undefined ? {} : { approvalMode }),
       }),
@@ -94,9 +99,21 @@ test("message routes default to headless approval delivery and require an explic
   }
   try {
     expect((await post()).status).toBe(202);
-    expect(send).toHaveBeenLastCalledWith("Test", "commands", undefined, false);
+    expect(send).toHaveBeenLastCalledWith(
+      "Test",
+      "commands",
+      undefined,
+      false,
+      expect.objectContaining({ delivery: "queue" }),
+    );
     expect((await post("browser")).status).toBe(202);
-    expect(send).toHaveBeenLastCalledWith("Test", "commands", undefined, true);
+    expect(send).toHaveBeenLastCalledWith(
+      "Test",
+      "commands",
+      undefined,
+      true,
+      expect.objectContaining({ delivery: "queue" }),
+    );
     expect((await post("unrecognized")).status).toBe(400);
   } finally {
     open.mockRestore();

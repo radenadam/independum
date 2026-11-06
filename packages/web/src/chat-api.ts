@@ -3,12 +3,17 @@ import type {
   ArchivedChatSummary,
   ChatConfiguration,
   ChatEvent,
+  ChatState,
   ChatsEvent,
   ComposePreview,
+  ConfigurationResource,
   ContextRevision,
   ContextSummary,
+  InputDelivery,
+  InputOptions,
   ModelSummary,
   SettingsChange,
+  UserSettingsDocument,
 } from "independum/api-types";
 import { fetchProfileAgent, profilePath, readResponse } from "./profile-api.ts";
 import { readEvents } from "./read-events.ts";
@@ -148,12 +153,67 @@ function followEvents<Event>(
 }
 
 /** Sends a message to the chat. */
-export async function sendMessage(id: string, text: string, previewId?: string): Promise<void> {
+export async function sendMessage(
+  id: string,
+  text: string,
+  options: InputOptions,
+  previewId?: string,
+): Promise<void> {
   const response = await requestApi(chatPath(id, "/messages"), {
-    body: { text, approvalMode: "browser", ...(previewId === undefined ? {} : { previewId }) },
+    body: {
+      kind: "send",
+      ...options,
+      text,
+      approvalMode: "browser",
+      ...(previewId === undefined ? {} : { previewId }),
+    },
   });
+  await expectSuccess(response, "The message was not sent.");
+}
+
+/** Returns a complete state after a conflicting submission. */
+export async function fetchChatState(id: string): Promise<ChatState> {
+  return readResponse(await requestApi(chatPath(id, "")));
+}
+
+/** Saves the delivery mode as a conditional user setting. */
+export async function changeInputDelivery(delivery: InputDelivery): Promise<void> {
+  const current = await readResponse<ConfigurationResource<UserSettingsDocument>>(
+    await requestApi("/api/settings"),
+  );
+  if (current.document === null) {
+    throw new Error("Repair user settings before changing message delivery.");
+  }
+  await readResponse(
+    await requestApi("/api/settings", {
+      method: "PUT",
+      revision: current.revision,
+      body: { ...current.document, messages: { whileReplying: delivery } },
+    }),
+  );
+}
+
+/** Removes a waiting message before Pi owns its delivery. */
+export async function removePendingInput(id: string, inputId: string): Promise<void> {
+  await expectSuccess(
+    await requestApi(chatPath(id, `/pending/${encodeURIComponent(inputId)}`), { method: "DELETE" }),
+    "The waiting message could not be removed.",
+  );
+}
+
+/** Resumes held messages through the current chat's saved delivery boundaries. */
+export async function resumePendingInputs(id: string): Promise<void> {
+  await expectSuccess(
+    await requestApi(chatPath(id, "/pending/resume"), { method: "POST" }),
+    "Delivery could not be resumed.",
+  );
+}
+
+// A change that succeeds can answer with no content, and a refusal says why when it can.
+async function expectSuccess(response: Response, fallback: string): Promise<void> {
   if (!response.ok) {
-    throw new Error("The message was not sent.");
+    const body = (await response.json().catch(() => undefined)) as { error?: string } | undefined;
+    throw new Error(body?.error ?? fallback);
   }
 }
 

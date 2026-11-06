@@ -20,7 +20,7 @@ An expression that throws, a protocol error, a missing target, or a returned che
 
 Preview links include the selected chat in the `chat` query parameter. A copied URL or reload follows that id. A client without one requests `GET /api/chats/first`. Chat actions and streams use `/api/chats/:id`, and shared project and reply events use `/api/chats/events`.
 
-The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. A message containing `Check network permissions.` makes the stand-in request network access for the same local command, which makes no connection. Real model calls follow the Real model calls section of `AGENTS.md`.
+The stand-in thinks, calls Shell with a three second delay and a fixed line of output, and streams a reply with a table. It makes no model request. Each chat chooses its next response from its transcript, so chats can reply at once. A message containing `Check network permissions.` makes the stand-in request network access for the same local command, which makes no connection. A message containing `Hold queue preview.` delays the stand-in by eight seconds before its first turn, so the queue scenario can submit and stop pending work. Real model calls follow the Real model calls section of `AGENTS.md`.
 
 ## Scenarios
 
@@ -34,6 +34,7 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa compacted` | A saved compaction, its summary, and keeping the chat end in view when the panel opens. |
 | `pnpm qa settings` | Logins, missing provider logos, and appearance. |
 | `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |
+| `pnpm qa queue` | Queue and steer ordering, removable waiting inputs, stop and resume, captured choices, and 360 pixel layouts in both themes. |
 | `pnpm qa context` | Command preview and submission, resource controls, duplicate instruction sources, and phone layouts in both themes. |
 | `pnpm qa permissions` | Permission sections, the exact environment name list, the confirmation before unrestricted mode, startup approval and reuse, the order of approval choices, chat and project network approvals, revocation and renewed requests, denial, and 360 pixel layouts in both themes. Approval waiting requires a backend that can compile the project policy. |
 | `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |

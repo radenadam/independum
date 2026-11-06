@@ -32,6 +32,7 @@ export interface MenuGroup {
 
 /** Properties of a menu list. */
 interface MenuListProps {
+  children?: ReactNode;
   groups: MenuGroup[];
   layout: "row" | "stacked";
   emptyNote: string;
@@ -39,7 +40,7 @@ interface MenuListProps {
 
 // A name or a detail too long for its row slides into view while the row is hovered.
 /** Draws the choices of a pop-up in groups, with the current choice checked. */
-export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactElement {
+export function MenuList({ groups, layout, emptyNote, children }: MenuListProps): ReactElement {
   const list = useRef<HTMLDivElement>(null);
   const [gutter, setGutter] = useState(0);
 
@@ -75,6 +76,7 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
 
   return (
     <div ref={list} className={styles.list} style={{ "--gutter": `${gutter}px` } as CSSProperties}>
+      {children}
       {groups.map((group) => (
         <div key={group.key}>
           {group.heading === undefined ? null : (
@@ -109,7 +111,9 @@ export function MenuList({ groups, layout, emptyNote }: MenuListProps): ReactEle
           ))}
         </div>
       ))}
-      {groups.length === 0 ? <p className={styles.note}>{emptyNote}</p> : null}
+      {groups.length === 0 && children === undefined ? (
+        <p className={styles.note}>{emptyNote}</p>
+      ) : null}
     </div>
   );
 }

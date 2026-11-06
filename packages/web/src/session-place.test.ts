@@ -23,6 +23,9 @@ test("switching chats closes a session detail that holds text from the previous 
     backgroundCommands: [],
     reply: [],
     toolRuns: {},
+    pending: { revision: 0, isPaused: false, items: [], error: null },
+    leafId: null,
+    whileReplying: "queue",
   } as ChatState;
   const view = renderHook(() =>
     SessionPlace({ chat, models: undefined, context: undefined, contextFailure: undefined }),

@@ -18,6 +18,7 @@ import {
   chooseModel,
   chooseThinking,
   fetchChatMarkdown,
+  fetchChatState,
   fetchContext,
   fetchFirstChat,
   fetchModels,
@@ -25,7 +26,9 @@ import {
   followChats,
   moveCommandToBackground,
   pinChat,
+  removePendingInput,
   renameChat,
+  resumePendingInputs,
   sendMessage,
   startNewChat,
   stopCommand,
@@ -357,12 +360,36 @@ export function WorkingScreen({
     return chat.id;
   }
 
-  async function send(text: string, previewId?: string): Promise<void> {
+  async function send(
+    text: string,
+    previewId: string | undefined,
+    delivery: import("independum/api-types").InputDelivery,
+    inputId: string,
+  ): Promise<void> {
     setNotice(undefined);
     try {
-      await sendMessage(requireChatId(), text, previewId);
+      if (chat === undefined) {
+        throw new Error("The chat is not open.");
+      }
+      await sendMessage(
+        requireChatId(),
+        text,
+        {
+          id: inputId,
+          expectedRevision: chat.pending.revision,
+          expectedLeafId: chat.leafId,
+          delivery,
+        },
+        previewId,
+      );
     } catch (error) {
       setNotice("The message was not sent. Try again.");
+      if (chat !== undefined) {
+        await fetchChatState(chat.id).then(
+          (state) => setChat((current) => (current?.id === state.id ? state : current)),
+          () => undefined,
+        );
+      }
       throw error;
     }
   }
@@ -484,6 +511,10 @@ export function WorkingScreen({
               projects={projects}
               isEmpty={isEmpty}
               isReplying={chat.isReplying}
+              pending={chat.pending}
+              whileReplying={chat.whileReplying}
+              onRemovePending={(id) => removePendingInput(chat.id, id)}
+              onResumePending={() => resumePendingInputs(chat.id)}
               onSend={send}
               onSlashAction={(action, _argumentsText, newChatId) => {
                 if (newChatId !== undefined) {
@@ -675,6 +706,12 @@ function applyEvent(
     setChat(() => event.state);
   } else if (event.type === "contextChanged") {
     setChat((current) => current && { ...current, ...event.state });
+  } else if (event.type === "pending") {
+    setChat((current) =>
+      current?.id === event.chatId
+        ? { ...current, leafId: event.leafId, pending: event.pending }
+        : current,
+    );
   } else if (event.type === "message") {
     setChat((current) => current && { ...current, messages: [...current.messages, event.message] });
   } else if (event.type === "replying") {

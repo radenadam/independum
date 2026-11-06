@@ -63,7 +63,7 @@ All routes have the existing `/api/chats/:id` prefix and access checks.
 | `POST /resources/reload` | Reload profile settings and discovery. |
 | `POST /compose` | Interpret `text` as `literal` or `commands`, returning a captured literal message, preview, or built-in action. |
 | `POST /slash-actions` | Execute the action named by `previewId` without sending a model message. |
-| `POST /messages` | Submit exact `text`, optional `interpretation`, and optional `previewId`. A successful preview submission is idempotent. |
+| `POST /messages` | Submit the [identified input](server.md#routes-and-payloads) with exact `text`, optional `interpretation`, and optional `previewId`. Acceptance captures preview text and provenance for later queued or steered delivery. |
 
 Context settings use the existing conditional profile settings route, with its disk revision and error contract. Previews belong to one chat and expire after five minutes. Resource changes and summary captures emit the existing `contextChanged` event so Session and the meter refresh while the chat runs.
 

@@ -6,7 +6,7 @@ Decision: [0061](../decisions/0061-profiles-and-plain-settings.md). A profile is
 
 | Path | Contents |
 | --- | --- |
-| `~/.independum/settings.json` | `formatVersion: 1`, required `defaultProfile` with user scope, and optional `knowledgeCutoffs`. |
+| `~/.independum/settings.json` | `formatVersion: 1`, required `defaultProfile` with user scope, optional `knowledgeCutoffs`, and optional `messages.whileReplying` as [message composition](message-box.md#composition) describes. |
 | `<project>/.independum/settings.json` | `formatVersion: 1` and optional `profile`. Absence uses the user default. |
 | `~/.independum/profiles/<id>/profile.json` | `formatVersion: 1`, nonempty `name`, and optional `settings`. |
 | `<project>/.independum/profiles/<id>/profile.json` | The same profile format with project scope. |

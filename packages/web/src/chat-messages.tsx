@@ -201,6 +201,7 @@ export function ChatMessages({
                   data-user
                 >
                   <p className={styles.bubble}>{textOf(message.parts)}</p>
+                  {message.isSteered ? <p className={styles.when}>Sent during a reply</p> : null}
                   <div className={styles.actions} data-copy="skip">
                     <span className={styles.when}>
                       <MessageTime timestamp={message.timestamp} durationMs={null} />

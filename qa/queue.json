@@ -1,0 +1,170 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "go": true
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 0
+    },
+    {
+      "text": "Hold queue preview.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')",
+      "wait": 0
+    },
+    {
+      "run": "(async () => { for (let attempt = 0; attempt < 100 && !document.querySelector('button[aria-label=Stop]'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 50)); return { sendAndStop: !!document.querySelector('button[aria-label=Stop]') && !!document.querySelector('button[aria-label=\"Queue after this reply\"]') }; })()",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 0
+    },
+    {
+      "text": "Follow after reply.",
+      "wait": 0
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13
+      },
+      "wait": 100
+    },
+    {
+      "text": "Steer this reply.",
+      "wait": 0
+    },
+    {
+      "key": {
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13,
+        "modifiers": 2
+      },
+      "wait": 100
+    },
+    {
+      "run": "({ queuedVisible: document.body.innerText.includes('Sends after this reply'), steerVisible: document.body.innerText.includes('Steers this reply at its next step'), draftCleared: document.querySelector('textarea[aria-label=Message]').value === '', chooserLabeled: !!document.querySelector('button[aria-label=\"Choose queue or steer\"]') })",
+      "shot": "queue-desktop"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "run": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const pending = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Follow after reply.')); return { phoneFits: document.documentElement.scrollWidth <= 360, pendingVisible: isShown(pending), stopReachable: isShown(document.querySelector('button[aria-label=Stop]')) }; })()",
+      "shot": "queue-phone-light"
+    },
+    {
+      "scheme": "dark",
+      "run": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const pending = [...document.querySelectorAll('button')].find(button => button.textContent.includes('Follow after reply.')); return { phoneFits: document.documentElement.scrollWidth <= 360, pendingVisible: isShown(pending), stopReachable: isShown(document.querySelector('button[aria-label=Stop]')) }; })()",
+      "shot": "queue-phone-dark"
+    },
+    {
+      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('installation folders and operating system files')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile'); for (let attempt = 0; attempt < 200 && !(isShown(reason()) && isShown(button())); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { startupReasonVisible: isShown(reason()), startupApprovalVisible: isShown(button()) }; })()",
+      "wait": 0
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for every chat of the Default profile')",
+      "wait": 0
+    },
+    {
+      "run": "(async () => { const shown = () => document.body.innerText; for (let attempt = 0; attempt < 200 && !document.querySelector('main').innerText.includes('Sent during a reply'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { steerDelivered: document.querySelector('main').innerText.includes('Sent during a reply'), steerLeftList: !shown().includes('Steers this reply at its next step'), queuedStillWaits: shown().includes('Sends after this reply') && !!document.querySelector('button[aria-label=Stop]') }; })()",
+      "shot": "queue-steered"
+    },
+    {
+      "run": "(async () => { for (let attempt = 0; attempt < 220 && (document.querySelector('button[aria-label=Stop]') || document.body.innerText.includes('Waiting messages')); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); const main = document.querySelector('main').innerText; return { queuedDeliveredAfterSteer: main.lastIndexOf('Follow after reply.') > main.lastIndexOf('Sent during a reply'), queueFinished: !document.body.innerText.includes('Waiting messages') && !document.querySelector('button[aria-label=Stop]') }; })()",
+      "shot": "queue-delivered"
+    },
+    {
+      "size": [1440, 1000]
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 0
+    },
+    {
+      "text": "Hold queue preview.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')",
+      "wait": 100
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 0
+    },
+    {
+      "text": "Held after stop.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Queue after this reply\"]')",
+      "wait": 100
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
+      "wait": 0
+    },
+    {
+      "text": "Remove this input.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Queue after this reply\"]')",
+      "wait": 100
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.startsWith('Remove this input.')).parentElement.querySelector('button[aria-label=\"Remove waiting message\"]')",
+      "wait": 100
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Stop]')",
+      "wait": 100
+    },
+    {
+      "run": "(async () => { for (let attempt = 0; attempt < 150 && document.querySelector('button[aria-label=Stop]'); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { heldVisible: document.body.innerText.includes('Held after Stop. Resume to send.'), resumeVisible: [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Resume sending'), removed: !document.body.innerText.includes('Remove this input.'), removalReportsNoFailure: !document.querySelector('[role=status]') }; })()",
+      "shot": "queue-held",
+      "wait": 0
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.startsWith('Held after stop.'))",
+      "wait": 100
+    },
+    {
+      "run": "(() => { const details = document.querySelector('[role=dialog][aria-label=\"Waiting message\"]')?.innerText ?? ''; return { capturedChoiceVisible: details.includes('Model: faux faux-typing.') && details.includes('Effort:') && details.includes('Held after Stop.') }; })()",
+      "shot": "queue-details",
+      "wait": 0
+    },
+    {
+      "key": {
+        "key": "Escape",
+        "code": "Escape",
+        "windowsVirtualKeyCode": 27
+      },
+      "wait": 0
+    },
+    {
+      "run": "({ detailsClosed: !document.querySelector('[role=dialog][aria-label=\"Waiting message\"]') })"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'Resume sending')",
+      "wait": 0
+    },
+    {
+      "run": "(async () => { for (let attempt = 0; attempt < 150 && (document.body.innerText.includes('Waiting messages') || document.querySelector('button[aria-label=Stop]')); attempt += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { resumed: !document.body.innerText.includes('Waiting messages'), heldPromptDelivered: document.querySelector('main').innerText.includes('Held after stop.'), resumeReportsNoFailure: !document.querySelector('[role=status]') }; })()",
+      "shot": "queue-resumed"
+    }
+  ]
+}

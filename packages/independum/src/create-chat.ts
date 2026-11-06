@@ -38,6 +38,7 @@ import type {
   ConfigurationIssue,
   ContextRevision,
   ContextSummary,
+  InputOptions,
   MessagePart,
   ProfileReference,
   ProjectSummary,
@@ -59,6 +60,13 @@ import {
 } from "./create-approvals.ts";
 import { createCommandPreviews } from "./create-command-previews.ts";
 import { type ContextPermissions, createContextPermissions } from "./create-context-permissions.ts";
+import {
+  createPendingInputs,
+  InputError,
+  inputFingerprint,
+  listPendingChats,
+  type PendingInputs,
+} from "./create-pending-inputs.ts";
 import {
   createProfileStore,
   type ProfileStore,
@@ -121,6 +129,10 @@ interface ThinkingTimes {
 
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
+  pending: PendingInputs;
+  inputMutation: Promise<unknown>;
+  isDispatching: boolean;
+  activeInput: string | undefined;
   contextPermissions: ContextPermissions | undefined;
   contextAbort: AbortController;
   preparedPiSections: Record<string, string | null>;
@@ -174,6 +186,7 @@ export interface ChatOptions {
 
 /** A chat held by an API request, with a separate subscription for each follower. */
 export interface OpenChat {
+  inputState(id: string): string | undefined;
   requestResourcePermission(id: string): Promise<boolean>;
   getResources(): ContextRevision;
   saveResource(id: string, fingerprint: string, content: string): Promise<ContextRevision>;
@@ -188,7 +201,10 @@ export interface OpenChat {
     interpretation?: "literal" | "commands",
     previewId?: string,
     hasBrowserApprovals?: boolean,
+    options?: InputOptions,
   ): Promise<boolean>;
+  removePending(id: string): boolean;
+  resumePending(): Promise<void>;
   chooseModel(providerId: string, modelId: string): Promise<boolean>;
   chooseThinking(level: string): Promise<boolean>;
   compact(instructions?: string): Promise<boolean>;
@@ -245,6 +261,21 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   const outputFolder = join(directory, "outputs");
   const savedRequests = createSavedRequests(join(directory, "requests"));
   const previews = createCommandPreviews();
+  const pendingInputs = new Map<string, PendingInputs>();
+  function pendingFor(manager: SessionManager): PendingInputs {
+    const id = manager.getSessionId();
+    let pending = pendingInputs.get(id);
+    if (pending === undefined) {
+      pending = createPendingInputs(
+        join(directory, "pending-inputs"),
+        id,
+        manager.getEntries(),
+        manager.getCwd(),
+      );
+      pendingInputs.set(id, pending);
+    }
+    return pending;
+  }
   const slashResults = new Map<string, Awaited<ReturnType<OpenChat["slashAction"]>>>();
   const commandStops = new Map<string, () => Promise<void>>();
   const commandHandBacks = new Map<string, () => void>();
@@ -486,6 +517,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const savedTimes = readThinkingTimes(run);
     const streaming = run.isReplying ? session.agent.state.streamingMessage : undefined;
     return {
+      pending: run.pending.state(),
+      leafId: inputLeaf(run),
+      whileReplying: profiles.user().document?.messages?.whileReplying ?? "queue",
       id: session.sessionId,
       contextApprovals: approvals
         .pending(session.sessionId)
@@ -497,7 +531,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         model === undefined || !session.supportsThinking()
           ? null
           : { level: session.thinkingLevel, levels: session.getAvailableThinkingLevels() },
-      messages: chatMessagesOf(session.messages ?? [], savedTimes),
+      messages: visibleMessages(run, savedTimes),
       isReplying: run.isReplying ?? false,
       reply:
         streaming?.role === "assistant" ? partsOf(streaming.content, timesOf(run, streaming)) : [],
@@ -524,6 +558,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       run.isReplying ||
       run.isCompacting ||
       run.pendingNotes > 0 ||
+      run.isDispatching ||
+      (!run.pending.state().isPaused && run.pending.state().items.length > 0) ||
       approvals
         .pending(run.session.sessionId)
         .some((approval) => approval.toolName === "Context") ||
@@ -718,8 +754,34 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     );
   }
 
-  function listSaved(): Promise<SessionInfo[]> {
-    return savedChats.list();
+  async function pendingSessions(isArchived: boolean): Promise<SessionInfo[]> {
+    const saved = [...(await savedChats.list()), ...(await savedChats.listArchived())];
+    return listPendingChats(
+      join(directory, "pending-inputs"),
+      new Set(saved.map((chat) => chat.id)),
+    )
+      .filter((chat) => chat.isArchived === isArchived)
+      .map((chat) => ({
+        id: chat.id,
+        cwd: chat.folder,
+        path: "",
+        created: new Date(chat.modified),
+        modified: new Date(chat.modified),
+        name: chat.name,
+        firstMessage: "",
+        allMessagesText: "",
+        messageCount: 0,
+      }));
+  }
+
+  async function listSaved(): Promise<SessionInfo[]> {
+    return [...(await savedChats.list()), ...(await pendingSessions(false))].sort(
+      (first, second) => second.modified.getTime() - first.modified.getTime(),
+    );
+  }
+
+  async function listArchived(): Promise<SessionInfo[]> {
+    return [...(await savedChats.listArchived()), ...(await pendingSessions(true))];
   }
 
   async function findSaved(id: string): Promise<SessionInfo | undefined> {
@@ -747,6 +809,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       return;
     }
     run.isClosing = true;
+    run.pending.pause("Held when the chat was archived.");
     stoppingChats.add(saved.id);
     try {
       run.contextAbort.abort();
@@ -826,9 +889,13 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       } else if (event.type === "agent_start") {
         setReplying(run, true);
       } else if (event.type === "agent_settled") {
+        reconcileInputs(run);
+        if (event.aborted || lastReplyOf(run)?.error != null) {
+          holdInputs(run, new Error("Held after the reply stopped or failed."));
+        }
         endReply(run, lastReplyOf(run));
         setImmediate(() => {
-          reconcileRun(run).catch(() => undefined);
+          dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
         });
       } else if (event.type === "message_start" && event.message.role === "assistant") {
         run.thinkingStarts.clear();
@@ -868,20 +935,41 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       } else if (event.type === "message_end") {
         const message = toChatMessage(event.message, timesOf(run, event.message));
         if (message !== undefined) {
+          if (message.role === "user") {
+            const marker = run.session.sessionManager
+              .getBranch()
+              .findLast(
+                (entry) => entry.type === "custom" && entry.customType === "independum-input",
+              );
+            message.isSteered =
+              marker?.type === "custom" &&
+              (marker.data as { isSteered?: boolean }).isSteered === true;
+          }
           emitFor(run, { type: "message", message });
         }
         // Pi tells its listeners about a message before it saves it, so the projects wait one turn
         // of the event loop. When they are read sooner, a new chat stays out of its project until
         // the reply ends.
         if (event.message.role === "user") {
-          setImmediate(emitProjects);
+          setImmediate(() => {
+            reconcileInputs(run);
+            emitProjects();
+          });
+        } else {
+          setImmediate(() => emitPending(run));
         }
       }
     };
   }
 
   async function openSaved(saved: SessionInfo): Promise<ChatRun> {
-    const manager = SessionManager.open(saved.path, sessionDirectory);
+    const manager =
+      saved.path === ""
+        ? SessionManager.create(folderOf(saved), sessionDirectory, { id: saved.id })
+        : SessionManager.open(saved.path, sessionDirectory);
+    if (saved.path === "" && saved.name !== undefined) {
+      manager.appendSessionInfo(saved.name);
+    }
     if (profiles.choices(saved.id).revision === configurationRevision([null])) {
       profiles.keepChoices(saved.id, {
         ...profiles.newChoices(folderOf(saved)),
@@ -1026,6 +1114,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             for (const tool of ownTools) {
               pi.registerTool(tool);
             }
+            pi.on("turn_end", async (event) => {
+              if (
+                hold.run !== undefined &&
+                event.message.role === "assistant" &&
+                event.message.stopReason !== "error" &&
+                event.message.stopReason !== "aborted"
+              ) {
+                await dispatchInputs(hold.run, true);
+              }
+            });
             pi.on("before_agent_start", (event, context) => {
               delete event.systemPromptOptions.customPrompt;
               const resources = refreshResources(hold.run, configuration, sessionFolder);
@@ -1196,6 +1294,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
     const { session } = created;
     const run: ChatRun = Object.assign(previous ?? {}, {
+      pending: previous?.pending ?? pendingFor(manager),
+      inputMutation: previous?.inputMutation ?? Promise.resolve(),
+      isDispatching: previous?.isDispatching ?? false,
+      activeInput: previous?.activeInput,
       contextPermissions: undefined,
       contextAbort: new AbortController(),
       session,
@@ -1632,9 +1734,16 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       previous.effectiveRevision !== desired.effectiveRevision ||
       JSON.stringify(previous.issues) !== JSON.stringify(desired.issues);
     run.desired = desired;
+    const hasDifferentSelection =
+      desired.model != null &&
+      run.isModelChosen &&
+      (run.session.model?.provider !== desired.model.providerId ||
+        run.session.model.id !== desired.model.modelId ||
+        (desired.thinkingLevel != null && desired.thinkingLevel !== run.session.thinkingLevel));
     if (
       desired.issues.length === 0 &&
-      desired.effectiveRevision !== run.configuration.effectiveRevision &&
+      (desired.effectiveRevision !== run.configuration.effectiveRevision ||
+        hasDifferentSelection) &&
       !run.isReplying &&
       !run.isCompacting &&
       !run.isClosing
@@ -1674,6 +1783,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   async function reconcile(): Promise<void> {
     for (const run of runs.values()) {
       await reconcileRun(run);
+      emitFor(run, { type: "state", state: getState(run) });
     }
   }
 
@@ -1911,9 +2021,227 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     );
   }
 
+  function visibleMessages(
+    run: ChatRun,
+    savedTimes: Map<number, (number | null)[]>,
+  ): ChatMessage[] {
+    const entries = run.session.sessionManager.getBranch();
+    const messages = entries.filter((entry) => entry.type === "message");
+    const steered = new Set<string>();
+    let isSteered = false;
+    for (const entry of entries) {
+      if (entry.type === "custom" && entry.customType === "independum-input") {
+        isSteered = (entry.data as { isSteered?: boolean }).isSteered === true;
+      } else if (entry.type === "message" && entry.message.role === "user") {
+        if (isSteered) {
+          steered.add(entry.id);
+        }
+        isSteered = false;
+      }
+    }
+    const used = new Set<string>();
+    return chatMessagesOf(run.session.messages ?? [], savedTimes).map((message) => {
+      const entry = messages.find(
+        (entry) =>
+          !used.has(entry.id) &&
+          entry.message.role === message.role &&
+          entry.message.timestamp === message.timestamp,
+      );
+      if (entry === undefined) {
+        return message;
+      }
+      used.add(entry.id);
+      return {
+        ...message,
+        entryId: entry.id,
+        ...(steered.has(entry.id) ? { isSteered: true } : {}),
+      };
+    });
+  }
+
+  function emitPending(run: ChatRun): void {
+    emitFor(run, {
+      type: "pending",
+      chatId: run.session.sessionId,
+      leafId: inputLeaf(run),
+      pending: run.pending.state(),
+    });
+  }
+
+  function inputLeaf(run: ChatRun): string | null {
+    return run.session.messages.some(
+      (message) => message.role === "user" || message.role === "assistant",
+    )
+      ? run.session.sessionManager.getLeafId()
+      : null;
+  }
+
+  function reconcileInputs(run: ChatRun): void {
+    try {
+      run.pending.reconcile(run.session.sessionManager.getEntries());
+    } catch (error) {
+      holdInputs(run, error);
+    }
+    if (!run.pending.state().items.some((input) => input.id === run.activeInput)) {
+      run.activeInput = undefined;
+    }
+    emitPending(run);
+  }
+
+  function holdInputs(run: ChatRun, error: unknown): void {
+    try {
+      run.pending.pause(messageOf(error));
+    } catch {
+      emitPending(run);
+    } finally {
+      emitPending(run);
+    }
+  }
+
+  function mutateInput<Result>(run: ChatRun, change: () => Promise<Result>): Promise<Result> {
+    const mutation = run.inputMutation.catch(() => undefined).then(change);
+    run.inputMutation = mutation;
+    return mutation;
+  }
+
+  async function dispatchInputs(run: ChatRun, isTurnBoundary: boolean): Promise<void> {
+    await mutateInput(run, async () => {
+      if (run.isClosing || stoppingChats.has(run.session.sessionId)) {
+        return;
+      }
+      run.isDispatching = true;
+      try {
+        if (!isTurnBoundary) {
+          await reconcileRun(run);
+        }
+        reconcileInputs(run);
+        const pending = run.pending.state();
+        if (
+          pending.isPaused ||
+          pending.items.some((input) => input.state === "handingOff") ||
+          run.isCompacting ||
+          (!isTurnBoundary && run.isReplying)
+        ) {
+          return;
+        }
+        const waiting = pending.items.filter((input) => input.state === "waiting");
+        const input =
+          waiting.find((input) => input.delivery === "steer") ??
+          (isTurnBoundary ? undefined : waiting[0]);
+        if (input === undefined) {
+          return;
+        }
+        const selected = models.getModel(input.model.providerId, input.model.modelId);
+        if (selected === undefined || !models.hasConfiguredAuth(input.model.providerId)) {
+          throw new Error("The captured model of a waiting message has no available login.");
+        }
+        if (configurationIssues(run).length > 0) {
+          throw new Error("The chat configuration needs repair before delivery.");
+        }
+        const level = getSupportedThinkingLevels(selected).find(
+          (level) => level === input.model.thinkingLevel,
+        );
+        if (input.model.thinkingLevel !== null && level === undefined) {
+          throw new Error(
+            "The captured thinking effort of a waiting message is no longer supported.",
+          );
+        }
+        if (
+          run.session.model?.provider !== selected.provider ||
+          run.session.model.id !== selected.id
+        ) {
+          await run.session.setModel(
+            applyModelOverrides(
+              selected,
+              run.configuration.settings.modelOverrides[selected.provider]?.[selected.id] ?? {},
+            ),
+          );
+        }
+        if (level !== undefined) {
+          run.session.setThinkingLevel(level);
+        }
+        if (
+          run.pending.state().isPaused ||
+          run.isClosing ||
+          !run.pending
+            .state()
+            .items.some((item) => item.id === input.id && item.state === "waiting")
+        ) {
+          return;
+        }
+        run.pending.handoff(input.id);
+        run.activeInput = input.id;
+        run.session.sessionManager.appendCustomEntry("independum-input", {
+          version: 1,
+          inputId: input.id,
+          delivery: input.delivery,
+          isSteered: isTurnBoundary,
+          text: input.text,
+          model: input.model,
+        });
+        if (input.command !== null) {
+          run.session.sessionManager.appendCustomEntry("independum-command", {
+            ...input.command,
+            submitted: input.text,
+            isEdited: input.command.text !== input.text,
+          });
+        }
+        run.hasBrowserApprovals = input.hasBrowserApprovals;
+        run.contextAbort = new AbortController();
+        emitPending(run);
+        if (isTurnBoundary) {
+          const result = await run.session.steer(input.text);
+          if (result === "handled") {
+            run.pending.handled(input.id);
+            emitPending(run);
+          }
+        } else {
+          setReplying(run, true);
+          run.session
+            .prompt(input.text, { expandPromptTemplates: false })
+            .then(() => {
+              reconcileInputs(run);
+              if (
+                run.pending
+                  .state()
+                  .items.some((item) => item.id === input.id && item.state === "handingOff")
+              ) {
+                run.pending.handled(input.id);
+                emitPending(run);
+              }
+            })
+            .catch((error: unknown) => {
+              holdInputs(run, error);
+              const reply: ChatMessage = {
+                role: "assistant",
+                parts: [],
+                commandEnd: null,
+                error: messageOf(error),
+                timestamp: Date.now(),
+                durationMs: null,
+              };
+              emitFor(run, { type: "message", message: reply });
+              endReply(run, reply);
+            });
+        }
+      } catch (error) {
+        holdInputs(run, error);
+      } finally {
+        run.isDispatching = false;
+        releaseIfIdle(run);
+      }
+    });
+  }
+
   function handleOf(run: ChatRun): OpenChat {
     let isClosed = false;
     return {
+      inputState(id) {
+        return (
+          run.pending.state().items.find((input) => input.id === id)?.state ??
+          run.pending.status(id)
+        );
+      },
       async requestResourcePermission(id) {
         if (run.contextAbort.signal.aborted) {
           run.contextAbort = new AbortController();
@@ -2054,52 +2382,142 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           releaseIfIdle(run);
         };
       },
-      async send(text, interpretation = "commands", previewId, hasBrowserApprovals = false) {
+      async send(
+        text,
+        interpretation = "commands",
+        previewId,
+        hasBrowserApprovals = false,
+        options,
+      ) {
         const id = run.session.sessionId;
-        const preview =
-          previewId === undefined
-            ? composeFor(run, text, interpretation)
-            : previews.get(id, previewId);
-        if (preview.kind === "action" || (preview.kind === "preview" && previewId === undefined)) {
-          throw new Error("This command needs a preview before submission.");
+        if (text.trim() === "") {
+          throw new InputError("A message needs text.", "invalidInput", 400);
         }
-        return previews.submit(
-          id,
-          preview.id,
-          previewId === undefined ? preview.text : text,
-          async (captured, submitted) => {
-            await reconcileRun(run);
-            if (run.isClosing || configurationIssues(run).length > 0 || !canStart(run)) {
-              return false;
-            }
-            await profiles.saveChoices(run.session.sessionId);
-            if (captured.kind === "preview") {
-              run.session.sessionManager.appendCustomEntry("independum-command", {
-                ...captured,
-                submitted,
-                isEdited: captured.text !== submitted,
-              });
-            }
-            run.hasBrowserApprovals = hasBrowserApprovals;
-            run.contextAbort = new AbortController();
-            setReplying(run, true);
-            run.session
-              .prompt(submitted, { expandPromptTemplates: false })
-              .catch((error: unknown) => {
-                const reply: ChatMessage = {
-                  role: "assistant",
-                  parts: [],
-                  commandEnd: null,
-                  error: messageOf(error),
-                  timestamp: Date.now(),
-                  durationMs: null,
-                };
-                emitFor(run, { type: "message", message: reply });
-                endReply(run, reply);
-              });
+        const inputOptions = options ?? {
+          id: randomUUID(),
+          expectedRevision: run.pending.state().revision,
+          expectedLeafId: inputLeaf(run),
+          delivery: "queue",
+        };
+        const fingerprint = inputFingerprint({
+          text,
+          interpretation,
+          previewId: previewId ?? null,
+          hasBrowserApprovals,
+          delivery: inputOptions.delivery,
+        });
+        const accepted = await mutateInput(run, async () => {
+          if (run.pending.receipt(inputOptions.id, fingerprint) !== undefined) {
             return true;
-          },
-        );
+          }
+          if (
+            options !== undefined &&
+            (inputOptions.expectedRevision !== run.pending.state().revision ||
+              inputOptions.expectedLeafId !== inputLeaf(run))
+          ) {
+            throw new InputError(
+              "The chat changed before this input was accepted. Review it and send again.",
+              "staleInputState",
+            );
+          }
+          const startingMessage =
+            run.session.sessionManager.getBranch().findLast((entry) => entry.type === "message")
+              ?.id ?? null;
+          const preview =
+            previewId === undefined
+              ? composeFor(run, text, interpretation)
+              : previews.get(id, previewId);
+          if (
+            preview.kind === "action" ||
+            (preview.kind === "preview" && previewId === undefined)
+          ) {
+            throw new Error("This command needs a preview before submission.");
+          }
+          return previews.submit(
+            id,
+            preview.id,
+            previewId === undefined ? preview.text : text,
+            async (captured, submitted) => {
+              await reconcileRun(run);
+              if (
+                run.isClosing ||
+                run.isCompacting ||
+                configurationIssues(run).length > 0 ||
+                !run.isModelChosen
+              ) {
+                return false;
+              }
+              await profiles.saveChoices(run.session.sessionId);
+              if (
+                options !== undefined &&
+                (inputOptions.expectedRevision !== run.pending.state().revision ||
+                  startingMessage !==
+                    (run.session.sessionManager
+                      .getBranch()
+                      .findLast((entry) => entry.type === "message")?.id ?? null))
+              ) {
+                throw new InputError(
+                  "The chat changed before this input was accepted. Review it and send again.",
+                  "staleInputState",
+                );
+              }
+              const desired = profiles.resolve(id, run.folder);
+              const selected = modelFor(desired.model);
+              if (selected === undefined) {
+                return false;
+              }
+              run.pending.accept(
+                {
+                  id: inputOptions.id,
+                  delivery: inputOptions.delivery,
+                  text: submitted,
+                  model: {
+                    providerId: selected.provider,
+                    modelId: selected.id,
+                    thinkingLevel: desired.thinkingLevel ?? run.session.thinkingLevel,
+                  },
+                  hasBrowserApprovals,
+                  command: captured.kind === "preview" ? captured : null,
+                },
+                fingerprint,
+              );
+              emitPending(run);
+              return true;
+            },
+          );
+        });
+        if (accepted && run.pending.status(inputOptions.id) === undefined) {
+          throw new InputError(
+            "This preview already belongs to another accepted input.",
+            "previewConsumed",
+          );
+        }
+        if (accepted) {
+          setImmediate(() => {
+            dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
+          });
+        }
+        return accepted;
+      },
+      removePending(id) {
+        try {
+          return run.pending.remove(id);
+        } finally {
+          emitPending(run);
+        }
+      },
+      async resumePending() {
+        if (run.isReplying || run.isCompacting || run.isClosing) {
+          throw new InputError(
+            "Waiting messages cannot resume while the chat replies or compacts.",
+            "chatBusy",
+          );
+        }
+        run.pending.resume();
+        emitPending(run);
+        setImmediate(() => {
+          dispatchInputs(run, false).catch((error: unknown) => holdInputs(run, error));
+        });
       },
       async chooseModel(providerId, modelId) {
         const model = models.getModel(providerId, modelId);
@@ -2134,6 +2552,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         await reconcileRun(run);
         if (
           run.isClosing ||
+          run.pending.state().items.length > 0 ||
           run.configuration.settings.context.pi.disabled.includes("compaction") ||
           !canStart(run)
         ) {
@@ -2146,8 +2565,17 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         return true;
       },
       async stop() {
-        run.contextAbort.abort();
-        await run.session.abort();
+        reconcileInputs(run);
+        try {
+          if (run.isReplying || run.pending.state().items.length > 0) {
+            run.pending.pause("Held after Stop.");
+          }
+        } finally {
+          emitPending(run);
+          run.contextAbort.abort();
+          await run.session.abort();
+          reconcileInputs(run);
+        }
       },
       stopCommand(id) {
         const stop = commandStops.get(JSON.stringify([run.session.sessionId, id]));
@@ -2208,7 +2636,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         return false;
       }
       const run = runs.get(saved.id);
-      if (run !== undefined) {
+      if (saved.path === "") {
+        const manager =
+          run?.session.sessionManager ??
+          SessionManager.create(folderOf(saved), sessionDirectory, { id: saved.id });
+        pendingFor(manager).rename(trimmed);
+      } else if (run !== undefined) {
         run.session.setSessionName(trimmed);
       } else {
         SessionManager.open(saved.path, sessionDirectory).appendSessionInfo(trimmed);
@@ -2227,31 +2660,52 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     async archive(id, isArchived) {
       const saved = isArchived
         ? await findSaved(id)
-        : (await savedChats.listArchived()).find((candidate) => candidate.id === id);
+        : (await listArchived()).find((candidate) => candidate.id === id);
       if (saved === undefined) {
         return false;
       }
       if (isArchived) {
         await leave(saved);
-        await savedChats.archive(saved);
+      }
+      const persisted =
+        saved.path === "" ? (await savedChats.list()).find((chat) => chat.id === saved.id) : saved;
+      if (persisted === undefined) {
+        const pending =
+          pendingInputs.get(saved.id) ??
+          pendingFor(SessionManager.create(folderOf(saved), sessionDirectory, { id: saved.id }));
+        pending.pause("Held when the chat was archived.");
+        pending.archive(isArchived);
+      } else if (isArchived) {
+        await savedChats.archive(persisted);
       } else {
-        await savedChats.unarchive(saved);
+        await savedChats.unarchive(persisted);
       }
       emitProjects();
       return true;
     },
     async remove(id) {
-      const saved = [...(await listSaved()), ...(await savedChats.listArchived())].find(
+      const saved = [...(await listSaved()), ...(await listArchived())].find(
         (candidate) => candidate.id === id,
       );
       if (saved === undefined) {
         return false;
       }
       await leave(saved);
-      await savedChats.remove(saved);
+      const persisted =
+        saved.path === "" ? (await savedChats.list()).find((chat) => chat.id === saved.id) : saved;
+      if (persisted !== undefined) {
+        await savedChats.remove(persisted);
+      } else {
+        await savedChats.pin(saved.id, false);
+      }
       rmSync(join(outputFolder, saved.id), { recursive: true, force: true });
       savedRequests.remove(saved.id);
       await profiles.removeChoices(saved.id);
+      pendingInputs.get(saved.id)?.delete();
+      if (!pendingInputs.has(saved.id)) {
+        rmSync(join(directory, "pending-inputs", `${saved.id}.json`), { force: true });
+      }
+      pendingInputs.delete(saved.id);
       emitProjects();
       return true;
     },
@@ -2260,18 +2714,27 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       if (saved === undefined) {
         return undefined;
       }
-      const { messages } = SessionManager.open(saved.path, sessionDirectory).buildSessionContext();
+      const messages =
+        saved.path === ""
+          ? []
+          : SessionManager.open(saved.path, sessionDirectory).buildSessionContext().messages;
       return markdownOf(summaryOf(saved).title, messages);
     },
     async getArchived() {
-      return (await savedChats.listArchived()).map((saved) => ({
+      return (await listArchived()).map((saved) => ({
         ...summaryOf(saved),
         folder: folderOf(saved),
         projectName: basename(folderOf(saved)),
       }));
     },
     async stopAll() {
+      const failures: unknown[] = [];
       for (const run of runs.values()) {
+        try {
+          run.pending.pause("Held when the server stopped.");
+        } catch (error) {
+          failures.push(error);
+        }
         run.contextAbort.abort();
       }
       profiles.close();
@@ -2289,6 +2752,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         for (const run of running) {
           stoppingChats.delete(run.session.sessionId);
         }
+      }
+      if (failures.length > 0) {
+        throw failures[0];
       }
     },
     async startNew(id, newFolder, profile) {
