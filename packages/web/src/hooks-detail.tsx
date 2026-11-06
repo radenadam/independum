@@ -112,8 +112,8 @@ export function HooksDetail({ settings }: { settings: AgentSettings }): ReactEle
                 { name: "Last invocation", values: [invocations[0]?.status ?? "Never run"] },
               ]}
             />
-            <div className={styles.setting}>
-              <span className={styles.settingLabel}>When this hook fails</span>
+            <div className={toolStyles.setting}>
+              <span className={toolStyles.settingLabel}>When this hook fails</span>
               <ChoiceGroup
                 label="When this hook fails"
                 current={hook.onError ?? (hook.mode === "observe" ? "continue" : "stop")}
