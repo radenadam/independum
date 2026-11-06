@@ -1,15 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
+import { getCurrentSystemMessage, validateToolArguments } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
   type AgentSession,
   type AgentSessionEvent,
+  type BeforeAgentStartEvent,
+  type BeforeAgentStartEventResult,
   buildSessionContext,
   createAgentSession,
   DefaultResourceLoader,
   type ExtensionAPI,
+  type ExtensionContext,
   type ModelRuntime,
   type SessionEntry,
   type SessionInfo,
@@ -76,6 +79,9 @@ import {
 import { type SandboxLaunch, sandboxRuntime } from "./create-sandbox.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
+import { createScriptHooks, type ScriptHooks } from "./create-script-hooks.ts";
+import { executeScriptHook } from "./execute-script-hook.ts";
+import { type HookEvent, type HookSummary, hookModelTexts } from "./hook-contract.ts";
 import { listRequests } from "./list-requests.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
@@ -86,7 +92,11 @@ import {
   permissionResourceIdentity,
   readablePermissionPolicy,
 } from "./permission-policy.ts";
-import { permissionBranch, permissionTool } from "./permission-tool.ts";
+import {
+  type PermissionToolsOptions,
+  permissionBranch,
+  permissionTool,
+} from "./permission-tool.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
@@ -134,6 +144,9 @@ interface ChatRun {
   inputMutation: Promise<unknown>;
   isDispatching: boolean;
   activeInput: string | undefined;
+  hooks: ScriptHooks;
+  hookSources: Map<string, string>;
+  hookSystemPrompt: string | undefined;
   contextPermissions: ContextPermissions | undefined;
   contextAbort: AbortController;
   preparedPiSections: Record<string, string | null>;
@@ -188,6 +201,9 @@ export interface ChatOptions {
 /** A chat held by an API request, with a separate subscription for each follower. */
 export interface OpenChat {
   inputState(id: string): string | undefined;
+  getHooks(): HookSummary;
+  reloadHooks(): void;
+  stopHook(id: string): boolean;
   requestResourcePermission(id: string): Promise<boolean>;
   getResources(): ContextRevision;
   saveResource(id: string, fingerprint: string, content: string): Promise<ContextRevision>;
@@ -378,27 +394,43 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       createCheckCommandTool(background, texts),
       createStopCommandTool(background, texts),
     ];
-    return own.map((tool) =>
-      permissionTool(tool, {
-        policy: (chatId, folder) => profiles.resolve(chatId, folder).settings.permissions,
-        saveApproval: savePermissionApproval,
-        settings: configuration.settings,
-        texts,
-        directory,
-        shell,
-        approvals,
-        launches,
-        profileName: profileNameOf(configuration.profile),
-        revision: permissionRevision(configuration),
-        currentRevision: (chatId, folder) => {
-          const current = profiles.resolve(chatId, folder);
-          return current.issues.length === 0 ? permissionRevision(current) : "invalid";
-        },
-        isInteractive: (chatId) => runs.get(chatId)?.hasBrowserApprovals === true,
-        audit: (chatId, data) =>
-          runs.get(chatId)?.session.sessionManager.appendCustomEntry("independum-permission", data),
-      }),
+    return own.map((tool) => permissionTool(tool, permissionsFor(configuration, launches)));
+  }
+
+  function permissionsFor(
+    configuration: ResolvedProfile,
+    launches: Map<string, SandboxLaunch>,
+  ): PermissionToolsOptions {
+    const shell = findShell(
+      configuration.settings.shell ?? undefined,
+      configuration.settings.permissions.mode === "project",
     );
+    const texts = createModelTexts(() => configuration.settings.texts);
+    return {
+      beforeExecute: (chatId) => runs.get(chatId)?.hooks.guard(),
+      policy: (chatId, folder) => profiles.resolve(chatId, folder).settings.permissions,
+      saveApproval: savePermissionApproval,
+      settings: configuration.settings,
+      texts,
+      directory,
+      shell,
+      approvals,
+      launches,
+      profileName: profileNameOf(configuration.profile),
+      revision: permissionRevision(configuration),
+      currentRevision: (chatId, folder) => {
+        const current = profiles.resolve(chatId, folder);
+        return current.issues.length === 0 ? permissionRevision(current) : "invalid";
+      },
+      isInteractive: (chatId) => runs.get(chatId)?.hasBrowserApprovals === true,
+      audit: (chatId, data) => {
+        const run = runs.get(chatId);
+        run?.session.sessionManager.appendCustomEntry("independum-permission", data);
+        if (run !== undefined) {
+          emitFor(run, { type: "state", state: getState(run) });
+        }
+      },
+    };
   }
 
   function refreshResources(
@@ -507,9 +539,19 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       leafId: inputLeaf(run),
       whileReplying: profiles.user().document?.messages?.whileReplying ?? "queue",
       id: session.sessionId,
+      hookInvocations: run.hooks
+        .summary()
+        .invocations.filter((record) => record.status === "running")
+        .map((record) => ({
+          id: record.id,
+          hookId: record.hookId,
+          startedAt: record.input.startedAt,
+        })),
       contextApprovals: approvals
         .pending(session.sessionId)
-        .filter((approval) => approval.toolName === "Context"),
+        .filter(
+          (approval) => approval.toolName === "Context" || approval.toolName.startsWith("Hook "),
+        ),
       folder: run.folder,
       model: model === undefined ? null : { providerId: model.provider, id: model.id },
       // Pi offers only the levels that the model supports, and none for a model that cannot think.
@@ -644,6 +686,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           note.details,
         );
         return;
+      }
+      if (!run.isReplying) {
+        run.contextAbort = new AbortController();
+        run.hooks.reset();
       }
       await run.session.sendCustomMessage(note, { triggerTurn: true, deliverAs: "steer" });
     }
@@ -861,6 +907,8 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
   function followRun(run: ChatRun): (event: AgentSessionEvent) => void {
     return (event) => {
       if (event.type === "compaction_start") {
+        run.contextAbort = new AbortController();
+        run.hooks.reset();
         run.isCompacting = true;
         run.compactionError = null;
         refreshContext(run);
@@ -1063,9 +1111,56 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     // The hidden extension of the chat registers anew whenever Pi loads it, and its handlers find
     // the run of their chat once it exists.
     const hold: { run?: ChatRun; extension?: ExtensionAPI } = {};
+    const hookSources = previous?.hookSources ?? new Map<string, string>();
+    let hookContext: ExtensionContext | undefined;
+    async function dispatchHooks(
+      event: HookEvent,
+      data: Record<string, unknown>,
+      context: ExtensionContext,
+    ): ReturnType<ScriptHooks["dispatch"]> {
+      hookContext = context;
+      if (hold.run === undefined) {
+        return { data };
+      }
+      return hold.run.hooks.dispatch(
+        event,
+        JSON.parse(JSON.stringify(data)) as Record<string, unknown>,
+        hold.run.contextAbort.signal,
+      );
+    }
     // Without its own settings and an empty addendum, Pi reads its settings from the project and
     // from `~/.independum`, and adds any `APPEND_SYSTEM.md` there to the system prompt, so a file
     // in a project could reach the model unseen.
+    async function applyPromptHooks(
+      event: BeforeAgentStartEvent,
+      context: ExtensionContext,
+    ): Promise<BeforeAgentStartEventResult | undefined> {
+      const systemPrompt = event.systemPrompt;
+      const { type: _type, systemPromptOptions: _options, ...data } = event;
+      const result = await dispatchHooks("before_agent_start", { ...data, systemPrompt }, context);
+      if (result.data.systemPrompt !== systemPrompt) {
+        if (hold.run !== undefined) {
+          hold.run.hookSystemPrompt = result.data.systemPrompt as string;
+        }
+        return { systemPrompt: result.data.systemPrompt as string };
+      }
+      return undefined;
+    }
+    async function projectHookMessages(
+      messages: AgentMessage[],
+      context: ExtensionContext,
+    ): Promise<{ messages: AgentMessage[] }> {
+      const result = await dispatchHooks(
+        "context_with_system",
+        { messages: projectContextMessages(messages, settings.get().context) },
+        context,
+      );
+      return { messages: result.data.messages as AgentMessage[] };
+    }
+    function announceContext(): void {
+      refreshContext(run);
+      emitFor(run, { type: "state", state: getState(run) });
+    }
     const piSettings = SettingsManager.inMemory({
       compaction: piCompactionSettings(configuration.settings),
       images: { autoResize: !configuration.settings.context.pi.disabled.includes("imageResize") },
@@ -1110,6 +1205,33 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 await dispatchInputs(hold.run, true);
               }
             });
+            if (
+              settings
+                .get()
+                .hooks.some(
+                  (hook) =>
+                    hook.event === "input" && !settings.get().disabledHooks.includes(hook.id),
+                )
+            ) {
+              pi.on("input", async (event, context) => {
+                const { type: _type, ...data } = event;
+                try {
+                  const result = await dispatchHooks("input", data, context);
+                  return {
+                    action: "transform",
+                    text: result.data.text as string,
+                    ...(result.data.images === undefined
+                      ? {}
+                      : { images: result.data.images as NonNullable<typeof event.images> }),
+                  };
+                } catch (error) {
+                  if (hold.run !== undefined) {
+                    hold.run.preparationError = messageOf(error);
+                  }
+                  throw error;
+                }
+              });
+            }
             pi.on("before_agent_start", (event, context) => {
               delete event.systemPromptOptions.customPrompt;
               const resources = refreshResources(hold.run, configuration, sessionFolder);
@@ -1117,10 +1239,64 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 ...event.systemPromptOptions.sections,
                 ...promptSections(resources, context.model),
               };
+              if (hold.run !== undefined) {
+                hold.run.hookSystemPrompt = undefined;
+              }
+              return settings
+                .get()
+                .hooks.some(
+                  (hook) =>
+                    hook.event === "before_agent_start" &&
+                    !settings.get().disabledHooks.includes(hook.id),
+                )
+                ? applyPromptHooks(event, context)
+                : undefined;
             });
-            pi.on("context", (event) => ({
-              messages: addMessageTimes(event.messages, settings.get()),
-            }));
+            pi.on("context", async (event, context) => {
+              const result = await dispatchHooks(
+                "context",
+                { messages: addMessageTimes(event.messages, settings.get()) },
+                context,
+              );
+              return { messages: result.data.messages as typeof event.messages };
+            });
+            pi.on("tool_call", async (event, context) => {
+              const { type: _type, ...data } = event;
+              try {
+                const result = await dispatchHooks("tool_call", data, context);
+                if (result.blocked !== undefined) {
+                  return { block: true, reason: result.blocked };
+                }
+                for (const key of Object.keys(event.input)) {
+                  delete (event.input as Record<string, unknown>)[key];
+                }
+                Object.assign(event.input, result.data.input);
+                return undefined;
+              } catch (error) {
+                return { block: true, reason: messageOf(error), terminate: true };
+              }
+            });
+            pi.on("tool_result", async (event, context) => {
+              const { type: _type, ...data } = event;
+              try {
+                const result = await dispatchHooks("tool_result", data, context);
+                const accepted = result.data;
+                return {
+                  content: accepted.content as typeof event.content,
+                  isError: accepted.isError as boolean,
+                  details: accepted.details,
+                  ...(accepted.structuredContent == null
+                    ? {}
+                    : {
+                        structuredContent: accepted.structuredContent as NonNullable<
+                          typeof event.structuredContent
+                        >,
+                      }),
+                };
+              } catch (error) {
+                return { content: [{ type: "text", text: messageOf(error) }], isError: true };
+              }
+            });
             pi.on("context_with_system", async (event, context) => {
               const run = hold.run;
               if (run === undefined) {
@@ -1137,6 +1313,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                     !settings.get().context.instructions.disabledPaths.includes(resource.path) &&
                     (resource.state === "invalid" || resource.state === "needsPermission"),
                 )?.reason;
+                if (run.hookSystemPrompt !== undefined) {
+                  return projectHookMessages(event.messages, context);
+                }
                 const desired = promptSections(resources, context.model);
                 const messages = event.messages.map((message) => {
                   if (message.role !== "system") {
@@ -1206,7 +1385,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                         }
                       : message,
                 );
-                return { messages: projectContextMessages(projected, settings.get().context) };
+                return projectHookMessages(projected, context);
               } catch (error) {
                 run.preparationError = messageOf(error);
                 return { messages: [] };
@@ -1236,6 +1415,15 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                         refreshContext(run);
                       }
                     },
+                    async (payload) => {
+                      const result = await dispatchHooks(
+                        "before_provider_request",
+                        { payload },
+                        context,
+                      );
+                      hold.run?.hooks.guard();
+                      return result.data.payload;
+                    },
                   ),
                 };
               } catch (error) {
@@ -1248,19 +1436,26 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             pi.on("cache_warming_decision", (event) => {
               isWarming = event.action === "warm";
             });
-            pi.on("before_provider_request", (event) => {
+            pi.on("before_provider_request", async (event, context) => {
               const { run } = hold;
               if (run === undefined) {
                 return;
               }
+              const result = await dispatchHooks(
+                "before_provider_request",
+                { payload: event.payload },
+                context,
+              );
+              const payload = result.data.payload;
               if (isWarming) {
                 isWarming = false;
                 run.cacheWarmings += 1;
               } else {
-                run.lastRequest = event.payload;
-                savedRequests.save(run.session.sessionId, event.payload);
+                run.lastRequest = payload;
+                savedRequests.save(run.session.sessionId, payload);
               }
               refreshContext(run);
+              return payload;
             });
           },
         },
@@ -1279,11 +1474,61 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       ...(thinkingLevel === undefined ? {} : { thinkingLevel }),
     });
     const { session } = created;
+    const hooks = createScriptHooks({
+      fingerprints: hookSources,
+      configuration: configuration.settings,
+      revision: configuration.effectiveRevision,
+      source: configuration.profile.path,
+      outputFolder,
+      chatId: session.sessionId,
+      projectFolder: sessionFolder,
+      texts,
+      leaf: () => manager.getLeafId(),
+      model: () =>
+        session.model === undefined
+          ? null
+          : {
+              providerId: session.model.provider,
+              id: session.model.id,
+              thinkingLevel: session.thinkingLevel,
+            },
+      execute: (hook, input, signal) => {
+        if (hookContext === undefined) {
+          throw new Error("The hook has no event context.");
+        }
+        return executeScriptHook(
+          hook,
+          input,
+          signal,
+          hookContext,
+          configuration.profile.path,
+          hookSources,
+          permissionsFor(configuration, new Map()),
+          () => run.hooks.saveSources(),
+        );
+      },
+      validateInput: (name, input) => {
+        const tool = ownTools.find((candidate) => candidate.name === name);
+        if (tool === undefined) {
+          throw new Error("The hook names an unavailable tool.");
+        }
+        validateToolArguments(tool, {
+          type: "toolCall",
+          id: "hook-validation",
+          name,
+          arguments: input as Record<string, never>,
+        });
+      },
+      onChange: announceContext,
+    });
     const run: ChatRun = Object.assign(previous ?? {}, {
       pending: previous?.pending ?? pendingFor(manager),
       inputMutation: previous?.inputMutation ?? Promise.resolve(),
       isDispatching: previous?.isDispatching ?? false,
       activeInput: previous?.activeInput,
+      hooks,
+      hookSources,
+      hookSystemPrompt: undefined,
       contextPermissions: undefined,
       contextAbort: new AbortController(),
       session,
@@ -1319,11 +1564,31 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       preparedPiSections: {},
     });
     hold.run = run;
+
+    const transformContext = session.agent.transformContext;
+    async function transformHookContext(
+      ...[messages, signal]: Parameters<NonNullable<typeof transformContext>>
+    ): Promise<AgentMessage[]> {
+      const result = (await transformContext?.(messages, signal)) ?? messages;
+      run.hooks.guard();
+      return result;
+    }
+    session.agent.transformContext = transformHookContext;
+    const onPayload = session.agent.onPayload;
+    async function transformHookPayload(
+      ...arguments_: Parameters<NonNullable<typeof onPayload>>
+    ): Promise<unknown> {
+      const result = await onPayload?.(...arguments_);
+      run.hooks.guard();
+      return result;
+    }
+    session.agent.onPayload = transformHookPayload;
     applySessionSettings(session, configuration.settings);
     const stream = session.agent.streamFunction;
     function streamWithOverrides(
       ...[requestModel, context, options]: Parameters<typeof stream>
     ): ReturnType<typeof stream> {
+      run.hooks.guard();
       if (run.preparationError !== undefined) {
         throw new Error(run.preparationError);
       }
@@ -1375,10 +1640,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       },
       branch: () => permissionBranch(session.sessionManager, true) ?? null,
       audit: (data) => session.sessionManager.appendCustomEntry("independum-permission", data),
-      onChange: () => {
-        refreshContext(run);
-        emitFor(run, { type: "state", state: getState(run) });
-      },
+      onChange: announceContext,
     });
     runs.set(session.sessionId, run);
     return run;
@@ -1434,6 +1696,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           : run.desired.effectiveRevision;
       agent.configuration.issues = run.desired.issues;
     }
+    agent.hooks = run.hooks.summary();
     return agent;
   }
 
@@ -1503,7 +1766,19 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       builtInOutputLimits: builtInSettings.outputLimits,
       handBackSeconds: settings.get().handBackSeconds,
       builtInHandBackSeconds: builtInSettings.handBackSeconds,
-      texts: summarizeTexts(allTexts, settings.get().texts),
+      hooks: {
+        hooks: settings.get().hooks,
+        disabledHooks: settings.get().disabledHooks,
+        hookOrder: settings.get().hookOrder,
+        generation: 0,
+        revision: configuration.effectiveRevision,
+        source: configuration.profile.path,
+        invocations: [],
+      },
+      texts: summarizeTexts(
+        [...allTexts, ...hookModelTexts(settings.get().hooks)],
+        settings.get().texts,
+      ),
       piTexts: summarizePiTexts(lastRequest ?? null),
       environment: settings.get().environment,
       permissions: readablePermissionPolicy(settings.get().permissions),
@@ -1589,7 +1864,9 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         ? settings.modelOverrides
         : changeModelOverrides(models, settings.modelOverrides, modelChanges);
     const edited =
-      textChange === undefined ? settings.texts : changeTexts(allTexts, settings.texts, textChange);
+      textChange === undefined
+        ? settings.texts
+        : changeTexts([...allTexts, ...hookModelTexts(settings.hooks)], settings.texts, textChange);
     if (edited === undefined || modelOverrides === undefined) {
       return false;
     }
@@ -2155,6 +2432,11 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         ) {
           return;
         }
+        if (isTurnBoundary) {
+          run.hooks.guard();
+        } else {
+          run.hooks.reset();
+        }
         run.pending.handoff(input.id);
         run.activeInput = input.id;
         run.session.sessionManager.appendCustomEntry("independum-input", {
@@ -2285,6 +2567,11 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         );
         return refreshResources(run, run.configuration, run.folder);
       },
+      getHooks: () => run.hooks.summary(),
+      reloadHooks() {
+        run.hooks.reload();
+      },
+      stopHook: (id) => run.hooks.stop(id),
       getResources: () => refreshResources(run, run.configuration, run.folder),
       compose: (text, interpretation) => composeFor(run, text, interpretation),
       async slashAction(previewId) {
@@ -2559,6 +2846,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         } finally {
           emitPending(run);
           run.contextAbort.abort();
+          run.hooks.stop();
           await run.session.abort();
           reconcileInputs(run);
         }
@@ -2722,6 +3010,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           failures.push(error);
         }
         run.contextAbort.abort();
+        run.hooks.stop();
       }
       profiles.close();
       const running = [...runs.values()];

@@ -1,6 +1,6 @@
 # Model texts
 
-- Status: accepted, and amended by [decision 0034](0034-texts-of-pi.md), which completes the Pi text inventory, by [decision 0048](0048-session-place.md), which makes the Session place the overview, and by [decision 0054](0054-added-facts.md), which adds facts with their own texts and switches, with [decision 0061](0061-profiles-and-plain-settings.md) covering system prompt files, extended by [decision 0062](0062-project-resources-and-context-controls.md)
+- Status: accepted, and amended by [decision 0034](0034-texts-of-pi.md), which completes the Pi text inventory, by [decision 0048](0048-session-place.md), which makes the Session place the overview, and by [decision 0054](0054-added-facts.md), which adds facts with their own texts and switches, with [decision 0061](0061-profiles-and-plain-settings.md) covering system prompt files, extended by [decision 0062](0062-project-resources-and-context-controls.md), extended by [decision 0065](0065-script-hooks-and-the-add-on-contract.md) for standalone script hooks
 - Date: 2026-10-28
 
 ## Context

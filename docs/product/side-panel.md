@@ -10,6 +10,8 @@ The side panel starts at 420 pixels and resizes between 340 and 960 pixels. The 
 
 ## Session overview and details
 
+A Hooks row opens the selected profile's [script hooks](hooks.md), controls, and completed invocation evidence. Running hooks stay beside the message box.
+
 Session shows the open chat's selected profile, model and thinking effort, project folder name and chat id, token use and cost, and context. A Permissions row opens the selected profile's [policy and runtime detail](permissions.md). The profile row opens its switch review and the shared [profile editor](profiles.md#editors-and-application). The chat detail opens project settings for the default of new chats. The model detail gives Pi's provider, API and base URL, input and output limits, image limits, prices and price tiers per million tokens, and prompt cache duration. It also edits [model settings](settings.md#model-settings-and-compaction). The chat detail gives its full folder, id, dates, and session, output, and last request paths. These paths are text to inspect and copy.
 
 Use compares Last reply with Whole chat. Rows separate input, output, reasoning, cache reads, cache writes, and cost. Last reply sums every assistant turn since the latest user message or custom message. The counts below it count assistant messages as replies. Cost and counts come from Pi, with reasoning summed separately by Independum.

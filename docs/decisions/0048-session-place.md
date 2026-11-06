@@ -1,6 +1,6 @@
 # Session place
 
-- Status: accepted, and amended by [decision 0052](0052-window-figure.md), which defines the window figure, by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies request storage, detection, and refresh timing, and by [decision 0054](0054-added-facts.md), which adds facts to the request and a cutoff field to the model detail, with [decision 0061](0061-profiles-and-plain-settings.md) covering profile inspection, extended by [decision 0062](0062-project-resources-and-context-controls.md)
+- Status: accepted, and amended by [decision 0052](0052-window-figure.md), which defines the window figure, by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies request storage, detection, and refresh timing, and by [decision 0054](0054-added-facts.md), which adds facts to the request and a cutoff field to the model detail, with [decision 0061](0061-profiles-and-plain-settings.md) covering profile inspection, extended by [decision 0062](0062-project-resources-and-context-controls.md), extended by [decision 0065](0065-script-hooks-and-the-add-on-contract.md) for standalone script hooks
 - Date: 2026-11-04
 
 ## Context

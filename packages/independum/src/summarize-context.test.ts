@@ -45,6 +45,39 @@ function preparation(): SessionBeforeCompactEvent {
   };
 }
 
+test("summary payload hooks replace the captured body and a failed hook sends no body", async () => {
+  const model = summaryModel();
+  const sent: unknown[] = [];
+  const complete = vi.fn(async (_model, _input, options) => {
+    sent.push(await options.onPayload({ original: true }));
+    return fauxAssistantMessage("Summary after hooks.");
+  });
+  const models = {
+    getPhysicalModel: () => model,
+    completeSimple: complete,
+  } as unknown as ModelRuntime;
+  const captures: SummaryRequest[] = [];
+  const configuration = structuredClone(builtInSettings);
+  function capture(request: SummaryRequest): void {
+    captures.push(request);
+  }
+  function invokeHook(
+    transform: NonNullable<Parameters<typeof summarizeContext>[5]>,
+  ): ReturnType<typeof summarizeContext> {
+    return summarizeContext(preparation(), models, model, configuration, capture, transform);
+  }
+  await invokeHook(async () => ({ rewritten: true }));
+  expect(sent).toEqual([{ rewritten: true }]);
+  expect(captures[0]?.payload).toEqual({ rewritten: true });
+  await expect(
+    invokeHook(async () => {
+      throw new Error("A hook blocks the summary request.");
+    }),
+  ).rejects.toThrow("blocks the summary");
+  expect(sent).toHaveLength(1);
+  expect(captures.at(-1)?.error).toContain("blocks the summary");
+});
+
 test("one replacement summary request includes both prepared arrays prior summary and native images", async () => {
   const model = summaryModel();
   const complete = vi.fn(async (_model, input, options) => {

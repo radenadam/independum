@@ -1,0 +1,35 @@
+{
+  "fixture": "hooks",
+  "steps": [
+    { "size": [1440, 1000], "scheme": "light", "go": true },
+    { "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Hooks') && button.innerText.includes('configured'))"
+    },
+    {
+      "run": "({ everyHookVisible: ['observeRequest', 'guardCommands'].every(name => document.querySelector('aside [role=tabpanel]').innerText.includes(name)), exactCounts: document.querySelector('aside [role=tabpanel]').innerText.includes('2 configured. 2 enabled.'), policiesVisible: ['Stop', 'Continue'].every(label => [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === label)), reloadVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Reload scripts') })",
+      "shot": "hooks-detail"
+    },
+    { "clickOn": "document.querySelector('button[aria-label=\"Use guardCommands\"]')" },
+    {
+      "run": "({ switchSaved: document.querySelector('button[aria-label=\"Use guardCommands\"]').getAttribute('aria-checked') === 'false', countSaved: document.querySelector('aside [role=tabpanel]').innerText.includes('2 configured. 1 enabled.') })"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Edit the texts of guardCommands')"
+    },
+    {
+      "run": "({ blockTextEditable: [...document.querySelectorAll('dialog textarea')].some(field => field.value === 'The workflow blocks this command.') })",
+      "shot": "hook-model-text"
+    },
+    { "clickOn": "document.querySelector('dialog button[aria-label=Close]')" },
+    { "size": [360, 800], "scheme": "light" },
+    {
+      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, hookSwitchReachable: !!document.querySelector('button[aria-label=\"Use observeRequest\"]') })",
+      "shot": "hooks-phone-light"
+    },
+    { "scheme": "dark", "shot": "hooks-phone-dark" }
+  ]
+}

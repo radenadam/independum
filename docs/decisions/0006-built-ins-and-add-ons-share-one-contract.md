@@ -1,6 +1,6 @@
 # Built-ins and add-ons share one contract
 
-- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes the planned contract from shipped support
+- Status: accepted, and amended by [decision 0053](0053-documented-behavior-and-limits.md), which distinguishes the planned contract from shipped support, extended by [decision 0065](0065-script-hooks-and-the-add-on-contract.md) for standalone script hooks
 - Date: 2026-10-24
 
 ## Context

@@ -1,0 +1,13 @@
+.card {
+  composes: card from "./tool-card.module.css";
+}
+
+.head {
+  composes: head from "./tool-card.module.css";
+  flex-wrap: wrap;
+}
+
+.name {
+  composes: name from "./tool-card.module.css";
+  overflow-wrap: anywhere;
+}

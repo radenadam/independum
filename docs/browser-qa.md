@@ -14,6 +14,7 @@ An expression that throws, a protocol error, a missing target, or a returned che
 | --- | --- |
 | `--fixture empty` | Starts with no chats or stand-in provider, so the browser shows the welcome screen unless real logins are loaded. |
 | `--fixture chats` | Starts with three short saved chats and the stand-in model selected. This is the default. |
+| `--fixture hooks` | Starts saved chats with a project profile that declares request and tool scripts for Session controls. |
 | `--fixture compacted` | Starts with eight turns, a compaction after turn six that summarizes the first four turns, and a change of effort. Pi's `SessionManager` writes every entry. |
 | `--real-logins` | Loads real logins and model settings through Pi from `~/.independum`. Chats and harness settings stay in the temporary home. Login changes in this preview affect the real Pi login store. |
 | `--port <number>` | Chooses a port. The default is `0`, which asks the operating system for a free port. |
@@ -36,11 +37,12 @@ The stand-in thinks, calls Shell with a three second delay and a fixed line of o
 | `pnpm qa profiles` | Profile creation, shared editors, selected chat profile, and 360 pixel layouts in both themes. |
 | `pnpm qa queue` | Queue and steer ordering, removable waiting inputs, stop and resume, captured choices, and 360 pixel layouts in both themes. |
 | `pnpm qa context` | Command preview and submission, resource controls, duplicate instruction sources, and phone layouts in both themes. |
+| `pnpm qa hooks` | Script hook inventory, switches, model text editing, and 360 pixel layouts in both themes. |
 | `pnpm qa permissions` | Permission sections, denied paths and Linux masking, the exact environment name list, the confirmation before unrestricted mode, commands without startup approval, the order of approval choices, chat and project network approvals, revocation and renewed requests, denial, and 360 pixel layouts in both themes. Approval waiting requires a backend that can compile the project policy. |
 | `pnpm qa phone` | A 360 pixel phone in both themes, with its sidebar and every settings section. |
 | `pnpm qa archived` | Archived title tooltips inside Settings and full titles on a 360 pixel touch screen in both themes. |
 
-`pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, or `compacted`.
+`pnpm qa <path.json>` runs a custom scenario. Paths are relative to the directory where the command starts. A scenario is either a list of steps, like the original scratch driver, or an object with `fixture` and `steps`. A list uses the `chats` fixture. The fixture can be `empty`, `chats`, `compacted`, or `hooks`.
 
 Pass `--url` to use a preview that already runs and leave it running. Use the whole link printed by `pnpm preview`. That preview needs the fixture expected by the scenario. Without `--url`, QA starts a preview with the scenario's fixture and closes it when it ends. The preview flags in the table also work with `pnpm qa`, and an explicit fixture flag takes precedence over the scenario.
 

@@ -7,6 +7,7 @@ These pages describe the current implementation. Start with the area that change
 - [Context controls](context.md): project resources, slash commands, Pi additions, and replacement compaction.
 - [Replies](replies.md): text, thoughts, steps, groups, notes, and copying.
 - [Side panel](side-panel.md): tabs, Session, its figure and conversation, Commands, and details.
+- [Hooks](hooks.md): script events, ordered effects, profile settings, sandbox execution, and evidence.
 - [Profiles](profiles.md): plain configuration files, ownership, migration, resolution, and live edits.
 - [Permissions](permissions.md): profile policy, runtime acceptance, approvals, and enforced tool access.
 - [Settings](settings.md): logins, browser choices, tool controls, model texts, and texts of Pi.

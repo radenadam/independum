@@ -41,6 +41,7 @@ import { chatWidth, readColumnWidth } from "./column-width.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
 import { isCallRunning, type ToolRun } from "./describe-tool-call.ts";
 import { downloadText } from "./download-text.ts";
+import { HookActivity } from "./hook-activity.tsx";
 import { IconButton } from "./icon-button.tsx";
 import { MessageBox } from "./message-box.tsx";
 import { OneLineTitle } from "./one-line-title.tsx";
@@ -501,6 +502,7 @@ export function WorkingScreen({
             {connection === "reconnecting" ? (
               <p className={styles.status}>Reconnecting to Independum.</p>
             ) : null}
+            <HookActivity chat={chat} />
             <MessageBox
               chatId={chat.id}
               model={chat.model}

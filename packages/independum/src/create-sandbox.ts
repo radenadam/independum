@@ -114,13 +114,26 @@ export function sandboxRequest(
   }
   const readonlyPaths = [...launch.runtime.readonlyPaths, ...(launch.readonlyPaths ?? [])];
   const readwritePaths: string[] = [];
-  for (const resource of launch.paths) {
+  const paths = launch.paths.filter(
+    (resource) =>
+      resource.access !== "write" ||
+      launch.readonlyPaths?.some(
+        (readonly) =>
+          canonicalPermissionPath(readonly, folder) ===
+          canonicalPermissionPath(resource.path, folder),
+      ) !== true,
+  );
+  for (const resource of paths) {
     const path = canonicalPermissionPath(resource.path, folder);
     if (
-      resource.access === "write" &&
-      launch.readonlyPaths?.some(
-        (readonly) => canonicalPermissionPath(readonly, folder) === path,
-      ) === true
+      resource.access === "read" &&
+      paths.some(
+        (grant) =>
+          grant.access === "write" &&
+          (grant.scope === "tree"
+            ? containsPermissionPath(grant.path, path)
+            : canonicalPermissionPath(grant.path, folder) === path),
+      )
     ) {
       continue;
     }
@@ -184,38 +197,102 @@ export async function captureSandbox(
   request: ContainerRequest,
   input?: string,
   signal?: AbortSignal,
-): Promise<{ output: string; error: string; exitCode: number; warnings: string[] }> {
+  limits?: { outputLimitBytes: number; errorLimitBytes: number; timeoutMs: number | null },
+): Promise<{
+  output: string;
+  error: string;
+  exitCode: number;
+  warnings: string[];
+  failure?: string;
+}> {
   signal?.throwIfAborted();
-  const process = await launchSandbox(request);
-  function stop(): void {
-    process.kill();
+  let failure: string | undefined;
+  let workload: MxcProcess | undefined;
+  function fail(message: string): void {
+    failure ??= message;
+    workload?.kill();
   }
-  signal?.addEventListener("abort", stop, { once: true });
-  if (signal?.aborted === true) {
-    stop();
-  }
-  async function read(stream: Readable | null): Promise<string> {
-    let text = "";
-    stream?.setEncoding("utf8");
-    if (stream !== null) {
-      for await (const chunk of stream) {
-        text += String(chunk);
+  const deadline = limits?.timeoutMs == null ? null : performance.now() + limits.timeoutMs;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  function observeDeadline(): void {
+    if (deadline !== null) {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        fail("The hook deadline expired.");
+      } else {
+        timer = setTimeout(observeDeadline, Math.min(remaining, 2147483647));
       }
     }
-    return text;
   }
-  const output = read(process.standardOutput);
-  const error = read(process.standardError);
-  process.standardInput?.end(input);
+  observeDeadline();
+  let process: MxcProcess;
   try {
-    const [end, capturedOutput, capturedError] = await Promise.all([process.wait(), output, error]);
+    process = await launchSandbox(request);
+    workload = process;
+  } catch (error) {
+    clearTimeout(timer);
+    throw error;
+  }
+  function stop(): void {
+    fail("The invocation was cancelled.");
+  }
+  signal?.addEventListener("abort", stop, { once: true });
+  if (signal?.aborted === true || failure !== undefined) {
+    stop();
+  }
+  async function read(stream: Readable | null, limit: number | undefined): Promise<string> {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    if (stream !== null) {
+      for await (const chunk of stream) {
+        const bytes = Buffer.from(chunk);
+        size += bytes.length;
+        if (limit !== undefined && size > limit) {
+          fail("The hook output exceeds its byte limit.");
+        } else {
+          chunks.push(bytes);
+        }
+      }
+    }
+    const bytes = Buffer.concat(chunks);
+    if (limits !== undefined) {
+      try {
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      } catch {
+        fail("The hook output is not valid UTF-8.");
+      }
+    }
+    return bytes.toString("utf8");
+  }
+  const output = read(process.standardOutput, limits?.outputLimitBytes);
+  const error = read(process.standardError, limits?.errorLimitBytes);
+  const writing = new Promise<void>((resolve) => {
+    if (process.standardInput === null) {
+      resolve();
+      return;
+    }
+    process.standardInput.once("error", () => {
+      fail("The worker closed its input before delivery completed.");
+      resolve();
+    });
+    process.standardInput.end(input, resolve);
+  });
+  try {
+    const [end, capturedOutput, capturedError] = await Promise.all([
+      process.wait(),
+      output,
+      error,
+      writing,
+    ]);
     return {
       output: capturedOutput,
       error: capturedError,
       exitCode: end.exitCode,
       warnings: [...process.warnings],
+      ...(failure === undefined ? {} : { failure }),
     };
   } finally {
+    clearTimeout(timer);
     signal?.removeEventListener("abort", stop);
     process.dispose();
   }

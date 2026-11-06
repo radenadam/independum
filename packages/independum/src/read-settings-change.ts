@@ -6,6 +6,7 @@ import type {
   Settings,
   SettingsChange,
 } from "./api-types.ts";
+import { hookEvents, readScriptHooks } from "./hook-contract.ts";
 import { outputByteRange, outputLineRange } from "./output-limit-ranges.ts";
 import { builtInPermissions, validatePermissionPolicy } from "./permission-policy.ts";
 import { builtInContext, readContextSettings } from "./read-context-settings.ts";
@@ -16,6 +17,9 @@ const piCompaction = SettingsManager.inMemory().getCompactionSettings();
 /** The settings that Independum starts with, which a reset goes back to. */
 export const builtInSettings: Settings = {
   context: builtInContext,
+  hooks: [],
+  disabledHooks: [],
+  hookOrder: {},
   permissions: builtInPermissions,
   modelOverrides: {},
   compaction: {
@@ -46,6 +50,9 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
       (key) =>
         ![
           "context",
+          "hooks",
+          "disabledHooks",
+          "hookOrder",
           "modelOverrides",
           "compaction",
           "shell",
@@ -65,6 +72,43 @@ export function readSettingsChange(body: unknown): SettingsChange | undefined {
   }
   const change: SettingsChange = {};
   let isValid = true;
+  if ("hooks" in fields) {
+    try {
+      change.hooks = readScriptHooks(fields.hooks);
+    } catch {
+      isValid = false;
+    }
+  }
+  if ("disabledHooks" in fields) {
+    if (
+      Array.isArray(fields.disabledHooks) &&
+      fields.disabledHooks.every((id) => typeof id === "string") &&
+      new Set(fields.disabledHooks).size === fields.disabledHooks.length
+    ) {
+      change.disabledHooks = fields.disabledHooks;
+    } else {
+      isValid = false;
+    }
+  }
+  if ("hookOrder" in fields) {
+    const order = fields.hookOrder;
+    if (
+      typeof order === "object" &&
+      order !== null &&
+      !Array.isArray(order) &&
+      Object.entries(order).every(
+        ([event, ids]) =>
+          hookEvents.some((registered) => registered === event) &&
+          Array.isArray(ids) &&
+          ids.every((id) => typeof id === "string") &&
+          new Set(ids).size === ids.length,
+      )
+    ) {
+      change.hookOrder = order;
+    } else {
+      isValid = false;
+    }
+  }
   if ("context" in fields) {
     try {
       change.context = readContextSettings(fields.context);
