@@ -483,7 +483,11 @@ function Reply({
           </div>
         ) : null}
       </div>
-      {error === null || isTyping ? null : <p className={styles.error}>{error}</p>}
+      {error === null || isTyping ? null : (
+        <p className={styles.status} data-tone={last?.isStopped ? "quiet" : "alert"}>
+          {error}
+        </p>
+      )}
       {isTyping ? null : (
         <div className={styles.actions} data-latest={isLatest} data-copy="skip">
           {text === "" ? null : (

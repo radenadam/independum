@@ -2,19 +2,61 @@ import type { ChatMessage, ChatState } from "independum/api-types";
 import type { ReactElement, RefObject } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ChatMessages } from "./chat-messages.tsx";
-import { findElement, renderHook } from "./render-hook.ts";
+import { findElement, renderElement, renderHook } from "./render-hook.ts";
 
 vi.mock("react", async () => (await import("./render-hook.ts")).mockReact());
 
 afterEach(() => vi.unstubAllGlobals());
 
-const branchProperties = {
+const messageProperties = {
   chat: { branchSelectionId: null } as ChatState,
   models: undefined,
   onEdit: vi.fn(),
   onOpenModels: vi.fn(),
   onManageLogins: vi.fn(),
+  chatId: "chat",
+  reply: [],
+  tools: { runs: {}, ends: {}, shown: undefined, onMove: vi.fn(), onStop: vi.fn() },
+  isReplying: false,
 };
+
+test.each([
+  { isStopped: true, error: "Stopped", tone: "quiet" },
+  { isStopped: false, error: "This operation was aborted", tone: "alert" },
+  { isStopped: false, error: "The provider is unavailable.", tone: "alert" },
+])("a reply shows $error in the $tone tone", ({ isStopped, error, tone }) => {
+  const messages: ChatMessage[] = [
+    {
+      role: "assistant",
+      parts: [{ type: "text", text: "Partial reply." }],
+      timestamp: 123,
+      durationMs: null,
+      isStopped,
+      error,
+      commandEnd: null,
+    },
+  ];
+  const view = renderHook(() => {
+    const tree = ChatMessages({
+      ...messageProperties,
+      messages,
+    });
+    return renderElement(
+      findElement(
+        tree,
+        (element) =>
+          Array.isArray(element.props.messages) && element.props.messages[0] === messages[0],
+      ),
+    );
+  });
+  const status = findElement<{ children: string; "data-tone": string }>(
+    view.render(),
+    (element) => element.type === "p" && element.props["data-tone"] !== undefined,
+  );
+  expect(status.props.children).toBe(error);
+  expect(status.props["data-tone"]).toBe(tone);
+  view.unmount();
+});
 
 test("messages with the same timestamp keep distinct keys", () => {
   const messages: ChatMessage[] = ["user", "user", "note", "note"].map((role) => ({
@@ -27,12 +69,8 @@ test("messages with the same timestamp keep distinct keys", () => {
   }));
   const view = renderHook(() =>
     ChatMessages({
-      ...branchProperties,
-      chatId: "chat",
+      ...messageProperties,
       messages,
-      reply: [],
-      tools: { runs: {}, ends: {}, shown: undefined, onMove: vi.fn(), onStop: vi.fn() },
-      isReplying: false,
     }),
   );
   const list = findElement<{ children: ReactElement[] }>(
@@ -76,12 +114,8 @@ test.each([true, false])(
     const spacer = { style: { setProperty: vi.fn() }, offsetHeight: 0 };
     const view = renderHook(() => {
       const tree = ChatMessages({
-        ...branchProperties,
-        chatId: "chat",
+        ...messageProperties,
         messages: [],
-        reply: [],
-        tools: { runs: {}, ends: {}, shown: undefined, onMove: vi.fn(), onStop: vi.fn() },
-        isReplying: false,
       });
       (tree.props as { ref: RefObject<unknown> }).ref.current = scroller;
       findElement<{ ref: RefObject<unknown> }>(
