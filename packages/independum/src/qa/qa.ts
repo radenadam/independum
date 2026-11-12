@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { inspect } from "node:util";
+import { readRevision } from "../../../../scripts/read-revision.ts";
 import { type BrowserConnection, connectBrowser } from "./connect-browser.ts";
-import { findBrowser } from "./find-browser.ts";
 import { previewOptions } from "./preview-options.ts";
 import { readScenario } from "./read-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -15,7 +15,6 @@ const path = name.endsWith(".json")
   ? resolve(process.env.INIT_CWD ?? process.cwd(), name)
   : join(import.meta.dirname, "..", "..", "..", "..", "qa", `${name}.json`);
 const scenario = await readScenario(path);
-const executable = await findBrowser(options.browser);
 const directory = await mkdtemp(join(tmpdir(), "independum-qa-"));
 process.stdout.write(`QA output: ${directory}\n`);
 let preview: Awaited<ReturnType<typeof startPreview>> | undefined;
@@ -34,6 +33,20 @@ try {
     ),
   );
   await writeFile(join(directory, "scenario.json"), JSON.stringify(scenario, null, 2));
+  await writeFile(
+    join(directory, "revision.json"),
+    JSON.stringify(
+      {
+        ...readRevision(join(import.meta.dirname, "..", "..", "..", ".."), options.comparison),
+        scenario: name,
+        platform: `${process.platform} ${process.arch}`,
+        driver: "playwright-core",
+        browser: options.browser ?? "msedge",
+      },
+      null,
+      2,
+    ),
+  );
   let url = options.url;
   if (url === undefined) {
     preview = await startPreview({
@@ -49,12 +62,9 @@ try {
   }
   const browserOptions =
     preview?.certificatePin === undefined ? {} : { certificatePin: preview.certificatePin };
-  browser = await connectBrowser(executable, directory, browserOptions);
+  browser = await connectBrowser(options.browser, directory, browserOptions);
   await runScenario(browser, url, scenario.steps, directory, async (name) => {
-    const client = await connectBrowser(executable, directory, {
-      ...browserOptions,
-      profileName: `profile-${name}`,
-    });
+    const client = await connectBrowser(options.browser, directory, browserOptions);
     clients.set(name, client);
     return client;
   });
@@ -89,23 +99,6 @@ async function close(): Promise<void> {
     }
     await browser?.close();
   } finally {
-    try {
-      await preview?.close();
-    } finally {
-      await rm(join(directory, "profile"), {
-        recursive: true,
-        force: true,
-        maxRetries: 10,
-        retryDelay: 200,
-      });
-      for (const name of clients.keys()) {
-        await rm(join(directory, `profile-${name}`), {
-          recursive: true,
-          force: true,
-          maxRetries: 10,
-          retryDelay: 200,
-        });
-      }
-    }
+    await preview?.close();
   }
 }

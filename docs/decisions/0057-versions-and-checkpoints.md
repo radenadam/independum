@@ -1,6 +1,6 @@
 # Versions and checkpoints
 
-- Status: accepted
+- Status: accepted, with requirement-level acceptance clarified in [decision 0071](0071-repository-healing.md)
 - Date: 2026-11-05
 
 ## Context

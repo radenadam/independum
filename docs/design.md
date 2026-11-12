@@ -1,70 +1,51 @@
 # Design
 
-This page says how Independum looks and what each look means, so that a person or an agent can read the screen and add to it without guessing. Decision 0009 sets the direction. The tokens live in `packages/web/src/theme.css`, and `pnpm check` keeps every stylesheet on them.
+This page owns current visual meanings. The structural redesign is pending, with no replacement layout accepted. Preserve the useful grammar while judging complete journeys. Margin belongs to welcome and login, and the working screen stays practical with the chat visible. [The standard](standard.md) owns judgment.
 
-## One look, one meaning
+## Meaning and hierarchy
 
-Each surface below means one thing everywhere. When something new needs a look, pick the row whose meaning fits. When no row fits, ask the maintainer before inventing a new look.
+Organize around user questions. Identify the object, its owner, its time, and its effect. Distinguish this chat, project, shared profile, installation, and browser. Separate saved, applied, pending, running, and historical facts. Historical inspection must show the captured object and revision before linking to current editing. Explain affected chats, application boundaries, and reversibility. Exact raw and readable views identify the same thing.
 
-| Look | Meaning | Examples | Piece |
-| --- | --- | --- | --- |
-| Bare text on the page | A fact to read | A reply, the Use table, a note under a heading | `PlaceNote`, plain markup |
-| Small gray heading over content, with no box | A section of a place | Use, Context, Output limit | `PlaceSection` |
-| Tile: a filled box with a chevron | Opens a detail, or unfolds in place | Parameters, a request of the conversation, Show requests 1 to 3 | `PlaceRow`, `Disclosure` |
-| One box with lines between its rows | Items of one line that belong together | The model and the chat, the instructions and tools, the logins | `PlaceBox`, `BoxedList` |
-| Card: a border with no fill | One of many things of one kind that each hold parts | Each tool in the Tools detail | `card` in `tool-card.module.css` |
-| Field: a box to type in or a row of choices | A value that the user sets | Output limit, Theme, the search of a menu | `TextField`, `ChoiceGroup` |
-| Floating layer: a surface with a border and a shadow | Sits above the page for a moment or holds input | Menus, dialogs, the message box | `Popover`, `ModalDialog` |
-| The signal color or its soft tint | Chosen, current, or on | The open chat, the current row, the pressed choice, a switch that is on | `--signal`, `--signal-soft` |
+Details remain discoverable at every depth. A long editor behind one disclosure is still overload. Creation, inspection, editing, reset, disabling, removal, and recovery form one lifecycle where applicable. Use newcomer language without requiring Pi knowledge. Ask before inventing a new visual or interaction meaning.
 
-A section is never a box of its own. A card is never used for one thing alone, because its border only answers where one of many ends and the next begins. A list never runs from edge to edge with lines between its rows, so rows that belong together sit in one box.
+| Look | Meaning | Piece |
+| --- | --- | --- |
+| Bare text | A fact to read | `PlaceNote`, plain markup |
+| Small muted heading without a box | A section | `PlaceSection` |
+| Filled tile with chevron | Opens or unfolds detail | `PlaceRow`, `Disclosure` |
+| One box with row dividers | Related one-line items | `PlaceBox`, `BoxedList` |
+| Border without fill | One of many coherent things with parts | Tool card |
+| Field or choices | A value to set | `TextField`, `ChoiceGroup` |
+| Floating border and shadow | Temporary layer or input | `Popover`, `ModalDialog`, composer |
 
-The message box keeps waiting messages in one `BoxedList` above its field. Each row opens its details as one button with the chevron of a tile, and its remove button sits beside it until handoff. A tile would vanish there, because the floating layer and a tile share one fill in the light theme. Its delivery menu opens from Choose queue or steer and uses `ChoiceGroup`, and held delivery has a Resume sending `TextButton` beside the list heading, so it never looks like Send. Send and Stop remain separate during a reply. [Decision 0064](decisions/0064-queue-and-steer.md) defines the boundaries and keys.
+Use `PlaceFrame` around a place. Sections and lone things never receive cards just for enclosure. Lists never run edge to edge with dividers. Waiting messages use a boxed list because tiles vanish against the composer fill. Attachments and branch alternatives use tiles as [their product pages](product/README.md#area-router) describe.
 
-Attachments use filled `PlaceRow` tiles with their delivery form and an original image thumbnail where supported. Remove sits beside each tile. Its detail uses `ModalDialog`, with original facts and prepared model input in `PlaceSection` sections. The Attachment settings and shared Notes envelope open from Session and reuse the profile editors. [Decision 0068](decisions/0068-message-attachments.md) defines their behavior.
+## Color and type
 
-An edited prompt or retried reply has a compact `PlaceRow` tile beneath it when alternatives exist. It says Prompt or Reply with the selected number and total. Its popover uses `MenuList`, with a check and signal color for the selected choice. The menu states that files keep their current state. Editing uses the message box with a plain note and Cancel edit icon. Retry choices use the existing model menu in a dialog. [Decision 0069](decisions/0069-branches-in-a-chat.md) defines their identities and saved paths.
+Colors and fonts are tokens in `packages/web/src/theme.css`. Other stylesheets use tokens. Both themes give each token the same role. Text uses `--ink` or secondary `--muted`. `--faint` draws lines and decoration only. `--signal` and its tint mark selected, current, enabled, summary, caret, error, and active thinking states. Text on filled signal uses `--on-signal`.
 
-## Color
+Surface tokens have distinct jobs: `--bg` for page, `--sidebar` for side columns, `--surface` for floating layers, `--well` for tiles and boxes, `--raised` for hover and tracks, and `--code` for code. Add both theme values when a new token is needed.
 
-- Text uses `--ink`, or `--muted` for what is secondary. `--faint` is too light to read, so it draws only lines and decoration.
-- `--signal` is the one accent, orange. It marks what is chosen, current, or on, the summary of a compaction, and the caret. Nothing else is orange.
-- Surfaces have one job each:
-  - `--bg` is the page.
-  - `--sidebar` is the sidebar and the side panel.
-  - `--surface` is a floating layer.
-  - `--well` fills a tile and a box inside a place, lighter than the page in the light theme and darker in the dark one.
-  - `--raised` fills what the pointer rests on, and a track.
-  - `--code` fills a block of code.
-- The light and the dark theme use the same tokens. A new color is a new token with both values, never a raw color in a stylesheet.
+IBM Plex Sans sets working text. IBM Plex Mono sets welcome text, code, paths, ids, and value numbers. Reply text is 16 pixels. Place rows are 14, secondary lines 12 or 13, and section headings 12 with weight 500. Labels use sentence case. The welcome top bar uses lowercase. Fonts ship locally without external requests.
 
-## Type
+## Controls and edges
 
-- IBM Plex Sans carries the working screen: chats, places, menus, and settings. IBM Plex Mono is the voice of the welcome screen, and it sets code, paths, ids, and numbers that are read as values, such as the number of a request.
-- A reply reads at 16 pixels. A row of a place reads at 14, its second line and a note at 12 or 13, and the heading of a section at 12, weight 500, in `--muted`.
-- Labels use sentence case, and an action reads as what it does, such as Show requests 1 to 3.
+Working bars and message actions use `IconButton` with action and shortcut tooltips. Sidebar actions use labeled rows. Menus, settings, and places use labeled rows or text buttons. Welcome actions use `CommandButton` with working bracketed shortcuts. Shortcuts live in `packages/web/src/shortcut.ts`, using Ctrl or Cmd while typing.
 
-## Space and edges
+Place gutters are 18 pixels and section gaps 22. Menu fields and choice highlights share a width, with text 10 pixels inside. Related edges align. A bar spans its label through its value. `MenuList` puts scrollbars beside choices. Tiles are at least 40 pixels tall. Menus keep their opening position when buttons resize.
 
-- A place keeps 18 pixels between its edge and its content, which `PlaceFrame` holds as `--place-gutter`, and 22 pixels between its sections.
-- Boxes that sit together share one pair of edges, and their text starts 10 pixels inside them, so every edge and every line of text lines up. A bar belongs to its label, such as the thinking effort, so it spans the line of the text.
-- A scrollbar sits beside what it scrolls, in the padding, and never narrows it.
-- A tile is at least 40 pixels tall, so a finger can press it.
+Tooltips use `IconButton` or `useTooltip`, never native `title`. Long titles fade with `OneLineTitle` and expose full text on demand. Archived titles wrap on touch. Required information never depends on hover. Phone screens work at 360 pixels without horizontal scrolling.
 
-## Figures
+Use `overflow: clip`, because hidden overflow breaks sticky positioning. Allow the focus ring's 5 pixels beyond controls, or use another visible focus treatment on very small controls.
 
-- A figure shows a quantity that changes, such as the context window. Each kind of part keeps one color in the figure, in its legend, and in the swatch of its row. Decision 0052 describes the window figure.
-- Pointing at a part lights it up in the figure and in its row, and the rest steps back.
+Styles stay in adjacent CSS modules. Combine imported classes in markup without overriding their properties. Never use cross-file `composes`. A winning variant uses an attribute read by a stronger rule in the owning module.
 
-## Motion
+## Figures and motion
 
-- Motion is ambient and never needed to understand the screen. It plays only inside `@media (prefers-reduced-motion: no-preference)`, or after a check of the same setting in code.
-- Text never slides or scrolls by itself. A title that does not fit fades at its end and shows whole in a tooltip.
-- `docs/icons.md` sets how icons are drawn and how they move.
+Quantities keep consistent part colors in figures, legends, and rows, with linked highlights. [Decision 0052](decisions/0052-window-figure.md) explains the zoom figure. Icons follow [their specification](icons.md).
 
-## Phone
+Motion is ambient and unnecessary for understanding. CSS motion sits inside `prefers-reduced-motion: no-preference`. JavaScript checks `prefersReducedMotion()`. Text never slides or scrolls by itself.
 
-- Every screen works with touch on a screen 360 pixels wide.
-- Nothing that the user needs may depend on hover, because a phone has none. A tooltip only repeats what the screen already shows or names an action whose icon is common.
-- Archived chat titles wrap on touch screens so titles with the same beginning remain distinct.
-- Settings sections wrap onto more rows when they need room. Every section stays reachable without horizontal scrolling.
+## Journeys
+
+The seven accepted redesign journeys are connect a model, start work, inspect exactly what the model received, change agent behavior, create a hook, recover from failure, and reproduce the setup headlessly. The maintainer refines expected understanding when each journey approaches. Compare alternatives with identical content, current behavior, long cases, and phone layouts before broad implementation. [Decision 0075](decisions/0075-control-parity-and-newcomer-journeys.md) records the source.

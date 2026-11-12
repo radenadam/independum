@@ -76,12 +76,7 @@
       "wait": 0
     },
     {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13,
-        "modifiers": 2
-      },
+      "key": "Control+Enter",
       "wait": 100
     },
     {

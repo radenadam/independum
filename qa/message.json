@@ -17,19 +17,10 @@
       "wait": 100
     },
     {
-      "key": {
-        "key": "Tab",
-        "code": "Tab",
-        "windowsVirtualKeyCode": 9
-      }
+      "key": "Tab"
     },
     {
-      "key": {
-        "key": "Tab",
-        "code": "Tab",
-        "windowsVirtualKeyCode": 9,
-        "modifiers": 8
-      }
+      "key": "Shift+Tab"
     },
     {
       "run": "(() => { const field = document.querySelector(\"textarea[aria-label=Message]\"); const style = getComputedStyle(field); return { messageHasKeyboardFocus: document.activeElement === field && field.matches(\":focus-visible\"), messageHasVisibleFocusRing: style.outlineStyle !== \"none\" && parseFloat(style.outlineWidth) >= 2 }; })()",
@@ -40,11 +31,7 @@
       "wait": 100
     },
     {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13
-      },
+      "key": "Enter",
       "wait": 0
     },
     {

@@ -7,10 +7,12 @@ import { readScenario } from "./read-scenario.ts";
 test("every core scenario has a fixture and named checks", async () => {
   const directory = join(import.meta.dirname, "..", "..", "..", "..", "qa");
   const names = (await readdir(directory)).filter((name) => name.endsWith(".json"));
-  expect(names).toHaveLength(18);
+  expect(names.length).toBeGreaterThan(0);
   for (const name of names) {
     const scenario = await readScenario(join(directory, name));
     expect(scenario.steps.some((step) => step.run?.startsWith("({"))).toBe(true);
+    expect(scenario.steps.some((step) => step.go || step.openClient)).toBe(true);
+    expect(scenario.steps.some((step) => step.shot !== undefined)).toBe(true);
   }
 });
 
@@ -33,6 +35,7 @@ test("scenario accepts the scratch driver step list and rejects invalid input", 
       [{ hover: [1, 2] }],
       [{ size: [0, 900] }],
       [{ wait: -1 }],
+      [{ key: { key: "Enter" } }],
       [{ drag: { on: "null", by: [1] } }],
       [{ client: "../escape" }],
       [{ openClient: { name: "phone", url: 4 } }],

@@ -1,6 +1,6 @@
 # Headless mode
 
-- Status: accepted, with remaining checkpoint work in `docs/roadmap.md`, and extended by [decision 0070](0070-phone-access-with-device-pairing.md) for separately scoped persistent phone credentials
+- Status: accepted, with remaining checkpoint work in `docs/roadmap.md`, and extended by [decision 0070](0070-phone-access-with-device-pairing.md) for separately scoped persistent phone credentials, amended by [decision 0077](0077-project-folder-selection.md), amended by [decision 0075](0075-control-parity-and-newcomer-journeys.md)
 - Date: 2026-11-06
 
 ## Context

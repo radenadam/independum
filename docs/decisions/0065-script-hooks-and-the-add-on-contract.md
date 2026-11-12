@@ -1,6 +1,6 @@
 # Script hooks and the add-on contract
 
-- Status: accepted, with the remaining contract implementation listed in `docs/roadmap.md`
+- Status: accepted, with the remaining contract implementation listed in `docs/roadmap.md`, amended by [decision 0073](0073-component-removal-and-kernel.md), extended by [decision 0075](0075-control-parity-and-newcomer-journeys.md) for complete tool lifecycle control
 - Date: 2026-11-06
 
 ## Context

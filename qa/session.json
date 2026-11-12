@@ -28,11 +28,7 @@
       "run": "(() => { const handle = document.querySelector('[role=separator][aria-label=\"Resize the side panel\"]'); handle.focus(); return document.activeElement === handle; })()"
     },
     {
-      "key": {
-        "key": "End",
-        "code": "End",
-        "windowsVirtualKeyCode": 35
-      }
+      "key": "End"
     },
     {
       "run": "({ panelReachesChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })"

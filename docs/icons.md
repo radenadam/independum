@@ -1,129 +1,72 @@
 # Icons
 
-This is the specification for every icon in Independum. Follow it for each new icon, so that all icons read as one set. Decision 0015 records why the set looks this way.
+This owns icon geometry and motion. [Decision 0015](decisions/0015-icon-style.md) records the raven-cut family, [0024](decisions/0024-icon-motion.md) its motion, and [0049](decisions/0049-turning-raven.md) the thinking raven.
 
-## Style
+## Geometry
 
-- Icons are outlines. They are never filled, except for a dot no wider than 2 units.
-- Lines end square, with butt caps, and corners meet sharp, with miter joins.
-- The corners of boxes are cut at 45 degrees, like the straight cuts of the raven in Independum's mark. A cut is 2 units, or 1 unit on a shape smaller than 10 units.
-- Circles and arcs stay round. A search lens is a circle, never an octagon.
-- Straight lines run horizontally, vertically, or at 45 degrees. Another angle appears only where a familiar shape needs it, such as the tip of a pencil.
-- An icon has at most four separate shapes, so it stays clear at 16 pixels. Settings uses six shapes so its knobs and lines move separately, and Stop command uses five so the strike has gaps where it crosses the box and cursor.
+- Use outlines without fill, except dots no wider than 2 units. Lines have butt caps and miter joins.
+- Draw on a 24 by 24 grid within the middle 20 by 20 units. Only line ends and the open folder front may pass its 2 unit margin. The front may pass the grid.
+- Stroke width is 1.75 at every size, about 1.3 pixels at 18 pixels. The Context ring uses 2.75 for a readable level.
+- Box corners have 45 degree cuts of 2 units, or 1 on shapes smaller than 10. No corner ends in a sharp point. Cut corners meeting below 90 degrees. Cut every corner of slanted boxes, including wide corners.
+- Circles and arcs stay round. Straight lines are horizontal, vertical, or 45 degrees unless recognition requires another angle, such as a pencil tip.
+- Use at most four shapes for clarity at 16 pixels. Settings has six for independent knobs and lines. Stop command has five for gaps at its strike.
+- Place points on whole or half units. Read's eye and Check command's lens have fractional radii to fit. The round Context arc can leave this grid.
+- File tools reuse Read's page with a lower-right mark. Command tools reuse Shell's box. A second state preserves the first state's whole shape and only adds, so it never shrinks.
+- Sizes are 16 pixels in dense lists, 18 ordinarily, and 20 on phones. `IconButton` keeps regular, small, and tiny icons at 18, 16, and 14 because its control supplies the touch target.
 
-## Grid and size
+## Color and implementation
 
-- Draw on a 24 by 24 unit grid. Keep a 2 unit margin, so the drawing fits in the middle 20 by 20 units. Only line ends may reach into the margin, such as the arms of a plus, and the front of an open folder, which tips past the edge of the closed one and past the grid.
-- The stroke is 1.75 units wide at every size. At 18 pixels it renders at about 1.3 pixels, the stroke width of IBM Plex Sans beside it. The ring of the Context meter is the exception, at 2.75 units, so its level reads at a glance.
-- No corner ends in a sharp point. Where two lines meet at less than 90 degrees, the corner is cut, like the corners of a box. A slanted box, such as the front of an open folder, has every corner cut, the wide ones too.
-- The icon of a tool that acts on a file is the page of Read with its own mark over the lower right corner, and the icon of a tool that acts on a command is the box of Shell with its own mark, so each family reads as one.
-- An icon with two states, such as a closed and an open folder, keeps the whole shape of its first state in the second. The second state only adds to it, so the change reads as one thing that moves, never as one that shrinks.
-- Show icons at 16 pixels in dense lists and menus, at 18 pixels across the interface, and at 20 pixels on phones. `IconButton` keeps its regular, small, and tiny icons at 18, 16, and 14 pixels on every screen because its control supplies the touch target.
-- Place points on whole or half units, so that lines stay sharp. The eye of Read and the lens of Check command use fractional radii to fit their file and command shapes.
+Use one `currentColor` stroke. Selected or open items use `--signal` without changing outlines. The send button has a filled signal background behind its arrow or stop box. Context is exceptional, with signal level over a faint ring.
 
-## Color and state
+Draw inline SVG in `packages/web/src/icon.tsx` with `viewBox="0 0 24 24"`, no fill, and the geometry above. Decorative SVG has `aria-hidden`. Its button carries the accessible name and tooltip with shortcut. Icons ship locally without icon fonts or external requests.
 
-- Icons draw in `currentColor`, so they take the text color of their button.
-- An icon turns orange, the `--signal` token, while its item is selected or open, such as the open project, the active tab, or an open menu. The drawing stays the same outline.
-- An icon has one color. The only filled orange shape is the send button, behind its arrow or its stop box.
-- The Context ring is the exception. It fills in orange up to its level over a `--faint` ring, so the level reads at a glance. It is round, so the ends of its arc may leave the half unit grid.
-
-## Shapes
-
-| Icon | Drawing |
-| --- | --- |
-| Sidebar | A box with a line near its left edge. |
-| Side panel | A box with a line near its right edge. |
-| New chat | A box open at its top right corner, with a pencil across the gap. |
-| Search | A circle with a handle at 45 degrees. |
-| Settings | Two slider lines, each with a round knob. |
-| Folder | A box with a tab at its top left. Open, its back keeps the size of the closed box, and its front tips forward from the bottom of the box like a hinged lid. Both sides of the front slant, its top reaches past the right side of the back, so the open folder is wider than the closed one, and it meets the bottom 2 units in from the left side of the back, so the two never merge. |
-| Expand | A chevron that points right, and down while open. |
-| Menu | A chevron that points down. |
-| Add | A plus. |
-| Send | An arrow that points up. |
-| Latest | An arrow that points down, back to the latest message. |
-| Stop | A small box, in the send button while a reply runs. |
-| Copy | Two overlapping boxes. |
-| Check | A check, for copied text and for the chosen item in a menu. |
-| Close | An X. |
-| New tab | Four small boxes. |
-| Agent | A box with an antenna, two eyes, and two ears. |
-| More | Three dots in a row. |
-| Replying | The three dots of More, which take the place of the arrow of Latest while a reply goes on. |
-| Edit | A pencil at 45 degrees, to rename a chat or to edit a text. |
-| Edit file | The page of Read with a pencil over its lower right corner, for the tool that edits a file. |
-| Reset | An arrow that points left and curves back under itself, to go back to the built-in text or setting. |
-| Pin | A pushpin with its needle down. |
-| Export | An arrow that points down into an open tray. |
-| Archive | A box under a lid, with a slot. |
-| Delete | A bin under its lid, with a handle and two lines. |
-| Context | A thick ring around a dot, which fills in orange from its top as the context window of the chat fills. |
-| Compact | Two horizontal lines with two chevrons that point toward the middle, to summarize older messages of a chat. |
-| Shell | A box with a prompt that points right and a cursor beside it. |
-| Stop command | The box of Shell struck through from its lower left to its upper right, with a gap where the line crosses the box and the cursor, on a running command, which stops that command alone. |
-| Background | A box in front of another, with an arrow inside it that points to the box behind, on a running command, which moves it to the background. |
-| Check command | The box of Shell with its prompt and no cursor, open at its lower right corner, where a lens sits, for the tool that checks a background command. |
-| Read | A page with its top right corner folded down at 45 degrees, and an eye over its lower right corner, for the tool that reads a file. |
-| Session | The box of Shell with two lines of text, a long one over a short one, for the Session place. |
-| Steps | Three short boxes stacked, for a group of steps that came one after another. |
-| Write | The page of Read with a plus over its lower right corner, for the tool that writes a file, which is most often a new one. |
-
-A new icon reuses these shapes where it can, so the set stays small and consistent, and it gets a row in the Motion table below.
+Before shipping, compare familiar icons, inspect on the large grid and at 16 and 18 pixels in both themes. Preserve recognition cues, including the open folder's slanted front. Add each icon's drawing and motion to the table.
 
 ## Motion
 
-Decision 0024 records why icons move and where the line falls.
+Motion acts out an imminent action. A part moves once there and back on hover or keyboard focus, and touch taps play it too. Search moves when its field focuses. State motion lasts with the state, including an open folder or repeating Replying dots. Provider logos never animate.
 
-- An icon moves only when something is about to happen to what it stands for, and the motion acts out that action.
-- A part of an icon moves once, there and back, when its button is pointed at or reached with the keyboard, and a tap on a touch screen plays it too. The search lens moves when its field takes the focus.
-- A state moves an icon for as long as it lasts, such as a folder that stays open while its project is open, or the dots of Replying, which play their motion over and over at half speed while a reply goes on.
-- Provider logos never move on hover, because a logo is the mark of another company. The raven moves only beside thinking: it tilts its head toward the user and back while the model thinks, and it turns to face forward while its row is pointed at. See decision 0049.
-- A motion lasts 450 milliseconds, uses one easing, and never changes the size of the icon or the layout around it. It never plays when the system asks for reduced motion. State transitions take 200 milliseconds for the meter and the raven color and 180 milliseconds for the folder, while the raven turns on a 2.4 second loop and glances in 180 milliseconds with its front face appearing after 90 milliseconds.
-- `packages/web/src/icon.module.css` holds the one shared motion, and each moving part only sets how far it goes. The state transitions use their own easing, and `packages/web/src/thinking-mark.module.css` holds the raven motion with cuts between its faces.
+Ordinary motion lasts 450 milliseconds with one easing and no layout or size change. `packages/web/src/icon.module.css` holds the shared motion and parts supply distances. State transitions use their own easing. Context meter and raven color take 200 milliseconds, and folder transitions 180. Replying repeats at half speed. Reduced motion disables all motion through [design's guard](design.md#figures-and-motion).
 
-| Icon | Motion |
-| --- | --- |
-| Sidebar | The line slides toward the left edge. |
-| Side panel | The line slides toward the right edge. |
-| New chat | The pencil tilts as if it writes. |
-| Search | The lens swings on the end of its handle, which stays put, like the lens of Check command. |
-| Settings | The knobs slide toward each other, and their lines stretch and shrink to meet them. |
-| Folder | The folder opens while its project or its menu is open. |
-| Expand | The chevron nudges the way it points. |
-| Menu | The chevron dips. |
-| Add | The plus twists a little and back. |
-| Send | The arrow rises. |
-| Latest | The arrow drops. |
-| Stop | The box squeezes. |
-| Copy | The front box slides onto the back one. |
-| Check | It stays still, because it shows a result, not an action. |
-| Close | The X twists a little and back. |
-| New tab | The four boxes spread apart. |
-| Agent | The eyes blink. |
-| More | The dots hop one after another. |
-| Replying | The dots hop one after another, over and over, at half speed, for as long as the reply goes on. |
-| Edit | The pencil tilts as if it writes. |
-| Edit file | The pencil nudges up and to the right, as if it writes. |
-| Reset | The head of the arrow nudges back to the left. |
-| Pin | The pin presses down. |
-| Export | The arrow drops into the tray. |
-| Archive | The lid lifts. |
-| Delete | The lid lifts and tilts. |
-| Context | The orange part of the ring turns a little. |
-| Compact | The lines and chevrons squeeze toward the middle. |
-| Shell | The prompt tips up around its open side and the cursor tips up around its right end, as if they nod, and both settle back. |
-| Stop command | The line pulls back toward its upper end and strikes down again. |
-| Background | The arrow nudges toward the box behind. |
-| Check command | The lens swings on the end of its handle, which stays put. |
-| Read | The eye blinks. |
-| Write | The plus twists a little and back, around its own center. |
-| Session | The short line grows to the length of the long one and back. |
-| Steps | The top box and the middle box lift apart and settle back onto the bottom one, like a stack. |
+The thinking raven tilts toward the user and returns on a 2.4 second loop. Hover or focus makes it face forward, with a 180 millisecond glance and its front appearing after 90. It never breathes. `thinking-mark.module.css` owns its cuts between faces.
 
-## Building icons
+## Drawings and actions
 
-- Each icon is an inline SVG with a `viewBox` of `0 0 24 24`, no fill, a `currentColor` stroke 1.75 wide, butt caps, and miter joins. The `Icon` component in `packages/web/src/icon.tsx` draws them, and a new icon is added there.
-- An icon is decoration, so it is marked `aria-hidden`. The button that holds it carries the name, and its tooltip shows the name and the shortcut.
-- Icons ship with Independum, never from an icon font or the network.
-- Before a new or changed icon ships, set it beside common icons of the same thing, and look at it large on the 24 unit grid and at 16 and 18 pixels in both themes. A familiar thing keeps the parts that make it familiar, such as the slanted front of an open folder.
+| Icon | Drawing | Motion |
+| --- | --- | --- |
+| Sidebar | Box with left inset line | Line slides left. |
+| Side panel | Box with right inset line | Line slides right. |
+| New chat | Box open at top right with pencil | Pencil writes. |
+| Search | Circle with 45 degree handle | Lens swings around fixed handle end. |
+| Settings | Two slider lines and round knobs | Knobs approach and lines stretch. |
+| Folder | Tabbed box. Open back keeps its closed size. Front hinges forward from bottom, with slanted sides and top beyond the back's right. Bottom joins 2 units inside the back's left so shapes do not merge. | Opens with project or menu. |
+| Expand | Right chevron, down when open | Nudges toward its direction. |
+| Menu | Down chevron | Dips. |
+| Add | Plus | Slight twist and return. |
+| Send | Up arrow | Rises. |
+| Latest | Down arrow | Drops. |
+| Stop | Small box in send button | Squeezes. |
+| Copy | Overlapping boxes | Front slides onto back. |
+| Check | Check mark | Still because it reports a result. |
+| Close | X | Slight twist and return. |
+| New tab | Four boxes | Spreads apart. |
+| Agent | Box, antenna, eyes, ears | Eyes blink. |
+| More | Three dots | Hop in sequence. |
+| Replying | More replaces Latest during reply | Repeats hops at half speed. |
+| Edit | 45 degree pencil | Tilts as if writing. |
+| Edit file | Read page with lower-right pencil | Pencil nudges upward and right. |
+| Reset | Left arrow curving back underneath | Head nudges left. |
+| Pin | Downward pushpin | Presses down. |
+| Export | Down arrow into open tray | Drops into tray. |
+| Archive | Box, lid, slot | Lid lifts. |
+| Delete | Bin, lid, handle, two lines | Lid lifts and tilts. |
+| Context | Thick ring and dot, level fills from top | Signal arc turns slightly. |
+| Compact | Horizontal lines with inward chevrons | Squeezes toward middle. |
+| Shell | Box, right-pointing prompt, cursor | Prompt and cursor nod around open side and right end. |
+| Stop command | Shell struck from lower left to upper right, with gaps over box and cursor | Strike retracts upward then strikes down. |
+| Background | Front box and arrow pointing to back box | Arrow nudges back. |
+| Check command | Shell without cursor, open lower right for lens | Lens swings around fixed handle end. |
+| Read | Page with top-right fold and lower-right eye | Eye blinks. |
+| Session | Shell box with long and short text lines | Short line grows and returns. |
+| Steps | Three stacked boxes | Upper two separate and settle. |
+| Write | Read page with lower-right plus | Plus twists slightly around its center. |

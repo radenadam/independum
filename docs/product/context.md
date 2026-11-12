@@ -38,7 +38,7 @@ Unknown commands fail. `//text` submits `/text`, and API literal interpretation 
 
 The owned prompt pipeline includes the base prompt, added facts, project instructions, and skill metadata as separate system sections. Their switches remove their respective copies from future system input. Pi's coding persona, tool overview, rules, documentation, folder, and addendum are independently permitted or omitted when present. Automatic Pi resource discovery stays off.
 
-Prompt and tool update controls project current state into the leading system message and remove only the corresponding later deltas. User, assistant, and tool result order stays intact. Other controls remove typed summary envelopes and user shell messages, or disable Pi's automatic image resizing. Each unavailable adapter text remains read-only with its source and reason in Pi context. These controls do not transform provider payloads or change model compatibility flags.
+Prompt and tool update controls project current state into the leading system message and remove only the corresponding later deltas. User, assistant, and tool result order stays intact. Other controls remove typed summary envelopes and user shell messages, or disable Pi's automatic image resizing. Each unavailable adapter text currently remains read-only with its source and reason in Pi context. This is an implementation gap. [Decision 0072](../decisions/0072-editable-pi-texts.md) accepts a narrow Pi text patch while preserving provider compatibility ownership. These controls do not transform provider payloads or change model compatibility flags.
 
 Each provider call uses an immutable context revision. Changed revisions are saved as `independum-context` custom Pi entries. They never enter model messages. Session distinguishes pending discovery from the last captured revision. Request history marks revision changes as setup changes. The raw last request retains its existing best effort storage and matching limits.
 
@@ -71,7 +71,7 @@ Context settings use the existing conditional profile settings route, with its d
 
 ## Remaining checkpoint work
 
-The [roadmap](../roadmap.md) records nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the upstream Pi additions policy. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
+The [roadmap](../roadmap.md) records nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the narrow Pi text patch. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
 
 ## Code
 

@@ -1,6 +1,6 @@
 # Project resources and context controls
 
-- Status: accepted, with the remaining work listed in `docs/roadmap.md`, amended for the request event pipeline by [decision 0065](0065-script-hooks-and-the-add-on-contract.md), which dispatches scripts at the owned context boundaries
+- Status: accepted, with the remaining work listed in `docs/roadmap.md`, amended for the request event pipeline by [decision 0065](0065-script-hooks-and-the-add-on-contract.md), which dispatches scripts at the owned context boundaries, amended by [decision 0072](0072-editable-pi-texts.md)
 - Date: 2026-11-06
 
 ## Context

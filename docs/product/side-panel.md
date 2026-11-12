@@ -28,7 +28,7 @@ A thin bar represents the whole context window, including its override. A funnel
 
 Parts start with a length estimate. After a reply, their shares scale to the latest model turn's input and cache token count. These are estimates of individual parts, not provider token counts for each one. The figure represents request input. The [message box meter](message-box.md#context-meter) can include the last assistant output too.
 
-The bar and caption start pinned above the scrolling overview. The pin toggles this behavior and is remembered in browser local storage. The legend scrolls away. Hovering a part, request row, or latest compaction links its highlights to the figure. Clicking an instruction or tool segment opens its detail. A message segment opens its matching request when one exists. The figure itself accepts pointer input, and the rows provide keyboard access. Summary segments have no click action.
+The bar and caption start pinned above the scrolling overview. The pin toggles this behavior and is remembered in browser local storage. The legend scrolls away. Hovering a part, request row, or latest compaction links its highlights to the figure. Clicking an instruction or tool segment opens its detail. A message segment opens its matching request when one exists. The figure itself accepts pointer input, and the rows provide keyboard access. Clicking a summary segment opens the latest compaction.
 
 ## Conversation
 
@@ -52,5 +52,4 @@ A command detail uses the same input, status, output, and images as its chat ste
 
 ## Known differences from the decisions
 
-- Decision 0052 says a figure part opens on click. A summary has no saved entry mapping, so its segment does nothing on click. See `packages/web/src/context-parts.tsx:106` and `packages/web/src/context-parts.tsx:238`.
 - Decision 0048 describes a complete parts view. Unknown-only sections and unmatched text shorter than 40 characters can be absent. See `packages/independum/src/summarize-request.ts:81` and `packages/independum/src/summarize-request.ts:445`.

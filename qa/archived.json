@@ -18,11 +18,7 @@
       "text": "A long archived chat title with the same beginning that needs to remain fully readable on a phone and has a distinct first ending"
     },
     {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13
-      }
+      "key": "Enter"
     },
     {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
@@ -40,11 +36,7 @@
       "text": "A long archived chat title with the same beginning that needs to remain fully readable on a phone and has a distinct second ending"
     },
     {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13
-      }
+      "key": "Enter"
     },
     {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"

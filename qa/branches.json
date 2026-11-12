@@ -1,33 +1,57 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1440, 1000], "scheme": "light", "go": true },
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true
+    },
     {
       "run": "window.branchOriginalText = document.querySelector('[data-user] p').textContent; document.querySelector('textarea[aria-label=Message]').focus(); true",
       "wait": 0
     },
-    { "text": "Keep this ordinary draft.", "wait": 0 },
-    { "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')" },
+    {
+      "text": "Keep this ordinary draft.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')"
+    },
     {
       "run": "({ editingNote: document.body.innerText.includes('Editing this prompt creates another branch.'), originalLoaded: document.querySelector('textarea[aria-label=Message]').value === window.branchOriginalText })"
     },
-    { "clickOn": "document.querySelector('button[aria-label=\"Cancel edit\"]')" },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Cancel edit\"]')"
+    },
     {
       "run": "({ ordinaryDraftRestored: document.querySelector('textarea[aria-label=Message]').value === 'Keep this ordinary draft.' })"
     },
-    { "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')" },
-    { "clickOn": "document.querySelector('textarea[aria-label=Message]')", "wait": 0 },
     {
-      "key": { "key": "a", "code": "KeyA", "windowsVirtualKeyCode": 65, "modifiers": 2 },
+      "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
       "wait": 0
     },
-    { "text": "Edited branch prompt.", "wait": 0 },
-    { "clickOn": "document.querySelector('button[aria-label=Send]')", "wait": 0 },
+    {
+      "key": "Control+a",
+      "wait": 0
+    },
+    {
+      "text": "Edited branch prompt.",
+      "wait": 0
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')",
+      "wait": 0
+    },
     {
       "run": "(async () => { for (let attempt = 0; attempt < 350; attempt += 1) { if (!document.querySelector('button[aria-label=Stop]') && document.body.innerText.includes('Prompt 2 of 2') && document.querySelector('button[aria-label=\"Reply actions\"]')) return { editedBranch: true, ordinaryDraftKept: document.querySelector('textarea[aria-label=Message]').value === 'Keep this ordinary draft.' }; await new Promise(resolve => setTimeout(resolve, 50)); } return false; })()",
       "shot": "edited-desktop"
     },
-    { "clickOn": "document.querySelector('button[aria-label=\"Reply actions\"]')" },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Reply actions\"]')"
+    },
     {
       "run": "({ currentSettingsVisible: document.body.innerText.includes('Uses current agent settings.') })"
     },
@@ -57,9 +81,16 @@
     {
       "clickOn": "[...document.querySelectorAll('[role=dialog] button')].find(element => element.textContent.includes('Edited branch prompt.'))"
     },
-    { "run": "({ lastAttemptRestored: document.body.innerText.includes('Reply 2 of 2') })" },
-    { "size": [360, 800], "scheme": "light" },
-    { "run": "document.querySelector('button[aria-label=\"Hide sidebar\"]')?.click(); true" },
+    {
+      "run": "({ lastAttemptRestored: document.body.innerText.includes('Reply 2 of 2') })"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "run": "document.querySelector('button[aria-label=\"Hide sidebar\"]')?.click(); true"
+    },
     {
       "run": "({ phoneFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "branches-phone-light"
@@ -68,9 +99,16 @@
       "clickOn": "[...document.querySelectorAll('button')].find(element => element.textContent.trim() === 'Reply 2 of 2')",
       "shot": "branches-phone-choices"
     },
-    { "key": { "key": "Escape", "code": "Escape", "windowsVirtualKeyCode": 27 } },
-    { "scheme": "dark", "shot": "branches-phone-dark" },
-    { "go": true },
+    {
+      "key": "Escape"
+    },
+    {
+      "scheme": "dark",
+      "shot": "branches-phone-dark"
+    },
+    {
+      "go": true
+    },
     {
       "run": "({ selectionSurvivesReload: document.body.innerText.includes('Reply 2 of 2'), phoneFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "branches-reopened"

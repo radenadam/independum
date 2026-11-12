@@ -1,6 +1,6 @@
 # Texts of Pi
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the texts of Pi in the Session place, and [decision 0054](0054-added-facts.md), which replaces Pi's automatic folder section with an editable fact, extended by [decision 0062](0062-project-resources-and-context-controls.md)
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which lists the texts of Pi in the Session place, and [decision 0054](0054-added-facts.md), which replaces Pi's automatic folder section with an editable fact, extended by [decision 0062](0062-project-resources-and-context-controls.md), amended by [decision 0074](0074-optional-request-history.md), amended by [decision 0072](0072-editable-pi-texts.md)
 - Date: 2026-10-29
 
 ## Context

@@ -20,11 +20,7 @@
       "wait": 100
     },
     {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13
-      },
+      "key": "Enter",
       "wait": 0
     },
     {

@@ -11,7 +11,7 @@
     "preview": "pnpm --filter @independum/web build && pnpm --filter independum run preview",
     "qa": "pnpm --filter @independum/web build && pnpm --filter independum run qa",
     "format": "biome check --write && markdownlint-cli2 --fix",
-    "check": "pnpm run check:biome && pnpm run check:markdown && pnpm run check:docs && pnpm run check:characters && pnpm run check:layout && pnpm run check:comments && pnpm run check:code && pnpm run check:styles && pnpm run check:markup && pnpm run check:release-age && pnpm run check:types && pnpm run check:unused && pnpm run check:duplicates && pnpm run test",
+    "check": "pnpm run check:biome && pnpm run check:markdown && pnpm run check:docs && pnpm run check:context && pnpm run check:characters && pnpm run check:layout && pnpm run check:comments && pnpm run check:code && pnpm run check:styles && pnpm run check:markup && pnpm run check:release-age && pnpm run check:types && pnpm run check:unused && pnpm run check:duplicates && pnpm run test",
     "check:biome": "biome check --error-on-warnings",
     "check:markdown": "markdownlint-cli2",
     "check:docs": "node scripts/check-docs.ts",
@@ -25,10 +25,15 @@
     "check:types": "tsc --noEmit && pnpm --recursive run check:types",
     "check:unused": "knip --treat-config-hints-as-errors",
     "check:duplicates": "jscpd",
-    "test": "vitest run --testTimeout 20000"
+    "test": "vitest run --testTimeout 20000",
+    "check:context": "node scripts/check-context.ts",
+    "review": "node scripts/run-gate.ts review",
+    "qa-review": "node scripts/run-gate.ts qa",
+    "gate": "node scripts/run-gate.ts gate"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm check"
+    "pre-commit": "pnpm check",
+    "pre-push": "node scripts/check-gate-receipt.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",

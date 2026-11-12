@@ -1,6 +1,6 @@
 # Browser QA harness
 
-- Status: accepted
+- Status: accepted, with its direct driver replaced through [decision 0071](0071-repository-healing.md)
 - Date: 2026-11-05
 
 ## Context

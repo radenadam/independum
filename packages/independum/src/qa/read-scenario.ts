@@ -14,7 +14,7 @@ export interface QaStep {
   clickOn?: string;
   hoverOn?: string;
   drag?: { on: string; by: [number, number] };
-  key?: Record<string, string | number | boolean>;
+  key?: string;
   text?: string;
 }
 
@@ -32,7 +32,7 @@ export async function readScenario(
       (value.phoneRoute !== undefined && typeof value.phoneRoute !== "boolean") ||
       !["empty", "chats", "compacted", "hooks"].includes(String(value.fixture))
     ) {
-      throw new Error("A scenario object needs a fixture and steps only.");
+      throw new Error("A scenario object needs a fixture, steps, and optional phoneRoute.");
     }
     fixture = value.fixture as PreviewFixture;
     steps = value.steps;
@@ -98,11 +98,7 @@ function isStepField(key: string, value: unknown): boolean {
     case "text":
       return typeof value === "string";
     case "key":
-      return (
-        isRecord(value) &&
-        Object.keys(value).length > 0 &&
-        Object.values(value).every((part) => ["string", "number", "boolean"].includes(typeof part))
-      );
+      return typeof value === "string" && value.length > 0;
     case "drag":
       return (
         isRecord(value) &&

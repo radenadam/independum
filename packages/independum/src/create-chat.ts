@@ -924,8 +924,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     };
   }
 
-  // Pi stops writing before a chat file moves or goes away. Each follower receives an empty
-  // replacement in the same folder, with the same model.
+  // Pi stops writing before a chat file moves or goes away.
   async function leave(saved: SessionInfo): Promise<void> {
     if (saved.id === firstId) {
       firstId = undefined;

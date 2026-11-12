@@ -1,70 +1,71 @@
 # Glossary
 
-These are the names of Independum concepts. Use them exactly in code, UI text, and docs, and avoid the names in the last column. A change that introduces a concept adds it here, in alphabetical order.
+Use these concepts consistently. Definitions name things, and [product pages](product/README.md#area-router) own behavior. Hyphenated concepts become camelCase in code and keep kebab-case filenames. External API names remain fixed.
 
-In code, a hyphenated term becomes one word, so add-on is `addOn` or `AddOn`, and built-in is `builtIn` or `BuiltIn`. File names keep the hyphen, for example `add-on.ts`.
-
-| Term | Meaning | Avoid |
-| --- | --- | --- |
-| Access token | The secret that lets a browser or headless client use the Independum server. It is new on every launch and has an account-only local discovery file. | "password", "API key", "session key" |
-| Add-on | A feature that the user adds to Independum, with the same visibility and controls as a built-in. Decision 0065 records the approved contract direction and its first script hook slice. | "plugin", "extension", "custom", "module" |
-| Added fact | A fact that Independum adds to a request, with a model text and its own switch, such as the time of a message or the chat folder. | "injection", "environment prompt" |
-| Agent | The model, prompts, and tools that answer in a chat, run by Pi. The Session place shows how it is set up. | "bot", "assistant", "AI" |
-| Approval | A user's explicit decision that grants requested access once or saves it for the chosen scope within the permission policy. | "confirmation", "trust" |
-| Archived chat | A chat moved out of the sidebar into `~/.independum/sessions/archived`, which the settings list. | "hidden chat", "trash" |
-| Attachment | An explicitly uploaded original file retained for a prompt, delivered as inline text, an image, or saved file details. | "extracted document", "upload message" |
-| Background command | A command of the Shell tool that keeps running after its call returns, such as a server, until it ends or something stops it. | "job", "daemon", "detached process" |
-| Branch | One selected path of saved messages in a chat's Pi session tree. Changing it keeps files in their current state. | "version", "copy" |
-| Built-in | A feature that ships with Independum. | "core feature", "default feature" |
-| Chat | The messages between the user and a model, which Pi saves as a session file. | "thread", "conversation" |
-| Commands | The place in the side panel that lists the commands of the chat, running ones first, and stops them. | "processes", "jobs", "tasks" |
-| Compaction | Pi summarizes older messages of a chat and keeps the newest messages whole near a token budget. Its settings and the action to compact now live in the Session place. | "trimming", "compression" |
-| Context | What the model of a chat works with: its messages, how full its context window is, its tokens and cost, and the raw requests. The Session place shows all of it. | "session details", "stats", "info" |
-| Denied path | A path that project commands and file tools cannot access, including Independum's state folder and paths denied by the profile. Linux shows denied folders as empty, which is not their actual content. | "hidden folder", "empty folder" |
-| Envelope | The tag around a note, such as `<independum source="background command 3">`, which names its source so the model can tell it from what the user wrote. | "wrapper", "provenance tag" |
-| Fingerprint | A short hash of a version of a file, and of each of its lines, that a tool keeps in its result when it touches the file, so a later tool can tell whether and where the file changed since the chat saw it. | "snapshot", "checksum", "cache" |
-| Follower | A client with the event stream of one chat open, which holds that chat's run alive. See [decision 0053](decisions/0058-address-chats-by-id.md). | "current client", "active browser" |
-| Headless mode | Commands for scripts and other agents that drive the existing server without opening a browser or terminal interface. | "print mode", "terminal mode" |
-| Hook | A configured script that observes or transforms a named event, with visible order, limits, failure policy, and invocation evidence. | "callback", "trigger" |
-| Hook invocation | One run of a hook with its captured input, output, accepted effect, and execution status. | "hook call", "hook log" |
-| Independum | The harness, made of the `independum` command, its server, and its UI. | "the app", "the tool" |
-| Login | A saved way to reach one provider, from an account sign-in or an API key. | "credential", "connection", "auth" |
-| Login session | A login in progress on the server, which streams its questions and steps to the UI. | "auth flow", "login wizard" |
-| Maintainer | The person who owns the project and answers its open questions. | "the owner" |
-| Model | A model that a provider runs, such as `claude-haiku-5-5`. The user chooses one for each chat. | "LLM", "engine", "AI" |
-| Model override | A context window, maximum output, or temperature set for one provider and model in chats using a profile, in place of its built-in value or none. | "model patch", "custom model" |
-| Model text | A text that Independum sends to the model, such as the system prompt, an added fact, the description of a tool, or what a tool says when its timeout fires. The user can edit each one in the Session place and reset it to its built-in text. | "prompt string", "template", "copy" |
-| Note | A message that Independum adds to a chat to wake the agent, such as the end of a background command. It shows as a step. | "system message", "injection", "reminder" |
-| Notification | A message that Independum shows through the system when a reply ends in a chat that is not open, or in the open chat while its window is not in front. The user turns them on in the settings. | "toast", "alert", "push" |
-| Operation | A waitable period of automatic agent work through Pi settlement, with durable submission and final entry references. | "turn", "task", "job" |
-| Paired browser | A browser approved on the computer through a matching comparison code, with its own persistent and revocable phone credential. Its name is a client-supplied label. | "trusted phone", "user account", "hardware identity" |
-| Permission rule | A profile rule that allows, asks for, or denies filesystem or network authority. | "command whitelist", "trust rule" |
-| Phone access | An opt-in private HTTPS listener that serves paired browsers separately from local control. | "remote control", "public server" |
-| Pi | The agent SDK that Independum builds on. | "the backend", "the engine" |
-| Pinned chat | A chat kept at the top of the sidebar, above the recent chats. | "favorite", "starred" |
-| Place | Something that opens in a side panel tab, such as Session. A terminal, a browser, and files come later. | "tool", "app", "widget" |
-| Profile | A complete agent setup for one use case, stored in plain files and selected by a chat. User and project defaults affect new chats. | "preset", "configuration layer" |
-| Project | A folder that chats work in. The sidebar lists every project with its chats. | "workspace", "repo", "directory" |
-| Project instructions | Literal instruction files discovered from the registered project root through the chat folder, with configurable names and exact source capture. | "automatic imports", "rules file" |
-| Prompt variant | One submitted version of a prompt, with its own reply attempts and descendants. Editing creates another variant. | "revision", "draft" |
-| Provider | A service that runs models, such as Anthropic or OpenAI. | "vendor", "backend" |
-| Recent chats | The five newest chats that are not pinned, listed above the projects. | "history" |
-| Reply | The answer to one prompt, which can span several model turns and their tool calls. | "response", "completion" |
-| Reply attempt | One execution of a prompt variant with a captured model and effort. Retrying creates another attempt. | "regeneration", "version" |
-| Request | The data sent to a model for one turn. The Session history reconstructs requests from saved assistant messages, so it is not a complete log of network requests. | "HTTP log", "reply" |
-| Sandbox | The operating system boundary that restricts a tool worker and its descendants while they run. | "job", "approval" |
-| Session | Everything a chat runs with: how its agent is set up, its context, and the parts of its last request. Its place in the side panel shows all of it, and each part opens on demand. | "agent place", "context place", "inspector" |
-| Shell | The tool that runs a command in the shell of the user, such as PowerShell or Bash. | "terminal", "bash tool", "exec" |
-| Side panel | The column at the right of the working screen, which holds tabs with places. | "details panel", "inspector" |
-| Sidebar | The column at the left of the working screen, with New chat, the search, the projects, and Settings. | "margin", "nav", "menu" |
-| Skill | A named folder with a `SKILL.md`, advertised through metadata or explicitly expanded into a user message after preview. Supporting files remain ordinary files for Read. | "tool", "extension" |
-| Slash command | A leading command that invokes an existing UI action or previews a prompt command or skill before submission. | "terminal command", "script" |
-| Slot | A name in braces in a model text, such as `{id}`, where Independum puts a value when it sends the text. | "placeholder", "variable", "token" |
-| Step | One thing the agent does on its way to a reply, such as calling a tool. Each step sits in a box of its own, apart from the reply. | "action", "activity", "trace" |
-| Step group | The steps and thoughts between two texts of a reply, drawn as one box that folds them into one line and counts the steps. | "tool group", "activity block" |
-| Submission | One accepted input with its own id and the operation that covers its automatic work. Command line source metadata stays outside model context. | "request", "turn" |
-| Thought | What the model thinks before it acts or answers. It sits in a box like a step, but it is reasoning, not an action, so it is not a step. | "reasoning trace", "chain of thought" |
-| Turn | One model response to a request, with its text, thinking, and tool calls. A tool result can lead to another turn in the same reply. | "reply", "chat" |
-| User | A person who runs Independum and works with its agent. | "the customer", "the operator" |
-| Waiting message | A durably accepted prompt held outside Pi until its queue or steering boundary, with its captured model and effort. The server and its files still call it a pending input. | "queued message", "draft" |
-| Working screen | The screen where the user works with the agent, with the sidebar, the chat, and the side panel. | "main screen", "dashboard", "cockpit" |
+| Term | Meaning |
+| --- | --- |
+| Access token | Per-launch local control secret. |
+| Add-on | User-added capability with built-in visibility and control. Avoid plugin or extension. |
+| Added fact | Independently controlled fact added to model input. |
+| Agent | Model and configured mechanisms working in a chat. |
+| Approval | Explicit resource authority for a chosen lifetime. |
+| Archived chat | Saved chat outside the ordinary sidebar. |
+| Attachment | Retained original with an explicit model delivery form. |
+| Background command | Shell work continuing after its tool call returns. |
+| Branch | Selected saved message path, separate from project file state. |
+| Built-in | Capability shipped with Independum. |
+| Chat | User and agent messages saved through Pi. Avoid thread. |
+| Commands | Side-panel place for Shell work. |
+| Compaction | Summarizing older context while retaining recent messages. |
+| Context | Input available to the model. |
+| Denied path | Host path inaccessible to project tools. |
+| Detach | End a component's profile contributions while keeping it installed. |
+| Envelope | Source-identifying tag around a harness note. |
+| Fingerprint | Hash identifying observed file content. Avoid snapshot. |
+| Follower | Client holding a chat event stream. See [decision 0058](decisions/0058-address-chats-by-id.md). |
+| Headless mode | Programmatic control without browser or interactive terminal. |
+| Hook | Configured event observer or transformer. |
+| Hook invocation | One captured hook execution and effect. |
+| Independum | Local harness comprising command, server, and UI. |
+| Kernel | Necessary chatbot connection, login, configuration, and conversation. |
+| Login | Saved provider access through sign-in or key. |
+| Login session | In-progress provider login interaction. |
+| Maintainer | Owner of product intent and unresolved judgment. |
+| Model | Provider-run model selected for work. |
+| Model override | Profile value replacing a model catalog setting. |
+| Model text | Individually controlled model-facing wording. |
+| Note | Source-labeled harness message, possibly waking work. |
+| Notification | Optional system notice of reply completion. |
+| Operation | Waitable automatic work through Pi settlement. |
+| Paired browser | Browser with explicit revocable phone authority. |
+| Permission rule | Resource allow, ask, or deny policy. |
+| Phone access | Separate opt-in private HTTPS listener. |
+| Pi | SDK owning providers, logins, models, and loop. |
+| Pinned chat | Chat retained atop the sidebar. |
+| Place | Destination in a side-panel tab. |
+| Profile | Complete agent setup in authoritative plain files. |
+| Project | Folder where a chat works. Avoid workspace in product text. |
+| Project instructions | Discovered literal instruction files. |
+| Prompt variant | Submitted prompt alternative with its descendants. |
+| Provider | Service running models. |
+| Recent chats | Five newest unpinned chats. |
+| Remove | Uninstall a component from Independum. Settings deletion is separate. |
+| Reply | Answer spanning one or more model turns. |
+| Reply attempt | One execution of a prompt variant. |
+| Request | Data sent for one model turn. Reconstructed history is not capture. |
+| Sandbox | Operating system boundary around workers and descendants. |
+| Session | Place inspecting a chat's setup, context, and requests. |
+| Shell | Tool running a command through the selected shell. |
+| Side panel | Right column holding places. |
+| Sidebar | Left column holding chat navigation and Settings. |
+| Skill | Named `SKILL.md` resource with discoverable metadata. |
+| Slash command | Leading invocation of an action, prompt command, or skill. |
+| Slot | Named value position in a model text. |
+| Step | Agent action such as a tool call. |
+| Step group | Foldable work between reply texts. |
+| Submission | Durably accepted input with an operation reference. |
+| Thought | Model reasoning, distinct from an action. |
+| Turn | One model response, including text and tool calls. |
+| User | Person working with Independum. |
+| Waiting message | Accepted input held outside Pi until delivery. Code currently says pending input. |
+| Working screen | Chat with sidebar and side panel. |

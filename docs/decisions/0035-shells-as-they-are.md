@@ -1,6 +1,6 @@
 # Shells as they are
 
-- Status: accepted, and amended by [decision 0036](0036-options-for-commands.md), which lets the user add environment variables, by [decision 0041](0041-windows-jobs.md), which ends on Stop the programs that a command leaves behind on Windows, and by [decision 0048](0048-session-place.md), which shows the shells in the Session place
+- Status: accepted, and amended by [decision 0036](0036-options-for-commands.md), which lets the user add environment variables, by [decision 0041](0041-windows-jobs.md), which ends on Stop the programs that a command leaves behind on Windows, and by [decision 0048](0048-session-place.md), which shows the shells in the Session place, with sandbox shell and environment boundaries amended by [decision 0063](0063-permissions-and-enforced-tool-access.md) and [decision 0067](0067-read-everywhere-and-write-inside-the-project.md)
 - Date: 2026-10-29
 
 ## Context
