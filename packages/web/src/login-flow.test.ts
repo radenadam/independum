@@ -1,5 +1,6 @@
 import type { LoginEvent, LoginMethod } from "independum/api-types";
 import { expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { startLogin } from "./login-api.ts";
 import { LoginFlow } from "./login-flow.tsx";
 import { findElement, renderElement, renderHook } from "./render-hook.ts";
@@ -100,7 +101,7 @@ test.each(["text", "choice"] as const)(
       ).toBe("answer");
     }
     submit();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(
         findElement<Steps>(flow.render(), (element) => element.props.answered !== undefined).props
           .answered,

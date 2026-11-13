@@ -1,5 +1,6 @@
 import type { ChatMessage, ChatState, ModelSummary } from "independum/api-types";
 import { afterEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { resubmitMessage } from "./chat-api.ts";
 import { ModelMenu } from "./model-menu.tsx";
 import { clickAction, findElement, renderHook } from "./render-hook.ts";
@@ -51,7 +52,7 @@ test("retry model and effort choices stay local until submission", async () => {
   ).props.onChooseThinking("high");
   expect(resubmitMessage).not.toHaveBeenCalled();
   clickAction(view.render(), "Retry");
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(resubmitMessage).toHaveBeenCalledWith(
       "chat",
       expect.objectContaining({

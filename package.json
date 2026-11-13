@@ -33,7 +33,7 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm check",
-    "pre-push": "node scripts/check-gate-receipt.ts"
+    "pre-push": "node scripts/check-gate-receipt.ts \"$@\""
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",

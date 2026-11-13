@@ -1,6 +1,34 @@
 import { expect, test } from "vitest";
 import { findCodeProblems } from "./find-code-problems.ts";
 
+test("test conditions reject direct vitest waits and polling under import aliases", () => {
+  for (const code of [
+    'import { vi } from "vitest"; vi.waitFor(() => expect(value).toBe(true));',
+    'import { vi as clock } from "vitest"; clock["waitFor"](condition, { timeout: 20000 });',
+    'import { vitest as clock } from "vitest"; clock.waitUntil(condition);',
+    'import { expect as check } from "vitest"; check.poll(condition).toBe(true);',
+    'import * as testing from "vitest"; testing.vi.waitFor(condition);',
+    'import * as testing from "vitest"; testing.expect.poll(condition).toBe(true);',
+    'import { vi } from "vitest"; const retry = vi.waitFor;',
+  ]) {
+    expect(findCodeProblems("example.test.ts", code)).toContainEqual(
+      expect.stringContaining("Test conditions use scripts/wait-for.ts"),
+    );
+  }
+  expect(
+    findCodeProblems(
+      "example.test.ts",
+      'import { waitFor } from "./wait-for.ts"; await waitFor(() => expect(value).toBe(true));',
+    ),
+  ).toEqual([]);
+  expect(
+    findCodeProblems(
+      "scripts/wait-for.ts",
+      'import { vi } from "vitest"; vi.waitFor(condition, { timeout });',
+    ),
+  ).toEqual([]);
+});
+
 test("sandbox imports use the stable contract through one production adapter", () => {
   expect(
     findCodeProblems("create-sandbox.ts", 'import { spawn } from "@microsoft/mxc-sdk/v1";'),

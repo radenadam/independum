@@ -1,5 +1,6 @@
 import type { AgentSummary, ChatState } from "independum/api-types";
 import { afterEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { changeSettings, fetchAgent } from "./chat-api.ts";
 import { renderHook } from "./render-hook.ts";
 import { useAgentSettings } from "./use-agent-settings.ts";
@@ -16,11 +17,11 @@ test("a failed agent load in another chat cannot show an earlier settings respon
   vi.mocked(changeSettings).mockResolvedValue(agent);
   const view = renderHook(() => useAgentSettings(chat));
   view.render();
-  await vi.waitFor(() => expect(view.render().failure).toBe("The agent could not be loaded."));
+  await waitFor(() => expect(view.render().failure).toBe("The agent could not be loaded."));
   await view.render().save({ texts: {} });
   expect(view.render().agent?.systemPrompt).toBe("Prompt of A");
   chat = { ...chat, id: "b" };
   expect(view.render().agent).toBeUndefined();
-  await vi.waitFor(() => expect(view.render().failure).toBe("The agent could not be loaded."));
+  await waitFor(() => expect(view.render().failure).toBe("The agent could not be loaded."));
   expect(view.render().agent).toBeUndefined();
 });

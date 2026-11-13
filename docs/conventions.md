@@ -36,7 +36,7 @@ Names and types carry meaning by default. A comment explains a reason, outside c
 
 Comments use complete sentences, present tense, neutral voice, a capital start, and final period. No first or second person. Put them on their own line above the code. Use `//` for line comments and block comments only for documentation. CSS uses block comments. A doc comment is one sentence, starting with a verb for a function or a noun phrase for a type, with no tags. It can fit one line or wrap with one `*` per line.
 
-Tests use Vitest `test` without `describe`. The file is the group. Names are lowercase behavior phrases without a final period. Exercise exported behavior rather than internals. The shared timeout is 20 seconds because Windows starts Pi and processes slowly. Override only when a test needs more.
+Tests use Vitest `test` without `describe`. The file is the group. Names are lowercase behavior phrases without a final period. Exercise exported behavior rather than internals. The shared timeout is 20 seconds because Windows starts Pi and processes slowly. Override only when a test needs more. Await conditions with `waitFor` from `scripts/wait-for.ts`, which uses the test's remaining budget and preserves the failed assertion. Process tests take two to five times longer when other heavy work shares the machine, and fewer workers do not prevent it. Rerun one timeout before calling it a defect, and treat a timeout that repeats on a quiet machine as one.
 
 ## Writing and Markdown
 

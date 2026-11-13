@@ -6,7 +6,7 @@
 
 - Biome, TypeScript, and markdownlint check configured syntax, formatting, naming, types, and structure.
 - `scripts/check-docs.ts` checks prose punctuation. `scripts/check-context.ts` checks local links and anchors, document owners and budgets, decision numbering and relationships, ledger fields and requirement references. It does not establish semantic agreement.
-- Character, layout, comment, code, style, markup, and release-age scripts check their selected patterns. They do not prove every language, security, tooltip, motion, or dependency-age property. The release-age check rejects policy overrides.
+- Character, layout, comment, code, style, markup, and release-age scripts check selected patterns, including test-budget waits. They cannot prove every language, security, tooltip, motion, or dependency-age property. Release-age checks reject policy overrides.
 - Knip finds unused code under its configuration. jscpd detects token duplication. Neither proves one semantic fact per owner.
 - Vitest checks behavior, scenarios, gates, and native boundaries. Its reporter names unavailable tests with reasons. Platform skips declare CI platforms. Skips never pass. Native skips remain missing evidence. Pi inventory tests check fragments.
 - Vitest serializes native sandbox files and the file-worker test because concurrent MXC containers cause timeouts. `require-serial-sandbox.ts` rejects native launches from parallel tests.

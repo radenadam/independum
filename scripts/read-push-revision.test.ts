@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { checkGateReceipt } from "./check-gate-receipt.ts";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
@@ -314,3 +314,10 @@ async function preparePush(
 function pushFor(commit = head, previous = remoteHead): string {
   return `refs/heads/work ${commit} refs/heads/work ${previous}`;
 }
+
+test("the pre-push hook forwards the remote and its address from git", async () => {
+  const manifest = JSON.parse(
+    await readFile(resolve(import.meta.dirname, "..", "package.json"), "utf8"),
+  ) as { "simple-git-hooks": Record<string, string> };
+  expect(manifest["simple-git-hooks"]["pre-push"]).toBe('node scripts/check-gate-receipt.ts "$@"');
+});

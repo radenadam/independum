@@ -2,6 +2,7 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { systemPromptText } from "./agent-texts.ts";
 import type { ProfileBundle, ProfileReference } from "./api-types.ts";
 import {
@@ -379,7 +380,7 @@ test("a text editor replacement reaches the watcher and changes disk revision wi
     const staged = join(before.profile.path, "editor-save.json");
     writeFileSync(staged, JSON.stringify(before.profile.document?.profile));
     renameSync(staged, path);
-    await expect.poll(() => changes, { timeout: 3000 }).toBeGreaterThan(0);
+    await waitFor(() => expect(changes).toBeGreaterThan(0));
     const after = store.resolve("chat", project);
     expect(after.profile.revision).not.toBe(before.profile.revision);
     expect(after.effectiveRevision).toBe(before.effectiveRevision);

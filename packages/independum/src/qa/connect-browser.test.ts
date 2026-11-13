@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { waitFor } from "../../../../scripts/wait-for.ts";
 import { checkBrowserDiagnostics } from "./check-browser-diagnostics.ts";
 import { connectBrowser } from "./connect-browser.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -56,16 +57,16 @@ test.skipIf(selection === undefined)(
           ],
           directory,
         );
-        await expect
-          .poll(async () => {
-            const lines = await readFile(join(directory, "browser.jsonl"), "utf8");
-            return lines
+        await waitFor(async () => {
+          const lines = await readFile(join(directory, "browser.jsonl"), "utf8");
+          expect(
+            lines
               .trim()
               .split("\n")
               .filter(Boolean)
-              .map((line) => JSON.parse(line));
-          })
-          .toContainEqual({ kind, message: expect.stringContaining(expected) });
+              .map((line) => JSON.parse(line)),
+          ).toContainEqual({ kind, message: expect.stringContaining(expected) });
+        });
         await expect(checkBrowserDiagnostics(directory)).rejects.toThrow(
           "The browser reports errors or warnings.",
         );

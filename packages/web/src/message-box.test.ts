@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactElement } from "react";
 import { afterEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { previewAttachment, uploadAttachment } from "./attachment-api.ts";
 import { AttachmentList } from "./attachment-list.tsx";
 import { composeMessage } from "./chat-api.ts";
@@ -123,11 +124,11 @@ test("picker paste and drop share upload delivery and preserve distinct pasted t
     view.render(),
     (element) => element.type === "fieldset",
   ).props.onDrop({ preventDefault: prevented, dataTransfer: { files: [dropped], items: [] } });
-  await vi.waitFor(() => {
+  await waitFor(() => {
     view.render();
     expect(previewAttachment).toHaveBeenCalledWith(props.chatId, dropped.name, false);
   });
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(
       findElement<{ isFilled: boolean }>(view.render(), (element) => element.props.label === "Send")
         .props.isFilled,
@@ -136,7 +137,7 @@ test("picker paste and drop share upload delivery and preserve distinct pasted t
   expect(fieldOf(view.render()).value).toBe("Distinct text");
   expect(prevented).toHaveBeenCalledTimes(2);
   pressSend(view.render());
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(props.onSend).toHaveBeenCalledWith(
       "Distinct text",
       "preview-Distinct text",
@@ -159,7 +160,7 @@ test("a failed send restores its chat draft without replacing the open chat draf
   const view = renderHook(() => MessageBox(props));
   fieldOf(view.render()).onChange({ target: { value: "Message in A" } });
   pressSend(view.render());
-  await vi.waitFor(() => expect(composeMessage).toHaveBeenCalledWith("a", "Message in A"));
+  await waitFor(() => expect(composeMessage).toHaveBeenCalledWith("a", "Message in A"));
   props.chatId = "b";
   expect(fieldOf(view.render()).value).toBe("Draft in B");
   reject(new Error("The send failed."));
@@ -219,7 +220,7 @@ test.each([true, false])(
       view.render(),
       (element) => element.props.label === "Queue after this reply",
     ).props.onClick();
-    await vi.waitFor(() => expect(props.onSend).toHaveBeenCalled());
+    await waitFor(() => expect(props.onSend).toHaveBeenCalled());
     expect(fieldOf(view.render()).value).toBe("Submitted draft");
     fieldOf(view.render()).onChange({ target: { value: "Newer draft" } });
     if (isSuccessful) {
@@ -255,7 +256,7 @@ test("enter queues and the modifier sends a steer while stop stays available", a
   press(false, true);
   expect(props.onSend).not.toHaveBeenCalled();
   press(false);
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(props.onSend).toHaveBeenCalledWith(
       "Queue this",
       "preview-Queue this",
@@ -267,7 +268,7 @@ test("enter queues and the modifier sends a steer while stop stays available", a
   );
   fieldOf(view.render()).onChange({ target: { value: "Steer this" } });
   press(true);
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(props.onSend).toHaveBeenCalledWith(
       "Steer this",
       "preview-Steer this",
@@ -383,11 +384,11 @@ test("editing can remove and add retained attachments while preserving the ordin
     view.render(),
     (element) => element.props["aria-label"] === "Attachment files",
   ).props.onChange({ target: { files: [new File(["Text"], "added.txt")], value: "selected" } });
-  await vi.waitFor(() => expect(list().items[0]?.preview).toBeDefined());
+  await waitFor(() => expect(list().items[0]?.preview).toBeDefined());
   list().onChooseFile?.(list().items[0]?.key ?? "", true);
-  await vi.waitFor(() => expect(list().items[0]?.preview?.isFile).toBe(true));
+  await waitFor(() => expect(list().items[0]?.preview?.isFile).toBe(true));
   clickAction(view.render(), "Send");
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(props.onEditSend).toHaveBeenCalledWith(
       expect.objectContaining({
         text: "/literal prompt",
@@ -400,7 +401,7 @@ test("editing can remove and add retained attachments while preserving the ordin
       }),
     ),
   );
-  await vi.waitFor(() => expect(fieldOf(view.render()).value).toBe("Ordinary draft"));
+  await waitFor(() => expect(fieldOf(view.render()).value).toBe("Ordinary draft"));
   expect(list().items.map((item) => item.summary?.id)).toEqual(["ordinary"]);
   expect(readDraftAttachments(props.chatId ?? "")).toEqual([ordinary]);
   expect(props.onSend).not.toHaveBeenCalled();

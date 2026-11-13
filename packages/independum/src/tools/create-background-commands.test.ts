@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vitest";
+import { waitFor } from "../../../../scripts/wait-for.ts";
 import { createModelTexts } from "../model-texts.ts";
 import {
   type BackgroundCommands,
@@ -61,7 +62,7 @@ test("a chat cannot stop another chat's command or suppress its completion note"
   });
   await rejection;
   await background.check("other-chat", id, { waitMs: 0, until: undefined, signal: undefined });
-  await expect.poll(() => ended.length).toBe(1);
+  await waitFor(() => expect(ended.length).toBe(1));
   expect(wasStopped).toBe(false);
   expect(ended[0]).toMatchObject({ chatId: "other-chat", isSeenByModel: false });
 });
