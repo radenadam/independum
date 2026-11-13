@@ -16,7 +16,7 @@ The direct maintainer repair task of 2026-11-13 scopes healing acceptance to con
 
 Edge diagnostics pass. An offline QR probe exposes decoded images before dialog animation completes. Awaiting animation and paint passes 20 theme transitions. The cited light screenshot has QR modules, so no product bug is confirmed. Product code stays unchanged.
 
-`pnpm format` passes. `pnpm check` passes static checks, then records 622 passes, 12 failures, and 12 skips. No default shell blocks `tools/run-command.test.ts` and 12 `create-chat-routes.test.ts` cases. Native skips: nine `create-sandbox.test.ts` cases and one `script-hook-sandbox.test.ts` case. One Unix-only `private-runtime.test.ts` case and the opt-in browser regression skip in ordinary checks.
+`pnpm format` and static checks pass. Final `pnpm check`: 641 passes, 13 failures, 12 skips. Missing default shell: `tools/run-command.test.ts` and 12 `create-chat-routes.test.ts` cases. `permission-policy.test.ts` intermittently accepts a replaced-file identity. It passes a focused rerun. Cause remains unresolved. Native skips: nine `create-sandbox.test.ts` cases and one `script-hook-sandbox.test.ts` case. Unix-only `private-runtime.test.ts` and the opt-in browser regression also skip.
 
 The coordinator must rerun with a shell, execute the manifest scenarios and AI gates with a concrete model, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
 

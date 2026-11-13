@@ -12,8 +12,8 @@ import {
 } from "./gate-contract.ts";
 
 const revision = {
-  head: "head",
-  base: "base",
+  head: "a".repeat(40),
+  base: "b".repeat(40),
   fingerprint: "source",
   contextFingerprint: "context",
 };
@@ -79,27 +79,15 @@ test("push receipts require both roles and the actual outgoing commit", async ()
       browserChecks: [],
       roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
     };
+    expect(() => readGateReceipt(receipt, task, revision, pushFor())).not.toThrow();
+    expect(() => readGateReceipt(receipt, task, revision, pushFor("c".repeat(40)))).toThrow(
+      "outgoing commit",
+    );
     expect(() =>
-      readGateReceipt(receipt, task, revision, "refs/heads/work head refs/heads/work previous"),
-    ).not.toThrow();
-    expect(() =>
-      readGateReceipt(receipt, task, revision, "refs/heads/work another refs/heads/work previous"),
-    ).toThrow("outgoing commit");
-    expect(() =>
-      readGateReceipt(
-        { ...receipt, roles: [resultFor(path)] },
-        task,
-        revision,
-        "refs/heads/work head refs/heads/work previous",
-      ),
+      readGateReceipt({ ...receipt, roles: [resultFor(path)] }, task, revision, pushFor()),
     ).toThrow("combined local gate");
     expect(() =>
-      readGateReceipt(
-        receipt,
-        task,
-        { ...revision, contextFingerprint: "changed" },
-        "refs/heads/work head refs/heads/work previous",
-      ),
+      readGateReceipt(receipt, task, { ...revision, contextFingerprint: "changed" }, pushFor()),
     ).toThrow("invalidate");
   });
 });
@@ -119,19 +107,40 @@ test("passing receipts reject either nonpassing role even without coverage", asy
               position === index ? { ...role, verdict, coverage } : role,
             ),
           };
-          expect(() =>
-            readGateReceipt(
-              receipt,
-              taskFor(path),
-              revision,
-              "refs/heads/work head remote previous",
-            ),
-          ).toThrow("Every role must pass");
+          expect(() => readGateReceipt(receipt, taskFor(path), revision, pushFor())).toThrow(
+            "Every role must pass",
+          );
         }
       }
     }
   });
 });
+
+test.each([revision.head, "c".repeat(40)])(
+  "push receipts reject a reviewed base of %s that omits outgoing commits",
+  async (base) => {
+    await withEvidence((path) => {
+      const reviewed = { ...revision, base };
+      const receipt = {
+        revision: reviewed,
+        verdict: "pass",
+        checks: "pass",
+        browserChecks: [],
+        roles: [
+          { ...resultFor(path), revision: reviewed },
+          { ...resultFor(path), revision: reviewed, role: "qa" },
+        ],
+      };
+      expect(() => readGateReceipt(receipt, taskFor(path), reviewed, pushFor())).toThrow(
+        "remote commit replaced",
+      );
+    });
+  },
+);
+
+function pushFor(head = revision.head): string {
+  return `refs/heads/work ${head} refs/heads/work ${revision.base}`;
+}
 
 test("passing roles require a known engine and concrete model identity", async () => {
   await withEvidence((path) => {

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, relative } from "node:path";
 import { readGateBrowserChecks } from "./read-gate-browser-checks.ts";
+import { readPushUpdates } from "./read-push-revision.ts";
 import type { Revision } from "./read-revision.ts";
 
 export interface GateTask {
@@ -363,10 +364,12 @@ export function readGateReceipt(
     }
   }
   readGateBrowserChecks(value.browserChecks, task, revision);
-  for (const line of outgoing.trim().split("\n")) {
-    const [, commit] = line.trim().split(/\s+/);
-    if (commit !== revision.head) {
+  for (const update of readPushUpdates(outgoing)) {
+    if (update.head !== revision.head) {
       throw new Error("The gate receipt does not cover an outgoing commit.");
+    }
+    if (!/^0+$/.test(update.remoteHead) && update.remoteHead !== revision.base) {
+      throw new Error("The gate receipt base must equal the remote commit replaced by the push.");
     }
   }
 }

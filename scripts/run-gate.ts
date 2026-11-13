@@ -220,7 +220,12 @@ export async function runGate(arguments_: string[]): Promise<void> {
     if (errors.length === 0) {
       receipt.verdict = "pass";
       if (role === "gate") {
-        readGateReceipt(receipt, task, revision, `gate ${revision.head}`);
+        readGateReceipt(
+          receipt,
+          task,
+          revision,
+          `HEAD ${revision.head} refs/heads/gate ${revision.base}`,
+        );
       }
     }
   } catch (error) {
