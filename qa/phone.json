@@ -4,32 +4,53 @@
     {
       "size": [360, 800],
       "scheme": "dark",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { phoneHasChatUrl: !!new URL(location.href).searchParams.get('chat'), darkPhoneFits: document.documentElement.scrollWidth <= 360, darkThemeApplied: (red + green + blue) / 3 < 64, phoneMessageVisible: document.querySelector('textarea[aria-label=Message]')?.checkVisibility() === true }; })()",
-      "shot": "phone-dark"
+      "shot": "phone-dark",
+      "waitFor": {
+        "condition": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { phoneHasChatUrl: !!new URL(location.href).searchParams.get('chat'), darkPhoneFits: document.documentElement.scrollWidth <= 360, darkThemeApplied: (red + green + blue) / 3 < 64, phoneMessageVisible: document.querySelector('textarea[aria-label=Message]')?.checkVisibility() === true }; })()",
+        "message": "The expected checks do not become true: phoneHasChatUrl, darkPhoneFits, darkThemeApplied, phoneMessageVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "light"
     },
     {
-      "run": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { lightPhoneFits: document.documentElement.scrollWidth <= 360, lightThemeApplied: matchMedia('(prefers-color-scheme: light)').matches && !document.documentElement.dataset.theme && (red + green + blue) / 3 > 192 }; })()",
-      "shot": "phone-light"
+      "shot": "phone-light",
+      "waitFor": {
+        "condition": "(() => { const [red, green, blue] = getComputedStyle(document.body).backgroundColor.match(/[0-9]+/g).map(Number); return { lightPhoneFits: document.documentElement.scrollWidth <= 360, lightThemeApplied: matchMedia('(prefers-color-scheme: light)').matches && !document.documentElement.dataset.theme && (red + green + blue) / 3 > 192 }; })()",
+        "message": "The expected checks do not become true: lightPhoneFits, lightThemeApplied, scheme.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')"
     },
     {
-      "run": "({ phoneSidebarOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().left >= 0 && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().right <= 360, phoneSidebarFits: document.documentElement.scrollWidth <= 360 })",
-      "shot": "phone-sidebar"
+      "shot": "phone-sidebar",
+      "waitFor": {
+        "condition": "({ phoneSidebarOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().left >= 0 && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().right <= 360, phoneSidebarFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: phoneSidebarOpens, phoneSidebarFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
     },
     {
-      "run": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); const nav = dialog.querySelector('nav[aria-label=\"Settings sections\"]'); const buttons = [...nav.querySelectorAll('button')]; return { allSettingsSectionsFit: nav.scrollWidth <= nav.clientWidth && buttons.length === 6 && buttons.every(button => { const box = button.getBoundingClientRect(); return box.left >= 0 && box.right <= 360; }), noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "phone-settings"
+      "shot": "phone-settings",
+      "waitFor": {
+        "condition": "(() => { const dialog = document.querySelector('dialog[aria-label=Settings]'); const box = dialog?.getBoundingClientRect(); const nav = dialog.querySelector('nav[aria-label=\"Settings sections\"]'); const buttons = [...nav.querySelectorAll('button')]; return { allSettingsSectionsFit: nav.scrollWidth <= nav.clientWidth && buttons.length === 6 && buttons.every(button => { const box = button.getBoundingClientRect(); return box.left >= 0 && box.right <= 360; }), noEmptyLoginLogo: !dialog.querySelector('li > span[aria-hidden=\"true\"]'), phoneSettingsOpen: dialog?.open === true && dialog.checkVisibility() && dialog.innerText.includes('Logins'), phoneSettingsFit: !!box && box.left >= 0 && box.right <= 360 && document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: allSettingsSectionsFit, noEmptyLoginLogo, phoneSettingsOpen, phoneSettingsFit.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "light"
@@ -38,29 +59,45 @@
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Appearance')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-light-appearance"
+      "shot": "phone-light-appearance",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Notifications')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-light-notifications"
+      "shot": "phone-light-notifications",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Archived chats')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-light-archived-chats"
+      "shot": "phone-light-archived-chats",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Logins')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-light-logins"
+      "shot": "phone-light-logins",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "dark"
@@ -69,29 +106,45 @@
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Appearance')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-dark-appearance"
+      "shot": "phone-dark-appearance",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Appearance', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Notifications')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-dark-notifications"
+      "shot": "phone-dark-notifications",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Notifications', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Archived chats')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-dark-archived-chats"
+      "shot": "phone-dark-archived-chats",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Archived chats', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Logins')"
     },
     {
-      "run": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
-      "shot": "phone-dark-logins"
+      "shot": "phone-dark-logins",
+      "waitFor": {
+        "condition": "({ sectionReachable: document.querySelector('dialog[aria-label=Settings] nav button[aria-current=true]')?.innerText.trim() === 'Logins', sectionFits: document.querySelector('dialog[aria-label=Settings] nav').scrollWidth <= document.querySelector('dialog[aria-label=Settings] nav').clientWidth })",
+        "message": "The expected checks do not become true: sectionReachable, sectionFits.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

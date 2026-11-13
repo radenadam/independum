@@ -194,7 +194,14 @@ async function prepareReceipt(folder: string, base: string): Promise<void> {
   await writeFile(join(directory, "task.json"), JSON.stringify(task));
   await writeFile(
     receiptPath,
-    JSON.stringify({ revision, verdict: "pass", checks: "pass", roles, browserChecks: [] }),
+    JSON.stringify({
+      revision,
+      verdict: "pass",
+      checks: "pass",
+      roles,
+      browserChecks: [],
+      testAvailability: [],
+    }),
   );
 }
 

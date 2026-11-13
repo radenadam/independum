@@ -15,6 +15,7 @@ import {
 } from "./gate-contract.ts";
 import { type GateBrowserCheck, readGateBrowserChecks } from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
+import { readTestAvailability, type TestAvailability } from "./read-test-availability.ts";
 
 /** Runs deterministic checks and fresh local agent roles against one source revision. */
 export async function runGate(arguments_: string[]): Promise<void> {
@@ -85,6 +86,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     checks: string;
     roles: GateResult[];
     browserChecks: GateBrowserCheck[];
+    testAvailability: TestAvailability[];
     error?: string;
   } = {
     revision,
@@ -94,6 +96,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     checks: "not run",
     roles: [],
     browserChecks: [],
+    testAvailability: [],
   };
   writeFileSync(join(directory, "task.json"), JSON.stringify(task, null, 2));
   const schemaPath = join(directory, "result-schema.json");
@@ -103,11 +106,37 @@ export async function runGate(arguments_: string[]): Promise<void> {
   try {
     if (role === "gate") {
       try {
-        await packageCommand(["check"], join(directory, "check.log"));
+        await packageCommand(["check"], join(directory, "check.log"), {
+          // biome-ignore lint/style/useNamingConvention: Child processes receive environment names in capitals.
+          INDEPENDUM_TEST_REPORT: join(directory, "test-availability.json"),
+        });
         receipt.checks = "pass";
       } catch (error) {
         receipt.checks = "fail";
         errors.push(errorMessage(error));
+      }
+      try {
+        receipt.testAvailability = readTestAvailability(
+          JSON.parse(await readFile(join(directory, "test-availability.json"), "utf8")),
+        );
+        if (receipt.testAvailability.some((test) => test.status !== "skipped")) {
+          receipt.checks = "fail";
+          errors.push("Some tests fail or are unavailable. Read test-availability.json.");
+        }
+      } catch (error) {
+        receipt.checks = "fail";
+        receipt.testAvailability = [
+          {
+            file: join(folder, "package.json"),
+            name: "pnpm test",
+            status: "unavailable",
+            reason: `No complete test report is available. ${errorMessage(error)}`,
+          },
+        ];
+        errors.push("Deterministic test availability evidence is missing.");
+      }
+      for (const test of receipt.testAvailability) {
+        process.stdout.write(`Test ${test.status}: ${test.file} > ${test.name}: ${test.reason}\n`);
       }
     }
     requireRevision();
@@ -136,6 +165,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
         `Record commands, platform and browser. The runner records engine and model from its CLI invocation. Do not infer or report model identity. Unavailable required capability means incomplete. Each acceptance id needs observation and absolute nonempty evidence paths. For visible QA, include screenshots, values.jsonl and revision.json from pnpm qa with --base ${revision.base}. Inspect evidence before citing it. A skip, timeout, authentication failure or missing check is never pass.`,
         `Return only the schema result. Copy this revision exactly: ${JSON.stringify(revision)}. Task fingerprint: ${gateTaskFingerprint(task)}.`,
         `Task: ${JSON.stringify(task)}`,
+        `Deterministic test availability: ${JSON.stringify(receipt.testAvailability)}. Skips remain missing evidence.`,
       ].join("\n\n");
       writeFileSync(join(directory, `${currentRole}-prompt.txt`), prompt);
       const log = join(directory, `${currentRole}.log`);
@@ -320,7 +350,11 @@ export async function runGate(arguments_: string[]): Promise<void> {
     }
   }
 
-  async function packageCommand(parameters: string[], log: string): Promise<void> {
+  async function packageCommand(
+    parameters: string[],
+    log: string,
+    environment: NodeJS.ProcessEnv = {},
+  ): Promise<void> {
     const pnpm = process.env.npm_execpath;
     if (pnpm === undefined) {
       throw new Error("Run the gate through pnpm.");
@@ -330,6 +364,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
       pnpm.endsWith(".exe") ? parameters : [pnpm, ...parameters],
       "",
       log,
+      environment,
     );
   }
 
@@ -338,6 +373,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     parameters: string[],
     input: string,
     log: string,
+    environment: NodeJS.ProcessEnv = {},
   ): Promise<void> {
     writeFileSync(log, "");
     await new Promise<void>((complete, reject) => {
@@ -346,6 +382,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
         windowsHide: true,
         detached: process.platform !== "win32",
         stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, ...environment },
       });
       const timer = setTimeout(() => {
         if (child.pid !== undefined) {

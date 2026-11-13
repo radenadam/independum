@@ -1,6 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
-import { setTimeout } from "node:timers/promises";
+import { checkRenderedQr } from "./check-rendered-qr.ts";
 import type { BrowserConnection } from "./connect-browser.ts";
 import type { QaStep } from "./read-scenario.ts";
 
@@ -35,7 +35,6 @@ export async function runScenario(
         }
         client = selected;
         await client.page.goto(targetUrl);
-        await setTimeout(2500);
       }
       if (step.size !== undefined) {
         await client.resize(step.size, step.scale ?? 1);
@@ -45,21 +44,48 @@ export async function runScenario(
       }
       if (step.go === true) {
         await client.page.goto(url);
-        await setTimeout(2500);
+      }
+      if (step.reload) {
+        await client.page.reload();
+      }
+      if (step.closePage) {
+        await client.page.goto("about:blank");
+      }
+      if (step.waitFor !== undefined) {
+        try {
+          const condition = await client.page.waitForFunction(
+            `(() => { try { const condition = (${step.waitFor.condition}); const value = typeof condition === 'function' ? condition() : condition; return value && !(typeof value === 'object' && Object.values(value).some(part => part === false)) ? value : false; } catch { return false; } })()`,
+            undefined,
+            {
+              timeout: step.waitFor.timeoutMs,
+            },
+          );
+          try {
+            await record(index, await condition.jsonValue());
+          } finally {
+            await condition.dispose();
+          }
+        } catch (error) {
+          throw new Error(step.waitFor.message, { cause: error });
+        }
       }
       if (step.run !== undefined) {
         const value = await evaluate(step.run);
-        await appendFile(
-          join(directory, "values.jsonl"),
-          `${JSON.stringify({ step: index + 1, value: value ?? null })}\n`,
-        );
+        await record(index, value);
         if (
           value === false ||
           (value !== null &&
             typeof value === "object" &&
             Object.values(value).some((part) => part === false))
         ) {
-          throw new Error(`Step ${index + 1} returns a failed check.`);
+          const names =
+            value === false
+              ? "false"
+              : Object.entries(value as object)
+                  .filter(([, part]) => part === false)
+                  .map(([name]) => name)
+                  .join(", ");
+          throw new Error(`Step ${index + 1} returns failed checks: ${names}.`);
         }
       }
       if (step.key !== undefined) {
@@ -83,7 +109,10 @@ export async function runScenario(
         const [x, y] = await pointOf(step.hoverOn);
         await client.page.mouse.move(x, y);
       }
-      await setTimeout(step.wait ?? 700);
+      if (step.checkQr !== undefined) {
+        const value = await checkRenderedQr(client.page, step.checkQr, directory);
+        await record(index, value);
+      }
       if (step.shot !== undefined) {
         await screenshot(step.shot);
       }
@@ -91,6 +120,13 @@ export async function runScenario(
       await screenshot("failure").catch(() => undefined);
       throw new Error(`Scenario step ${index + 1} fails.`, { cause: error });
     }
+  }
+
+  async function record(index: number, value: unknown): Promise<void> {
+    await appendFile(
+      join(directory, "values.jsonl"),
+      `${JSON.stringify({ step: index + 1, value: value ?? null })}\n`,
+    );
   }
 
   async function evaluate(expression: string): Promise<unknown> {
@@ -111,6 +147,15 @@ export async function runScenario(
   }
 
   async function pointOf(expression: string): Promise<[number, number]> {
+    await client.page
+      .waitForFunction(
+        `(() => { try { const element = (${expression}); if (Array.isArray(element)) return true; if (!element || element.matches(':disabled') || element.getAttribute('aria-disabled') === 'true' || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!box.width && !!box.height && !!hit && element.contains(hit) && !document.getAnimations().some(animation => animation.playState === 'running' && animation.effect?.getComputedTiming().iterations !== Infinity); } catch { return false; } })()`,
+        undefined,
+        { timeout: 25000 },
+      )
+      .catch((error: unknown) => {
+        throw new Error(`The target does not become reachable: ${expression}.`, { cause: error });
+      });
     const point = await evaluate(
       `(() => { const element = (${expression}); if (Array.isArray(element)) return element; if (!element) throw new Error('The target does not exist.'); element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' }); const box = element.getBoundingClientRect(); if (!box.width || !box.height) throw new Error('The target has no visible size.'); const x = box.left + box.width / 2; const y = box.top + box.height / 2; const hit = document.elementFromPoint(x, y); if (hit === null || !element.contains(hit)) throw new Error('Another element covers the target.'); return [x, y]; })()`,
     );
@@ -125,6 +170,11 @@ export async function runScenario(
   }
 
   async function screenshot(name: string): Promise<void> {
+    await client.page.waitForFunction(
+      "!document.getAnimations().some(animation => animation.playState === 'running' && animation.effect?.getComputedTiming().iterations !== Infinity)",
+      undefined,
+      { timeout: 25000 },
+    );
     await client.page.screenshot({ path: join(directory, `${name}.png`) });
   }
 }

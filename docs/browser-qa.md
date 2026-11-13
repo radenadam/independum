@@ -1,6 +1,6 @@
 # Browser QA
 
-Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation workers' sandbox. The harness uses `playwright-core` with installed Edge through `channel: "msedge"`, or Chrome through `channel: "chrome"`. It downloads no browser. `--browser chrome` selects Chrome and `--browser <path>` selects an explicit installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the old direct DevTools driver. One canonical suite remains in `qa`.
+Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation workers' sandbox. The harness uses `playwright-core` with installed Edge through `channel: "msedge"`, or Chrome through `channel: "chrome"`. It downloads no browser. `--browser chrome` selects Chrome and `--browser <path>` selects an explicit installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the old direct DevTools driver.
 
 ## Evidence
 
@@ -8,7 +8,7 @@ The command prints a fresh temporary output folder with screenshots, named value
 
 False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. A scenario pass does not establish visual quality or newcomer comprehension. The independent AI QA role inspects every screenshot and named value and assesses those qualities. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
 
-The direct maintainer correction of 2026-11-13 requires captures to frame their named content. Close covering drawers, scroll the owning section into view, and use `hoverOn` or `clickOn` for hit tests. DOM presence and bounds alone do not establish visibility. Decode QR images, await dialog animation and paint, and check modules and background after theme changes. A blank image must fail explicitly. Real diagnostics need injected failures. Long cases need hundreds of requests and several compactions.
+The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captures and hit tests through `hoverOn` or `clickOn`. Close covering drawers and scroll content into view. `checkQr` samples element screenshot pixels, never the SVG source. After loading and finite animations, it captures until modules and white background appear within five seconds. Persistent blanks fail and retain their PNG. The component probe's transient blank recovers without app changes. No product gap is established.
 
 ## Preview
 
@@ -41,13 +41,15 @@ Fields execute in this order:
 | `size`, `scale` | Viewport pair and optional pixel ratio. Below 500 pixels enables touch and mobile behavior. Resize before navigation when changing device identity. |
 | `scheme` | Emulated light or dark scheme. |
 | `go` | Navigate to the preview. |
-| `run` | Await an expression and record its returned value. Top-level false checks fail. |
+| `reload`, `closePage` | Await reload or navigation to a blank page. |
+| `waitFor` | Poll `condition` and record its truthy value with no false fields within `timeoutMs`, at most 25000. Fail with `message`. |
+| `run` | Await an expression and record its returned value. False checks fail by name. |
 | `key` | Playwright key chord such as `Enter`, `Control+Enter`, or `Shift+ArrowRight`. |
 | `text` | Insert text into the focused control. |
 | `clickOn` | Expression returning a DOM element or coordinate pair. Scroll and verify reachability before clicking. |
 | `drag` | Target expression `on` and distance pair `by`, with ten pointer steps. |
 | `hoverOn` | Reachable element or coordinate pair. |
-| `wait` | Delay from zero to 60000 milliseconds, default 700. |
+| `checkQr` | After actions, capture element expression `on` to PNG `name` and check its rendered pixels. |
 | `shot` | Save a kebab-case PNG name. |
 
-Focus, text, and Enter normally use separate steps. Touch Enter adds a newline, so press Send on phones. Close phone drawers before using the chat. Prefer a condition promise over a long delay. Targets must be visible and uncovered. Playwright actions time out after 30 seconds and expressions after 25 seconds. Screenshots and named values preserve the existing evidence conventions.
+Separate focus, text, and Enter. Touch Enter adds a newline, so press Send on phones. Close phone drawers before chatting. Fixed delays are rejected. Wait for saves and polling refreshes with bounded conditions and failure messages. Targets await visibility, reachability, and finite animations. Expressions time out after 25 seconds.

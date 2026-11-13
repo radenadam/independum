@@ -3,14 +3,24 @@
   "steps": [
     {
       "size": [1280, 900],
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('main button[aria-expanded]')].find(button => button.textContent.includes('Faux typing'))"
     },
     {
       "run": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const search = [...(menu?.querySelectorAll('input') ?? [])].find(input => input.labels?.[0]?.textContent === 'Search models'); window.modelMenuOpeningBox = menu.getBoundingClientRect().toJSON(); return { menuOpens: menu?.checkVisibility() === true, modelSearchFocused: !!search && document.activeElement === search, standInModelChosen: menu?.querySelector('button[aria-current=true]')?.textContent.startsWith('Faux typing') === true, thinkingEffortShowsMedium: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'Medium' && menu.innerText.includes('Thinking effort\\nMedium') }; })()",
-      "shot": "model-menu"
+      "shot": "model-menu",
+      "waitFor": {
+        "condition": "!!document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.checkVisibility({checkOpacity:true})",
+        "message": "The model chooser does not finish opening.",
+        "timeoutMs": 25000
+      }
     },
     {
       "drag": {
@@ -19,19 +29,26 @@
       }
     },
     {
-      "run": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const pill = [...document.querySelectorAll('main button[aria-expanded]')].find(button => button.textContent.includes('Faux typing')); const box = menu.getBoundingClientRect(); return { menuKeepsOpeningPosition: Math.abs(box.left - window.modelMenuOpeningBox.left) < 1 && Math.abs(box.top - window.modelMenuOpeningBox.top) < 1, effortChangesToHigh: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' && menu.innerText.includes('Thinking effort\\nHigh'), messageBoxShowsHigh: pill?.innerText.includes('High') === true, menuStaysOpen: menu?.checkVisibility() === true && pill?.getAttribute('aria-expanded') === 'true' }; })()",
-      "shot": "effort"
+      "shot": "effort",
+      "waitFor": {
+        "condition": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const pill = [...document.querySelectorAll('main button[aria-expanded]')].find(button => button.textContent.includes('Faux typing')); const box = menu.getBoundingClientRect(); return { menuKeepsOpeningPosition: Math.abs(box.left - window.modelMenuOpeningBox.left) < 1 && Math.abs(box.top - window.modelMenuOpeningBox.top) < 1, effortChangesToHigh: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' && menu.innerText.includes('Thinking effort\\nHigh'), messageBoxShowsHigh: pill?.innerText.includes('High') === true, menuStaysOpen: menu?.checkVisibility() === true && pill?.getAttribute('aria-expanded') === 'true' }; })()",
+        "message": "The expected checks do not become true: menuKeepsOpeningPosition, effortChangesToHigh, messageBoxShowsHigh, menuStaysOpen.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "clickOn": "[...document.querySelectorAll('[role=dialog] input')].find(input => input.labels?.[0]?.textContent === 'Search models')",
-      "wait": 100
+      "clickOn": "[...document.querySelectorAll('[role=dialog] input')].find(input => input.labels?.[0]?.textContent === 'Search models')"
     },
     {
       "text": "no such model"
     },
     {
-      "run": "({ searchFindsNothing: document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.innerText.includes('No models match.') === true && !document.querySelector('[role=dialog][aria-label=\"Choose a model\"]').innerText.includes('Faux typing'), effortStaysInMenu: document.querySelector('[role=dialog][aria-label=\"Choose a model\"] input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' })",
-      "shot": "model-search"
+      "shot": "model-search",
+      "waitFor": {
+        "condition": "({ searchFindsNothing: document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.innerText.includes('No models match.') === true && !document.querySelector('[role=dialog][aria-label=\"Choose a model\"]').innerText.includes('Faux typing'), effortStaysInMenu: document.querySelector('[role=dialog][aria-label=\"Choose a model\"] input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'High' })",
+        "message": "The expected checks do not become true: searchFindsNothing, effortStaysInMenu.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

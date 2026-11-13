@@ -4,24 +4,31 @@
     {
       "size": [1440, 1000],
       "scheme": "light",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
     },
     {
-      "run": "(async () => { window.headlessRequest = async (path, body, headers = {}) => { const response = await fetch('/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); if (!response.ok) throw new Error('The headless QA request fails.'); return response.status === 204 ? null : response.json(); }; window.headlessOriginal = new URL(location.href).searchParams.get('chat'); const receipt = await window.headlessRequest('/prompt', { requestId: 'qa-headless-active', chatId: window.headlessOriginal, text: 'Check network permissions.', isLiteral: true }); window.headlessActive = receipt; const required = await window.headlessRequest('/operations/' + receipt.operationId + '/wait'); const settled = await window.headlessRequest('/operations/' + receipt.operationId + '/wait?onQuestion=wait'); return { selectedChatUnchanged: new URL(location.href).searchParams.get('chat') === window.headlessOriginal, approvalNamed: required.code === 'approvalRequired' && typeof required.toolCallId === 'string', finalTextAvailable: settled.text?.startsWith('Preview reply complete.') }; })()",
-      "wait": 500
+      "run": "(async () => { window.headlessRequest = async (path, body, headers = {}) => { const response = await fetch('/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); if (!response.ok) throw new Error('The headless QA request fails.'); return response.status === 204 ? null : response.json(); }; window.headlessOriginal = new URL(location.href).searchParams.get('chat'); const receipt = await window.headlessRequest('/prompt', { requestId: 'qa-headless-active', chatId: window.headlessOriginal, text: 'Check network permissions.', isLiteral: true }); window.headlessActive = receipt; const required = await window.headlessRequest('/operations/' + receipt.operationId + '/wait'); const settled = await window.headlessRequest('/operations/' + receipt.operationId + '/wait?onQuestion=wait'); return { selectedChatUnchanged: new URL(location.href).searchParams.get('chat') === window.headlessOriginal, approvalNamed: required.code === 'approvalRequired' && typeof required.toolCallId === 'string', finalTextAvailable: settled.text?.startsWith('Preview reply complete.') }; })()"
     },
     {
-      "run": "(async () => { const agent = await window.headlessRequest('/chats/' + window.headlessOriginal + '/agent'); const profile = agent.configuration.profile; const body = { ...profile.document, profile: { ...profile.document.profile, settings: { ...profile.document.profile.settings, model: { providerId: 'faux', modelId: 'faux-typing' } } } }; const response = await fetch('/api/profiles/user/default?projectId=' + encodeURIComponent(profile.projectId), { method: 'PUT', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', 'If-Match': profile.revision }, body: JSON.stringify(body) }); if (!response.ok) throw new Error('The headless profile save fails.'); const state = await window.headlessRequest('/chats/' + window.headlessOriginal); window.headlessNew = await window.headlessRequest('/prompt', { requestId: 'qa-headless-new', project: state.folder, profile: { scope: 'user', id: 'default' }, text: 'Headless new task.', isLiteral: true }); await window.headlessRequest('/operations/' + window.headlessNew.operationId + '/wait?onQuestion=wait'); return { newChatIsDistinct: window.headlessNew.chatId !== window.headlessOriginal, originalStaysSelected: new URL(location.href).searchParams.get('chat') === window.headlessOriginal }; })()",
-      "wait": 500
+      "run": "(async () => { const agent = await window.headlessRequest('/chats/' + window.headlessOriginal + '/agent'); const profile = agent.configuration.profile; const body = { ...profile.document, profile: { ...profile.document.profile, settings: { ...profile.document.profile.settings, model: { providerId: 'faux', modelId: 'faux-typing' } } } }; const response = await fetch('/api/profiles/user/default?projectId=' + encodeURIComponent(profile.projectId), { method: 'PUT', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', 'If-Match': profile.revision }, body: JSON.stringify(body) }); if (!response.ok) throw new Error('The headless profile save fails.'); const state = await window.headlessRequest('/chats/' + window.headlessOriginal); window.headlessNew = await window.headlessRequest('/prompt', { requestId: 'qa-headless-new', project: state.folder, profile: { scope: 'user', id: 'default' }, text: 'Headless new task.', isLiteral: true }); await window.headlessRequest('/operations/' + window.headlessNew.operationId + '/wait?onQuestion=wait'); return { newChatIsDistinct: window.headlessNew.chatId !== window.headlessOriginal, originalStaysSelected: new URL(location.href).searchParams.get('chat') === window.headlessOriginal }; })()"
     },
     {
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.innerText.trim() === 'Headless new task.')"
     },
     {
-      "run": "({ newChatVisible: new URL(location.href).searchParams.get('chat') === window.headlessNew.chatId && document.querySelector('main').innerText.includes('Headless new task.') })"
+      "waitFor": {
+        "condition": "({ newChatVisible: new URL(location.href).searchParams.get('chat') === window.headlessNew.chatId && document.querySelector('main').innerText.includes('Headless new task.') })",
+        "message": "The expected checks do not become true: newChatVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
@@ -36,8 +43,12 @@
       "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
     },
     {
-      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
-      "shot": "headless-source-desktop-light"
+      "shot": "headless-source-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
+        "message": "The expected checks do not become true: sourceHeadingVisible, identifiersReadable, sourceFits, pageFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [360, 800],
@@ -47,16 +58,24 @@
       "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
     },
     {
-      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
-      "shot": "headless-source-phone-light"
+      "shot": "headless-source-phone-light",
+      "waitFor": {
+        "condition": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
+        "message": "The expected checks do not become true: sourceHeadingVisible, identifiersReadable, sourceFits, pageFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "dark",
       "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
     },
     {
-      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
-      "shot": "headless-source-phone-dark"
+      "shot": "headless-source-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
+        "message": "The expected checks do not become true: sourceHeadingVisible, identifiersReadable, sourceFits, pageFits.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

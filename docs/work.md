@@ -4,7 +4,7 @@ Building is stopped for repository healing. The maintainer's 2026-11-09 instruct
 
 The 2026-11-13 direct maintainer correction makes passing deterministic checks, AI review, and AI browser QA sufficient for landing within settled intent. The maintainer tests at milestones. [The working agreement](standard.md#authority) owns authority, and [decision 0079](decisions/0079-gates-authorize-landing.md) records the amendment.
 
-The phase is context reconstruction and local gates. Product behavior stays unchanged. Implementation is not acceptance. [The checkpoint](checkpoint.md) records product gaps.
+Product behavior stays unchanged. Implementation is not acceptance. [The checkpoint](checkpoint.md) records product gaps.
 
 ## Current boundary
 
@@ -12,12 +12,12 @@ The healing worker stays offline in its supplied worktree, makes no git mutation
 
 ## Resume pointers
 
-The direct maintainer repair task of 2026-11-13 scopes healing acceptance to context and harness changes. The narrowed manifest and evidence live in ignored `node_modules/.cache/healing`. Captures now frame controls and hit-test visibility. Pi writes 240 requests and four compactions for `qa/long-session.json`. Browser execution of the changed app scenarios remains pending.
+The 2026-11-13 direct repair scopes acceptance to context and harness changes. The manifest and evidence use ignored `node_modules/.cache/healing`. Captures frame controls and hit-test visibility. Pi writes 240 requests and four compactions for `qa/long-session.json`. Changed app scenarios await coordinator execution.
 
-Edge diagnostics pass. An offline QR probe exposes decoded images before dialog animation completes. Awaiting animation and paint passes 20 theme transitions. The cited light screenshot has QR modules, so no product bug is confirmed. Product code stays unchanged.
+The 2026-11-14 direct repair rejects source-image sampling and unnamed skips. The cited light QR is blank. An offline pairing component probe reproduces a transient blank after resizing and changing theme. Later captures recover without app changes. QR checks sample element screenshots. Bounded condition waits include rename refresh. Availability reports retain names and reasons. No product QR gap is established.
 
-`pnpm format` and static checks pass. Final `pnpm check`: 641 passes, 13 failures, 12 skips. Missing default shell: `tools/run-command.test.ts` and 12 `create-chat-routes.test.ts` cases. `permission-policy.test.ts` intermittently accepts a replaced-file identity. It passes a focused rerun. Cause remains unresolved. Native skips: nine `create-sandbox.test.ts` cases and one `script-hook-sandbox.test.ts` case. Unix-only `private-runtime.test.ts` and the opt-in browser regression also skip.
+Formatting and static checks pass. Without a default shell, `tools/run-command.test.ts` cannot collect and 12 `create-chat-routes.test.ts` cases fail. Ten native tests skip in `create-sandbox.test.ts` and `script-hook-sandbox.test.ts`. Unix-only `private-runtime.test.ts` and both opt-in browser tests skip normally. Explicit Edge regressions and focused checks pass: 45 tests. The availability report names each limitation. The earlier intermittent replaced-file identity failure in `permission-policy.test.ts` remains unexplained.
 
-The coordinator must rerun with a shell, execute the manifest scenarios and AI gates with a concrete model, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
+The coordinator must rerun with a shell, run scenarios and AI gates, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
 
 After healing, [the roadmap](roadmap.md) orders product work. Keep implementation and verification separate in the ledger.

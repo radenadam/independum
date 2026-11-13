@@ -4,22 +4,34 @@
     {
       "size": [1440, 1000],
       "scheme": "light",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
     },
     {
-      "run": "(() => { const picker = document.querySelector('input[aria-label=\"Attachment files\"]'); const transfer = new DataTransfer(); transfer.items.add(new File(['First line.\\r\\nSecond line.'], 'notes.txt', {type: 'text/plain'})); picker.files = transfer.files; picker.dispatchEvent(new Event('change', {bubbles:true})); return { pickerAcceptsFile: true }; })()",
-      "wait": 500
+      "run": "(() => { const picker = document.querySelector('input[aria-label=\"Attachment files\"]'); const transfer = new DataTransfer(); transfer.items.add(new File(['First line.\\r\\nSecond line.'], 'notes.txt', {type: 'text/plain'})); picker.files = transfer.files; picker.dispatchEvent(new Event('change', {bubbles:true})); return { pickerAcceptsFile: true }; })()"
     },
     {
       "run": "(() => { const transfer = new DataTransfer(); const pixel = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), c => c.charCodeAt(0)); transfer.items.add(new File([pixel], 'pixel.png', {type:'image/png'})); transfer.setData('text/plain','Distinct pasted text.'); transfer.setData('text/html','<img src=\"https://example.invalid/image.png\">'); document.querySelector('textarea[aria-label=Message]').dispatchEvent(new ClipboardEvent('paste', {bubbles:true, cancelable:true, clipboardData:transfer})); return { imagePasteDispatched: true }; })()",
-      "wait": 500
+      "waitFor": {
+        "condition": "document.body.innerText.includes('notes.txt') && !document.body.innerText.includes('Uploading')",
+        "message": "The picked text attachment does not finish uploading.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "(() => { const transfer = new DataTransfer(); transfer.items.add(new File(['%PDF-1.7\\nSaved original.'], 'paper.pdf', {type:'application/pdf'})); document.querySelector('fieldset[aria-label=\"Message box\"]').dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer})); return { binaryDropDispatched: true }; })()",
-      "wait": 500
+      "waitFor": {
+        "condition": "document.body.innerText.includes('pixel.png') && !document.body.innerText.includes('Uploading')",
+        "message": "The pasted image attachment does not finish uploading.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "(async () => { for (let attempt=0; attempt<150 && (document.body.innerText.includes('Uploading') || !document.body.innerText.includes('File path included')); attempt+=1) await new Promise(resolve=>setTimeout(resolve,100)); return { textForm:document.body.innerText.includes('Text included'), fileForm:document.body.innerText.includes('File path included'), imageReachesModel:!document.body.innerText.includes('This model receives the image details, but not its pixels.'), distinctTextPreserved:document.querySelector('textarea[aria-label=Message]').value === 'Distinct pasted text.', oneImage:[...document.querySelectorAll('button')].filter(button=>button.textContent.includes('pixel.png') && button.textContent.includes('Image')).length === 1 }; })()",
@@ -29,8 +41,12 @@
       "clickOn": "[...document.querySelectorAll('button')].find(button=>button.textContent.includes('pixel.png') && button.textContent.includes('Image'))"
     },
     {
-      "run": "({ originalAndPrepared: document.querySelector('dialog[aria-label=Attachment]').innerText.includes('Original') && document.querySelector('dialog[aria-label=Attachment]').innerText.includes('Model input'), exactBytes: document.querySelector('dialog[aria-label=Attachment]').innerText.includes('68 bytes.') })",
-      "shot": "attachment-detail"
+      "shot": "attachment-detail",
+      "waitFor": {
+        "condition": "({ originalAndPrepared: document.querySelector('dialog[aria-label=Attachment]').innerText.includes('Original') && document.querySelector('dialog[aria-label=Attachment]').innerText.includes('Model input'), exactBytes: document.querySelector('dialog[aria-label=Attachment]').innerText.includes('68 bytes.') })",
+        "message": "The expected checks do not become true: originalAndPrepared, exactBytes.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('button[aria-label=\"Close attachment\"]')"
@@ -44,66 +60,83 @@
       "hoverOn": "[...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('notes.txt'))"
     },
     {
-      "run": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
-      "shot": "attachments-phone-light"
+      "shot": "attachments-phone-light",
+      "waitFor": {
+        "condition": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: attachmentTilesVisible, messageVisible, sendReachable, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "dark",
       "hoverOn": "[...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('notes.txt'))"
     },
     {
-      "run": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
-      "shot": "attachments-phone-dark"
+      "shot": "attachments-phone-dark",
+      "waitFor": {
+        "condition": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: attachmentTilesVisible, messageVisible, sendReachable, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "run": "({ phoneFits:document.documentElement.scrollWidth <= 360 })"
+      "waitFor": {
+        "condition": "({ phoneFits:document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [1440, 1000]
     },
     {
-      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
-      "wait": 0
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
-      "text": " Hold queue preview.",
-      "wait": 0
+      "text": " Hold queue preview."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 100
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
       "run": "(async () => { for (let attempt=0;attempt<120 && !document.querySelector('button[aria-label=Stop]');attempt+=1) await new Promise(resolve=>setTimeout(resolve,50)); const transfer=new DataTransfer();transfer.items.add(new File(['Queued attachment.'],'queued.txt',{type:'text/plain'}));const picker=document.querySelector('input[aria-label=\"Attachment files\"]');picker.files=transfer.files;picker.dispatchEvent(new Event('change',{bubbles:true}));return { replying:!!document.querySelector('button[aria-label=Stop]') };})()",
-      "wait": 700
+      "waitFor": {
+        "condition": "document.querySelector('textarea[aria-label=Message]')?.value === '' && !!document.querySelector('button[aria-label=Stop]')",
+        "message": "The attachment reply does not start and clear its draft.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=\"Queue after this reply\"]')",
-      "wait": 100
+      "clickOn": "document.querySelector('button[aria-label=\"Queue after this reply\"]')"
     },
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')",
-      "wait": 0
+      "waitFor": {
+        "condition": "document.querySelector('textarea[aria-label=Message]')?.value === '' && document.body.innerText.includes('queued.txt')",
+        "message": "The queued attachment does not save and clear its draft.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "text": "Steer while attachments wait.",
-      "wait": 0
+      "text": "Steer while attachments wait."
     },
     {
-      "key": "Control+Enter",
-      "wait": 100
+      "key": "Control+Enter"
     },
     {
       "clickOn": "document.querySelector('button[aria-label=Stop]')",
-      "wait": 200
+      "waitFor": {
+        "condition": "document.querySelector('textarea[aria-label=Message]')?.value === '' && document.body.innerText.includes('Steer while attachments wait.')",
+        "message": "The steering input does not save before Stop.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "(async()=>{for(let attempt=0;attempt<150 && document.querySelector('button[aria-label=Stop]');attempt+=1)await new Promise(resolve=>setTimeout(resolve,100));return { held:document.body.innerText.includes('Resume to send.'), attachmentWaiting:document.body.innerText.includes('queued.txt'), steeringHeld:document.body.innerText.includes('Steer while attachments wait.') };})()",
       "shot": "attachments-held"
     },
     {
-      "clickOn": "[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Resume sending')",
-      "wait": 100
+      "clickOn": "[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Resume sending')"
     },
     {
       "run": "(async()=>{for(let attempt=0;attempt<200 && (document.querySelector('button[aria-label=Stop]') || document.body.innerText.includes('Waiting messages'));attempt+=1){const approval=[...document.querySelectorAll('button')].find(button=>button.textContent.trim()==='Allow for every chat of the Default profile');if(approval)approval.click();await new Promise(resolve=>setTimeout(resolve,100));}return { resumed:!document.body.innerText.includes('Waiting messages'), queuedAttachmentDelivered:document.querySelector('main').innerText.includes('queued.txt') };})()",

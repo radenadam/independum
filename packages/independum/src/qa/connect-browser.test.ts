@@ -11,6 +11,13 @@ const selection = process.env.INDEPENDUM_QA_BROWSER;
 
 test.skipIf(selection === undefined)(
   "real playwright diagnostics each reject an otherwise successful scenario",
+  {
+    timeout: 60000,
+    meta: {
+      skipReason:
+        "INDEPENDUM_QA_BROWSER does not select an installed browser for this opt-in test.",
+    },
+  },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "independum-diagnostics-"));
     let browser: Awaited<ReturnType<typeof connectBrowser>> | undefined;
@@ -45,7 +52,6 @@ test.skipIf(selection === undefined)(
             {
               go: true,
               run: "({ diagnosticPageLoaded: document.querySelector('h1').textContent === 'Diagnostic fixture' })",
-              wait: 0,
             },
           ],
           directory,
@@ -69,5 +75,4 @@ test.skipIf(selection === undefined)(
       await rm(directory, { recursive: true, force: true });
     }
   },
-  60000,
 );

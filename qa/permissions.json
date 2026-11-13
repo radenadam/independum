@@ -4,7 +4,12 @@
     {
       "size": [1440, 1000],
       "scheme": "light",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
@@ -16,44 +21,66 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Permissions'))"
     },
     {
-      "run": "({ sectionsVisible: ['Permission mode', 'Command environment', 'Sandbox boundary', 'Denied paths', 'Saved approvals', 'Protected settings folders'].every(label => document.querySelector('aside').innerText.includes(label)), modeControlVisible: !!document.querySelector('fieldset[aria-label=\"Permission mode\"]'), sandboxDetailsVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Shell sandbox details')), readsExplained: document.querySelector('aside').innerText.includes('read everywhere except denied paths'), maskingExplained: document.querySelector('aside').innerText.includes('shows denied folders as empty'), noStartupApproval: !document.querySelector('aside').innerText.includes('startup permissions') })",
-      "shot": "permissions-desktop"
+      "shot": "permissions-desktop",
+      "waitFor": {
+        "condition": "({ sectionsVisible: ['Permission mode', 'Command environment', 'Sandbox boundary', 'Denied paths', 'Saved approvals', 'Protected settings folders'].every(label => document.querySelector('aside').innerText.includes(label)), modeControlVisible: !!document.querySelector('fieldset[aria-label=\"Permission mode\"]'), sandboxDetailsVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Shell sandbox details')), readsExplained: document.querySelector('aside').innerText.includes('read everywhere except denied paths'), maskingExplained: document.querySelector('aside').innerText.includes('shows denied folders as empty'), noStartupApproval: !document.querySelector('aside').innerText.includes('startup permissions') })",
+        "message": "The expected checks do not become true: sectionsVisible, modeControlVisible, sandboxDetailsVisible, readsExplained, maskingExplained, noStartupApproval.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim() === 'Exact minimal environment names')"
     },
     {
-      "run": "({ exactAllowlistVisible: document.querySelector('aside').innerText.includes('PATH') })"
+      "waitFor": {
+        "condition": "({ exactAllowlistVisible: document.querySelector('aside').innerText.includes('PATH') })",
+        "message": "The expected checks do not become true: exactAllowlistVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.textContent.trim() === 'Unrestricted')"
     },
     {
-      "run": "(() => { const dialog = document.querySelector('dialog[open]'); return { confirmationAsks: !!dialog && dialog.innerText.includes('Switch to unrestricted mode?'), unrestrictedExplained: !!dialog && dialog.innerText.includes('all the access of your account, with no sandbox and no approvals'), modeWaits: [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' }; })()",
-      "shot": "unrestricted-confirmation"
+      "shot": "unrestricted-confirmation",
+      "waitFor": {
+        "condition": "(() => { const dialog = document.querySelector('dialog[open]'); return { confirmationAsks: !!dialog && dialog.innerText.includes('Switch to unrestricted mode?'), unrestrictedExplained: !!dialog && dialog.innerText.includes('all the access of your account, with no sandbox and no approvals'), modeWaits: [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' }; })()",
+        "message": "The expected checks do not become true: confirmationAsks, unrestrictedExplained, modeWaits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[open] button')].find(button => button.textContent.trim() === 'Cancel')"
     },
     {
-      "run": "({ cancelKeepsProject: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' })"
+      "waitFor": {
+        "condition": "({ cancelKeepsProject: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' })",
+        "message": "The expected checks do not become true: cancelKeepsProject.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.textContent.trim() === 'Unrestricted')"
     },
     {
-      "clickOn": "[...document.querySelectorAll('dialog[open] button')].find(button => button.textContent.trim() === 'Switch to unrestricted')",
-      "wait": 1500
+      "clickOn": "[...document.querySelectorAll('dialog[open] button')].find(button => button.textContent.trim() === 'Switch to unrestricted')"
     },
     {
-      "run": "({ unrestrictedChosen: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Unrestricted' })"
+      "waitFor": {
+        "condition": "({ unrestrictedChosen: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Unrestricted' })",
+        "message": "The expected checks do not become true: unrestrictedChosen.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "clickOn": "[...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.textContent.trim() === 'Project')",
-      "wait": 1500
+      "clickOn": "[...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.textContent.trim() === 'Project')"
     },
     {
-      "run": "({ projectNeedsNoConfirmation: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' })"
+      "waitFor": {
+        "condition": "({ projectNeedsNoConfirmation: !document.querySelector('dialog[open]') && [...document.querySelectorAll('aside fieldset[aria-label=\"Permission mode\"] button')].find(button => button.getAttribute('aria-pressed') === 'true')?.textContent.trim() === 'Project' })",
+        "message": "The expected checks do not become true: projectNeedsNoConfirmation.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [360, 800],
@@ -68,8 +95,12 @@
       "shot": "permissions-phone-light-environment"
     },
     {
-      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "denied-paths-phone-light"
+      "shot": "denied-paths-phone-light",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: deniedPathsVisible, denialExplained, maskingExplained, panelFits, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "( () => { const panel = document.querySelector('aside [role=tabpanel]'); const target = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Saved approvals'); target.scrollIntoView({ block: 'start' }); return { phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, sectionVisible: target.checkVisibility() }; })()",
@@ -92,8 +123,12 @@
       "shot": "permissions-phone-dark-environment"
     },
     {
-      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "denied-paths-phone-dark"
+      "shot": "denied-paths-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Denied paths'); heading.scrollIntoView({ block: 'center' }); return { deniedPathsVisible: panel.innerText.includes('.independum'), denialExplained: panel.innerText.includes('An approval cannot override a denial.'), maskingExplained: panel.innerText.includes('That view does not describe their actual contents.'), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: deniedPathsVisible, denialExplained, maskingExplained, panelFits, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "run": "( () => { const panel = document.querySelector('aside [role=tabpanel]'); const target = [...panel.querySelectorAll('h2,h3')].find(element => element.textContent === 'Saved approvals'); target.scrollIntoView({ block: 'start' }); return { phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, sectionVisible: target.checkVisibility() }; })()",
@@ -116,15 +151,18 @@
       "text": "Check the preview steps with the project permission boundary."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
       "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
     },
     {
-      "run": "({ noStartupApproval: !document.querySelector('main').innerText.includes('Startup access'), noApprovalWaiting: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once'), commandSucceeded: document.querySelector('main').innerText.includes('Preview reply complete.') })",
-      "shot": "command-without-approval"
+      "shot": "command-without-approval",
+      "waitFor": {
+        "condition": "({ noStartupApproval: !document.querySelector('main').innerText.includes('Startup access'), noApprovalWaiting: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once'), commandSucceeded: document.querySelector('main').innerText.includes('Preview reply complete.') })",
+        "message": "The expected checks do not become true: noStartupApproval, noApprovalWaiting, commandSucceeded.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')"
@@ -133,8 +171,7 @@
       "text": "Check the preview steps again."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
       "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
@@ -146,26 +183,32 @@
       "text": "Check network permissions."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for this chat'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()",
-      "wait": 0
+      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for this chat'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()"
     },
     {
       "scheme": "light"
     },
     {
-      "run": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for this chat'); allow.scrollIntoView({ block: 'center' }); return { chatChoiceVisible: allow.checkVisibility(), onceChoiceVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), projectChoiceVisible: buttons.some(button => button.textContent.trim() === 'Always for this project'), networkHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Network access'), startupNotMentioned: !buttons.some(button => button.textContent.trim() === 'Folders the program needs to start'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for this chat', 'Always for this project', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for this chat,Always for this project,Deny', networkExplained: document.querySelector('main').innerText.includes('services on this computer'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "network-approval-phone-light"
+      "shot": "network-approval-phone-light",
+      "waitFor": {
+        "condition": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for this chat'); allow.scrollIntoView({ block: 'center' }); return { chatChoiceVisible: allow.checkVisibility(), onceChoiceVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), projectChoiceVisible: buttons.some(button => button.textContent.trim() === 'Always for this project'), networkHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Network access'), startupNotMentioned: !buttons.some(button => button.textContent.trim() === 'Folders the program needs to start'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for this chat', 'Always for this project', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for this chat,Always for this project,Deny', networkExplained: document.querySelector('main').innerText.includes('services on this computer'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: chatChoiceVisible, onceChoiceVisible, projectChoiceVisible, networkHeadingVisible, startupNotMentioned, choicesInOrder, networkExplained, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "dark"
     },
     {
-      "run": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for this chat'); allow.scrollIntoView({ block: 'center' }); return { chatChoiceVisible: allow.checkVisibility(), onceChoiceVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), projectChoiceVisible: buttons.some(button => button.textContent.trim() === 'Always for this project'), networkHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Network access'), startupNotMentioned: !buttons.some(button => button.textContent.trim() === 'Folders the program needs to start'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for this chat', 'Always for this project', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for this chat,Always for this project,Deny', networkExplained: document.querySelector('main').innerText.includes('services on this computer'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "network-approval-phone-dark"
+      "shot": "network-approval-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.find(button => button.textContent.trim() === 'Allow for this chat'); allow.scrollIntoView({ block: 'center' }); return { chatChoiceVisible: allow.checkVisibility(), onceChoiceVisible: buttons.some(button => button.textContent.trim() === 'Allow once'), projectChoiceVisible: buttons.some(button => button.textContent.trim() === 'Always for this project'), networkHeadingVisible: [...document.querySelectorAll('main strong')].some(element => element.textContent === 'Network access'), startupNotMentioned: !buttons.some(button => button.textContent.trim() === 'Folders the program needs to start'), choicesInOrder: buttons.filter(button => ['Allow once', 'Allow for this chat', 'Always for this project', 'Deny'].includes(button.textContent.trim())).map(button => button.textContent.trim()).join() === 'Allow once,Allow for this chat,Always for this project,Deny', networkExplained: document.querySelector('main').innerText.includes('services on this computer'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: chatChoiceVisible, onceChoiceVisible, projectChoiceVisible, networkHeadingVisible, startupNotMentioned, choicesInOrder, networkExplained, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Allow for this chat')"
@@ -180,8 +223,7 @@
       "text": "Check network permissions."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
       "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
@@ -196,21 +238,33 @@
       "scheme": "light"
     },
     {
-      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const remove = [...panel.querySelectorAll('button')].find(button => button.textContent.trim() === 'Remove chat approval'); remove.scrollIntoView({ block: 'center' }); return { removalVisible: remove.checkVisibility(), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "saved-chat-approval-phone-light"
+      "shot": "saved-chat-approval-phone-light",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const remove = [...panel.querySelectorAll('button')].find(button => button.textContent.trim() === 'Remove chat approval'); remove.scrollIntoView({ block: 'center' }); return { removalVisible: remove.checkVisibility(), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: removalVisible, panelFits, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "scheme": "dark"
     },
     {
-      "run": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const remove = [...panel.querySelectorAll('button')].find(button => button.textContent.trim() === 'Remove chat approval'); remove.scrollIntoView({ block: 'center' }); return { removalVisible: remove.checkVisibility(), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
-      "shot": "saved-chat-approval-phone-dark"
+      "shot": "saved-chat-approval-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const remove = [...panel.querySelectorAll('button')].find(button => button.textContent.trim() === 'Remove chat approval'); remove.scrollIntoView({ block: 'center' }); return { removalVisible: remove.checkVisibility(), panelFits: panel.scrollWidth <= panel.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: removalVisible, panelFits, phoneFits.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim() === 'Remove chat approval')"
     },
     {
-      "run": "({ chatApprovalRemoved: !document.querySelector('aside').innerText.includes('Network approved for this chat') })"
+      "waitFor": {
+        "condition": "({ chatApprovalRemoved: !document.querySelector('aside').innerText.includes('Network approved for this chat') })",
+        "message": "The expected checks do not become true: chatApprovalRemoved.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
@@ -222,12 +276,10 @@
       "text": "Check network permissions."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Always for this project'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()",
-      "wait": 0
+      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Always for this project'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()"
     },
     {
       "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Always for this project')"
@@ -242,14 +294,22 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim() === 'Network approved for project')"
     },
     {
-      "run": "({ projectApprovalVisible: document.querySelector('aside').innerText.includes('Always for this project, in this profile.'), removalVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.trim() === 'Remove project approval') })",
-      "shot": "saved-project-approval"
+      "shot": "saved-project-approval",
+      "waitFor": {
+        "condition": "({ projectApprovalVisible: document.querySelector('aside').innerText.includes('Always for this project, in this profile.'), removalVisible: [...document.querySelectorAll('aside button')].some(button => button.textContent.trim() === 'Remove project approval') })",
+        "message": "The expected checks do not become true: projectApprovalVisible, removalVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim() === 'Remove project approval')"
     },
     {
-      "run": "({ projectApprovalRemoved: !document.querySelector('aside').innerText.includes('Network approved for project') })"
+      "waitFor": {
+        "condition": "({ projectApprovalRemoved: !document.querySelector('aside').innerText.includes('Network approved for project') })",
+        "message": "The expected checks do not become true: projectApprovalRemoved.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
@@ -261,12 +321,10 @@
       "text": "Check network permissions."
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Deny'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()",
-      "wait": 0
+      "run": "(async () => { const isShown = element => { if (!element) return false; element.scrollIntoView({ behavior: 'instant', block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return !!hit && element.contains(hit); }; const reason = () => [...document.querySelectorAll('main p')].findLast(element => element.textContent.includes('The command wants to connect to the network.')); const button = () => [...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Deny'); for (let tries = 0; tries < 100 && !(isShown(reason()) && isShown(button())); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { reasonVisible: isShown(reason()), approvalVisible: isShown(button()) }; })()"
     },
     {
       "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === 'Deny')"
@@ -281,8 +339,12 @@
       "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.includes('Check the project steps'))"
     },
     {
-      "run": "({ denialVisible: document.querySelector('main').innerText.includes('The user denied this call.'), deniedStatusVisible: document.querySelector('main').innerText.includes('Denied'), noFailedStatus: !document.querySelector('main').innerText.includes('Failed') })",
-      "shot": "approval-denied"
+      "shot": "approval-denied",
+      "waitFor": {
+        "condition": "({ denialVisible: document.querySelector('main').innerText.includes('The user denied this call.'), deniedStatusVisible: document.querySelector('main').innerText.includes('Denied'), noFailedStatus: !document.querySelector('main').innerText.includes('Failed') })",
+        "message": "The expected checks do not become true: denialVisible, deniedStatusVisible, noFailedStatus.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

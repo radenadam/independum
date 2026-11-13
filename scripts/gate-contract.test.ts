@@ -76,10 +76,27 @@ test("push receipts require both roles and the actual outgoing commit", async ()
       revision,
       verdict: "pass",
       checks: "pass",
+      testAvailability: [],
       browserChecks: [],
       roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
     };
     expect(() => readGateReceipt(receipt, task, revision, pushFor())).not.toThrow();
+    expect(() =>
+      readGateReceipt({ ...receipt, testAvailability: undefined }, task, revision, pushFor()),
+    ).toThrow("availability report");
+    expect(() =>
+      readGateReceipt(
+        {
+          ...receipt,
+          testAvailability: [
+            { file: path, name: "command execution", status: "unavailable", reason: "No shell." },
+          ],
+        },
+        task,
+        revision,
+        pushFor(),
+      ),
+    ).toThrow("unavailable tests");
     expect(() => readGateReceipt(receipt, task, revision, pushFor("c".repeat(40)))).toThrow(
       "outgoing commit",
     );
@@ -102,6 +119,7 @@ test("passing receipts reject either nonpassing role even without coverage", asy
             revision,
             verdict: "pass",
             checks: "pass",
+            testAvailability: [],
             browserChecks: [],
             roles: roles.map((role, position) =>
               position === index ? { ...role, verdict, coverage } : role,
@@ -125,6 +143,7 @@ test.each([revision.head, "c".repeat(40)])(
         revision: reviewed,
         verdict: "pass",
         checks: "pass",
+        testAvailability: [],
         browserChecks: [],
         roles: [
           { ...resultFor(path), revision: reviewed },

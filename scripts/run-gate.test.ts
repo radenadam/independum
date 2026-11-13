@@ -6,6 +6,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { GateResult, GateTask } from "./gate-contract.ts";
 import { readRevision } from "./read-revision.ts";
+import type { TestAvailability } from "./read-test-availability.ts";
 import { runGate } from "./run-gate.ts";
 
 vi.mock("node:child_process", async (original) => ({
@@ -49,6 +50,14 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   expect(fixture.scenarios).toEqual(fixture.task.scenarios);
   expect(receipt.roles.map((role) => role.role)).toEqual(["review", "qa"]);
   expect(receipt.verdict).toBe("incomplete");
+  expect(receipt.testAvailability).toEqual([
+    {
+      file: "native.test.ts",
+      name: "native boundary",
+      status: "skipped",
+      reason: "Native containment is unavailable.",
+    },
+  ]);
   expect(fixture.prompts.at(-1)).toContain("revision.json");
   expect(fixture.prompts[0]).toContain("browser-checks.json");
   const calls = vi.mocked(spawn).mock.calls;
@@ -140,6 +149,36 @@ test("missing and unknown model choices cannot start a gate", async () => {
   }
 });
 
+test("missing test reports and unavailable tests block passing agent verdicts", async () => {
+  for (const report of [
+    undefined,
+    {
+      completed: true,
+      tests: [
+        {
+          file: "shell.test.ts",
+          name: "command execution",
+          status: "unavailable",
+          reason: "The default shell is unavailable.",
+        },
+      ],
+    },
+  ]) {
+    const fixture = await prepareGate("pass", "codex", {
+      testReport: report,
+      hasTestReportOverride: true,
+    });
+    await runGate(fixture.arguments);
+    const receipt = await fixture.receipt();
+    expect(receipt.verdict).toBe("fail");
+    expect(receipt.testAvailability).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: "unavailable", reason: expect.any(String) }),
+      ]),
+    );
+  }
+});
+
 async function prepareGate(
   verdict: GateResult["verdict"],
   engine = "codex",
@@ -147,6 +186,8 @@ async function prepareGate(
     hasScenarioFailure?: boolean;
     hasStaleCapture?: boolean;
     hasReviewCommandFailure?: boolean;
+    hasTestReportOverride?: boolean;
+    testReport?: unknown;
   } = {},
 ): Promise<{
   arguments: string[];
@@ -154,7 +195,11 @@ async function prepareGate(
   scenarios: string[];
   prompts: string[];
   directory: () => string;
-  receipt: () => Promise<{ verdict: string; roles: GateResult[] }>;
+  receipt: () => Promise<{
+    verdict: string;
+    roles: GateResult[];
+    testAvailability: TestAvailability[];
+  }>;
 }> {
   const root = await mkdtemp(join(tmpdir(), "independum-run-gate-"));
   directories.push(root);
@@ -201,6 +246,26 @@ async function prepareGate(
       );
     });
     async function respond(): Promise<number> {
+      const report = (vi.mocked(spawn).mock.calls.at(-1)?.[2] as { env?: NodeJS.ProcessEnv })?.env
+        ?.INDEPENDUM_TEST_REPORT;
+      if ((parameters as string[]).includes("check") && report) {
+        const availability = options.hasTestReportOverride
+          ? options.testReport
+          : {
+              completed: true,
+              tests: [
+                {
+                  file: "native.test.ts",
+                  name: "native boundary",
+                  status: "skipped",
+                  reason: "Native containment is unavailable.",
+                },
+              ],
+            };
+        if (availability !== undefined) {
+          await writeFile(report, JSON.stringify(availability));
+        }
+      }
       const arguments_ = parameters as string[];
       if (executable === "codex" || executable === "claude") {
         prompts.push(prompt);

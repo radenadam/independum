@@ -25,7 +25,7 @@
     "check:types": "tsc --noEmit && pnpm --recursive run check:types",
     "check:unused": "knip --treat-config-hints-as-errors",
     "check:duplicates": "jscpd",
-    "test": "vitest run --testTimeout 20000",
+    "test": "vitest run --testTimeout 20000 --reporter default --reporter ./scripts/report-test-availability.ts",
     "check:context": "node scripts/check-context.ts",
     "review": "node scripts/run-gate.ts review",
     "qa-review": "node scripts/run-gate.ts qa",

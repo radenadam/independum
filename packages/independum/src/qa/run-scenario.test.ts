@@ -10,7 +10,7 @@ test("false checks retain named evidence and a failure screenshot", async () => 
   await inScenario(async (directory) => {
     const browser = fakeBrowser({ messageVisible: false });
     await expect(
-      runScenario(browser, "http://127.0.0.1", [{ run: "check()", wait: 0 }], directory),
+      runScenario(browser, "http://127.0.0.1", [{ run: "check()" }], directory),
     ).rejects.toThrow("Scenario step 1 fails.");
     expect(JSON.parse(await readFile(join(directory, "values.jsonl"), "utf8"))).toEqual({
       step: 1,
@@ -24,8 +24,35 @@ test("expression exceptions fail instead of becoming successful values", async (
   await inScenario(async (directory) => {
     const browser = fakeBrowser(new Error("Missing element."));
     await expect(
-      runScenario(browser, "http://127.0.0.1", [{ run: "missing()", wait: 0 }], directory),
+      runScenario(browser, "http://127.0.0.1", [{ run: "missing()" }], directory),
     ).rejects.toMatchObject({ cause: { message: "Missing element." } });
+  });
+});
+
+test("condition timeouts retain their reason and stop later actions", async () => {
+  await inScenario(async (directory) => {
+    const browser = fakeBrowser(true);
+    async function timeOut(): Promise<never> {
+      throw new Error("Timeout.");
+    }
+    browser.page.waitForFunction = timeOut;
+    await expect(
+      runScenario(
+        browser,
+        "http://127.0.0.1",
+        [
+          {
+            waitFor: {
+              condition: "() => false",
+              message: "The owner does not see the renamed phone.",
+              timeoutMs: 1000,
+            },
+            run: "unreachable()",
+          },
+        ],
+        directory,
+      ),
+    ).rejects.toMatchObject({ cause: { message: "The owner does not see the renamed phone." } });
   });
 });
 
@@ -35,7 +62,7 @@ test("playwright preserves key text pointer and capture order", async () => {
     await runScenario(
       fakeBrowser([25, 40], calls),
       "http://127.0.0.1",
-      [{ key: "Control+Enter", text: "hello", clickOn: "target", hoverOn: "target", wait: 0 }],
+      [{ key: "Control+Enter", text: "hello", clickOn: "target", hoverOn: "target" }],
       directory,
     );
     expect(calls).toEqual([
@@ -57,8 +84,8 @@ test("isolated clients do not put invitation urls into named values", async () =
       fakeBrowser("https://phone.test/#pair=fixture", ownerCalls),
       "http://127.0.0.1",
       [
-        { openClient: { name: "phone", url: "invitation()" }, run: "check()", wait: 0 },
-        { client: "owner", text: "owner", wait: 0 },
+        { openClient: { name: "phone", url: "invitation()" }, run: "check()" },
+        { client: "owner", text: "owner" },
       ],
       directory,
       async () => fakeBrowser({ isolated: true }, phoneCalls),
@@ -86,6 +113,14 @@ function fakeBrowser(value: unknown, calls: string[] = []): BrowserConnection {
         throw value;
       }
       return value;
+    },
+    async waitForFunction() {
+      return {
+        async jsonValue() {
+          return true;
+        },
+        async dispose() {},
+      };
     },
     async goto(url: string) {
       calls.push(`go ${url}`);
