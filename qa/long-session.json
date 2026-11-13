@@ -1,0 +1,135 @@
+{
+  "fixture": "long-history",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "dark",
+      "go": true
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "run": "({ longChatOpened: document.querySelector('main header').innerText.includes('History request 1.') })"
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Let the bar scroll away\"]')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "run": "({ newestRequestVisible: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('240You wrote'))), severalCompactions: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4, foldedHistory: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Show requests 201 to 235')) })",
+      "shot": "long-conversation-desktop-dark"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]"
+    },
+    {
+      "run": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]).textContent.includes('requests 1 to 195 became a summary') })",
+      "shot": "long-compaction-1"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]"
+    },
+    {
+      "run": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]).textContent.includes('requests 1 to 145 became a summary') })",
+      "shot": "long-compaction-2"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]"
+    },
+    {
+      "run": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]).textContent.includes('requests 1 to 95 became a summary') })",
+      "shot": "long-compaction-3"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]"
+    },
+    {
+      "run": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]).textContent.includes('requests 1 to 45 became a summary') })",
+      "shot": "long-compaction-4"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "run": "({ oldestRequestReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))) })",
+      "shot": "long-oldest-request"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "run": "({ historicRequestOpened: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)) })",
+      "shot": "long-historic-detail"
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Hide requests 1 to 50'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')"
+    },
+    {
+      "run": "({ latestSummaryVisible: window.qaVisible([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')) && ([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')).textContent.includes('History summary 4.') })",
+      "shot": "long-summary-desktop-dark"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')"
+    },
+    {
+      "run": "({ phoneSummaryVisible: window.qaVisible([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "long-summary-phone-light"
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "run": "({ returnedToLongConversation: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')), latestRequestReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('240You wrote'))) })",
+      "shot": "long-conversation-phone-light"
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "run": "({ darkConversationVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+      "shot": "long-conversation-phone-dark"
+    },
+    {
+      "size": [1440, 1000],
+      "scheme": "light"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "run": "({ repeatedConversationVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')) })",
+      "shot": "long-conversation-desktop-light"
+    }
+  ]
+}

@@ -2,7 +2,13 @@
   "fixture": "chats",
   "phoneRoute": true,
   "steps": [
-    { "size": [1440, 900], "go": true },
+    {
+      "size": [1440, 900],
+      "go": true
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
     {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Explain how Pi saves a chat.'))"
     },
@@ -23,21 +29,33 @@
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Pair a device')"
     },
     {
-      "run": "(async () => { const image = document.querySelector('img[alt=\"Pairing QR code\"]'); await image.decode(); return { pairingQrVisible: image.naturalWidth > 0 && image.getBoundingClientRect().width >= 240, qrStaysInLocalResponse: image.src.startsWith('data:image/svg+xml,'), pairingAddressVisible: !!document.querySelector('dialog[aria-label=\"Pair a device\"] a') }; })()",
+      "hoverOn": "document.querySelector('img[alt=\"Pairing QR code\"]')"
+    },
+    {
+      "run": "(async () => { const image = document.querySelector('img[alt=\"Pairing QR code\"]'); await image.decode(); await Promise.all(image.closest('dialog').getAnimations({ subtree: true }).map(animation => animation.finished)); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); const canvas = document.createElement('canvas'); canvas.width = canvas.height = 240; const context = canvas.getContext('2d'); context.drawImage(image, 0, 0, 240, 240); const pixels = context.getImageData(0, 0, 240, 240).data; let dark = 0; let white = 0; for (let index = 0; index < pixels.length; index += 4) { if (pixels[index] < 32 && pixels[index+1] < 32 && pixels[index+2] < 32 && pixels[index+3] === 255) dark += 1; if (pixels[index] > 223 && pixels[index+1] > 223 && pixels[index+2] > 223 && pixels[index+3] === 255) white += 1; } return { qrDecoded: image.complete && image.naturalWidth > 0, qrHasBlackModules: dark > 3000, qrHasWhiteBackground: white > 3000, qrVisibleAndUncovered: window.qaVisible(image), qrStaysInLocalResponse: image.src.startsWith('data:image/svg+xml,'), pairingAddressVisible: window.qaVisible(document.querySelector('dialog[aria-label=\"Pair a device\"] a')), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
       "shot": "owner-pairing-qr"
     },
     {
       "size": [360, 800],
       "scheme": "dark",
-      "run": "({ darkQrFits: document.documentElement.scrollWidth <= 360 && document.querySelector('img[alt=\"Pairing QR code\"]').getBoundingClientRect().right <= 360 })",
+      "hoverOn": "document.querySelector('img[alt=\"Pairing QR code\"]')"
+    },
+    {
+      "run": "(async () => { const image = document.querySelector('img[alt=\"Pairing QR code\"]'); await image.decode(); await Promise.all(image.closest('dialog').getAnimations({ subtree: true }).map(animation => animation.finished)); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); const canvas = document.createElement('canvas'); canvas.width = canvas.height = 240; const context = canvas.getContext('2d'); context.drawImage(image, 0, 0, 240, 240); const pixels = context.getImageData(0, 0, 240, 240).data; let dark = 0; let white = 0; for (let index = 0; index < pixels.length; index += 4) { if (pixels[index] < 32 && pixels[index+1] < 32 && pixels[index+2] < 32 && pixels[index+3] === 255) dark += 1; if (pixels[index] > 223 && pixels[index+1] > 223 && pixels[index+2] > 223 && pixels[index+3] === 255) white += 1; } return { qrDecoded: image.complete && image.naturalWidth > 0, qrHasBlackModules: dark > 3000, qrHasWhiteBackground: white > 3000, qrVisibleAndUncovered: window.qaVisible(image), qrStaysInLocalResponse: image.src.startsWith('data:image/svg+xml,'), pairingAddressVisible: window.qaVisible(document.querySelector('dialog[aria-label=\"Pair a device\"] a')), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
       "shot": "owner-qr-dark"
     },
     {
       "scheme": "light",
-      "run": "({ lightQrFits: document.documentElement.scrollWidth <= 360 && document.querySelector('img[alt=\"Pairing QR code\"]').getBoundingClientRect().right <= 360 })",
+      "hoverOn": "document.querySelector('img[alt=\"Pairing QR code\"]')"
+    },
+    {
+      "run": "(async () => { const image = document.querySelector('img[alt=\"Pairing QR code\"]'); await image.decode(); await Promise.all(image.closest('dialog').getAnimations({ subtree: true }).map(animation => animation.finished)); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); const canvas = document.createElement('canvas'); canvas.width = canvas.height = 240; const context = canvas.getContext('2d'); context.drawImage(image, 0, 0, 240, 240); const pixels = context.getImageData(0, 0, 240, 240).data; let dark = 0; let white = 0; for (let index = 0; index < pixels.length; index += 4) { if (pixels[index] < 32 && pixels[index+1] < 32 && pixels[index+2] < 32 && pixels[index+3] === 255) dark += 1; if (pixels[index] > 223 && pixels[index+1] > 223 && pixels[index+2] > 223 && pixels[index+3] === 255) white += 1; } return { qrDecoded: image.complete && image.naturalWidth > 0, qrHasBlackModules: dark > 3000, qrHasWhiteBackground: white > 3000, qrVisibleAndUncovered: window.qaVisible(image), qrStaysInLocalResponse: image.src.startsWith('data:image/svg+xml,'), pairingAddressVisible: window.qaVisible(document.querySelector('dialog[aria-label=\"Pair a device\"] a')), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
       "shot": "owner-qr-light"
     },
-    { "size": [1440, 900], "scheme": "dark" },
+    {
+      "size": [1440, 900],
+      "scheme": "dark"
+    },
     {
       "openClient": {
         "name": "phone",
@@ -50,7 +68,10 @@
       "run": "({ fragmentRemoved: location.hash === '', pairingNeedsApproval: !!document.querySelector('dialog[aria-label=\"Pair this phone\"]') && !document.querySelector('textarea[aria-label=Message]'), darkPairingFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "phone-pairing-dark"
     },
-    { "scheme": "light", "shot": "phone-pairing-light" },
+    {
+      "scheme": "light",
+      "shot": "phone-pairing-light"
+    },
     {
       "clickOn": "[...document.querySelectorAll('button')].find(button => button.textContent === 'Request pairing')"
     },
@@ -58,7 +79,10 @@
       "run": "({ phoneHasComparisonCode: /^\\d{6}$/.test(document.querySelector('output[aria-label=\"Comparison code\"]')?.textContent ?? ''), phoneStillWaitsForApproval: !document.querySelector('textarea[aria-label=Message]'), lightPairingFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "phone-comparison-light"
     },
-    { "scheme": "dark", "shot": "phone-comparison-dark" },
+    {
+      "scheme": "dark",
+      "shot": "phone-comparison-dark"
+    },
     {
       "client": "owner",
       "run": "({ ownerHasComparisonCode: /^\\d{6}$/.test(document.querySelector('output[aria-label=\"Comparison code\"]')?.textContent ?? ''), ownerNamesRequester: document.querySelector('dialog[aria-label=\"Pair a device\"]').innerText.includes('Phone browser requests access') })",
@@ -80,14 +104,18 @@
     {
       "run": "({ pairingSurvivesReload: !!document.querySelector('textarea[aria-label=Message]') && !document.querySelector('dialog[aria-label=\"Pair this phone\"]') })"
     },
-    { "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')" },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')"
+    },
     {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Plan the first post.'))"
     },
     {
       "run": "({ phoneChoosesOwnChat: document.querySelector('main header').innerText.trim() === 'Plan the first post.' })"
     },
-    { "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')" },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')"
+    },
     {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Settings'))"
     },
@@ -98,11 +126,16 @@
       "run": "({ phoneOnlyManagesItself: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Disconnect this browser') && !document.querySelector('dialog[aria-label=Settings]').innerText.includes('Pair a device'), phoneSettingsFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "phone-self-dark"
     },
-    { "scheme": "light", "shot": "phone-self-light" },
+    {
+      "scheme": "light",
+      "shot": "phone-self-light"
+    },
     {
       "clickOn": "[...document.querySelectorAll('label')].find(label => label.textContent === 'New browser name').control"
     },
-    { "text": "My phone" },
+    {
+      "text": "My phone"
+    },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.textContent === 'Save name')"
     },
@@ -140,6 +173,9 @@
       "run": "({ disabledPhoneAccess: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Phone access is off.'), phoneSetupFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "phone-setup-dark"
     },
-    { "scheme": "light", "shot": "phone-setup-light" }
+    {
+      "scheme": "light",
+      "shot": "phone-setup-light"
+    }
   ]
 }

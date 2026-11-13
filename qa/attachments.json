@@ -7,6 +7,9 @@
       "go": true
     },
     {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
       "run": "(() => { const picker = document.querySelector('input[aria-label=\"Attachment files\"]'); const transfer = new DataTransfer(); transfer.items.add(new File(['First line.\\r\\nSecond line.'], 'notes.txt', {type: 'text/plain'})); picker.files = transfer.files; picker.dispatchEvent(new Event('change', {bubbles:true})); return { pickerAcceptsFile: true }; })()",
       "wait": 500
     },
@@ -33,12 +36,23 @@
       "clickOn": "document.querySelector('button[aria-label=\"Close attachment\"]')"
     },
     {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
       "size": [360, 800],
       "scheme": "light",
+      "hoverOn": "[...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('notes.txt'))"
+    },
+    {
+      "run": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "attachments-phone-light"
     },
     {
       "scheme": "dark",
+      "hoverOn": "[...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('notes.txt'))"
+    },
+    {
+      "run": "({ attachmentTilesVisible: ['notes.txt', 'pixel.png', 'paper.pdf'].every(name => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes(name)); return window.qaVisible(tile) && window.qaVisible(document.querySelector('button[aria-label=\"Remove attachment ' + name + '\"]')); }), messageVisible: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), phoneFits: document.documentElement.scrollWidth <= 360 })",
       "shot": "attachments-phone-dark"
     },
     {

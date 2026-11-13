@@ -1,7 +1,14 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1440, 1000], "scheme": "light", "go": true },
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
     {
       "run": "(async () => { window.headlessRequest = async (path, body, headers = {}) => { const response = await fetch('/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: 'Bearer ' + localStorage.getItem('independum.accessToken'), 'content-type': 'application/json', ...headers }, body: body === undefined ? undefined : JSON.stringify(body) }); if (!response.ok) throw new Error('The headless QA request fails.'); return response.status === 204 ? null : response.json(); }; window.headlessOriginal = new URL(location.href).searchParams.get('chat'); const receipt = await window.headlessRequest('/prompt', { requestId: 'qa-headless-active', chatId: window.headlessOriginal, text: 'Check network permissions.', isLiteral: true }); window.headlessActive = receipt; const required = await window.headlessRequest('/operations/' + receipt.operationId + '/wait'); const settled = await window.headlessRequest('/operations/' + receipt.operationId + '/wait?onQuestion=wait'); return { selectedChatUnchanged: new URL(location.href).searchParams.get('chat') === window.headlessOriginal, approvalNamed: required.code === 'approvalRequired' && typeof required.toolCallId === 'string', finalTextAvailable: settled.text?.startsWith('Preview reply complete.') }; })()",
       "wait": 500
@@ -16,7 +23,9 @@
     {
       "run": "({ newChatVisible: new URL(location.href).searchParams.get('chat') === window.headlessNew.chatId && document.querySelector('main').innerText.includes('Headless new task.') })"
     },
-    { "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')" },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
     },
@@ -24,17 +33,30 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Chat ID '))"
     },
     {
-      "run": "({ sourceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Source'), operationVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.operationId), submissionVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.submissionId) })",
+      "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
+    },
+    {
+      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
       "shot": "headless-source-desktop-light"
     },
-    { "size": [360, 800], "scheme": "light" },
     {
-      "run": "(() => { const heading = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source'); heading.scrollIntoView({ block: 'start' }); const panel = document.querySelector('aside [role=tabpanel]'); return { sourceVisible: heading.checkVisibility(), pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
+    },
+    {
+      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
       "shot": "headless-source-phone-light"
     },
-    { "scheme": "dark", "shot": "headless-source-phone-dark" },
     {
-      "run": "({ darkSourceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes(window.headlessNew.operationId), phoneFits: document.documentElement.scrollWidth <= 360 })"
+      "scheme": "dark",
+      "hoverOn": "[...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section')"
+    },
+    {
+      "run": "(() => { const section = [...document.querySelectorAll('aside h3')].find(element => element.textContent === 'Source').closest('section'); const text = section.querySelector('p'); return { sourceHeadingVisible: window.qaVisible(section.querySelector('h3')), identifiersReadable: window.qaVisible(text) && text.textContent.includes(window.headlessNew.operationId) && text.textContent.includes(window.headlessNew.submissionId), sourceFits: window.qaVisible(section), pageFits: document.documentElement.scrollWidth <= innerWidth }; })()",
+      "shot": "headless-source-phone-dark"
     }
   ]
 }

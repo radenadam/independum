@@ -6,6 +6,9 @@
       "go": true
     },
     {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
@@ -19,21 +22,58 @@
       "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "({ previewIsEditable: document.querySelector('textarea[aria-label=Message]').value === 'Review a change.\\n', sourceLineVisible: document.body.innerText.includes('/review'), purposeVisible: document.body.innerText.includes('Command preview'), submissionNoteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') })",
+      "run": "({ previewIsEditable: document.querySelector('textarea[aria-label=Message]').value === 'Review a change.\\n' && window.qaVisible(document.querySelector('textarea[aria-label=Message]')), previewSourceVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview') && button.innerText.includes('/review'))), submissionNoteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
       "shot": "command-preview"
     },
     {
       "clickOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
     },
     {
-      "run": "({ readablePreviewDetails: ['Values after the command', 'Original message text', 'File fingerprint', 'Restore command'].every(label => document.body.innerText.includes(label)) })"
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Original command').closest('section')"
+    },
+    {
+      "run": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Original command').closest('section')) })",
+      "shot": "command-preview-original-command"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Values after the command').closest('section')"
+    },
+    {
+      "run": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Values after the command').closest('section')) })",
+      "shot": "command-preview-values"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Original message text').closest('section')"
+    },
+    {
+      "run": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Original message text').closest('section')) })",
+      "shot": "command-preview-original-text"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'File fingerprint').closest('section')"
+    },
+    {
+      "run": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'File fingerprint').closest('section')) })",
+      "shot": "command-preview-fingerprint"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.textContent === 'Restore command')"
+    },
+    {
+      "run": "({ restoreCommandReachable: window.qaVisible([...document.querySelectorAll('button')].find(button => button.textContent === 'Restore command')) })"
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
     },
     {
       "size": [360, 800],
       "scheme": "dark"
     },
     {
-      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "run": "({ previewPhoneFits: document.documentElement.scrollWidth <= 360, previewVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))), messageReachable: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), noteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
       "shot": "command-preview-phone-dark"
     },
     {
@@ -41,7 +81,10 @@
       "scheme": "light"
     },
     {
-      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "run": "({ previewPhoneFits: document.documentElement.scrollWidth <= 360, previewVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))), messageReachable: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), noteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
       "shot": "command-preview-phone-light"
     },
     {
@@ -71,8 +114,46 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Context controls'))"
     },
     {
-      "run": "({ instructionsSwitchVisible: !!document.querySelector('button[aria-label=\"Send project instructions\"]'), skillAvailabilitySwitchVisible: !!document.querySelector('button[aria-label=\"Make skills available\"]'), skillDescriptionSwitchVisible: !!document.querySelector('button[aria-label=\"Send skill names and descriptions\"]'), commandSwitchVisible: !!document.querySelector('button[aria-label=\"Enable slash commands\"]'), labeledTextEditsVisible: ['Edit instruction texts', 'Edit skill texts'].every(label => [...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.trim() === label)), instructionListVisible: !!document.querySelector('ul[aria-label=\"Instruction filename list\"]'), noSaveButtons: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.startsWith('Save ')), profileSentenceVisible: /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(document.querySelector('aside [role=tabpanel]').innerText), duplicateVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('duplicate'), capturedRevisionVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Last request resources') })",
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(element.textContent))"
+    },
+    {
+      "run": "({ profileSentenceVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(element.textContent))) })",
+      "shot": "context-profile"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Project instructions')"
+    },
+    {
+      "run": "({ instructionsSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Send project instructions\"]')), instructionListVisible: window.qaVisible(document.querySelector('ul[aria-label=\"Instruction filename list\"]')), instructionTextEditReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Edit instruction texts')), noSaveButtons: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.startsWith('Save ')) })",
       "shot": "context-controls"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Skills')"
+    },
+    {
+      "run": "({ skillAvailabilitySwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Make skills available\"]')), skillDescriptionSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Send skill names and descriptions\"]')), skillTextEditReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Edit skill texts')) })",
+      "shot": "context-skills"
+    },
+    {
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "run": "({ commandSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Enable slash commands\"]')) })",
+      "shot": "context-commands"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('duplicate'))"
+    },
+    {
+      "run": "({ duplicateReadableAndReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.includes('duplicate'))) })",
+      "shot": "context-duplicate"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Last request resources')"
+    },
+    {
+      "run": "({ capturedRevisionReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Last request resources')) })",
+      "shot": "context-request-revision"
     },
     {
       "clickOn": "document.getElementById('instruction-names')"
@@ -97,19 +178,31 @@
       "scheme": "dark"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Send project instructions\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-dark-instructions"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Make skills available\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-dark-skills"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-dark-commands"
     },
     {
-      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.getElementById('resource-search')"
+    },
+    {
+      "run": "(() => { const target = document.getElementById('resource-search'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-dark-catalog"
     },
     {
@@ -117,19 +210,31 @@
       "scheme": "light"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Send project instructions\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-light-instructions"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Make skills available\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-light-skills"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-light-commands"
     },
     {
-      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
+      "hoverOn": "document.getElementById('resource-search')"
+    },
+    {
+      "run": "(() => { const target = document.getElementById('resource-search'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
       "shot": "context-phone-light-catalog"
     }
   ]

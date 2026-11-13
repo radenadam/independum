@@ -30,7 +30,7 @@ export async function readScenario(
     if (
       Object.keys(value).some((key) => !["fixture", "steps", "phoneRoute"].includes(key)) ||
       (value.phoneRoute !== undefined && typeof value.phoneRoute !== "boolean") ||
-      !["empty", "chats", "compacted", "hooks"].includes(String(value.fixture))
+      !["empty", "chats", "compacted", "hooks", "long-history"].includes(String(value.fixture))
     ) {
       throw new Error("A scenario object needs a fixture, steps, and optional phoneRoute.");
     }

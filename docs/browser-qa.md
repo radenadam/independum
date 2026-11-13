@@ -8,17 +8,21 @@ The command prints a fresh temporary output folder with screenshots, named value
 
 False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. A scenario pass does not establish visual quality or newcomer comprehension. The independent AI QA role inspects every screenshot and named value and assesses those qualities. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
 
+The direct maintainer correction of 2026-11-13 requires captures to frame their named content. Close covering drawers, scroll the owning section into view, and use `hoverOn` or `clickOn` for hit tests. DOM presence and bounds alone do not establish visibility. Decode QR images, await dialog animation and paint, and check modules and background after theme changes. A blank image must fail explicitly. Real diagnostics need injected failures. Long cases need hundreds of requests and several compactions.
+
 ## Preview
 
 `pnpm preview` starts the real UI and API with Pi's stand-in provider and a temporary home. It prints a loopback link and home path. Ctrl+C closes and removes the preview home. Forced termination can leave temporary files. Pi writes all fixture chats.
 
-Flags shared with QA are `--fixture empty`, `chats`, `hooks`, or `compacted`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. Compacted has eight turns, one compaction after six, and an effort change. It is not a long-history fixture. Real logins load only through Pi, and login changes affect that real store. Follow the product model limits in `AGENTS.md`.
+Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. Compacted has eight turns and one compaction after six. Long-history has 240 requests and four compactions after requests 50, 100, 150, and 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
 
 `--url <complete-preview-link>` reuses a running preview and leaves it running. It must have the expected fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a local delayed Shell command, and stream a table. Permission and queue scenarios use their named stand-in triggers without a model connection.
 
 ## Scenarios
 
-Use `pnpm qa welcome`, `message`, `switch-chats`, `model-menu`, `session`, `compacted`, `settings`, `profiles`, `queue`, `attachments`, `branches`, `context`, `hooks`, `permissions`, `headless`, `phone`, `phone-pairing`, or `archived`. Their JSON files own the exact flows and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
+Use `pnpm qa welcome`, `message`, `switch-chats`, `model-menu`, `session`, `compacted`, `long-session`, `settings`, `profiles`, `queue`, `attachments`, `branches`, `context`, `hooks`, `permissions`, `headless`, `phone`, `phone-pairing`, or `archived`. Their JSON files own the exact flows and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
+
+On a capable host, set `INDEPENDUM_QA_BROWSER` to `msedge`, `chrome`, or an installed executable path, then run `pnpm exec vitest run packages/independum/src/qa/connect-browser.test.ts`. This opt-in test uses the production connection, runner, and diagnostic rejection. Its page logs an error and warning, throws, and issues requests intercepted by Playwright as network and HTTP failures. Each diagnostic independently rejects the run. Ordinary `pnpm check` skips it and launches no browser.
 
 Visible changes require the actual built UI, both themes, touch at 360 pixels, relevant long content, recovery, and repeated use. Add coverage when absent. Check development reload when affected. Scenarios starting from configured hooks do not establish creation from empty setup.
 

@@ -1,8 +1,9 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { inspect } from "node:util";
 import { readRevision } from "../../../../scripts/read-revision.ts";
+import { checkBrowserDiagnostics } from "./check-browser-diagnostics.ts";
 import { type BrowserConnection, connectBrowser } from "./connect-browser.ts";
 import { previewOptions } from "./preview-options.ts";
 import { readScenario } from "./read-scenario.ts";
@@ -73,12 +74,7 @@ try {
   }
   await browser.close();
   browser = undefined;
-  const diagnostics = await readFile(join(directory, "browser.jsonl"), "utf8");
-  if (diagnostics.trim() !== "") {
-    throw new Error(
-      "The browser reports errors or warnings. Read browser.jsonl in the output folder.",
-    );
-  }
+  await checkBrowserDiagnostics(directory);
   process.stdout.write("Scenario passes. Review its screenshots and values.\n");
 } catch (error) {
   await writeFile(join(directory, "failure.txt"), inspect(error, { depth: 8 }));

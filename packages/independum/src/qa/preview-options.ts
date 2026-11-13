@@ -35,9 +35,10 @@ export function previewOptions(
     fixture !== "empty" &&
     fixture !== "chats" &&
     fixture !== "compacted" &&
+    fixture !== "long-history" &&
     fixture !== "hooks"
   ) {
-    throw new Error("The fixture must be empty, chats, compacted, or hooks.");
+    throw new Error("The fixture must be empty, chats, compacted, hooks, or long-history.");
   }
   const port = Number(values.port);
   if (!/^\d+$/.test(values.port) || !Number.isInteger(port) || port < 0 || port > 65535) {

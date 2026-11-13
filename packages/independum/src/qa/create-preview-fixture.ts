@@ -4,7 +4,7 @@ import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createProfileStore } from "../create-profile-store.ts";
 
-export type PreviewFixture = "empty" | "chats" | "compacted" | "hooks";
+export type PreviewFixture = "empty" | "chats" | "compacted" | "hooks" | "long-history";
 
 /** Creates saved chats through Pi in a new preview home. */
 export async function createPreviewFixture(home: string, fixture: PreviewFixture): Promise<string> {
@@ -90,6 +90,32 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     return project;
   }
   const manager = createSession();
+  if (fixture === "long-history") {
+    const turns: string[] = [];
+    for (let request = 1; request <= 240; request += 1) {
+      turns.push(
+        appendTurn(
+          manager,
+          `History request ${request}.`,
+          `Reply ${request}. ${"The saved work remains available for inspection. ".repeat(8)}`,
+          2000 + (request % 50) * 900,
+        ),
+      );
+      if (request % 50 === 0 && request <= 200) {
+        const firstKept = turns[request - 5];
+        if (firstKept === undefined) {
+          throw new Error("The long history has no retained message.");
+        }
+        manager.appendCompaction(
+          `History summary ${request / 50}. Requests 1 to ${request - 5} are summarized. Continue from request ${request - 4}.`,
+          firstKept,
+          48000,
+        );
+        manager.appendThinkingLevelChange(request % 100 === 0 ? "high" : "medium");
+      }
+    }
+    return project;
+  }
   const ids: string[] = [];
   let tokens = 2000;
   for (const step of [1, 2, 3, 4, 5, 6]) {

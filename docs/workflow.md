@@ -6,7 +6,9 @@ The coordinator owns shared meaning, integration, evidence, and delivery. Use bo
 
 Start every piece of work, including resumption, with a question round. State the user outcome and current accepted answer. Identify uncertainty about purpose, behavior, judgment, or changed priorities. For each material question, give a recommendation and concrete example. Continue until enough context exists. If the request and repository settle it, record that no new decision is needed and proceed. [The standard](standard.md#authority) defines when dependent work must stop. Distant questions wait for related work.
 
-Write a task manifest with outcome, acceptance conditions, preserved behavior, exclusions, requirement ids, base commit, required reading, writable and shared files, capabilities, evidence destination, verification owner, and the question round. Read a proposal whole before authorizing its implementation. Split oversized work. This prevents acceptance from disappearing between design and building. The machine shape is in [gate-contract.ts](../scripts/gate-contract.ts).
+Write a task manifest with outcome, acceptance, preserved behavior, exclusions, requirement ids, base commit, reading, writable and shared files, capabilities, evidence destination, verification owner, and question round. Read proposals whole before implementation. Split oversized work. Keep acceptance through building. [Gate-contract.ts](../scripts/gate-contract.ts) owns the machine shape.
+
+The direct maintainer correction of 2026-11-13 scopes gate acceptance to changed context and behavior, without demanding app checkpoint completion.
 
 ## Learning
 
