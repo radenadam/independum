@@ -26,6 +26,12 @@ import { createTestFolder } from "./tools/create-test-folder.ts";
 const parent = createTestFolder("private-runtime");
 let nextCase = 0;
 const connection = createTestConnection();
+const windowsTestOptions = {
+  meta: {
+    skipReason: "Windows ACL checks are unavailable on this platform.",
+    ciPlatforms: ["win32"],
+  },
+};
 
 function directory(): string {
   return join(parent, String(nextCase++));
@@ -93,6 +99,12 @@ test("linked directories and multiply linked token files refuse discovery", () =
 
 test.skipIf(process.platform === "win32")(
   "unix discovery rejects broad permissions and another owner",
+  {
+    meta: {
+      skipReason: "Unix ownership and permission checks are unavailable on Windows.",
+      ciPlatforms: ["linux", "darwin"],
+    },
+  },
   () => {
     const folder = directory();
     publishServer(folder, connection);
@@ -115,6 +127,7 @@ test.skipIf(process.platform === "win32")(
 
 test.skipIf(process.platform !== "win32")(
   "windows creates private runtime permissions under inherited broad access",
+  windowsTestOptions,
   () => {
     const ancestor = directory();
     mkdirSync(ancestor);
@@ -137,6 +150,7 @@ test.skipIf(process.platform !== "win32")(
 
 test.skipIf(process.platform !== "win32")(
   "windows rejects an existing broad runtime directory without changing its permissions",
+  windowsTestOptions,
   () => {
     const folder = directory();
     const runtime = privateRuntime(folder);
@@ -152,6 +166,7 @@ test.skipIf(process.platform !== "win32")(
 
 test.skipIf(process.platform !== "win32").each(["WD", "BA", "SY"])(
   "windows discovery rejects an extra grant to %s",
+  windowsTestOptions,
   (identity) => {
     const folder = directory();
     publishServer(folder, connection);
@@ -170,6 +185,7 @@ test.skipIf(process.platform !== "win32").each(["WD", "BA", "SY"])(
 
 test.skipIf(process.platform !== "win32")(
   "windows reports every rejected entry with its sid name mask and inheritance",
+  windowsTestOptions,
   () => {
     const folder = directory();
     const runtime = privateRuntime(folder);
@@ -206,6 +222,7 @@ test.skipIf(process.platform !== "win32")(
 
 test.skipIf(process.platform !== "win32")(
   "windows failures identify calls and codes through file creation and headless startup",
+  windowsTestOptions,
   async () => {
     const folder = directory();
     mkdirSync(folder);

@@ -1,6 +1,6 @@
 # Queue and steer
 
-- Status: accepted
+- Status: accepted, amended by [decision 0076](0076-explicit-send-after-stop.md)
 - Date: 2026-11-06
 
 ## Context

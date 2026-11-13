@@ -18,7 +18,7 @@ A reference contains `scope`, either `user` or `project`, and `id`. Equal ids in
 
 Profile settings permit `model`, `thinkingLevel`, `shell`, `disabledTools`, `disabledFacts`, `outputLimits`, `handBackSeconds`, `environment`, `modelOverrides`, `compaction`, [context controls](context.md), [permissions](permissions.md), and [script hooks](hooks.md). The model is null or an object with `providerId` and `modelId`. Effort is null or a Pi thinking level. Null requests automatic effort. Missing settings use their built-in values. [Tools](tools.md#shared-contract) and [model settings](settings.md#model-settings-and-compaction) define the ranges. Knowledge cutoffs and logins never enter profile settings.
 
-Chat overrides use the same model and effort shapes. An absent override follows the profile. An explicit model null leaves the chat without a selected model. Empty chats save their choices with the first accepted prompt.
+Chat overrides use the same model and effort shapes. An absent override follows the profile. An explicit model null leaves the chat without a selected model. Empty chats save their choices with the first accepted prompt. [New chat inheritance](chats.md#open-chat-and-runs) carries choices only within the same resolved profile, as decision 0078 clarifies.
 
 Profiles also own [attachment settings](attachments.md#settings-and-model-input) under `settings.attachments`. Attachment and Notes texts use the existing model text file.
 

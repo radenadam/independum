@@ -1,6 +1,6 @@
 # Pi updates arrive as reviewed pull requests
 
-- Status: accepted
+- Status: accepted, amended by [decision 0072](0072-editable-pi-texts.md) and [decision 0079](0079-gates-authorize-landing.md)
 - Date: 2026-10-25
 
 ## Context

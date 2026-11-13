@@ -12,7 +12,7 @@ An empty chat shows the message box near the middle of the screen. Once it has m
 
 ## Waiting messages
 
-The floating surface lists waiting messages in one boxed list above the field, with at most three rows visible before scrolling. Each row shows the text and what happens next: Sends after this reply, Steers this reply at its next step, Sending now, or the exact reason it is held, followed by Resume to send while Resume is available. A row opens, with a chevron, its exact text, delivery boundary, captured model and effort, and held reason. Remove sits beside each row until handoff. The menu note names Enter and Ctrl+Enter only where a keyboard is likely. Resume sending explicitly releases held delivery. Submitting another prompt keeps delivery held. Waiting messages stay with their chat across navigation and server restart. The server and its files call them pending inputs.
+The floating surface lists waiting messages in one boxed list above the field, with at most three rows visible before scrolling. Each row shows the text, delivery boundary, and held reason. Details show exact text, captured model and effort, and held reason. Remove sits beside each row until handoff. Resume sending explicitly releases held delivery. Submitting another prompt currently keeps delivery held. This differs from [decision 0076](../decisions/0076-explicit-send-after-stop.md), whose new explicit send goes while older messages remain held. CP-18 tracks that gap. Waiting messages survive navigation and restart. Code and files call them pending inputs.
 
 ## Editing a prompt
 

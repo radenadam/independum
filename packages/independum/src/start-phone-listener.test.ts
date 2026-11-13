@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { expect, test } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { PhoneConnection } from "./api-types.ts";
 import { createPhonePairings } from "./create-phone-pairings.ts";
 import { startPhoneListener } from "./start-phone-listener.ts";
@@ -74,7 +75,7 @@ test("the proxy backend isolates exact hosts and closes established streams on r
     expect((await reader?.read())?.done).toBe(false);
     options.pairings.revoke(options.pairings.list()[0]?.id ?? "");
     await expect(reader?.read()).rejects.toThrow();
-    await expect.poll(options.isAborted).toBe(true);
+    await waitFor(() => expect(options.isAborted()).toBe(true));
     expect((await fetch(new URL("/api/health", url), { headers })).status).toBe(401);
   } finally {
     await close();

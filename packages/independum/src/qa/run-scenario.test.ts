@@ -1,106 +1,103 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Page } from "playwright-core";
 import { expect, test } from "vitest";
 import type { BrowserConnection } from "./connect-browser.ts";
 import { runScenario } from "./run-scenario.ts";
 
-test("scenario records named values and fails a false check with a screenshot", async () => {
-  await inScenarioDirectory(async (directory) => {
-    const browser = fakeBrowser({ value: { messageVisible: false } });
+test("false checks retain named evidence and a failure screenshot", async () => {
+  await inScenario(async (directory) => {
+    const browser = fakeBrowser({ messageVisible: false });
     await expect(
-      runScenario(browser, "http://127.0.0.1:4871", [{ run: "check()", wait: 0 }], directory),
+      runScenario(browser, "http://127.0.0.1", [{ run: "check()" }], directory),
     ).rejects.toThrow("Scenario step 1 fails.");
     expect(JSON.parse(await readFile(join(directory, "values.jsonl"), "utf8"))).toEqual({
       step: 1,
       value: { messageVisible: false },
     });
-    expect(await readFile(join(directory, "failure.png"), "utf8")).toBe("screenshot");
+    expect(await readFile(join(directory, "failure.png"), "utf8")).toBe("image");
   });
 });
 
-test("scenario fails an expression exception instead of treating it as a value", async () => {
-  await inScenarioDirectory(async (directory) => {
-    const browser = fakeBrowser({ exceptionDetails: { text: "Missing element." } });
+test("expression exceptions fail instead of becoming successful values", async () => {
+  await inScenario(async (directory) => {
+    const browser = fakeBrowser(new Error("Missing element."));
     await expect(
-      runScenario(browser, "http://127.0.0.1:4871", [{ run: "missing()", wait: 0 }], directory),
-    ).rejects.toMatchObject({ cause: { message: expect.stringContaining("Missing element.") } });
+      runScenario(browser, "http://127.0.0.1", [{ run: "missing()" }], directory),
+    ).rejects.toMatchObject({ cause: { message: "Missing element." } });
   });
 });
 
-test("scenario preserves input order and dispatches pointer coordinates", async () => {
-  await inScenarioDirectory(async (directory) => {
-    const calls: { method: string; parameters: Record<string, unknown> }[] = [];
-    const browser = fakeBrowser({ value: [25, 40] }, calls);
+test("condition timeouts retain their reason and stop later actions", async () => {
+  await inScenario(async (directory) => {
+    const browser = fakeBrowser(true);
+    async function timeOut(): Promise<never> {
+      throw new Error("Timeout.");
+    }
+    browser.page.waitForFunction = timeOut;
+    await expect(
+      runScenario(
+        browser,
+        "http://127.0.0.1",
+        [
+          {
+            waitFor: {
+              condition: "() => false",
+              message: "The owner does not see the renamed phone.",
+              timeoutMs: 1000,
+            },
+            run: "unreachable()",
+          },
+        ],
+        directory,
+      ),
+    ).rejects.toMatchObject({ cause: { message: "The owner does not see the renamed phone." } });
+  });
+});
+
+test("playwright preserves key text pointer and capture order", async () => {
+  await inScenario(async (directory) => {
+    const calls: string[] = [];
     await runScenario(
-      browser,
-      "http://127.0.0.1:4871",
-      [
-        {
-          key: { key: "Enter" },
-          text: "hello",
-          clickOn: "target",
-          hoverOn: "target",
-          wait: 0,
-          shot: "input",
-        },
-      ],
+      fakeBrowser([25, 40], calls),
+      "http://127.0.0.1",
+      [{ key: "Control+Enter", text: "hello", clickOn: "target", hoverOn: "target" }],
       directory,
     );
-    expect(
-      calls.filter((call) => call.method.startsWith("Input.")).map((call) => call.method),
-    ).toEqual([
-      "Input.dispatchKeyEvent",
-      "Input.dispatchKeyEvent",
-      "Input.insertText",
-      "Input.dispatchMouseEvent",
-      "Input.dispatchMouseEvent",
-      "Input.dispatchMouseEvent",
-      "Input.dispatchMouseEvent",
+    expect(calls).toEqual([
+      "key Control+Enter",
+      "text hello",
+      "evaluate",
+      "click 25 40",
+      "evaluate",
+      "move 25 40",
     ]);
-    expect(
-      calls
-        .filter((call) => call.method === "Input.dispatchMouseEvent")
-        .every((call) => call.parameters.x === 25 && call.parameters.y === 40),
-    ).toBe(true);
-    expect(await readFile(join(directory, "input.png"), "utf8")).toBe("screenshot");
   });
 });
 
-test("scenario opens isolated clients without recording their invitation urls", async () => {
-  await inScenarioDirectory(async (directory) => {
-    const ownerCalls: { method: string; parameters: Record<string, unknown> }[] = [];
-    const phoneCalls: { method: string; parameters: Record<string, unknown> }[] = [];
-    const owner = fakeBrowser(
-      { value: "https://phone.test/#pair=short-lived-fixture" },
-      ownerCalls,
-    );
-    const phone = fakeBrowser({ value: { phoneIsIsolated: true } }, phoneCalls);
-    const created: string[] = [];
+test("isolated clients do not put invitation urls into named values", async () => {
+  await inScenario(async (directory) => {
+    const ownerCalls: string[] = [];
+    const phoneCalls: string[] = [];
     await runScenario(
-      owner,
-      "http://127.0.0.1:4870",
+      fakeBrowser("https://phone.test/#pair=fixture", ownerCalls),
+      "http://127.0.0.1",
       [
-        { openClient: { name: "phone", url: "pairingLink()" }, run: "phoneCheck()", wait: 0 },
-        { client: "owner", text: "Owner input", wait: 0 },
+        { openClient: { name: "phone", url: "invitation()" }, run: "check()" },
+        { client: "owner", text: "owner" },
       ],
       directory,
-      async (name) => {
-        created.push(name);
-        return phone;
-      },
+      async () => fakeBrowser({ isolated: true }, phoneCalls),
     );
-    expect(created).toEqual(["phone"]);
-    expect(phoneCalls.some((call) => call.method === "Page.navigate")).toBe(true);
-    expect(ownerCalls.at(-1)?.method).toBe("Input.insertText");
-    expect(await readFile(join(directory, "values.jsonl"), "utf8")).not.toContain(
-      "short-lived-fixture",
-    );
+    expect(phoneCalls).toContain("go https://phone.test/#pair=fixture");
+    expect(ownerCalls.at(-1)).toBe("text owner");
+    expect(await readFile(join(directory, "values.jsonl"), "utf8")).not.toContain("pair=fixture");
   });
 });
 
-async function inScenarioDirectory(run: (directory: string) => Promise<void>): Promise<void> {
-  const directory = await mkdtemp(join(tmpdir(), "independum-run-test-"));
+async function inScenario(run: (directory: string) => Promise<void>): Promise<void> {
+  const directory = await mkdtemp(join(tmpdir(), "independum-scenario-"));
   try {
     await run(directory);
   } finally {
@@ -108,23 +105,45 @@ async function inScenarioDirectory(run: (directory: string) => Promise<void>): P
   }
 }
 
-function fakeBrowser(
-  evaluation: { value?: unknown; exceptionDetails?: unknown },
-  calls: { method: string; parameters: Record<string, unknown> }[] = [],
-): BrowserConnection {
-  return {
-    async send(method, parameters = {}) {
-      calls.push({ method, parameters });
-      if (method === "Runtime.evaluate") {
-        return {
-          result: { value: evaluation.value },
-          exceptionDetails: evaluation.exceptionDetails,
-        };
+function fakeBrowser(value: unknown, calls: string[] = []): BrowserConnection {
+  const page = {
+    async evaluate() {
+      calls.push("evaluate");
+      if (value instanceof Error) {
+        throw value;
       }
-      return method === "Page.captureScreenshot"
-        ? { data: Buffer.from("screenshot").toString("base64") }
-        : {};
+      return value;
     },
-    async close() {},
-  };
+    async waitForFunction() {
+      return {
+        async jsonValue() {
+          return true;
+        },
+        async dispose() {},
+      };
+    },
+    async goto(url: string) {
+      calls.push(`go ${url}`);
+    },
+    async screenshot(options: { path: string }) {
+      await writeFile(options.path, "image");
+    },
+    keyboard: {
+      async press(key: string) {
+        calls.push(`key ${key}`);
+      },
+      async insertText(text: string) {
+        calls.push(`text ${text}`);
+      },
+    },
+    mouse: {
+      async click(x: number, y: number) {
+        calls.push(`click ${x} ${y}`);
+      },
+      async move(x: number, y: number) {
+        calls.push(`move ${x} ${y}`);
+      },
+    },
+  } as unknown as Page;
+  return { page, async resize() {}, async close() {} };
 }

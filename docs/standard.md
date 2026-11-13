@@ -1,52 +1,46 @@
-# The standard of the maintainer
+# Working agreement
 
-This page collects how the maintainer judges work on Independum, from the evaluations so far, so that an agent meets the standard the first time instead of learning it from corrections. `AGENTS.md` holds the rules that checks enforce. This page holds the judgment behind them. When an evaluation finds a new point, it lands here or in `AGENTS.md`.
+The maintainer owns product intent. Agents own implementation and repository stewardship together. This page keeps working preferences and judgment, without personal circumstances. The enduring sources are maintainer directions of 2026-10-24, 2026-10-30, 2026-11-05, 2026-11-09, and 2026-11-13. [Decision 0071](decisions/0071-repository-healing.md) records their reconciliation.
 
-## Who Independum is for
+## Judgment
 
-- People who learn agentic engineering and experiment with it, and people who build their own workflow with agents and need fine control over it. Many of them are not programmers.
-- They see everything that the model gets and everything that happens around it on screen, and they control it there. The same settings also live in plain files that they can edit in a text editor, such as a settings file, hooks, or a `SYSTEM.md`.
-- Scripts and other agents drive Independum from the command line, without the UI, and the phone works as well as the computer.
-- Tools and other parts that are not built in come as add-ons, which a user or their agent can write.
+- Every number says what it counts. Two views of the same quantity agree, or explain their different scope. Estimated parts never claim exact provider token counts.
+- One look has one meaning. [Design](design.md) owns that grammar. Consistency includes naming, prose, spacing, interaction, and state meanings.
+- Proportion matters. Tools and Settings are references for reasoning about coherent content, spacing, and type, rather than templates to copy blindly.
+- Avoid redundant controls and facts. A detail must add understanding, not repeat an overview.
+- Details are on demand and discoverable. Moving an inventory into one long detail does not resolve overload.
+- Check the whole journey, long histories with hundreds of requests and several compactions, both themes, and touch at 360 pixels. A short fixture does not establish the long case.
+- Labels use plain words and identify the thing, its owner, its time, and the consequence of acting.
+- A clear implementation limit is evidence of unfinished acceptance when it conflicts with the [product contract](product/README.md).
 
-## What the model gets
+## Collaboration
 
-Independum gives the model complete facts and good functions, and never steers it. A professional who is handed a new tool needs no guide, but cannot plan with it before knowing what it is. So the shell tool names the shell and its version, and the same goes for every tool and for the harness:
+Give a genuine recommendation with reasons. Disagree when evidence warrants it. Research shows what works and fails, then informs a choice that fits Independum. Prevalence elsewhere does not settle the choice.
 
-- Facts in scope are things the model cannot know or know reliably by itself, such as the time, the time of each message and result, its own knowledge cutoff, the harness it runs in, the operating system, and the folder it works in.
-- A best practice, a rule of conduct, or a hint about how to work is out of scope. Steering is only acceptable inside a feature whose purpose is to steer, such as compaction or memory, and the user can see and turn off that feature.
-- Everything that Independum or Pi adds to the context shows on screen, and the user can turn it off.
+Ask progressively. The full blueprint cannot be established in advance, and preferences can change. Use the standing question round in [workflow](workflow.md) at every piece of work. Work independently once the intended result is understood. Repeated permission requests for settled work and silent invention of intent both miss this agreement.
 
-## How work is judged
+The maintainer decides in the conversation, not by reading. Never hand them a long report, a worker's output, or a file to read in order to decide or judge. Give each decision as a short question with a recommendation, the few facts it needs, and the options, and summarize what workers produced in a few lines. Reading a long text to decide is no different from reading the whole repository, which defeats the purpose of this context.
 
-- **Every number and fact is exact.** Two places that show one quantity agree, or each says what it counts. A sum in a legend adds up to its rows.
-- **One look, one meaning.** `docs/design.md` says which look means what. A look that means two things, or two looks for one thing, is a bug even when each piece looks fine on its own.
-- **Proportion.** Spacing, type, and weight sit in balance. The tool cards are the reference the maintainer likes.
-- **Nothing twice.** A control or a fact that already lives somewhere else does not come back in another place. A page that only repeats a table is filler.
-- **Details on demand.** The overview shows what matters at a glance, and a row opens the rest.
-- **It holds in the long case.** A screen works in a chat with hundreds of requests and several compactions, not only in a short one.
-- **Light and dark, 360 pixels, and touch** all work.
-- **Plain words.** A label says what happens, such as Show requests 1 to 3, and a note says one fact.
+Before building, recap the agreed outcome. For status, state phase, completed behavior, blocker, and next action. For an unclear mechanism, use a concrete example and distinguish its parts. If a question returns, reconsider the premise instead of expanding the same explanation. When words do not settle a visual preference, compare alternatives with identical content, today's version, and a long case.
 
-## How to work with the maintainer
+Verify actual behavior before saying it works. Report unavailable checks and unresolved failures. Keep enough choices, evidence, limitations, and unfinished requirements for an audit without recounting routine operations. Quality governs completion. Token availability or an inferred deadline does not reduce the accepted outcome.
 
-- Check a change in the running app, with the stand-in model or a real one, before saying it works, and say what was not checked.
-- When asked for an opinion, give one recommendation with its reasons, also when it disagrees with the maintainer. A survey of options without a pick is not an answer.
-- When the maintainer cannot put a wish into words, mock options side by side on a canvas with the same content, each with the one rule it follows, today's version beside them, and a long case.
-- When the maintainer changes their mind, follow the new choice and record why in the decision.
+Every correction improves later judgment throughout the affected area. Search for the shared cause and other occurrences. A repeated correction requires investigating why the earlier rule or check failed. The [learning mechanism](workflow.md#learning) captures the answer immediately.
 
-## What an agent decides, and what it asks
+## Authority
 
-An agent decides on its own:
+The maintainer decides product meaning, new visual or interaction meanings, genuine preference questions, changes to accepted promises, and new security, privacy, or destructive tradeoffs. Tools are planned with the maintainer before implementation, including purpose, description, parameters, and call-to-result life.
 
-- How to build what is agreed: code structure, internal names, tests, and refactors.
-- Fixes of clear bugs, where the right behavior is not in doubt.
-- Anything that an existing pattern, decision, or rule already covers, which it follows.
+Agents decide code structure, internal names, ordinary refactoring, appropriate tests, and clear fixes within accepted behavior. An established rule settles routine implementation without another approval. A delegated choice is legitimate within that scope but never becomes a direct maintainer answer by repetition. Mark inference as inference.
 
-An agent asks the maintainer first:
+Passing deterministic checks, independent local AI review, and independent AI browser QA authorize landing within settled intent. No person must inspect or approve each change. The maintainer tests the app at milestones, such as a checkpoint. This working preference comes from the direct maintainer answer of 2026-11-13 in the conversation with the coordinator. [Decision 0079](decisions/0079-gates-authorize-landing.md) records the correction and its scope.
 
-- A new look or interaction that `docs/design.md` does not cover, and anything that a user sees for the first time, such as a new feature or place.
-- A tool, as the Tools section of `AGENTS.md` describes.
-- Any change to an accepted decision, and the removal of anything a user relies on.
-- Anything that touches credentials, security, or privacy.
-- An open question of `docs/roadmap.md`.
+Stop dependent work and ask when current sources conflict, an accepted promise would change, a new meaning lacks a rule, measurement disproves feasibility, or a necessary preference remains unknown. Continue independent investigation while an answer is pending. Silence and elapsed time are not approval. Park distant questions until their work approaches.
+
+## Changes of position
+
+Treat reversals as learning, not defects. Historical reasons stay in decisions. Margin narrows to welcome and login because the working screen needs practicality. Static title tooltips replace sliding because reading is unreliable. Every occurrence highlights the current chat because location becomes harder to find among many chats. Session replaces separate Agent and Context places because they overlap. Minimal command environments protect exported secrets. System reads replace project-only reads because Windows Node workflows need ancestors. Editable Pi wording replaces temporary read-only treatment because control is a defining promise.
+
+## Evaluation
+
+Evaluate agent work, repository context, and product behavior after milestones, regularly, and whenever something feels wrong. Maintainer corrections and agent questions can interleave. Fix one concern at a time and capture each finding as a rule, check, or decision. The initial repository-only cold start requires maintainer judgment before the building stop is lifted. Passing a quiz alone does not establish shared judgment.

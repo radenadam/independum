@@ -14,7 +14,7 @@ A Hooks row opens the selected profile's [script hooks](hooks.md), controls, and
 
 Session shows the open chat's selected profile, model and thinking effort, project folder name and chat id, token use and cost, and context. A Permissions row opens the selected profile's [policy and runtime detail](permissions.md). The profile row opens its switch review and the shared [profile editor](profiles.md#editors-and-application). The chat detail opens project settings for the default of new chats. The model detail gives Pi's provider, API and base URL, input and output limits, image limits, prices and price tiers per million tokens, and prompt cache duration. It also edits [model settings](settings.md#model-settings-and-compaction). The chat detail gives its full folder, id, dates, and session, output, and last request paths. These paths are text to inspect and copy.
 
-Use compares Last reply with Whole chat. Rows separate input, output, reasoning, cache reads, cache writes, and cost. Last reply sums every assistant turn since the latest user message or custom message. The counts below it count assistant messages as replies. Cost and counts come from Pi, with reasoning summed separately by Independum.
+Use compares Last reply with Whole chat. Rows separate input, output, reasoning, cache reads, cache writes, and cost. Last reply sums every model turn since the latest user message or custom message. The counts below it count assistant messages as model turns. A reply can span multiple model turns, as the [glossary](../glossary.md) defines. Cost and counts come from Pi, with reasoning summed separately by Independum.
 
 The context shows the last captured request, or an estimate of the next one before any request is captured. The request parts come from provider-independent text matching. Parts keep their order inside a request key, and groups of keys sort as instructions, tools, and messages. Adjacent tools share a row. Model texts and tool controls open through these rows. See [settings](settings.md#tools-and-model-texts). A Compaction row opens its [settings and manual action](settings.md#model-settings-and-compaction), with an edited mark when its settings differ from the built-in values.
 
@@ -28,7 +28,7 @@ A thin bar represents the whole context window, including its override. A funnel
 
 Parts start with a length estimate. After a reply, their shares scale to the latest model turn's input and cache token count. These are estimates of individual parts, not provider token counts for each one. The figure represents request input. The [message box meter](message-box.md#context-meter) can include the last assistant output too.
 
-The bar and caption start pinned above the scrolling overview. The pin toggles this behavior and is remembered in browser local storage. The legend scrolls away. Hovering a part, request row, or latest compaction links its highlights to the figure. Clicking an instruction or tool segment opens its detail. A message segment opens its matching request when one exists. The figure itself accepts pointer input, and the rows provide keyboard access. Summary segments have no click action.
+The bar and caption start pinned above the scrolling overview. The pin toggles this behavior and is remembered in browser local storage. The legend scrolls away. Hovering a part, request row, or latest compaction links its highlights to the figure. Clicking an instruction or tool segment opens its detail. A message segment opens its matching request when one exists. The figure itself accepts pointer input, and the rows provide keyboard access. Clicking a summary segment opens the latest compaction.
 
 ## Conversation
 
@@ -52,5 +52,4 @@ A command detail uses the same input, status, output, and images as its chat ste
 
 ## Known differences from the decisions
 
-- Decision 0052 says a figure part opens on click. A summary has no saved entry mapping, so its segment does nothing on click. See `packages/web/src/context-parts.tsx:106` and `packages/web/src/context-parts.tsx:238`.
 - Decision 0048 describes a complete parts view. Unknown-only sections and unmatched text shorter than 40 characters can be absent. See `packages/independum/src/summarize-request.ts:81` and `packages/independum/src/summarize-request.ts:445`.

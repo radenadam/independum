@@ -1,247 +1,33 @@
 # Independum
 
-Independum is an agent harness built for transparency and control. The user starts it from a terminal and works with the agent in a browser, on a computer or a phone. Every part of the harness, from the system prompt to the tools, is visible and editable from the UI.
+This is the shared entry point for contributors and agents. `CLAUDE.md` only imports it. Maintaining repository context and building Independum are equally part of the job.
 
-This file is the rulebook for every change to this repository, made by a person or an agent. Follow it exactly. `CLAUDE.md` imports this file, so every agent reads the same rules.
+## Start every session
 
-## Principles
+Read these whole, in order:
 
-Every decision about what the model gets follows these, from the system prompt to each tool and its results.
+1. [Current work](docs/work.md).
+2. [Product definition](docs/product/README.md).
+3. [Working agreement](docs/standard.md).
+4. The relevant requirements in [the checkpoint](docs/checkpoint.md) and the owning product pages linked from the definition.
+5. [Workflow](docs/workflow.md) before planning, coordinating, handing over, or landing. Read [conventions](docs/conventions.md) before editing.
+6. [Design](docs/design.md) for visible work and [icons](docs/icons.md) for icon work. Read linked current decisions when their reasons affect the task.
+7. Owning code, schemas, tests, and scenarios. Open superseded history only to investigate a reversal or contradiction.
 
-- Independum is sufficient. It gives the model complete facts, without gaps, and functions that cover every workflow the model may need, and the model decides what to do with them.
-- Independum never steers or pads the model. It gives no best practices, and a tool never guesses at what the model meant or quietly fixes what it sent. When a call cannot do exactly what the model asked, it fails and says exactly why, so the model can decide again.
-- Independum tells the model where it works and offers the user options. It never changes how a program behaves to make up for what a model does not know. See decision 0035.
-- Research into other harnesses shows what works and what fails. It informs a choice that fits these principles, and it is never a design to copy.
+Begin each piece of work, including resumed work, with the question round in the workflow. The maintainer owns intent. Agents execute understood work autonomously and own accurate context and evidence. Stop dependent work when intended behavior conflicts or a new product, visual, privacy, security, or removal tradeoff is unresolved. Existing authorization remains valid.
 
-## Map
+## Critical boundaries
 
-- `packages/independum`: the `independum` command and the local server.
-- `packages/web`: the browser UI.
-- `docs/standard.md`: how the maintainer judges work, and what an agent decides or asks.
-- `docs/design.md`: how Independum looks, and what each look means.
-- `docs/glossary.md`: the names of Independum concepts.
-- `docs/product`: what each product area does today, with its code and limits.
-- `docs/icons.md`: how every icon is drawn.
-- `docs/decisions`: one record per decision, with its reasons.
-- `docs/roadmap.md`: current work, next work, and open questions.
-- `scripts`: the repository checks behind `pnpm check`.
-- `.claude/settings.json`: Claude Code permissions for this repository.
+- Never read, print, copy, or edit any file named `auth.json`, `models.json`, or `.env`. Keep credentials out of commands and conversations. Search with `git grep` or ripgrep with ignored files excluded. Never use recursive `grep`.
+- Read saved chats when diagnosis needs them. Pi alone writes their format. Exercise real models through Pi and the app. Use only `claude-haiku-5-5` for Anthropic and `gpt-6-luna` for ChatGPT product tests. Development review roles use the installed agent CLI and are separate from product tests.
+- Keep private transcripts and personal material outside the public repository. Carry only concise working requirements, provenance, and reasons forward.
+- Native launches belong to `packages/independum/src/create-sandbox.ts`, use only `@microsoft/mxc-sdk/v1`, and disable telemetry on every operation. Never fall back from project mode to unrestricted execution. Preserve denied state paths, nested read-only project configuration, exact reads, and host-effect boundary tests. [Permissions](docs/product/permissions.md) owns the full boundary and Linux mask disclosure.
+- Keep every API route under `/api/`, authenticated with its allowed host and supplied Origin checked. Local control listens on `127.0.0.1`. Phone authority stays separate. [Server](docs/product/server.md) owns transport details.
+- Pi owns providers, logins, models, and the loop. Do not add provider-specific compatibility code. [Decision 0072](docs/decisions/0072-editable-pi-texts.md) permits a small text-control patch. It is accepted work, not shipped support.
+- Respect the task's filesystem, network, git, and process boundaries. Preflight capabilities before assigning work. A constrained worker leaves changes uncommitted for its coordinator.
 
-## Commands
+## Keep the context true
 
-| Command | Effect |
-| --- | --- |
-| `pnpm install` | Installs dependencies and the pre-commit hook. |
-| `pnpm dev` | Runs the server and the UI with live reload. |
-| `pnpm preview` | Runs the app with a stand-in model in a fresh temporary home. |
-| `pnpm qa <scenario>` | Checks the running app in a headless browser and saves evidence outside the repository. |
-| `pnpm format` | Fixes formatting and safe lint issues. |
-| `pnpm check` | Runs every check. The pre-commit hook and CI run the same command. |
-| `pnpm test` | Runs the tests. |
+Capture each correction or answer in its authoritative page before dependent work continues. Record its speaker, date, kind, and direct, delegated, or inferred provenance. Replace conflicting guidance, search for the shared cause, and add a rule, check, or decision in the same change. [Workflow](docs/workflow.md) owns this mechanism and document ownership and budgets.
 
-## Workflow
-
-1. Read `docs/roadmap.md`, `docs/standard.md`, and the decision records that touch the task. Before work that a user sees, also read `docs/design.md`.
-2. If the task depends on an open question in the roadmap, ask the maintainer first, then record the answer as a decision.
-3. Update `main` with `git switch main` and `git pull`, then create a branch as described in [Commits and pull requests](#commits-and-pull-requests).
-4. Before changing an area, read its page in `docs/product`. Update the page in the same change when the change makes it wrong.
-5. Make the change, following the rules below.
-6. Leave nothing behind, as described in [No leftovers](#no-leftovers).
-7. Run `pnpm format`, then `pnpm check`. Both pass with no errors and no warnings.
-8. Commit, push, and open a pull request with `gh pr create`. Then turn on auto-merge with `gh pr merge --auto --squash`.
-9. Watch CI with `gh pr checks --watch`. GitHub merges the pull request once every check passes. If a check fails, fix it on the same branch. If GitHub cancels a job before a runner takes it, such as when it has no macOS runner free, run it again with `gh run rerun --failed`, because the gate counts a job that never ran as failed.
-
-GitHub rejects direct pushes to `main`, so every change goes through a pull request.
-
-## Browser QA
-
-Check every change a user sees with `pnpm qa <scenario>`. Choose the scenarios in `qa` that cover the change, or add a short JSON scenario for the flow. Inspect its screenshots and named values, and fix every browser error and warning. Check phone layouts at 360 pixels in both themes. A scenario finds what it uses the way a user does, by visible text, role, or accessible name, never by the class names of CSS modules, which carry hashes. The command prints the output folder outside the repository. Keep the evidence there. See `docs/browser-qa.md` for preview flags, the step format, and how to use a preview that already runs. `pnpm check` validates the harness and scenarios without running a browser.
-
-The `qa` folder holds reusable browser scenarios. Harness code lives in `packages/independum/src/qa` and uses the dependencies of that package. Preview fixtures write saved chats through Pi, and real logins load only through Pi with `--real-logins`.
-
-## Evaluation
-
-The maintainer holds an evaluation after a milestone, at regular times, and whenever something feels off. It audits the build against the standard of the maintainer in three areas: how the agent works, the repository, and Independum itself. Small unevenness counts, because it can point to a problem at the root.
-
-1. The maintainer drives. Fix each thing that the maintainer raises, one small change at a time.
-2. The agent asks. Probe the maintainer with questions until the agent knows what the maintainer expects, and the maintainer has nothing left to raise.
-3. Every finding becomes lasting: a rule in this file, a check in `pnpm check`, or a decision record. The maintainer never has to say a thing twice.
-
-## Consistency
-
-- Match the existing code. When unsure, find the closest existing example and copy its shape.
-- When these rules do not cover a case, choose, then add the rule to this file in the same change. The next agent then chooses the same way. A choice that a user sees for the first time is for the maintainer to make, as `docs/standard.md` describes.
-- Each thing has one way to do it. A change that replaces a pattern migrates every use of the old one, so no half-migration remains.
-- A rule that a tool can check becomes a check in `pnpm check`. See decision 0004.
-- A rule that blocks good work without protecting privacy or security gets changed in the same change, never worked around. When a rule that protects privacy or security blocks the work, tell the maintainer, who weighs it.
-
-## No leftovers
-
-- Throwaway scripts, experiments, logs, and notes live outside the repository, in an agent scratchpad or the system temp directory. `pnpm check` fails on unexpected files.
-- A change deletes the code, files, exports, and dependencies it makes unused. `pnpm check` fails on unused code.
-- No commented-out code and no TODO comments. Open work goes in `docs/roadmap.md`.
-- No compatibility shims, deprecated aliases, or re-exports under old names. Update the callers instead.
-- A change updates every doc it makes wrong, and removes finished items from `docs/roadmap.md`.
-
-## No redundancy
-
-- Before adding a function, component, file, folder, or dependency, search for an existing one and extend it.
-- Each fact lives in one place. Other places link to it instead of repeating it.
-- `pnpm check` fails on duplicated code. Import statements do not count, because two files that use the same pieces import them alike.
-
-## Names
-
-- Files and folders are kebab-case, including React components, for example `chat-panel.tsx`.
-- A file that exports one function or component is named after it. For example, `run-check.ts` exports `runCheck`.
-- Types, interfaces, classes, and React components are PascalCase. Everything else is camelCase, constants included. Fixed names in external APIs and the model-facing parameters of Edit, `old_string`, `new_string`, and `replace_all`, keep their required spelling.
-- Acronyms are words, for example `httpServer` and `HtmlView`.
-- Use full words, such as `context`, `request`, `response`, `error`, and `message`. The only abbreviations are `id`, `url`, `api`, `ui`, and `html`. Unit suffixes such as `Ms` in `timeoutMs` and `workdir` in Shell are exceptions because they name the unit or a fixed tool parameter.
-- Booleans read as yes-or-no questions, for example `isEnabled` and `hasTools`.
-- Names for Independum concepts come from `docs/glossary.md`. A change that introduces a concept adds it there.
-- Vague names such as `utils`, `helpers`, `common`, `shared`, `misc`, and `lib` are not allowed. Name things after what they hold.
-
-## Folders
-
-- A folder holds at least two entries. Until it does, its entry stays in the parent folder. `pnpm check` enforces it.
-- A package holds `package.json`, `tsconfig.json`, its tool configs, and its code in `src`. A package folder is named after its package, without the `@independum/` scope.
-- Tests sit next to their code, for example `create-server.ts` and `create-server.test.ts`.
-- A new top-level entry needs a reason, recorded by listing it in `scripts/check-layout.ts`.
-
-## Code
-
-- TypeScript only, with the strict settings in `tsconfig.base.json`. Packages do not loosen them.
-- Named exports only. Default exports appear only where a tool requires one, such as `vite.config.ts`.
-- Exported functions declare their return types.
-- Named functions use `function` declarations. Arrow functions are for callbacks only.
-- Loops use `for...of`, never `forEach`.
-- No enums, namespaces, or parameter properties. Node runs TypeScript by stripping types, which only works for erasable syntax.
-- Relative imports include the file extension, for example `./create-server.ts`.
-- Node built-ins use the `node:` prefix, for example `node:fs`.
-- No `console`. Command output goes through `process.stdout.write` and `process.stderr.write`. This keeps debug logs out of commits.
-- Error messages are sentences that start with a capital letter and end with a period.
-- Paths are built with `node:path`, never by joining strings with separators.
-- Package scripts run unchanged on Windows, macOS, and Linux. They use no `rm`, no `cp`, no inline environment variables, and no `&`.
-- A new dependency must be maintained, work on all three systems, and have no lighter alternative already in the repository.
-- A dependency uses a version that is at least a day old, the minimum release age that pnpm enforces. Never relax that age in `pnpm-workspace.yaml`, because it gives the registry time to pull a compromised release. `pnpm check` enforces it through `scripts/check-release-age.ts`.
-
-## Security
-
-- Native sandbox launches belong to `packages/independum/src/create-sandbox.ts`. Use only `@microsoft/mxc-sdk/v1` and disable telemetry on every operation. Project tools read system roots and write only granted paths. Always deny Independum's state folder to project commands and file tools. Project tools never fall back to unrestricted execution. Shell version queries also require the sandbox boundary. Protect project configuration with nested read-only grants so reads remain exact and writes fail. Refuse policies the selected backend cannot enforce, and never mask a denied file with successful empty contents. Linux denied folders use MXC's private masks. Native boundary tests check host contents and file creation before checking command output. The editable permission fact names denied paths and explains that Linux masks look empty and accept writes that disappear when the command ends without reaching the host folder. See decisions 0063 and 0067.
-
-- Every API route sits under `/api/`, where the server requires the access token and its own address, and rejects an origin other than its own when the request supplies one. See decision 0005.
-- Local control listens on `127.0.0.1`. The separate phone listener binds only one explicitly selected private address with supplied HTTPS, or `127.0.0.1` as a local HTTPS proxy backend. Phone credentials never grant local control, and proxy headers never establish trusted addresses or origins. Saved phone hashes use the account-only runtime protection of decision 0066. See decision 0068.
-- Never read, print, copy, or edit `~/.independum/auth.json`, `~/.independum/models.json`, or any `.env` file. They hold credentials, and their contents must stay out of every conversation.
-- Read chats in `~/.independum/sessions` whenever the work needs them, and test with real models through the app, which saves its chats there like any other. Never change a chat file by hand, because Pi owns its format.
-- Search with `git grep` or a search tool built on ripgrep, because both skip files that git ignores. Never search with `grep -r`, which reads ignored files such as `.env` and prints what they hold.
-
-## Real model calls
-
-- Tests and experiments that call a real model use only `claude-haiku-5-5` for Anthropic and `gpt-6-luna` for ChatGPT. See decision 0007.
-- They use the maintainer's logins in `~/.independum`, loaded through Pi as in `packages/independum/src/create-model-runtime.ts`, so no credential appears in a command, a file, or a conversation.
-- The maintainer manages those logins in the UI. ChatGPT signs in through Pi's `openai` provider and its "Sign in with ChatGPT" method.
-- `pnpm check` never calls a real model, so it runs without credentials and costs nothing.
-
-## Pi updates
-
-Pi owns providers, logins, models, and the agent loop. See decision 0012.
-
-- Never add code for a single provider or model. When Pi lacks something or has a bug, wait for a Pi release or report it to Pi.
-- Dependabot opens a pull request each week when Pi has a new version. It never merges by itself, because `pnpm check` cannot see changes to sign-in pages, model calls, or Pi's own tools.
-- `pnpm check` does fail when Pi changes a text that the Session place lists. The copies live in `packages/independum/src/pi-texts.ts`. See decision 0034.
-
-To review a Pi update with the maintainer:
-
-1. Read Pi's changelog for every version in the update, and list each change that touches Independum. Update the copy of each text of Pi that `pnpm check` reports as changed, and look for new texts that Pi sends.
-2. Run `gh pr update-branch` if the branch is behind `main`. Then check it out and run `pnpm install` and `pnpm check`.
-3. Run `pnpm dev`, and confirm that the Logins section of the settings lists every provider and that a real model call still works.
-4. Report the findings, and merge with `gh pr merge --squash` only after the maintainer approves.
-
-## Tools
-
-- Independum builds its own tools and registers them with Pi through its hidden extension, which registers them anew when their texts change. The built-in tools of Pi stay off. See decisions 0029 and 0033.
-- A tool is planned with the maintainer before it is built: what it does, its description, its parameters, and its life from call to result.
-- A tool description holds only what the model needs to know about the tool and the harness to choose the tool and use it. It states facts and gives no rules of conduct.
-- What applies to every tool, such as output that is cut, stays out of the descriptions, because the harness says so in the result when it happens.
-- A setting or a model text counts as edited only while its value differs from its built-in value, like a hash that stays the same while the content does. Choosing the built-in value again saves no edit.
-- Numeric model settings and compaction settings use the number field with its built-in value, an edited mark, and a reset. Model overrides belong to a provider and model id, and never change Pi's catalog entries. See decision 0055.
-- Every text that a tool sends to the model is a model text: its description, the descriptions of its parameters, and what its results and notes say under each condition. The user can then edit it and reset it from the day the tool ships. See decision 0033.
-- Every fact that Independum adds to a request has its own switch and model text. A model's knowledge cutoff comes only from the value that the user sets for that provider and model. See decision 0054.
-
-## UI
-
-- Every screen works with touch on a phone screen 360 pixels wide.
-- The design follows decision 0009. Colors and fonts are tokens in `packages/web/src/theme.css`, and every other stylesheet uses the tokens instead of raw colors.
-- A component keeps its styles in a CSS module beside it, for example `top-bar.module.css` beside `top-bar.tsx`.
-- An inline `style` only passes values known at run time to the CSS module, as custom properties such as `--logo-url`.
-- In the working screen's bars and message actions, actions are icons in an `IconButton`, whose tooltip shows the action and its shortcut. The sidebar uses labeled rows for New chat and Settings. Menus, settings, and places use labeled rows or text buttons for actions within their content. Shortcuts live in `packages/web/src/shortcut.ts` and use Ctrl, or Cmd on a Mac, so they work while the user types.
-- In a menu, the field and the highlight of each choice span one width, and their text starts 10 pixels inside them, so every edge and every line of text lines up. A bar belongs to its label, such as the thinking effort, so it spans the line of the text, from the start of its label to the end of its value. The scrollbar of a list sits beside its choices instead of narrowing them, through `MenuList`.
-- On the welcome screen, actions are `CommandButton`s, whose bracketed shortcut works on the keyboard too.
-- Action labels use sentence case. The top bar of the welcome screen uses lowercase.
-- A place is built from the pieces of the tool cards and the settings: `PlaceFrame` around it, a `PlaceSection` with a small heading for each fact and never a box of its own, a card for each of many things of one kind that hold parts, such as the tools, one `PlaceBox` with lines between its rows for items of one line that belong together, such as the model and the chat, and tiles for what opens or unfolds, which are `PlaceRow` and `Disclosure`. A list never runs from edge to edge with lines between its rows.
-- Icons follow `docs/icons.md`. A new icon is drawn to that specification and added to its tables of shapes and motion.
-- Tooltips come from `IconButton` or `useTooltip`, never from a `title` attribute, because the browser then draws its own box beside ours. `pnpm check` enforces it through `scripts/check-markup.ts`.
-- Text never slides or scrolls by itself. A title that does not fit fades at its end and shows the whole title in a tooltip while the pointer rests on it, through `OneLineTitle`. On touch screens, archived chat titles wrap so their full text stays readable.
-- A menu keeps its opening position while it is open, even when its button changes size.
-- The page clips with `overflow: clip`, never `overflow: hidden`, because hidden overflow breaks `position: sticky`.
-- The focus ring reaches 5 pixels outside a control. A container that clips keeps that much room inside its edges, or a control too small for the ring shows its focus another way, such as the color it takes when pointed at.
-- Text uses `--ink` or `--muted`. `--faint` is too light to read, so it is only for lines and decoration. Selected, active, and error text and the thinking mark may use `--signal`, and text on a filled signal button uses `--on-signal`.
-- Motion sits inside `@media (prefers-reduced-motion: no-preference)`, so it never plays when the system asks for reduced motion. JavaScript motion checks `prefersReducedMotion()` instead of a media query.
-- Fonts ship with the app instead of loading from the network, so Independum works offline and makes no outside requests until the user connects a model.
-- Reuse a class from another CSS module by importing it and combining the classes in markup. Never use `composes` from another file, because the CSS module loader loses source paths and warns during builds. A combined class never sets a property that the imported class sets, because stylesheet order then decides which wins. A variant that must win sets an attribute that a stronger rule of the other file reads, such as `data-flush` on a block of code.
-- `pnpm check` enforces the token, motion, and cross-file composition rules through `scripts/check-styles.ts`.
-
-## Comments
-
-- The default is no comment. Names and types carry the meaning.
-- A comment explains what the code cannot: why a choice was made, an outside constraint, or a trap.
-- A comment is one or more complete sentences in plain present tense and neutral voice. It starts with a capital letter, ends with a period, and never uses "we", "you", or "I".
-- Comments go on their own line, above the code they explain.
-- Line comments use `//`. Block comments are only for doc comments. Stylesheets use block comments because CSS has no line comments.
-- A doc comment is one sentence. It starts with a verb for a function and a noun phrase for a type. Doc comments have no tags such as `@param`, because types already document parameters and return values.
-- Never write commented-out code, change history such as "Changed X to Y", restatements of the code, or decorative separators.
-- `pnpm check` enforces the format, and `scripts/check-comments.ts` holds the exact rules.
-
-A doc comment fits on one line, or wraps like this:
-
-```ts
-/** Options for starting the server. */
-
-/**
- * Returns the session for an id, or undefined when the session was deleted or never existed.
- */
-```
-
-## Tests
-
-- Tests use Vitest, with `test` and no `describe`. The file is the group.
-- Test names are lowercase phrases without a final period that state the behavior, for example `test("health route reports ok")`.
-- Tests exercise behavior through exported functions, not internals.
-- Every test has 20 seconds, set once in the `test` script, because the Windows runners of CI start processes and Pi slowly. A test sets its own limit only when it needs more.
-
-## Writing
-
-These rules apply to all prose: docs, comments, UI text, error messages, pull request titles, and pull request descriptions.
-
-- Write plainly, with short sentences in the present tense. Instructions use the imperative.
-- Connect ideas with explicit words such as "because", "so", "and", or "but", or split them into separate sentences.
-- Use no punctuation shortcuts. That means no em dashes, no en dashes, no hyphens used as dashes, no semicolons, no slashes standing for "and" or "or", no ellipses, and no arrows.
-- A colon only introduces a list, an example, or code, or separates a label from its description. It never joins two sentences.
-- Paths, commands, file names, and code identifiers go in code spans, for example `docs/roadmap.md`.
-- Every file holds only printable ASCII, so no emojis, curly quotes, or special dashes appear anywhere. Code writes other characters as escapes, for example `\u2014`.
-- `pnpm check` enforces the punctuation rules in Markdown files and comments, and the ASCII rule in every file.
-
-## Markdown
-
-- A Markdown file has one `#` heading. Headings use sentence case.
-- Lists use `-`. Code blocks are fenced and name their language. Paragraphs are not hard-wrapped. No HTML.
-- A decision record lives in `docs/decisions/NNNN-title-in-kebab-case.md`, numbered in order, with Status, Date, Context, Decision, and Consequences. A change that reverses a decision marks the old record as superseded and links the new one.
-
-## Commits and pull requests
-
-- Branch from `main` as `<type>/<summary-in-kebab-case>`, for example `feat/session-list`.
-- Pull request titles follow Conventional Commits, in the form `<type>(<scope>): <summary>`.
-  - Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`.
-  - The scope is a package folder name. Leave it out for changes across the repository.
-  - The summary is lowercase and imperative, with no final period, for example `feat(web): add session list`.
-- One concern per pull request. The description has a `## What` section and a `## Why` section.
-- Pull requests merge by squash. The title becomes the commit title on `main`, and the description becomes its message.
+A merged slice does not complete its checkpoint requirement. Implementation and verification are separate. Skipped or unavailable checks remain missing evidence. [Checks](docs/checks.md) defines local gates and their limits. Run `pnpm format`, `pnpm check`, and `pnpm gate` before ordinary landing. Follow the workflow for one change at a time. A task-specific exception is recorded honestly and never called a pass.

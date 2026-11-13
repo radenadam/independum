@@ -3,20 +3,50 @@
   "steps": [
     {
       "size": [1440, 1000],
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
     },
     {
-      "run": "({ sidePanelOpens: document.querySelector('aside[aria-label=\"Side panel\"]')?.inert === false && document.querySelector('aside[aria-label=\"Side panel\"]').checkVisibility(), newTabOffersSession: document.querySelector('aside [role=tab][aria-selected=true]')?.innerText.trim() === 'New tab' && [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Session') })"
+      "waitFor": {
+        "condition": "({ sidePanelOpens: document.querySelector('aside[aria-label=\"Side panel\"]')?.inert === false && document.querySelector('aside[aria-label=\"Side panel\"]').checkVisibility(), newTabOffersSession: document.querySelector('aside [role=tab][aria-selected=true]')?.innerText.trim() === 'New tab' && [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.trim() === 'Session') })",
+        "message": "The expected checks do not become true: sidePanelOpens, newTabOffersSession.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
     },
     {
-      "run": "(() => { const panel = document.querySelector('aside[aria-label=\"Side panel\"]'); const place = panel?.querySelector('[role=tabpanel]')?.innerText ?? ''; return { sessionPlaceOpens: panel?.querySelector('[role=tab][aria-selected=true]')?.innerText.trim() === 'Session', modelVisible: place.includes('Faux typing') && place.includes('Medium effort'), conversationVisible: place.includes('Conversation') && place.includes('You wrote') && place.includes('Thinking effort set to medium') }; })()",
-      "shot": "session-conversation"
+      "shot": "session-model",
+      "waitFor": {
+        "condition": "({ modelVisible: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Faux typing') && button.textContent.includes('Medium effort'))) })",
+        "message": "The expected checks do not become true: modelVisible.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Let the bar scroll away\"]')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "session-conversation",
+      "waitFor": {
+        "condition": "(() => { const heading = [...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation'); const section = heading.parentElement; return { sessionPlaceOpens: document.querySelector('aside [role=tab][aria-selected=true]')?.innerText.trim() === 'Session', conversationHeadingVisible: window.qaVisible(heading), requestVisible: window.qaVisible(section.querySelector('button')), effortChangeVisible: [...section.querySelectorAll('p')].some(element => element.textContent === 'Thinking effort set to medium' && window.qaVisible(element)) }; })()",
+        "message": "The expected checks do not become true: sessionPlaceOpens, conversationHeadingVisible, requestVisible, effortChangeVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [1800, 1000]
@@ -28,27 +58,35 @@
       "run": "(() => { const handle = document.querySelector('[role=separator][aria-label=\"Resize the side panel\"]'); handle.focus(); return document.activeElement === handle; })()"
     },
     {
-      "key": {
-        "key": "End",
-        "code": "End",
-        "windowsVirtualKeyCode": 35
-      }
+      "key": "End"
     },
     {
-      "run": "({ panelReachesChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })"
+      "waitFor": {
+        "condition": "({ panelReachesChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })",
+        "message": "The expected checks do not become true: panelReachesChosenWidth.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [1000, 900]
     },
     {
-      "run": "({ resizedChatStaysReadable: document.querySelector(\"main\").getBoundingClientRect().width >= 480, panelFitsBesideChat: document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width <= 520 })",
-      "shot": "resized-panel"
+      "shot": "resized-panel",
+      "waitFor": {
+        "condition": "({ resizedChatStaysReadable: document.querySelector(\"main\").getBoundingClientRect().width >= 480, panelFitsBesideChat: document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width <= 520 })",
+        "message": "The expected checks do not become true: resizedChatStaysReadable, panelFitsBesideChat.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [1800, 1000]
     },
     {
-      "run": "({ panelRestoresChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })"
+      "waitFor": {
+        "condition": "({ panelRestoresChosenWidth: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })",
+        "message": "The expected checks do not become true: panelRestoresChosenWidth.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

@@ -3,6 +3,7 @@ import { createServer as createHttpServer } from "node:http";
 import { join } from "node:path";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { Chat } from "./create-chat.ts";
 import { createTestConnection } from "./create-test-connection.ts";
 import { readServer } from "./private-runtime.ts";
@@ -79,7 +80,7 @@ test("stopping refuses active work without force and retains access checks", asy
     expect((await stop(false)).status).toBe(409);
     expect(chat.stopAll).not.toHaveBeenCalled();
     expect((await stop(true)).status).toBe(204);
-    await vi.waitFor(() => expect(readServer(directory)).toBeUndefined());
+    await waitFor(() => expect(readServer(directory)).toBeUndefined());
     expect(chat.stopAll).toHaveBeenCalledTimes(1);
   } finally {
     await server.close();

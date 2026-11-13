@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
-import { expect, test, vi } from "vitest";
+import { expect, test } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import { addedFactTexts } from "./added-facts.ts";
 import type { ProfileBundle, ProfileReference } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
@@ -265,7 +266,7 @@ for (const onQuestion of ["fail", "wait"] as const) {
         });
         expect(chats.approvals.pending()).toEqual([]);
       } else {
-        await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+        await waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
         const question = chats.approvals.pending()[0];
         expect(await operations.wait(accepted.operationId, "fail")).toMatchObject({
           status: "waitingForInput",
@@ -278,7 +279,7 @@ for (const onQuestion of ["fail", "wait"] as const) {
           status: "completed",
         });
       }
-      await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+      await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     } finally {
       operations.close();
       await chats.stopAll();
@@ -302,7 +303,7 @@ test("context controls keep saved literal filenames visible while a reply waits 
   faux.setResponses([fauxAssistantMessage("Finished.")]);
   try {
     expect(await chat.send("Wait for approval", "literal", undefined, true)).toBe(true);
-    await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+    await waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
     const names = [...context.instructions.names, "NOTES, CONTEXT.md"];
     await chats.changeSettings(
       reference,
@@ -401,7 +402,7 @@ test.each([true, false])(
     ]);
     try {
       expect(await chat.send("Use the available catalog", "literal", undefined, true)).toBe(true);
-      await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+      await waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
       expect(faux.state.callCount).toBe(0);
       expect(
         chat.getResources().resources.find((resource) => resource.path === source)?.source,
@@ -417,7 +418,7 @@ test.each([true, false])(
           isAllowed ? "allow" : "deny",
         ),
       ).toBe(200);
-      await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+      await waitFor(() => expect(chat.getState().isReplying).toBe(false));
       expect(faux.state.callCount).toBe(1);
       expect(request.includes("Approved external metadata.")).toBe(isAllowed);
       expect(request).not.toContain("Private skill body.");
@@ -442,7 +443,7 @@ test("stopping context preparation cancels external approvals without calling th
   await requireContextApproval({ chats, chat, reference, projectId }, commands, "tree");
   try {
     expect(await chat.send("Start", "literal", undefined, true)).toBe(true);
-    await vi.waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
+    await waitFor(() => expect(chats.approvals.pending()).toHaveLength(1));
     await chat.stop();
     expect(chats.approvals.pending()).toHaveLength(0);
     expect(faux.state.callCount).toBe(0);
@@ -554,7 +555,7 @@ test("command previews submit their captured expansion exactly once through addr
   }
   expect((await submit()).status).toBe(202);
   expect((await submit()).status).toBe(202);
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(chat.getState().messages.filter((message) => message.role === "user")).toHaveLength(1),
   );
   expect(chat.getState().messages.find((message) => message.role === "user")?.parts).toEqual([

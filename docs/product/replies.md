@@ -38,4 +38,5 @@ Selection copying supplies Markdown and HTML while omitting marked step boxes an
 
 ## Known differences from the decisions
 
-- None identified beyond the amendments linked above. Tool result limits are listed on the [tools page](tools.md#known-differences-from-the-decisions).
+- CP-19 tracks the accepted disclosure when cut-off thinking or reply is absent from later model input. Pi's exact abort persistence and next request need verification before implementing that disclosure.
+- Tool result limits are listed on the [tools page](tools.md#known-differences-from-the-decisions).

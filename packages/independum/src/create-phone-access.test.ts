@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { renderSVG } from "uqr";
 import { afterEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { PhoneInvitation } from "./api-types.ts";
 import { createPhoneAccess } from "./create-phone-access.ts";
 import { createServer } from "./create-server.ts";
@@ -123,7 +124,7 @@ test("shutdown during enablement closes the new listener without publishing it",
   const stop = vi.fn(async () => undefined);
   vi.mocked(startPhoneListener).mockReturnValue(opening.promise);
   const enabling = call("", "PUT", connection);
-  await vi.waitFor(() => expect(startPhoneListener).toHaveBeenCalledOnce());
+  await waitFor(() => expect(startPhoneListener).toHaveBeenCalledOnce());
   const closing = access.close();
   opening.resolve(stop);
   expect((await enabling).status).toBe(409);

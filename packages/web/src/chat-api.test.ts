@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import {
   changeSettings,
   chooseModel,
@@ -66,7 +67,7 @@ test("a missing chat ends its stream and lets the tab choose again", async () =>
   vi.mocked(requestApi).mockResolvedValue(new Response(null, { status: 404 }));
   const missing = vi.fn();
   const stop = followChat("missing", vi.fn(), vi.fn(), missing);
-  await vi.waitFor(() => expect(missing).toHaveBeenCalledOnce());
+  await waitFor(() => expect(missing).toHaveBeenCalledOnce());
   expect(requestApi).toHaveBeenCalledWith("/api/chats/missing/events", expect.anything());
   stop();
 });
@@ -109,7 +110,7 @@ test("a tab follows its chosen chat and the shared events through separate strea
   controllers[2]?.enqueue(
     encoder.encode('data: {"type":"replyingChats","ids":["first","second"]}\n\n'),
   );
-  await vi.waitFor(() => {
+  await waitFor(() => {
     expect(first).toHaveBeenCalledWith(expect.objectContaining({ delta: "First" }));
     expect(second).toHaveBeenCalledWith(expect.objectContaining({ delta: "Second" }));
     expect(shared).toHaveBeenCalledWith({ type: "replyingChats", ids: ["first", "second"] });

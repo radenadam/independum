@@ -1,7 +1,16 @@
 {
   "fixture": "chats",
   "steps": [
-    { "size": [1440, 1000], "scheme": "light", "go": true },
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
     {
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
     },
@@ -9,8 +18,12 @@
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
     },
     {
-      "run": "({ profilesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default for new chats'), defaultVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default') })",
-      "shot": "profiles"
+      "shot": "profiles",
+      "waitFor": {
+        "condition": "({ profilesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default for new chats'), defaultVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Default') })",
+        "message": "The expected checks do not become true: profilesVisible, defaultVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.trim() === 'New profile')"
@@ -18,44 +31,75 @@
     {
       "clickOn": "[...document.querySelectorAll('label')].find(label => label.innerText === 'Profile id').control"
     },
-    { "text": "research" },
+    {
+      "text": "research"
+    },
     {
       "clickOn": "[...document.querySelectorAll('label')].find(label => label.innerText === 'Profile name').control"
     },
-    { "text": "Research" },
     {
-      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.trim() === 'Create profile')",
-      "wait": 1500
+      "text": "Research"
     },
     {
-      "run": "({ profileCreated: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile'), targetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('user profile used by 0 chats.'), sharedToolsVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Tools'), filesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Profile files') })",
-      "shot": "profile-editor"
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.trim() === 'Create profile')"
     },
-    { "size": [360, 800], "scheme": "light" },
+    {
+      "shot": "profile-editor",
+      "waitFor": {
+        "condition": "({ profileCreated: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile'), targetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('user profile used by 0 chats.'), sharedToolsVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Tools'), filesVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('Profile files') })",
+        "message": "The expected checks do not become true: profileCreated, targetVisible, sharedToolsVisible, filesVisible.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
     {
       "run": "(() => { document.querySelector('dialog[aria-label=Settings] h3').scrollIntoView({ block: 'start' }); return true; })()",
       "shot": "profiles-phone-light"
     },
     {
-      "run": "({ phoneFits: document.documentElement.scrollWidth <= 360, profileTargetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile') })"
+      "waitFor": {
+        "condition": "({ phoneFits: document.documentElement.scrollWidth <= 360, profileTargetVisible: document.querySelector('dialog[aria-label=Settings]').innerText.includes('You are editing the Research user profile') })",
+        "message": "The expected checks do not become true: phoneFits, profileTargetVisible.",
+        "timeoutMs": 25000
+      }
     },
-    { "scheme": "dark", "shot": "profiles-phone-dark" },
-    { "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')" },
-    { "size": [1440, 1000] },
-    { "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')" },
+    {
+      "scheme": "dark",
+      "shot": "profiles-phone-dark"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "size": [1440, 1000]
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
     },
     {
-      "run": "({ profileRowVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.includes('Default') && button.innerText.includes('user profile')) })",
-      "shot": "session-profile"
+      "shot": "session-profile",
+      "waitFor": {
+        "condition": "({ profileRowVisible: [...document.querySelectorAll('aside [role=tabpanel] button')].some(button => button.innerText.includes('Default') && button.innerText.includes('user profile')) })",
+        "message": "The expected checks do not become true: profileRowVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
     },
     {
-      "run": "({ chatProfileVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Selected profile'), savedChoiceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('chat-settings') })",
-      "shot": "chat-profile-detail"
+      "shot": "chat-profile-detail",
+      "waitFor": {
+        "condition": "({ chatProfileVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Selected profile'), savedChoiceVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('chat-settings') })",
+        "message": "The expected checks do not become true: chatProfileVisible, savedChoiceVisible.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Options for commands
 
-- Status: accepted, and amended by [decision 0048](0048-session-place.md), which shows the environment of commands in the Session place
+- Status: accepted, and amended by [decision 0048](0048-session-place.md), which shows the environment of commands in the Session place, with profile ownership in [decision 0061](0061-profiles-and-plain-settings.md) and minimal inheritance in [decision 0063](0063-permissions-and-enforced-tool-access.md)
 - Date: 2026-10-29
 
 ## Context

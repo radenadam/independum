@@ -12,7 +12,7 @@ Instructions consider every configured basename from the registered project root
 
 Browser replies request unresolved enabled resources before preparing context. API replies keep headless delivery and leave unresolved resources unread. The resource catalog offers Request read access for an unresolved source, and the chat shows its approval. Replacing a source identity, changing the profile, or changing the chat branch invalidates its grant.
 
-The resource catalog keeps sources that are off, invalid, duplicates, overridden, or waiting for permission. It includes scope, path, reason, aliases, raw byte count, SHA-256 fingerprint, source, metadata, and exact inserted text. User, profile, and project roots follow the order and locations in decision 0062. Configured resource paths belong to the profile and resolve against its folder. Discovery uses the [permission policy and approval store](permissions.md). Resources outside the project remain unread until a matching rule or approval permits their read. Directory discovery requests tree scope before enumeration, and a link target needs its own matching grant.
+The resource catalog keeps sources that are off, invalid, duplicates, overridden, or denied by the permission policy. It includes scope, path, reason, aliases, raw byte count, SHA-256 fingerprint, source, metadata, and exact inserted text. User, profile, and project roots follow the order and locations in decision 0062. Configured resource paths belong to the profile and resolve against its folder. Discovery uses the [permission policy and approval store](permissions.md). Under [decision 0067](../decisions/0067-read-everywhere-and-write-inside-the-project.md), reading needs no approval: a resource anywhere is read unless a denied folder holds it, such as `~/.independum` or a folder that the profile denies, and a link is read only when its target is not denied.
 
 Containment compares real filesystem locations, including linked folders. A missing path uses its nearest existing parent's real location. Catalog paths and aliases keep the caller's spelling, so saved disabled paths keep matching. A missing chat folder reports that it does not exist before containment is checked.
 
@@ -38,7 +38,7 @@ Unknown commands fail. `//text` submits `/text`, and API literal interpretation 
 
 The owned prompt pipeline includes the base prompt, added facts, project instructions, and skill metadata as separate system sections. Their switches remove their respective copies from future system input. Pi's coding persona, tool overview, rules, documentation, folder, and addendum are independently permitted or omitted when present. Automatic Pi resource discovery stays off.
 
-Prompt and tool update controls project current state into the leading system message and remove only the corresponding later deltas. User, assistant, and tool result order stays intact. Other controls remove typed summary envelopes and user shell messages, or disable Pi's automatic image resizing. Each unavailable adapter text remains read-only with its source and reason in Pi context. These controls do not transform provider payloads or change model compatibility flags.
+Prompt and tool update controls project current state into the leading system message and remove only the corresponding later deltas. User, assistant, and tool result order stays intact. Other controls remove typed summary envelopes and user shell messages, or disable Pi's automatic image resizing. Each unavailable adapter text currently remains read-only with its source and reason in Pi context. This is an implementation gap. [Decision 0072](../decisions/0072-editable-pi-texts.md) accepts a narrow Pi text patch while preserving provider compatibility ownership. These controls do not transform provider payloads or change model compatibility flags.
 
 Each provider call uses an immutable context revision. Changed revisions are saved as `independum-context` custom Pi entries. They never enter model messages. Session distinguishes pending discovery from the last captured revision. Request history marks revision changes as setup changes. The raw last request retains its existing best effort storage and matching limits.
 
@@ -71,7 +71,7 @@ Context settings use the existing conditional profile settings route, with its d
 
 ## Remaining checkpoint work
 
-The [roadmap](../roadmap.md) records nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the upstream Pi additions policy. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
+The [roadmap](../roadmap.md) records nested chat folder UI, catalog invocation and exact skill navigation, saved message provenance actions, long catalog browser verification, and the narrow Pi text patch. Current source writes compare fingerprints before writing, but external editors do not honor Pi's mutation queue. No provider omission switch is offered when its effect is unavailable.
 
 ## Code
 

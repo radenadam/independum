@@ -8,6 +8,7 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai";
 import { expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { BranchRequest, ChatState, InputDelivery, InputOptions } from "./api-types.ts";
 import { validateUserSettings } from "./configuration-schema.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
@@ -182,8 +183,8 @@ test("waiting messages carry each attachment form through steer and follow-up ha
       ["text", "image", "file"],
     ]);
     held.finish();
-    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     const sent = chat
       .getState()
       .messages.filter((message) => (message.attachments?.length ?? 0) > 0);
@@ -234,8 +235,8 @@ test("edits and retries retain attachment sources and file choices without dupli
     fauxAssistantMessage("Changed attachments."),
   ]);
   async function settled(id: string): Promise<ChatState> {
-    await vi.waitFor(() => expect(chat.inputState(id)).toBe("delivered"));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.inputState(id)).toBe("delivered"));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     return chat.getState();
   }
   function request(): Pick<BranchRequest, "id" | "expectedRevision" | "expectedLeafId" | "model"> {
@@ -342,8 +343,8 @@ test("edits and retries retain attachment sources and file choices without dupli
       ]);
       faux.setResponses([fauxAssistantMessage("Resumed branch.")]);
       await selected.resumePending();
-      await vi.waitFor(() => expect(selected.inputState(heldRetry.id)).toBe("delivered"));
-      await vi.waitFor(() => expect(selected.getState().isReplying).toBe(false));
+      await waitFor(() => expect(selected.inputState(heldRetry.id)).toBe("delivered"));
+      await waitFor(() => expect(selected.getState().isReplying).toBe(false));
       expect(
         selected.getState().messages[0]?.attachments?.map((attachment) => attachment.id),
       ).toEqual(changed.attachmentIds);
@@ -392,8 +393,8 @@ test("attachment-only waiting inputs remain readable without approvals after res
     expect(selected.attachmentSource(source.id).bytes.toString()).toBe("Retained result.");
     faux.setResponses([fauxAssistantMessage("Read the retained input.")]);
     await selected.resumePending();
-    await vi.waitFor(() => expect(selected.inputState(input.id)).toBe("delivered"));
-    await vi.waitFor(() => expect(selected.getState().isReplying).toBe(false));
+    await waitFor(() => expect(selected.inputState(input.id)).toBe("delivered"));
+    await waitFor(() => expect(selected.getState().isReplying).toBe(false));
     expect(selected.getState().messages[0]?.attachments?.[0]?.text).toBe("Retained result.");
   } finally {
     await reopened.stopAll();
@@ -460,11 +461,11 @@ test("image limits include retained history before forwarding a request", async 
   try {
     const first = { ...optionsFor(chat), attachmentIds: [source.id] };
     expect(await chat.send("First", "literal", undefined, false, first)).toBe(true);
-    await vi.waitFor(() => expect(chat.inputState(first.id)).toBe("delivered"));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.inputState(first.id)).toBe("delivered"));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     const second = { ...optionsFor(chat), attachmentIds: [source.id] };
     expect(await chat.send("Second", "literal", undefined, false, second)).toBe(true);
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(
         chat.getState().messages.some((message) => message.error?.includes("request has 2 images")),
       ).toBe(true),
@@ -511,10 +512,10 @@ test("steers follow the tool batch one per boundary and precede queued prompts i
     await send(chat, "Steer first", "steer");
     await send(chat, "Steer second", "steer");
     expect(prompts(chat.getState())).toEqual(["Start"]);
-    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(4));
+    await waitFor(() => expect(chat.getState().pending.items).toHaveLength(4));
     finish.resolve();
-    await vi.waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.getState().pending.items).toHaveLength(0));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     expect(observed).toEqual([
       "Start",
       "tool result",
@@ -566,10 +567,10 @@ test("stop holds pending work and resume is required even for a later send", asy
     await send(chat, "Later send");
     expect(prompts(chat.getState())).toEqual(["Start"]);
     await chat.resumePending();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(prompts(chat.getState())).toEqual(["Start", "Resume me", "Later send"]),
     );
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
   } finally {
     held.finish();
     await chats.stopAll();
@@ -580,8 +581,8 @@ test("input receipts survive restart and stale or conflicting submissions fail",
   const { chats, chat, models, directory, folder, faux } = await setup();
   faux.setResponses([fauxAssistantMessage("Done.")]);
   const input = await send(chat, "One input");
-  await vi.waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
-  await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+  await waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
+  await waitFor(() => expect(chat.getState().isReplying).toBe(false));
   expect(await chat.send("One input", "literal", undefined, false, input)).toBe(true);
   await expect(chat.send("Changed input", "literal", undefined, false, input)).rejects.toThrow(
     "different content",
@@ -608,8 +609,8 @@ test("queued command previews preserve captured text and a restart holds them", 
     fauxAssistantMessage("Captured answer."),
   ]);
   const initial = await send(chat, "Start");
-  await vi.waitFor(() => expect(chat.inputState(initial.id)).toBe("delivered"));
-  await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+  await waitFor(() => expect(chat.inputState(initial.id)).toBe("delivered"));
+  await waitFor(() => expect(chat.getState().isReplying).toBe(false));
   const commands = join(folder, ".independum", "commands");
   mkdirSync(commands, { recursive: true });
   writeFileSync(join(commands, "review.md"), "---\ndescription: Review data.\n---\nCaptured $1.");
@@ -631,7 +632,7 @@ test("queued command previews preserve captured text and a restart holds them", 
     expect(selected.getState().pending.isPaused).toBe(true);
     expect(prompts(selected.getState())).toEqual(["Start"]);
     await selected.resumePending();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(prompts(selected.getState())).toEqual(["Start", "Captured result."]),
     );
   } finally {
@@ -658,8 +659,8 @@ test("addressed input routes validate identities and report removal conflicts", 
     expect((await post(body)).status).toBe(202);
     expect((await post(body)).status).toBe(202);
     expect((await post({ ...body, text: "Changed" })).status).toBe(409);
-    await vi.waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.inputState(input.id)).toBe("delivered"));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
     expect((await routes.request(`${path}/pending/${input.id}`, { method: "DELETE" })).status).toBe(
       409,
     );
@@ -682,10 +683,10 @@ test("failed replies hold steering inputs until an explicit resume", async () =>
     await held.entered;
     await send(chat, "Held steer", "steer");
     held.finish();
-    await vi.waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
+    await waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
     expect(prompts(chat.getState())).toEqual(["Fail this reply"]);
     await chat.resumePending();
-    await vi.waitFor(() =>
+    await waitFor(() =>
       expect(prompts(chat.getState())).toEqual(["Fail this reply", "Held steer"]),
     );
   } finally {
@@ -705,12 +706,12 @@ test("a captured model without its login holds work instead of substituting anot
     await send(chat, "Captured choice");
     available.mockReturnValue(false);
     held.finish();
-    await vi.waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
+    await waitFor(() => expect(chat.getState().pending.isPaused).toBe(true));
     expect(chat.getState().pending.items[0]?.reason).toContain("captured model");
     expect(prompts(chat.getState())).toEqual(["Start"]);
     available.mockRestore();
     await chat.resumePending();
-    await vi.waitFor(() => expect(prompts(chat.getState())).toEqual(["Start", "Captured choice"]));
+    await waitFor(() => expect(prompts(chat.getState())).toEqual(["Start", "Captured choice"]));
   } finally {
     available.mockRestore();
     held.finish();
@@ -742,8 +743,8 @@ test("an accepted first input can reopen, archive, and resume before pi saves a 
     expect(restored.getState().pending.isPaused).toBe(true);
     faux.setResponses([fauxAssistantMessage("Delivered.")]);
     await restored.resumePending();
-    await vi.waitFor(() => expect(prompts(restored.getState())).toEqual(["Unsent durable input"]));
-    await vi.waitFor(() => expect(restored.getState().isReplying).toBe(false));
+    await waitFor(() => expect(prompts(restored.getState())).toEqual(["Unsent durable input"]));
+    await waitFor(() => expect(restored.getState().isReplying).toBe(false));
     expect(await reopened.remove(id)).toBe(true);
     expect(await reopened.open(id)).toBeUndefined();
   } finally {
@@ -764,9 +765,9 @@ test("pending inputs keep their model and later work keeps the user's newer choi
       chat.getState().pending.items.find((input) => input.id === queued.id)?.model.modelId,
     ).toBe("first");
     held.finish();
-    await vi.waitFor(() => expect(chat.inputState(queued.id)).toBe("delivered"));
-    await vi.waitFor(() => expect(chat.getState().isReplying).toBe(false));
-    await vi.waitFor(() => expect(chat.getState().model?.id).toBe("second"));
+    await waitFor(() => expect(chat.inputState(queued.id)).toBe("delivered"));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    await waitFor(() => expect(chat.getState().model?.id).toBe("second"));
   } finally {
     held.finish();
     await chats.stopAll();

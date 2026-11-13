@@ -13,6 +13,7 @@ test("preview accepts explicit fixtures ports and real logins", () => {
   expect(
     previewOptions(["--fixture", "compacted", "--port=4871", "--real-logins"], false),
   ).toMatchObject({ fixture: "compacted", port: 4871, hasRealLogins: true });
+  expect(previewOptions(["--fixture", "long-history"], false).fixture).toBe("long-history");
 });
 
 test("preview rejects unknown flags and invalid ports and fixtures", () => {

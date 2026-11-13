@@ -25,6 +25,8 @@ const rootEntries = new Set([
   "scripts",
   "tsconfig.base.json",
   "tsconfig.json",
+  // Vitest separates native container tests from the parallel suite.
+  "vitest.config.ts",
 ]);
 
 // The tools and people that read these files expect these exact names.

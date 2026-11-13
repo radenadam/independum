@@ -4,31 +4,61 @@
     {
       "size": [1440, 1100],
       "scheme": "dark",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "run": "(() => { const list = document.querySelector('main ol'); const scroller = list.parentElement; scroller.scrollTop = scroller.scrollHeight; return { chatHasOverflow: scroller.scrollHeight > scroller.clientHeight, chatStartsAtEnd: Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) < 1 }; })()"
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const list = document.querySelector('main ol'); const scroller = list.parentElement; scroller.scrollTop = scroller.scrollHeight; return { chatHasOverflow: scroller.scrollHeight > scroller.clientHeight, chatStartsAtEnd: Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) < 1 }; })()",
+        "message": "The expected checks do not become true: chatHasOverflow, chatStartsAtEnd.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
     },
     {
-      "run": "(() => { const actions = [...document.querySelectorAll('main button[aria-label=\"Copy reply\"]')].at(-1); const scroller = document.querySelector('main ol').parentElement; const jump = document.querySelector('main button[aria-label=\"Jump to the latest message\"]'); return { lastReplyActionsStayInView: actions.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().bottom + 1, noJumpAfterWidthChange: getComputedStyle(jump).visibility === 'hidden' }; })()",
-      "shot": "chat-end-after-panel"
+      "shot": "chat-end-after-panel",
+      "waitFor": {
+        "condition": "(() => { const actions = [...document.querySelectorAll('main button[aria-label=\"Copy reply\"]')].at(-1); const scroller = document.querySelector('main ol').parentElement; const jump = document.querySelector('main button[aria-label=\"Jump to the latest message\"]'); return { lastReplyActionsStayInView: actions.getBoundingClientRect().bottom <= scroller.getBoundingClientRect().bottom + 1, noJumpAfterWidthChange: getComputedStyle(jump).visibility === 'hidden' }; })()",
+        "message": "The expected checks do not become true: lastReplyActionsStayInView, noJumpAfterWidthChange.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
     },
     {
-      "run": "(() => { const rows = [...document.querySelectorAll('aside [role=tabpanel] button')].map(button => button.textContent.trim()); const compaction = rows.findIndex(row => row.startsWith('Pi compacted the chat')); const seventh = rows.findIndex(row => /^7You wrote/.test(row)); const sixth = rows.findIndex(row => /^6You wrote/.test(row)); return { compactionRowVisible: compaction !== -1 && rows[compaction].includes('requests 1 to 4 became a summary'), compactionFollowsTurnSix: seventh !== -1 && sixth !== -1 && seventh < compaction && compaction < sixth, effortChangeVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Thinking effort set to high') }; })()",
-      "shot": "compacted-conversation"
+      "clickOn": "document.querySelector('button[aria-label=\"Let the bar scroll away\"]')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
+    },
+    {
+      "shot": "compacted-conversation",
+      "waitFor": {
+        "condition": "(() => { const rows = [...document.querySelectorAll('aside [role=tabpanel] button')].map(button => button.textContent.trim()); const compaction = rows.findIndex(row => row.startsWith('Pi compacted the chat')); const seventh = rows.findIndex(row => /^7You wrote/.test(row)); const sixth = rows.findIndex(row => /^6You wrote/.test(row)); return { compactionReadableAndReachable: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))), nearbyRequestsVisible: [6,7].every(number => window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith(number + 'You wrote')))), compactionRowVisible: compaction !== -1 && rows[compaction].includes('requests 1 to 4 became a summary'), compactionFollowsTurnSix: seventh !== -1 && sixth !== -1 && seventh < compaction && compaction < sixth, effortChangeVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Thinking effort set to high') }; })()",
+        "message": "The expected checks do not become true: compactionReadableAndReachable, nearbyRequestsVisible, compactionRowVisible, compactionFollowsTurnSix, effortChangeVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
     },
     {
-      "run": "({ compactionSummaryVisible: ['Compaction', 'Ship the plan in six steps.', 'Steps 1 to 4 are done.'].every(text => document.querySelector('aside [role=tabpanel]').innerText.includes(text)) })",
-      "shot": "compaction-summary"
+      "shot": "compaction-summary",
+      "waitFor": {
+        "condition": "({ compactionSummaryVisible: (() => { const section = [...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction'); return window.qaVisible(section) && ['Ship the plan in six steps.', 'Steps 1 to 4 are done.'].every(text => section.textContent.includes(text)); })() })",
+        "message": "The expected checks do not become true: compactionSummaryVisible.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

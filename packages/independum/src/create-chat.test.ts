@@ -13,6 +13,7 @@ import {
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { ChatEvent, ChatsEvent } from "./api-types.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
@@ -417,7 +418,7 @@ test.each([
     }
     try {
       const leaving = action === "archive" ? chat.archive(id, true) : chat.remove(id);
-      await expect.poll(() => commands[0]?.options.signal?.aborted).toBe(true);
+      await waitFor(() => expect(commands[0]?.options.signal?.aborted).toBe(true));
       expect(commands[1]?.options.signal?.aborted).toBe(false);
       expect(savedChats.archive).not.toHaveBeenCalled();
       expect(savedChats.remove).not.toHaveBeenCalled();
@@ -447,9 +448,9 @@ test("shutdown stops foreground and background commands across chats and waits f
     const stopping = Promise.resolve(chat.stopAll()).then(() => {
       hasStopped = true;
     });
-    await expect
-      .poll(() => commands.every((command) => command.options.signal?.aborted))
-      .toBe(true);
+    await waitFor(() =>
+      expect(commands.every((command) => command.options.signal?.aborted)).toBe(true),
+    );
     expect(hasStopped).toBe(false);
     finishCommands(commands);
     await foreground;
@@ -500,7 +501,7 @@ test("a background note retains its chat through compaction and delivery", async
   opened.close();
   try {
     commands[0]?.finish();
-    await expect.poll(() => vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1);
+    await waitFor(() => expect(vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1));
     expect(active.session.sendCustomMessage).not.toHaveBeenCalled();
     active.emit({
       type: "compaction_end",
@@ -511,10 +512,12 @@ test("a background note retains its chat through compaction and delivery", async
     });
     expect(active.session.dispose).not.toHaveBeenCalled();
     idle.resolve();
-    await expect.poll(() => vi.mocked(active.session.sendCustomMessage).mock.calls.length).toBe(1);
+    await waitFor(() =>
+      expect(vi.mocked(active.session.sendCustomMessage).mock.calls.length).toBe(1),
+    );
     expect(active.session.dispose).not.toHaveBeenCalled();
     delivered.resolve();
-    await expect.poll(() => vi.mocked(active.session.dispose).mock.calls.length).toBe(1);
+    await waitFor(() => expect(vi.mocked(active.session.dispose).mock.calls.length).toBe(1));
   } finally {
     idle.resolve();
     delivered.resolve();
@@ -535,7 +538,7 @@ test.each(["archive", "delete", "shutdown"])(
     active.emit({ type: "compaction_start", reason: "manual" });
     try {
       commands[0]?.finish();
-      await expect.poll(() => vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1);
+      await waitFor(() => expect(vi.mocked(active.session.waitForIdle).mock.calls.length).toBe(1));
       vi.mocked(active.session.abort).mockImplementationOnce(async () => {
         idle.resolve();
         await idle.promise;

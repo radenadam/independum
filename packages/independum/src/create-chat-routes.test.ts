@@ -14,7 +14,8 @@ import {
 } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { Hono } from "hono";
-import { afterAll, expect, test, vi } from "vitest";
+import { afterAll, expect, test } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type {
   AgentSummary,
   ArchivedChatSummary,
@@ -1492,7 +1493,7 @@ function expectEmptyChat(state: ChatState): void {
 
 async function settledBranch(): Promise<ChatState> {
   let state: ChatState | undefined;
-  await vi.waitFor(async () => {
+  await waitFor(async () => {
     state = (await (await routes.request(chatPath(""))).json()) as ChatState;
     expect(state.isReplying).toBe(false);
     expect(state.pending.items).toHaveLength(0);
@@ -1742,7 +1743,7 @@ test("branch mutations refuse running replies and held pending work", async () =
   const waiting = Promise.withResolvers<AssistantMessage>();
   faux.setResponses([() => waiting.promise]);
   await post(chatPath("/messages"), { text: "Keep working" });
-  await vi.waitFor(async () =>
+  await waitFor(async () =>
     expect(((await (await routes.request(chatPath(""))).json()) as ChatState).isReplying).toBe(
       true,
     ),

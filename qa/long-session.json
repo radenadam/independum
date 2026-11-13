@@ -1,0 +1,196 @@
+{
+  "fixture": "long-history",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "dark",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "waitFor": {
+        "condition": "({ longChatOpened: document.querySelector('main header').innerText.includes('History request 1.') })",
+        "message": "The expected checks do not become true: longChatOpened.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=\"Let the bar scroll away\"]')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-desktop-dark",
+      "waitFor": {
+        "condition": "({ newestRequestVisible: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('240You wrote'))), severalCompactions: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4, foldedHistory: [...document.querySelectorAll('aside button')].some(button => button.textContent.includes('Show requests 201 to 235')) })",
+        "message": "The expected checks do not become true: newestRequestVisible, severalCompactions, foldedHistory.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]"
+    },
+    {
+      "shot": "long-compaction-1",
+      "waitFor": {
+        "condition": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[0]).textContent.includes('requests 1 to 195 became a summary') })",
+        "message": "The expected checks do not become true: compactionBoundaryVisible, summarizedRangeReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]"
+    },
+    {
+      "shot": "long-compaction-2",
+      "waitFor": {
+        "condition": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[1]).textContent.includes('requests 1 to 145 became a summary') })",
+        "message": "The expected checks do not become true: compactionBoundaryVisible, summarizedRangeReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]"
+    },
+    {
+      "shot": "long-compaction-3",
+      "waitFor": {
+        "condition": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[2]).textContent.includes('requests 1 to 95 became a summary') })",
+        "message": "The expected checks do not become true: compactionBoundaryVisible, summarizedRangeReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]"
+    },
+    {
+      "shot": "long-compaction-4",
+      "waitFor": {
+        "condition": "({ compactionBoundaryVisible: window.qaVisible([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]), summarizedRangeReadable: ([...document.querySelectorAll('aside [role=tabpanel] button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat'))[3]).textContent.includes('requests 1 to 45 became a summary') })",
+        "message": "The expected checks do not become true: compactionBoundaryVisible, summarizedRangeReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "shot": "long-oldest-request",
+      "waitFor": {
+        "condition": "({ oldestRequestReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))) })",
+        "message": "The expected checks do not become true: oldestRequestReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "shot": "long-historic-detail",
+      "waitFor": {
+        "condition": "({ historicRequestOpened: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)) })",
+        "message": "The expected checks do not become true: historicRequestOpened.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ stretchFoldedAfterReturn: [...document.querySelectorAll(\"aside button\")].some(button => button.textContent.includes(\"Show requests 1 to 50\") && window.qaVisible(button)) })",
+        "message": "The expected checks do not become true: stretchFoldedAfterReturn.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')"
+    },
+    {
+      "shot": "long-summary-desktop-dark",
+      "waitFor": {
+        "condition": "({ latestSummaryVisible: window.qaVisible([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')) && ([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')).textContent.includes('History summary 4.') })",
+        "message": "The expected checks do not become true: latestSummaryVisible.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')"
+    },
+    {
+      "shot": "long-summary-phone-light",
+      "waitFor": {
+        "condition": "({ phoneSummaryVisible: window.qaVisible([...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Compaction')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: phoneSummaryVisible, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-phone-light",
+      "waitFor": {
+        "condition": "({ returnedToLongConversation: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')), latestRequestReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('240You wrote'))) })",
+        "message": "The expected checks do not become true: returnedToLongConversation, latestRequestReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-phone-dark",
+      "waitFor": {
+        "condition": "({ darkConversationVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: darkConversationVisible, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [1440, 1000],
+      "scheme": "light"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-desktop-light",
+      "waitFor": {
+        "condition": "({ repeatedConversationVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')) })",
+        "message": "The expected checks do not become true: repeatedConversationVisible.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

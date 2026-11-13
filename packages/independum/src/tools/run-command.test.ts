@@ -70,6 +70,7 @@ const bash = findShell("bash");
 
 test.skipIf(bash === undefined)(
   "the run ends when a program that the command started still holds its output",
+  { meta: { skipReason: "Bash is not installed." } },
   async () => {
     const { output, end } = await run("(sleep 6; echo late) & echo early", {
       shell: bash as NonNullable<typeof bash>,
@@ -83,6 +84,12 @@ test.skipIf(bash === undefined)(
 
 test.skipIf(bash === undefined || process.platform === "win32")(
   "a command that a signal ends says which signal",
+  {
+    meta: {
+      skipReason: "Signal exit status requires Bash on a Unix platform.",
+      ciPlatforms: ["linux", "darwin"],
+    },
+  },
   async () => {
     const { end } = await run("kill -KILL $$", { shell: bash as NonNullable<typeof bash> });
     expect(end).toMatchObject({ ending: "exited", exitCode: null, signal: "SIGKILL" });
@@ -93,6 +100,12 @@ test.skipIf(bash === undefined || process.platform === "win32")(
 // Git Bash, where a program that a detached Node process starts stays in the job.
 test.skipIf(process.platform !== "win32" || bash === undefined)(
   "stopping a command ends a program that it started whose parent has already ended",
+  {
+    meta: {
+      skipReason: "Windows descendant termination requires Git Bash.",
+      ciPlatforms: ["win32"],
+    },
+  },
   async () => {
     const folder = mkdtempSync(join(tmpdir(), "independum-job-"));
     const pidFile = join(folder, "program.pid");

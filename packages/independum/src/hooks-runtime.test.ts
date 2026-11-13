@@ -9,6 +9,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
 import { expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import type { ChatEvent, InputOptions } from "./api-types.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
@@ -158,8 +159,8 @@ test.each([
         expect(await opened.send("Try again", "literal")).toBe(true);
         expect(opened.getState().pending.isPaused).toBe(true);
         await opened.resumePending();
-        await vi.waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
-        await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+        await waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
+        await waitFor(() => expect(opened.getState().isReplying).toBe(false));
         expect(sent).toHaveLength(1);
         expect(opened.getHooks().invocations).toHaveLength(2);
       }
@@ -312,8 +313,8 @@ test.each(["queue", "steer", "headless"] as const)(
       writeFileSync(source, "Changed source.");
       expect(await opened.chooseModel(faux.provider.id, "other")).toBe(true);
       finish.resolve();
-      await vi.waitFor(() => expect(opened.inputState(options.id)).toBe("delivered"));
-      await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+      await waitFor(() => expect(opened.inputState(options.id)).toBe("delivered"));
+      await waitFor(() => expect(opened.getState().isReplying).toBe(false));
       if (operationId !== undefined) {
         expect(await operations.wait(operationId, "fail")).toMatchObject({
           status: "completed",
@@ -398,8 +399,8 @@ test("restart holds accepted inputs until resume and invokes input only at deliv
     });
     expect(restored.getHooks().invocations).toHaveLength(0);
     await restored.resumePending();
-    await vi.waitFor(() => expect(restored.getState().pending.items).toHaveLength(0));
-    await vi.waitFor(() => expect(restored.getState().isReplying).toBe(false));
+    await waitFor(() => expect(restored.getState().pending.items).toHaveLength(0));
+    await waitFor(() => expect(restored.getState().isReplying).toBe(false));
     expect(restored.getHooks().invocations).toMatchObject([
       {
         input: { data: { text: "Held input", source: "rpc" } },
@@ -443,7 +444,7 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
       expectedLeafId: state.leafId,
     });
     fail.resolve();
-    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+    await waitFor(() => expect(opened.getState().isReplying).toBe(false));
     expect(opened.getState().pending).toMatchObject({
       isPaused: true,
       items: [{ text: "Held steer", state: "held" }],
@@ -456,9 +457,9 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
     }
     expect(inputs()).toEqual(["Start"]);
     await opened.resumePending();
-    await vi.waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
+    await waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
     expect(inputs()).toEqual(["Start", "Held steer"]);
-    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+    await waitFor(() => expect(opened.getState().isReplying).toBe(false));
     expect(sent).toHaveLength(2);
   } finally {
     fail.resolve();

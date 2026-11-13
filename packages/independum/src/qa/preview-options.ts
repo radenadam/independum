@@ -12,6 +12,7 @@ export function previewOptions(
   url: string | undefined;
   browser: string | undefined;
   scenario: string | undefined;
+  comparison: string;
 } {
   const { values, positionals } = parseArgs({
     args: arguments_,
@@ -20,7 +21,13 @@ export function previewOptions(
       fixture: { type: "string", default: "chats" },
       port: { type: "string", default: "0" },
       "real-logins": { type: "boolean", default: false },
-      ...(isQa ? { url: { type: "string" as const }, browser: { type: "string" as const } } : {}),
+      ...(isQa
+        ? {
+            url: { type: "string" as const },
+            browser: { type: "string" as const },
+            base: { type: "string" as const },
+          }
+        : {}),
     },
   });
   const fixture = values.fixture;
@@ -28,9 +35,10 @@ export function previewOptions(
     fixture !== "empty" &&
     fixture !== "chats" &&
     fixture !== "compacted" &&
+    fixture !== "long-history" &&
     fixture !== "hooks"
   ) {
-    throw new Error("The fixture must be empty, chats, compacted, or hooks.");
+    throw new Error("The fixture must be empty, chats, compacted, hooks, or long-history.");
   }
   const port = Number(values.port);
   if (!/^\d+$/.test(values.port) || !Number.isInteger(port) || port < 0 || port > 65535) {
@@ -46,5 +54,6 @@ export function previewOptions(
     url: typeof values.url === "string" ? values.url : undefined,
     browser: typeof values.browser === "string" ? values.browser : undefined,
     scenario: positionals[0],
+    comparison: typeof values.base === "string" ? values.base : "main",
   };
 }

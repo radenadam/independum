@@ -16,6 +16,22 @@ export function findCodeProblems(file: string, code: string): string[] {
   const declarations = new Map<string, Expression>();
   const styles: Expression[] = [];
   const sandboxOperations = new Set<string>();
+  const waitApis = new Set<string>();
+  const expectApis = new Set<string>();
+  const vitestNamespaces = new Set<string>();
+
+  function isVitestApi(expression: Expression, names: Set<string>): boolean {
+    const value = unwrap(expression);
+    if (value.type === "Identifier") {
+      return names.has(value.name);
+    }
+    return (
+      value.type === "MemberExpression" &&
+      value.object.type === "Identifier" &&
+      vitestNamespaces.has(value.object.name) &&
+      ["vi", "vitest", "expect"].some((name) => names.has(name) && memberName(value) === name)
+    );
+  }
 
   function report(node: { start: number }, message: string): void {
     const line = code.slice(0, node.start).split("\n").length;
@@ -87,6 +103,27 @@ export function findCodeProblems(file: string, code: string): string[] {
   new Visitor({
     ImportDeclaration(node) {
       const source = node.source.value;
+      if (source === "vitest") {
+        for (const specifier of node.specifiers) {
+          if (specifier.type === "ImportNamespaceSpecifier") {
+            vitestNamespaces.add(specifier.local.name);
+            for (const name of ["vi", "vitest"]) {
+              waitApis.add(name);
+            }
+            expectApis.add("expect");
+          } else if (specifier.type === "ImportSpecifier") {
+            const name =
+              specifier.imported.type === "Identifier"
+                ? specifier.imported.name
+                : specifier.imported.value;
+            if (name === "vi" || name === "vitest") {
+              waitApis.add(specifier.local.name);
+            } else if (name === "expect") {
+              expectApis.add(specifier.local.name);
+            }
+          }
+        }
+      }
       if (source.startsWith("@microsoft/mxc-sdk")) {
         if (source !== "@microsoft/mxc-sdk/v1") {
           report(node, "Sandbox imports use only the stable MXC V1 API.");
@@ -140,6 +177,16 @@ export function findCodeProblems(file: string, code: string): string[] {
     FunctionDeclaration: checkParameters,
     FunctionExpression: checkParameters,
     ArrowFunctionExpression: checkParameters,
+    MemberExpression(node) {
+      if (
+        file.replaceAll("\\", "/") !== "scripts/wait-for.ts" &&
+        ((isVitestApi(node.object, waitApis) &&
+          ["waitFor", "waitUntil"].includes(memberName(node) ?? "")) ||
+          (isVitestApi(node.object, expectApis) && memberName(node) === "poll"))
+      ) {
+        report(node, "Test conditions use scripts/wait-for.ts with the test's remaining budget.");
+      }
+    },
     TSPropertySignature(node) {
       if (node.key.type === "Identifier" && node.key.name === "cwd") {
         report(node, "Internal names use full words. Use folder instead of cwd.");
@@ -269,6 +316,17 @@ export function findCodeProblems(file: string, code: string): string[] {
     }
   }
   return problems;
+}
+
+function memberName(expression: Expression): string | undefined {
+  if (expression.type !== "MemberExpression") {
+    return undefined;
+  }
+  return expression.property.type === "Identifier" && !expression.computed
+    ? expression.property.name
+    : expression.property.type === "Literal" && typeof expression.property.value === "string"
+      ? expression.property.value
+      : undefined;
 }
 
 function objectField(expression: Expression, name: string): Expression | undefined {

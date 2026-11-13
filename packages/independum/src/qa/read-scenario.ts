@@ -8,13 +8,16 @@ export interface QaStep {
   scale?: number;
   scheme?: "light" | "dark";
   go?: boolean;
-  wait?: number;
+  waitFor?: { condition: string; message: string; timeoutMs: number };
+  checkQr?: { on: string; name: string };
+  reload?: boolean;
+  closePage?: boolean;
   run?: string;
   shot?: string;
   clickOn?: string;
   hoverOn?: string;
   drag?: { on: string; by: [number, number] };
-  key?: Record<string, string | number | boolean>;
+  key?: string;
   text?: string;
 }
 
@@ -30,9 +33,9 @@ export async function readScenario(
     if (
       Object.keys(value).some((key) => !["fixture", "steps", "phoneRoute"].includes(key)) ||
       (value.phoneRoute !== undefined && typeof value.phoneRoute !== "boolean") ||
-      !["empty", "chats", "compacted", "hooks"].includes(String(value.fixture))
+      !["empty", "chats", "compacted", "hooks", "long-history"].includes(String(value.fixture))
     ) {
-      throw new Error("A scenario object needs a fixture and steps only.");
+      throw new Error("A scenario object needs a fixture, steps, and optional phoneRoute.");
     }
     fixture = value.fixture as PreviewFixture;
     steps = value.steps;
@@ -87,8 +90,31 @@ function isStepField(key: string, value: unknown): boolean {
       return value === "light" || value === "dark";
     case "go":
       return typeof value === "boolean";
-    case "wait":
-      return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 60000;
+    case "reload":
+    case "closePage":
+      return value === true;
+    case "waitFor":
+      return (
+        isRecord(value) &&
+        Object.keys(value).length === 3 &&
+        typeof value.condition === "string" &&
+        value.condition.length > 0 &&
+        typeof value.message === "string" &&
+        value.message.trim().length > 0 &&
+        typeof value.timeoutMs === "number" &&
+        Number.isInteger(value.timeoutMs) &&
+        value.timeoutMs > 0 &&
+        value.timeoutMs <= 25000
+      );
+    case "checkQr":
+      return (
+        isRecord(value) &&
+        Object.keys(value).length === 2 &&
+        typeof value.on === "string" &&
+        value.on.length > 0 &&
+        typeof value.name === "string" &&
+        /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.name)
+      );
     case "run":
     case "clickOn":
     case "hoverOn":
@@ -98,11 +124,7 @@ function isStepField(key: string, value: unknown): boolean {
     case "text":
       return typeof value === "string";
     case "key":
-      return (
-        isRecord(value) &&
-        Object.keys(value).length > 0 &&
-        Object.values(value).every((part) => ["string", "number", "boolean"].includes(typeof part))
-      );
+      return typeof value === "string" && value.length > 0;
     case "drag":
       return (
         isRecord(value) &&

@@ -4,7 +4,7 @@ Decision: [0065](../decisions/0065-script-hooks-and-the-add-on-contract.md). A h
 
 ## Configuration
 
-The selected [profile](profiles.md) owns `hooks`, `disabledHooks`, and `hookOrder` under `settings`. Missing values use an empty array, an empty array, and an empty object. The profile file editor edits script definitions and limits. Session opens Hooks for switches, order, failure policy, texts, and evidence. A saved change follows the profile application boundary, so running replies keep their captured setup.
+The selected [profile](profiles.md) owns `hooks`, `disabledHooks`, and `hookOrder` under `settings`. Missing values use an empty array, an empty array, and an empty object. The profile file editor edits script definitions and limits. Session opens Hooks for switches, order, failure policy, texts, and evidence. A raw file bundle is not the accepted newcomer authoring workflow. Structured creation and the shared lifecycle remain CP-14 and CP-15. A saved change follows the profile application boundary, so running replies keep their captured setup.
 
 Each definition has a unique `id` matching `^[a-z][a-zA-Z0-9]*$`, an `event`, a `mode` of `observe` or `transform`, and `run`. `run.command` is a nonempty executable argument array. `run.workingDirectory` is `source` for the profile folder or `project` for the chat folder. Relative arguments retain their program's meaning. There is no shell, variable expansion, or quote expansion. A bare executable resolves through the server's command path. Windows resolves native executable files, without shell or batch aliases.
 
@@ -40,7 +40,7 @@ The script reads one UTF-8 JSON object from standard input until it closes. It w
 
 A block reason is `{ id, values }`. Its id names the hook's inline `texts` record. Each text declares `label`, `builtIn`, and `slots`. Each slot declares `meaning` and `example`. Values supply exactly the declared slot names with strings or finite numbers. Text identity is `hook.<hookId>.<textId>`, and its editor group is `Hook <hookId>`. Fixed host failure text belongs to Hooks. Text edits live in the profile's existing model text file, and use the same changed-default and reset behavior as tool texts.
 
-For example, add this definition under `settings.hooks` and put `guard.ts` beside the profile file:
+For a project-scoped profile, add this definition under `settings.hooks` and put `guard.ts` beside that profile file. A user-scoped profile lives inside the denied state folder, so this example does not work there. That storage contradiction is a static finding requiring behavioral reproduction under CP-14.
 
 ```json
 {

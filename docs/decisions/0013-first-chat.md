@@ -1,6 +1,6 @@
 # First chat
 
-- Status: accepted, and amended by [decision 0016](0016-working-screen.md), which adds project folders and Markdown replies, by [decision 0029](0029-own-tools.md), which gives the agent its own tools and makes `@earendil-works/pi-ai` a dependency, by [decision 0048](0048-session-place.md), which exposes the prompt, by [decision 0051](0051-chats-run-on-their-own.md), which runs chats independently, and by [decision 0053](0053-documented-behavior-and-limits.md), which qualifies startup selection by folder, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own chat stream, amended by [decision 0064](0064-queue-and-steer.md) for durable queue and steering delivery
+- Status: accepted, and amended by [decision 0016](0016-working-screen.md), which adds project folders and Markdown replies, by [decision 0029](0029-own-tools.md), which gives the agent its own tools and makes `@earendil-works/pi-ai` a dependency, by [decision 0048](0048-session-place.md), which exposes the prompt, by [decision 0051](0051-chats-run-on-their-own.md), which runs chats independently, and by [decision 0053](0053-documented-behavior-and-limits.md), which qualifies startup selection by folder, and by [decision 0058](0058-address-chats-by-id.md), which gives each client its own chat stream, amended by [decision 0064](0064-queue-and-steer.md) for durable queue and steering delivery, amended by [decision 0077](0077-project-folder-selection.md)
 - Date: 2026-10-25
 
 ## Context

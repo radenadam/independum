@@ -1,5 +1,6 @@
 import type { ChatState } from "independum/api-types";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { waitFor } from "../../../scripts/wait-for.ts";
 import {
   fetchContext,
   fetchModels,
@@ -92,7 +93,7 @@ test.each([
       tools.onMove("command");
     }
   }
-  await vi.waitFor(() =>
+  await waitFor(() =>
     expect(
       findElement<{ children: string }>(
         view.render(),

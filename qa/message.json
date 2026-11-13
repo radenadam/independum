@@ -4,52 +4,48 @@
     {
       "size": [1440, 900],
       "scheme": "dark",
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
     },
     {
-      "run": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' && document.querySelector('main').innerText.includes('What should we work on?') })"
-    },
-    {
-      "clickOn": "document.querySelector('textarea[aria-label=Message]')",
-      "wait": 100
-    },
-    {
-      "key": {
-        "key": "Tab",
-        "code": "Tab",
-        "windowsVirtualKeyCode": 9
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' && document.querySelector('main').innerText.includes('What should we work on?') })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
       }
     },
     {
-      "key": {
-        "key": "Tab",
-        "code": "Tab",
-        "windowsVirtualKeyCode": 9,
-        "modifiers": 8
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "key": "Tab"
+    },
+    {
+      "key": "Shift+Tab"
+    },
+    {
+      "shot": "message-keyboard-focus",
+      "waitFor": {
+        "condition": "(() => { const field = document.querySelector(\"textarea[aria-label=Message]\"); const style = getComputedStyle(field); return { messageHasKeyboardFocus: document.activeElement === field && field.matches(\":focus-visible\"), messageHasVisibleFocusRing: style.outlineStyle !== \"none\" && parseFloat(style.outlineWidth) >= 2 }; })()",
+        "message": "The expected checks do not become true: messageHasKeyboardFocus, messageHasVisibleFocusRing.",
+        "timeoutMs": 25000
       }
     },
     {
-      "run": "(() => { const field = document.querySelector(\"textarea[aria-label=Message]\"); const style = getComputedStyle(field); return { messageHasKeyboardFocus: document.activeElement === field && field.matches(\":focus-visible\"), messageHasVisibleFocusRing: style.outlineStyle !== \"none\" && parseFloat(style.outlineWidth) >= 2 }; })()",
-      "shot": "message-keyboard-focus"
+      "text": "Check the preview steps."
     },
     {
-      "text": "Check the preview steps.",
-      "wait": 100
-    },
-    {
-      "key": {
-        "key": "Enter",
-        "code": "Enter",
-        "windowsVirtualKeyCode": 13
-      },
-      "wait": 0
+      "key": "Enter"
     },
     {
       "run": "(async () => { const shown = () => document.querySelector('main').innerText; for (let tries = 0; tries < 100 && !shown().includes('Check the project steps'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { messageSent: shown().includes('Check the preview steps.'), replyRuns: !!document.querySelector('main button[aria-label=Stop]'), thinkingVisible: /Thinking|Thought/.test(shown()), toolStepRuns: shown().includes('Check the project steps') && !shown().includes('Preview reply complete.') }; })()",
-      "wait": 0,
       "shot": "message-steps"
     },
     {
@@ -60,8 +56,12 @@
       "clickOn": "[...document.querySelectorAll('main button')].find(button => button.textContent.trim() === '1 step')"
     },
     {
-      "run": "(() => { const isShown = button => !!button && !button.closest('[inert]') && button.checkVisibility() && button.getBoundingClientRect().height > 0; const buttons = [...document.querySelectorAll('main button')]; return { thoughtStepVisible: isShown(buttons.find(button => button.textContent.startsWith('Thought for'))), toolStepVisible: isShown(buttons.find(button => button.textContent.includes('Check the project steps'))) }; })()",
-      "shot": "message-tool-step"
+      "shot": "message-tool-step",
+      "waitFor": {
+        "condition": "(() => { const isShown = button => !!button && !button.closest('[inert]') && button.checkVisibility() && button.getBoundingClientRect().height > 0; const buttons = [...document.querySelectorAll('main button')]; return { thoughtStepVisible: isShown(buttons.find(button => button.textContent.startsWith('Thought for'))), toolStepVisible: isShown(buttons.find(button => button.textContent.includes('Check the project steps'))) }; })()",
+        "message": "The expected checks do not become true: thoughtStepVisible, toolStepVisible.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }

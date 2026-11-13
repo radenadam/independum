@@ -1,6 +1,6 @@
 # Profiles and plain settings
 
-- Status: accepted, with the remaining work listed in `docs/roadmap.md`, with the user message preference defined in [decision 0064](0064-queue-and-steer.md), and amended for profile-owned hook definitions by [decision 0065](0065-script-hooks-and-the-add-on-contract.md), which puts hook definitions and switches in the selected profile
+- Status: accepted, with the remaining work listed in `docs/roadmap.md`, with the user message preference defined in [decision 0064](0064-queue-and-steer.md), and amended for profile-owned hook definitions by [decision 0065](0065-script-hooks-and-the-add-on-contract.md), which puts hook definitions and switches in the selected profile, amended by [decision 0078](0078-same-profile-new-chat-choices.md), amended by [decision 0075](0075-control-parity-and-newcomer-journeys.md)
 - Date: 2026-11-05
 
 ## Context

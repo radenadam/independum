@@ -54,7 +54,7 @@ Compact now uses `POST /api/chats/:id/compact` to run the replacement summarizer
 
 ## Pi context
 
-The system prompt detail shows the inventory of texts Pi can send. Each disclosure gives the text, condition, source, control availability, slots, and copy controls, and marks matches in the last captured request. [Context controls](context.md#requests-and-pi) owns supported switches and explains unavailable adapter omissions. Owned replacement compaction texts are editable and have separate request capture.
+The system prompt detail shows Pi's text inventory, conditions, sources, controls, slots, copy actions, and matches in the last capture. [Context controls](context.md#requests-and-pi) owns supported switches. Replacement compaction texts are editable with separate capture. Other Pi wording remains a gap under [decision 0072](../decisions/0072-editable-pi-texts.md), which permits a narrow text-control patch.
 
 The inventory is copied into `pi-texts.ts` because Pi does not export these texts. Its test searches the installed Pi code for fixed fragments of six or more characters. This catches missing fragments but does not prove complete text equality or placement.
 

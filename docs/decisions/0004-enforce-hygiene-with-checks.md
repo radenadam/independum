@@ -1,6 +1,6 @@
 # Enforce hygiene with checks
 
-- Status: accepted
+- Status: accepted, amended by [decision 0071](0071-repository-healing.md)
 - Date: 2026-10-24
 
 ## Context

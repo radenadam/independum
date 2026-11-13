@@ -3,7 +3,15 @@
   "steps": [
     {
       "size": [1440, 1000],
-      "go": true
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
     },
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')"
@@ -12,37 +20,108 @@
       "text": "/review \"a change\""
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=\"Close the menu\"]')",
-      "wait": 100
+      "clickOn": "document.querySelector('button[aria-label=\"Close the menu\"]')"
     },
     {
       "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "({ previewIsEditable: document.querySelector('textarea[aria-label=Message]').value === 'Review a change.\\n', sourceLineVisible: document.body.innerText.includes('/review'), purposeVisible: document.body.innerText.includes('Command preview'), submissionNoteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') })",
-      "shot": "command-preview"
+      "shot": "command-preview",
+      "waitFor": {
+        "condition": "({ previewIsEditable: document.querySelector('textarea[aria-label=Message]').value === 'Review a change.\\n' && window.qaVisible(document.querySelector('textarea[aria-label=Message]')), previewSourceVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview') && button.innerText.includes('/review'))), submissionNoteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
+        "message": "The expected checks do not become true: previewIsEditable, previewSourceVisible, submissionNoteVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
     },
     {
-      "run": "({ readablePreviewDetails: ['Values after the command', 'Original message text', 'File fingerprint', 'Restore command'].every(label => document.body.innerText.includes(label)) })"
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Original command').closest('section')"
+    },
+    {
+      "shot": "command-preview-original-command",
+      "waitFor": {
+        "condition": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Original command').closest('section')) })",
+        "message": "The expected checks do not become true: previewDetailReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Values after the command').closest('section')"
+    },
+    {
+      "shot": "command-preview-values",
+      "waitFor": {
+        "condition": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Values after the command').closest('section')) })",
+        "message": "The expected checks do not become true: previewDetailReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'Original message text').closest('section')"
+    },
+    {
+      "shot": "command-preview-original-text",
+      "waitFor": {
+        "condition": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'Original message text').closest('section')) })",
+        "message": "The expected checks do not become true: previewDetailReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('h3')].find(element => element.textContent === 'File fingerprint').closest('section')"
+    },
+    {
+      "shot": "command-preview-fingerprint",
+      "waitFor": {
+        "condition": "({ previewDetailReadable: window.qaVisible([...document.querySelectorAll('h3')].find(element => element.textContent === 'File fingerprint').closest('section')) })",
+        "message": "The expected checks do not become true: previewDetailReadable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.textContent === 'Restore command')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ restoreCommandReachable: window.qaVisible([...document.querySelectorAll('button')].find(button => button.textContent === 'Restore command')) })",
+        "message": "The expected checks do not become true: restoreCommandReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
     },
     {
       "size": [360, 800],
       "scheme": "dark"
     },
     {
-      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
-      "shot": "command-preview-phone-dark"
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "shot": "command-preview-phone-dark",
+      "waitFor": {
+        "condition": "({ previewPhoneFits: document.documentElement.scrollWidth <= 360, previewVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))), messageReachable: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), noteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
+        "message": "The expected checks do not become true: previewPhoneFits, previewVisible, messageReachable, sendReachable, noteVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [360, 800],
       "scheme": "light"
     },
     {
-      "run": "(() => { const field = document.querySelector('textarea[aria-label=Message]').getBoundingClientRect(); const send = document.querySelector('button[aria-label=Send]').getBoundingClientRect(); return { previewPhoneFits: document.documentElement.scrollWidth <= 360, messageReachable: field.top >= 0 && field.bottom <= 800, sendReachable: send.bottom <= 800, noteVisible: document.body.innerText.includes('Send submits the text shown in the message box.') }; })()",
-      "shot": "command-preview-phone-light"
+      "hoverOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
+    },
+    {
+      "shot": "command-preview-phone-light",
+      "waitFor": {
+        "condition": "({ previewPhoneFits: document.documentElement.scrollWidth <= 360, previewVisible: window.qaVisible([...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))), messageReachable: window.qaVisible(document.querySelector('textarea[aria-label=Message]')), sendReachable: window.qaVisible(document.querySelector('button[aria-label=Send]')), noteVisible: window.qaVisible([...document.querySelectorAll('p')].find(element => element.textContent === 'Send submits the text shown in the message box.')) })",
+        "message": "The expected checks do not become true: previewPhoneFits, previewVisible, messageReachable, sendReachable, noteVisible.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [1440, 1000],
@@ -52,14 +131,17 @@
       "clickOn": "[...document.querySelectorAll('button')].find(button => button.innerText.includes('Command preview'))"
     },
     {
-      "clickOn": "document.querySelector('button[aria-label=Send]')",
-      "wait": 0
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
       "run": "(async () => { for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { commandCompletes: !document.querySelector('main button[aria-label=Stop]') }; })()"
     },
     {
-      "run": "({ submittedShownText: document.querySelector('main').innerText.includes('Review a change.') })"
+      "waitFor": {
+        "condition": "({ submittedShownText: document.querySelector('main').innerText.includes('Review a change.') })",
+        "message": "The expected checks do not become true: submittedShownText.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
@@ -71,8 +153,70 @@
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Context controls'))"
     },
     {
-      "run": "({ instructionsSwitchVisible: !!document.querySelector('button[aria-label=\"Send project instructions\"]'), skillAvailabilitySwitchVisible: !!document.querySelector('button[aria-label=\"Make skills available\"]'), skillDescriptionSwitchVisible: !!document.querySelector('button[aria-label=\"Send skill names and descriptions\"]'), commandSwitchVisible: !!document.querySelector('button[aria-label=\"Enable slash commands\"]'), labeledTextEditsVisible: ['Edit instruction texts', 'Edit skill texts'].every(label => [...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.trim() === label)), instructionListVisible: !!document.querySelector('ul[aria-label=\"Instruction filename list\"]'), noSaveButtons: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.startsWith('Save ')), profileSentenceVisible: /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(document.querySelector('aside [role=tabpanel]').innerText), duplicateVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('duplicate'), capturedRevisionVisible: document.querySelector('aside [role=tabpanel]').innerText.includes('Last request resources') })",
-      "shot": "context-controls"
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(element.textContent))"
+    },
+    {
+      "shot": "context-profile",
+      "waitFor": {
+        "condition": "({ profileSentenceVisible: window.qaVisible([...document.querySelectorAll('aside p')].find(element => /You are editing the .+ user profile used by [0-9]+ chats?[.]/.test(element.textContent))) })",
+        "message": "The expected checks do not become true: profileSentenceVisible.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Project instructions')"
+    },
+    {
+      "shot": "context-controls",
+      "waitFor": {
+        "condition": "({ instructionsSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Send project instructions\"]')), instructionListVisible: window.qaVisible(document.querySelector('ul[aria-label=\"Instruction filename list\"]')), instructionTextEditReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Edit instruction texts')), noSaveButtons: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('button')].some(button => button.innerText.startsWith('Save ')) })",
+        "message": "The expected checks do not become true: instructionsSwitchVisible, instructionListVisible, instructionTextEditReachable, noSaveButtons.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside section')].find(section => section.querySelector('h3')?.textContent === 'Skills')"
+    },
+    {
+      "shot": "context-skills",
+      "waitFor": {
+        "condition": "({ skillAvailabilitySwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Make skills available\"]')), skillDescriptionSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Send skill names and descriptions\"]')), skillTextEditReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Edit skill texts')) })",
+        "message": "The expected checks do not become true: skillAvailabilitySwitchVisible, skillDescriptionSwitchVisible, skillTextEditReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "shot": "context-commands",
+      "waitFor": {
+        "condition": "({ commandSwitchVisible: window.qaVisible(document.querySelector('button[aria-label=\"Enable slash commands\"]')) })",
+        "message": "The expected checks do not become true: commandSwitchVisible.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('duplicate'))"
+    },
+    {
+      "shot": "context-duplicate",
+      "waitFor": {
+        "condition": "({ duplicateReadableAndReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.includes('duplicate'))) })",
+        "message": "The expected checks do not become true: duplicateReadableAndReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Last request resources')"
+    },
+    {
+      "shot": "context-request-revision",
+      "waitFor": {
+        "condition": "({ capturedRevisionReachable: window.qaVisible([...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Last request resources')) })",
+        "message": "The expected checks do not become true: capturedRevisionReachable.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "document.getElementById('instruction-names')"
@@ -84,53 +228,117 @@
       "clickOn": "[...document.querySelectorAll('form')].find(form => form.querySelector('#instruction-names')).querySelector('button[type=submit]')"
     },
     {
-      "run": "({ wholeFilenameSaved: [...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md'), entryFieldCleared: document.getElementById('instruction-names').value === '' })"
+      "waitFor": {
+        "condition": "({ wholeFilenameSaved: [...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md'), entryFieldCleared: document.getElementById('instruction-names').value === '' })",
+        "message": "The expected checks do not become true: wholeFilenameSaved, entryFieldCleared.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].find(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md').querySelector('button')"
     },
     {
-      "run": "({ filenameRemoved: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md') })"
+      "waitFor": {
+        "condition": "({ filenameRemoved: ![...document.querySelector('aside [role=tabpanel]').querySelectorAll('li')].some(item => item.querySelector('code')?.textContent === 'NOTES, CONTEXT.md') })",
+        "message": "The expected checks do not become true: filenameRemoved.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [360, 800],
       "scheme": "dark"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-dark-instructions"
+      "hoverOn": "document.querySelector('button[aria-label=\"Send project instructions\"]')"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-dark-skills"
+      "shot": "context-phone-dark-instructions",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-dark-commands"
+      "hoverOn": "document.querySelector('button[aria-label=\"Make skills available\"]')"
     },
     {
-      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-dark-catalog"
+      "shot": "context-phone-dark-skills",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "shot": "context-phone-dark-commands",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.getElementById('resource-search')"
+    },
+    {
+      "shot": "context-phone-dark-catalog",
+      "waitFor": {
+        "condition": "(() => { const target = document.getElementById('resource-search'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
     },
     {
       "size": [360, 800],
       "scheme": "light"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-light-instructions"
+      "hoverOn": "document.querySelector('button[aria-label=\"Send project instructions\"]')"
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-light-skills"
+      "shot": "context-phone-light-instructions",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Send project instructions\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "run": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-light-commands"
+      "hoverOn": "document.querySelector('button[aria-label=\"Make skills available\"]')"
     },
     {
-      "run": "(() => { const target = document.getElementById('resource-search'); target.scrollIntoView({ block: 'center' }); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetVisible: target.checkVisibility(), targetFits: target.getBoundingClientRect().right <= 360 }; })()",
-      "shot": "context-phone-light-catalog"
+      "shot": "context-phone-light-skills",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Make skills available\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.querySelector('button[aria-label=\"Enable slash commands\"]')"
+    },
+    {
+      "shot": "context-phone-light-commands",
+      "waitFor": {
+        "condition": "(() => { const target = document.querySelector('button[aria-label=\"Enable slash commands\"]'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.getElementById('resource-search')"
+    },
+    {
+      "shot": "context-phone-light-catalog",
+      "waitFor": {
+        "condition": "(() => { const target = document.getElementById('resource-search'); const panel = document.querySelector('aside [role=tabpanel]'); return { pageFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth, targetReadableAndReachable: window.qaVisible(target) }; })()",
+        "message": "The expected checks do not become true: pageFits, panelFits, targetReadableAndReachable.",
+        "timeoutMs": 25000
+      }
     }
   ]
 }
