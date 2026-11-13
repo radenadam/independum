@@ -77,7 +77,7 @@
       "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
     },
     {
-      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Hide requests 1 to 50'))"
+      "run": "({ stretchFoldedAfterReturn: [...document.querySelectorAll(\"aside button\")].some(button => button.textContent.includes(\"Show requests 1 to 50\") && window.qaVisible(button)) })"
     },
     {
       "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.textContent.trim().startsWith('Pi compacted the chat'))"
