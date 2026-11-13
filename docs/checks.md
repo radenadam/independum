@@ -8,7 +8,8 @@
 - `scripts/check-docs.ts` checks prose punctuation. `scripts/check-context.ts` checks local links and anchors, document owners and budgets, decision numbering and relationships, ledger fields and requirement references. It does not establish semantic agreement.
 - Character, layout, comment, code, style, markup, and release-age scripts check their selected patterns. They do not prove every language, security, tooltip, motion, or dependency-age property. The release-age check rejects policy overrides.
 - Knip finds unused code under its configuration. jscpd detects token duplication. Neither proves one semantic fact per owner.
-- Vitest checks behavior, fixtures, scenarios, gates, and some native boundaries. Its reporter names skips, failures, and uncollected modules with reasons. Platform-only skips declare their CI platforms. They stay skipped, never passed. Native capability skips remain missing evidence. Pi inventory tests check fragments, not complete equality.
+- Vitest checks behavior, scenarios, gates, and native boundaries. Its reporter names unavailable tests with reasons. Platform skips declare CI platforms. Skips never pass. Native skips remain missing evidence. Pi inventory tests check fragments.
+- Vitest serializes native sandbox files and the file-worker test because concurrent MXC containers cause timeouts. `require-serial-sandbox.ts` rejects native launches from parallel tests.
 - CI and the pre-commit hook retain `pnpm check`. Three-platform CI supplements local evidence and does not run AI gates or establish visual quality.
 
 ## Local gates
@@ -34,5 +35,3 @@ The direct maintainer repairs of 2026-11-14 require fail-closed `testAvailabilit
 If Codex is unavailable, explicitly choose `--engine claude` for the documented print-mode fallback. It uses the same contract without silent fallback. Installed tools own authentication. These networked development roles differ from product model tests. The offline worker cannot execute them.
 
 Authentication failure, timeout, invalid output, missing coverage or evidence, source mutation, or unavailable required capability yields fail or incomplete. Empty findings are allowed. Deduplicate causes, distinguish defects, evidence and decisions, and omit formatting findings. Preserve acceptance. [Workflow](workflow.md) bounds repair rounds and records exceptions.
-
-Contract, revision, and runner tests protect coverage, identity, and QA evidence.

@@ -159,7 +159,9 @@ test.each([
         expect(opened.getState().pending.isPaused).toBe(true);
         await opened.resumePending();
         await vi.waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
-        await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+        await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false), {
+          timeout: 15_000,
+        });
         expect(sent).toHaveLength(1);
         expect(opened.getHooks().invocations).toHaveLength(2);
       }
@@ -312,8 +314,10 @@ test.each(["queue", "steer", "headless"] as const)(
       writeFileSync(source, "Changed source.");
       expect(await opened.chooseModel(faux.provider.id, "other")).toBe(true);
       finish.resolve();
-      await vi.waitFor(() => expect(opened.inputState(options.id)).toBe("delivered"));
-      await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+      await vi.waitFor(() => expect(opened.inputState(options.id)).toBe("delivered"), {
+        timeout: 15_000,
+      });
+      await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false), { timeout: 15_000 });
       if (operationId !== undefined) {
         expect(await operations.wait(operationId, "fail")).toMatchObject({
           status: "completed",
@@ -443,7 +447,7 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
       expectedLeafId: state.leafId,
     });
     fail.resolve();
-    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false), { timeout: 15_000 });
     expect(opened.getState().pending).toMatchObject({
       isPaused: true,
       items: [{ text: "Held steer", state: "held" }],
@@ -458,7 +462,7 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
     await opened.resumePending();
     await vi.waitFor(() => expect(opened.getState().pending.items).toHaveLength(0));
     expect(inputs()).toEqual(["Start", "Held steer"]);
-    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false));
+    await vi.waitFor(() => expect(opened.getState().isReplying).toBe(false), { timeout: 15_000 });
     expect(sent).toHaveLength(2);
   } finally {
     fail.resolve();
