@@ -26,7 +26,7 @@ Preflight base revision, dependencies, writable paths, git metadata, shells, bro
 
 Name file scope, shared writers, dependencies, decision ownership, and completion conditions. Allocate decision numbers centrally. Workers implement accepted behavior and update its owning docs. Report deviations before substituting behavior. Results give exact checks, failures, unverified conditions, context updates, and remaining requirement ids. Workers without writable git metadata leave uncommitted changes.
 
-The coordinator assigns missing browser and native checks to capable roles. QA runs outside implementation workers' sandbox, without asking workers to evade it. Review the integrated diff and run independent gates against that revision. Fix findings through implementation. Bound repair to three rounds before escalating unresolved disagreement with evidence. A successful rerun does not explain an intermittent failure.
+The coordinator assigns missing browser and native checks to capable roles. QA runs outside implementation workers' sandbox, without asking workers to evade it. Independent AI review examines the integrated diff, and AI browser QA checks the agreed journeys against that revision. Fix findings through implementation. Bound repair to three rounds before escalating unresolved disagreement with evidence. A successful rerun does not explain an intermittent failure.
 
 Every server, browser, test, and watcher has an owner and teardown. Report stalled progress and failure conditions promptly. Cold-start cases include incomplete hook slices, editable Pi wording versus required protocol, historical rows opening current editors, skipped native tests, and local visual experiments becoming universal rules. Test judgment, not recitation.
 
@@ -34,11 +34,13 @@ Every server, browser, test, and watcher has an owner and teardown. Report stall
 
 For ordinary work, update `main` with `git switch main` and `git pull`, then branch as [conventions](conventions.md#commits-and-pull-requests) specifies. Task restrictions override these operations.
 
-Run `pnpm format`, `pnpm check`, and [the local gate](checks.md). Bind evidence to the outgoing revision. Commit, push, open with `gh pr create`, and enable `gh pr merge --auto --squash`. Keep only one dependent change landing at a time. Watch `gh pr checks --watch`, current-head CI, conflicts, and auto-merge state, then confirm the merge. Fix failed checks on the same branch. Rerun a cancelled job that never reached a runner with `gh run rerun --failed`. Respect the published branch update policy rather than assuming force pushes work.
+Run `pnpm format`, `pnpm check`, and [the local gate](checks.md). Bind evidence to the outgoing revision. Passing deterministic checks, independent AI review, and independent AI browser QA authorize landing within settled intent. Require no per-change human inspection or approval. Review must flag reintroduced personal gates and preserve [maintainer authority](standard.md#authority). [Decision 0079](decisions/0079-gates-authorize-landing.md) records this boundary.
+
+Commit, push, open with `gh pr create`, and enable `gh pr merge --auto --squash`. Keep only one dependent change landing at a time. Watch `gh pr checks --watch`, current-head CI, conflicts, and auto-merge state, then confirm the merge. Fix failed checks on the same branch. Rerun a cancelled job that never reached a runner with `gh run rerun --failed`. Respect the published branch update policy rather than assuming force pushes work.
 
 Update the intended local checkout, install changed dependencies, and verify the running app. This prevents merged code and delivered behavior diverging. A PR closes its slice. Only requirement-level implementation and evidence close acceptance.
 
-Pi updates stay separate. Read every intervening changelog and relevant new texts. Update the branch if behind, install, and check. Exercise all login providers and a real call through Pi. Recheck the narrow text patch. Report findings and merge only after maintainer approval.
+Pi updates stay separate. Read every intervening changelog and relevant new texts. Update the branch if behind, install, and check. Exercise all login providers and a real call through Pi. Recheck the narrow text patch. Report findings and land through the same gates. Ask the maintainer only for unresolved decisions under the working agreement.
 
 ## Context ownership
 

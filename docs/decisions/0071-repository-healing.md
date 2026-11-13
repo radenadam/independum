@@ -1,6 +1,6 @@
 # Repository healing
 
-- Status: accepted, amends [decision 0004](0004-enforce-hygiene-with-checks.md), [decision 0048](0048-session-place.md), [decision 0056](0056-browser-qa-harness.md), and [decision 0057](0057-versions-and-checkpoints.md)
+- Status: accepted, amends [decision 0004](0004-enforce-hygiene-with-checks.md), [decision 0048](0048-session-place.md), [decision 0056](0056-browser-qa-harness.md), and [decision 0057](0057-versions-and-checkpoints.md), amended by [decision 0079](0079-gates-authorize-landing.md)
 - Date: 2026-11-10
 - Source: direct maintainer instruction on 2026-11-09 and approval of the healing proposal and its resumption answer on 2026-11-10
 

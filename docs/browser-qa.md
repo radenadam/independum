@@ -6,7 +6,7 @@ Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation
 
 The command prints a fresh temporary output folder with screenshots, named values in `values.jsonl`, diagnostics in `browser.jsonl`, browser launch details, the scenario, and revision metadata. `--base <revision>` chooses the comparison base, defaulting to `main`. Failures preserve `failure.txt` and a screenshot when possible. Clients use isolated contexts. Playwright's protocol session updates live touch, pixel ratio, and focus without replacing transient UI state. Browser and preview teardown belongs to the command. Evidence stays for review.
 
-False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. Inspect every screenshot and named value even after success. A scenario pass does not establish visual quality or newcomer comprehension. [Gate receipts](checks.md#local-gates) bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
+False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. A scenario pass does not establish visual quality or newcomer comprehension. The independent AI QA role inspects every screenshot and named value and assesses those qualities. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
 
 ## Preview
 

@@ -1,6 +1,6 @@
 # Working agreement
 
-The maintainer owns product intent. Agents own implementation and repository stewardship together. This page keeps working preferences and judgment, without personal circumstances. The enduring sources are maintainer directions of 2026-10-24, 2026-10-30, 2026-11-05, and 2026-11-09. [Decision 0071](decisions/0071-repository-healing.md) records their reconciliation.
+The maintainer owns product intent. Agents own implementation and repository stewardship together. This page keeps working preferences and judgment, without personal circumstances. The enduring sources are maintainer directions of 2026-10-24, 2026-10-30, 2026-11-05, 2026-11-09, and 2026-11-13. [Decision 0071](decisions/0071-repository-healing.md) records their reconciliation.
 
 ## Judgment
 
@@ -19,6 +19,8 @@ Give a genuine recommendation with reasons. Disagree when evidence warrants it. 
 
 Ask progressively. The full blueprint cannot be established in advance, and preferences can change. Use the standing question round in [workflow](workflow.md) at every piece of work. Work independently once the intended result is understood. Repeated permission requests for settled work and silent invention of intent both miss this agreement.
 
+The maintainer decides in the conversation, not by reading. Never hand them a long report, a worker's output, or a file to read in order to decide or judge. Give each decision as a short question with a recommendation, the few facts it needs, and the options, and summarize what workers produced in a few lines. Reading a long text to decide is no different from reading the whole repository, which defeats the purpose of this context.
+
 Before building, recap the agreed outcome. For status, state phase, completed behavior, blocker, and next action. For an unclear mechanism, use a concrete example and distinguish its parts. If a question returns, reconsider the premise instead of expanding the same explanation. When words do not settle a visual preference, compare alternatives with identical content, today's version, and a long case.
 
 Verify actual behavior before saying it works. Report unavailable checks and unresolved failures. Keep enough choices, evidence, limitations, and unfinished requirements for an audit without recounting routine operations. Quality governs completion. Token availability or an inferred deadline does not reduce the accepted outcome.
@@ -30,6 +32,8 @@ Every correction improves later judgment throughout the affected area. Search fo
 The maintainer decides product meaning, new visual or interaction meanings, genuine preference questions, changes to accepted promises, and new security, privacy, or destructive tradeoffs. Tools are planned with the maintainer before implementation, including purpose, description, parameters, and call-to-result life.
 
 Agents decide code structure, internal names, ordinary refactoring, appropriate tests, and clear fixes within accepted behavior. An established rule settles routine implementation without another approval. A delegated choice is legitimate within that scope but never becomes a direct maintainer answer by repetition. Mark inference as inference.
+
+Passing deterministic checks, independent local AI review, and independent AI browser QA authorize landing within settled intent. No person must inspect or approve each change. The maintainer tests the app at milestones, such as a checkpoint. This working preference comes from the direct maintainer answer of 2026-11-13 in the conversation with the coordinator. [Decision 0079](decisions/0079-gates-authorize-landing.md) records the correction and its scope.
 
 Stop dependent work and ask when current sources conflict, an accepted promise would change, a new meaning lacks a rule, measurement disproves feasibility, or a necessary preference remains unknown. Continue independent investigation while an answer is pending. Silence and elapsed time are not approval. Park distant questions until their work approaches.
 
