@@ -4,7 +4,7 @@ import { basename, isAbsolute, relative } from "node:path";
 import { readGateBrowserChecks, readGateBrowserRegressions } from "./read-gate-browser-checks.ts";
 import { readPushUpdates } from "./read-push-revision.ts";
 import type { Revision } from "./read-revision.ts";
-import { readTestAvailability } from "./read-test-availability.ts";
+import { readTestAvailability, requireGateTestAvailability } from "./read-test-availability.ts";
 
 export interface GateTask {
   outcome: string;
@@ -366,13 +366,10 @@ export function readGateReceipt(
   }
   readGateBrowserChecks(value.browserChecks, task, revision);
   readGateBrowserRegressions(value.browserRegressions, revision);
-  if (
-    readTestAvailability({ completed: true, tests: value.testAvailability }).some(
-      (test) => test.status !== "skipped",
-    )
-  ) {
-    throw new Error("Failing or unavailable tests prevent a passing receipt.");
-  }
+  requireGateTestAvailability(
+    readTestAvailability({ completed: true, tests: value.testAvailability }),
+    value.platform,
+  );
   for (const update of readPushUpdates(outgoing)) {
     if (update.head !== revision.head) {
       throw new Error("The gate receipt does not cover an outgoing commit.");

@@ -52,14 +52,13 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   expect(fixture.scenarios).toEqual(fixture.task.scenarios);
   expect(receipt.roles.map((role) => role.role)).toEqual(["review", "qa"]);
   expect(receipt.verdict).toBe("incomplete");
-  expect(receipt.testAvailability).toEqual([
-    {
-      file: "native.test.ts",
-      name: "native boundary",
+  expect(receipt.testAvailability).toEqual(
+    browserRegressionTests.map((test) => ({
+      ...test,
       status: "skipped",
-      reason: "Native containment is unavailable.",
-    },
-  ]);
+      reason: "The gate runs this browser regression separately.",
+    })),
+  );
   expect(fixture.prompts.at(-1)).toContain("revision.json");
   expect(fixture.prompts[0]).toContain("browser-checks.json");
   expect(fixture.prompts[0]).toContain("browser-regressions.json");
@@ -165,34 +164,45 @@ test("missing and unknown model choices cannot start a gate", async () => {
   }
 });
 
-test("missing test reports and unavailable tests block passing agent verdicts", async () => {
-  for (const report of [
-    undefined,
-    {
-      completed: true,
-      tests: [
-        {
-          file: "shell.test.ts",
-          name: "command execution",
-          status: "unavailable",
-          reason: "The default shell is unavailable.",
-        },
-      ],
-    },
-  ]) {
-    const fixture = await prepareGate("pass", "codex", {
-      testReport: report,
-      hasTestReportOverride: true,
-    });
-    await runGate(fixture.arguments);
-    const receipt = await fixture.receipt();
-    expect(receipt.verdict).toBe("fail");
-    expect(receipt.testAvailability).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ status: "unavailable", reason: expect.any(String) }),
-      ]),
-    );
-  }
+test.each([
+  undefined,
+  {
+    completed: true,
+    tests: [
+      {
+        file: "shell.test.ts",
+        name: "command execution",
+        status: "unavailable",
+        reason: "The default shell is unavailable.",
+      },
+    ],
+  },
+  ...[undefined, ["linux", "darwin"]].map((ciPlatforms) => ({
+    completed: true,
+    tests: [
+      {
+        file: "packages/independum/src/create-sandbox.test.ts",
+        name: "native sandbox runs a node script by path",
+        status: "skipped",
+        reason: "Native containment is unavailable.",
+        ...(ciPlatforms === undefined ? {} : { ciPlatforms }),
+      },
+    ],
+  })),
+])("missing unavailable or skipped test evidence %j blocks passing roles", async (report) => {
+  const fixture = await prepareGate("pass", "codex", {
+    testReport: report,
+    hasTestReportOverride: true,
+  });
+  await runGate(fixture.arguments);
+  const receipt = await fixture.receipt();
+  expect(receipt.roles.map((role) => role.verdict)).toEqual(["pass", "pass"]);
+  expect(receipt.verdict).toBe("fail");
+  expect(receipt.testAvailability).toEqual(
+    report?.tests ?? [
+      expect.objectContaining({ status: "unavailable", reason: expect.any(String) }),
+    ],
+  );
 });
 
 test.each(["missing", "skipped", "failed", "stale"])(
@@ -280,14 +290,11 @@ async function prepareGate(
           ? options.testReport
           : {
               completed: true,
-              tests: [
-                {
-                  file: "native.test.ts",
-                  name: "native boundary",
-                  status: "skipped",
-                  reason: "Native containment is unavailable.",
-                },
-              ],
+              tests: browserRegressionTests.map((test) => ({
+                ...test,
+                status: "skipped",
+                reason: "The gate runs this browser regression separately.",
+              })),
             };
         if (availability !== undefined) {
           await writeFile(report, JSON.stringify(availability));

@@ -1,9 +1,45 @@
+import { browserRegressionTests } from "./read-gate-browser-checks.ts";
+
 export interface TestAvailability {
   file: string;
   name: string;
   status: "skipped" | "unavailable" | "failed";
   reason: string;
   ciPlatforms?: string[];
+}
+
+const ciCoveredTests = [
+  {
+    file: "packages/independum/src/private-runtime.test.ts",
+    name: "unix discovery rejects broad permissions and another owner",
+    ciPlatforms: ["linux", "darwin"],
+  },
+  {
+    file: "packages/independum/src/tools/run-command.test.ts",
+    name: "a command that a signal ends says which signal",
+    ciPlatforms: ["linux", "darwin"],
+  },
+];
+
+/** Blocks missing execution except named Windows CI obligations and separately gated browser tests. */
+export function requireGateTestAvailability(tests: TestAvailability[], platform: unknown): void {
+  for (const test of tests) {
+    const covered = ciCoveredTests.find((expected) => matchesTest(test, expected));
+    const hasCiCoverage =
+      typeof platform === "string" &&
+      /^win32 (x64|arm64|ia32)$/.test(platform) &&
+      covered !== undefined &&
+      test.ciPlatforms?.length === covered.ciPlatforms.length &&
+      covered.ciPlatforms.every((platform) => test.ciPlatforms?.includes(platform));
+    const hasBrowserReplacement =
+      test.ciPlatforms === undefined &&
+      browserRegressionTests.some((expected) => matchesTest(test, expected));
+    if (test.status !== "skipped" || (!hasCiCoverage && !hasBrowserReplacement)) {
+      throw new Error(
+        `Failing, skipped, or unavailable tests prevent a passing receipt: ${test.file} > ${test.name}.`,
+      );
+    }
+  }
 }
 
 /** Formats one named availability result without treating CI coverage as a pass. */
@@ -48,4 +84,14 @@ export function readTestAvailability(value: unknown): TestAvailability[] {
     seen.add(JSON.stringify([test.file, test.name]));
   }
   return report.tests as TestAvailability[];
+}
+
+function matchesTest(
+  test: { file: string; name: string },
+  expected: { file: string; name: string },
+): boolean {
+  const file = test.file.replaceAll("\\", "/");
+  return (
+    (file === expected.file || file.endsWith(`/${expected.file}`)) && test.name === expected.name
+  );
 }

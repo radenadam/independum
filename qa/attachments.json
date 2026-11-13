@@ -99,12 +99,28 @@
       "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "(async () => { for (let attempt=0;attempt<120 && !document.querySelector('button[aria-label=Stop]');attempt+=1) await new Promise(resolve=>setTimeout(resolve,50)); const transfer=new DataTransfer();transfer.items.add(new File(['Queued attachment.'],'queued.txt',{type:'text/plain'}));const picker=document.querySelector('input[aria-label=\"Attachment files\"]');picker.files=transfer.files;picker.dispatchEvent(new Event('change',{bubbles:true}));return { replying:!!document.querySelector('button[aria-label=Stop]') };})()",
       "waitFor": {
         "condition": "document.querySelector('textarea[aria-label=Message]')?.value === '' && !!document.querySelector('button[aria-label=Stop]')",
         "message": "The attachment reply does not start and clear its draft.",
         "timeoutMs": 25000
-      }
+      },
+      "run": "(() => { const transfer=new DataTransfer();transfer.items.add(new File(['Queued attachment.'],'queued.txt',{type:'text/plain'}));const picker=document.querySelector('input[aria-label=\"Attachment files\"]');picker.files=transfer.files;picker.dispatchEvent(new Event('change',{bubbles:true}));return { queuedUploadStarted:true };})()"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const tile = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('queued.txt') && button.textContent.includes('Text included')); return !!tile && !tile.textContent.includes('Uploading'); })()",
+        "message": "The queued attachment does not finish uploading and show Text included.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "[...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].find(button => button.textContent.includes('queued.txt') && button.textContent.includes('Text included'))"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const detail = document.querySelector('dialog[aria-label=Attachment]'); return { queuedInputPrepared: !!detail && detail.innerText.includes('Queued attachment.') && !detail.innerText.includes('Preparing the input.') && window.qaVisible(detail.querySelector('button[aria-label=\"Copy attachment model input\"]')) }; })()",
+        "message": "The queued attachment does not finish preparing its visible model input.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "document.querySelector('button[aria-label=\"Close attachment\"]')"
     },
     {
       "clickOn": "document.querySelector('button[aria-label=\"Queue after this reply\"]')"
@@ -112,8 +128,8 @@
     {
       "clickOn": "document.querySelector('textarea[aria-label=Message]')",
       "waitFor": {
-        "condition": "document.querySelector('textarea[aria-label=Message]')?.value === '' && document.body.innerText.includes('queued.txt')",
-        "message": "The queued attachment does not save and clear its draft.",
+        "condition": "(() => { const row = [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] li')].find(row => row.textContent.includes('queued.txt') && row.textContent.includes('Sends after this reply') && row.textContent.includes('1 attachments')); return { queuedMessageOwnsAttachment: !!row && window.qaVisible(row.querySelector('button')), queuedDraftCleared: document.querySelector('textarea[aria-label=Message]')?.value === '' && !document.querySelector('button[aria-label=\"Remove attachment queued.txt\"]') }; })()",
+        "message": "The waiting queue message does not retain queued.txt and clear its composer attachment.",
         "timeoutMs": 25000
       }
     },

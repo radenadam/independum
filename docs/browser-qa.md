@@ -1,12 +1,12 @@
 # Browser QA
 
-Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation workers' sandbox. The harness uses `playwright-core` with installed Edge through `channel: "msedge"`, or Chrome through `channel: "chrome"`. `--browser chrome` selects Chrome and `--browser <path>` selects an explicit installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the old direct DevTools driver.
+Run `pnpm qa <scenario>` outside workers' sandbox on a coordinator-controlled host. Use `playwright-core` with installed Edge (`channel: "msedge"`) or Chrome (`channel: "chrome"`). `--browser chrome` selects Chrome and `--browser <path>` selects an installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the direct DevTools driver.
 
 ## Evidence
 
-The command prints a fresh temporary output folder with screenshots, named values in `values.jsonl`, diagnostics in `browser.jsonl`, browser launch details, the scenario, and revision metadata. `--base <revision>` chooses the comparison base, defaulting to `main`. Failures preserve `failure.txt` and a screenshot when possible. Clients use isolated contexts. Playwright's protocol session updates live touch, pixel ratio, and focus without replacing transient UI state. Browser and preview teardown belongs to the command. Evidence stays for review.
+Evidence contains screenshots, `values.jsonl` checks, `browser.jsonl` diagnostics, launch details, scenario, and revision. `--base <revision>` chooses the comparison base, defaulting to `main`. Failures preserve `failure.txt` and a screenshot when possible. Clients use isolated contexts. Playwright updates live touch, pixel ratio, and focus without replacing transient UI state. The command owns teardown and retains evidence.
 
-False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. Independent AI QA inspects every screenshot and named value for visual quality and newcomer comprehension. A scenario pass alone cannot establish these. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
+False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and missing favicon requests are excluded. Independent AI QA inspects screenshots and named values for visual quality and newcomer comprehension beyond a scenario pass. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Receipts bind review to the base, HEAD, source content, and context. Changed source invalidates evidence.
 
 The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captures and hit tests through `hoverOn` or `clickOn`. Reveal hover controls by hovering or focusing their owner first. Close covering drawers and scroll content into view. Wait for finite animations before recording geometry baselines. `checkQr` samples rendered PNG pixels, never the SVG source. With `shot`, it checks the QR region in that exact viewport capture before saving the named evidence. After loading and finite animations, it retries blanks for five seconds. Persistent blanks fail and retain their PNG. A separate passing element capture cannot establish viewport evidence. Transient blanks alone establish no product gap.
 
@@ -53,3 +53,5 @@ Fields execute in this order:
 | `shot` | Save a kebab-case PNG name. |
 
 Separate focus, text, and Enter. Press Send on phones because Enter adds a newline. Close phone drawers before chatting. Fixed delays are rejected. Wait for saves and polling refreshes with bounded conditions and failure messages. Targets await visibility, reachability, and finite animations. Expressions time out after 25 seconds.
+
+The direct maintainer repair of 2026-11-14 requires visible upload and preparation completion before sending. Verify attachments and delivery on the waiting message itself. Draft filenames and empty fields cannot prove acceptance.

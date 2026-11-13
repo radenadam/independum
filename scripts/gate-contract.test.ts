@@ -74,15 +74,7 @@ test("gate results reject missing coverage stale evidence and incomplete passes"
 test("push receipts require both roles and the actual outgoing commit", async () => {
   await withEvidence((path) => {
     const task = taskFor(path);
-    const receipt = {
-      revision,
-      verdict: "pass",
-      checks: "pass",
-      testAvailability: [],
-      browserChecks: [],
-      browserRegressions: regressionsFor(path),
-      roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
-    };
+    const receipt = receiptFor(path);
     expect(() => readGateReceipt(receipt, task, revision, pushFor())).not.toThrow();
     expect(() =>
       readGateReceipt({ ...receipt, browserRegressions: undefined }, task, revision, pushFor()),
@@ -140,6 +132,70 @@ test("passing receipts reject either nonpassing role even without coverage", asy
   });
 });
 
+test("receipts reject required skips except exact windows platform coverage and replaced browser tests", async () => {
+  await withEvidence((path) => {
+    const task = taskFor(path);
+    const receipt = receiptFor(path);
+    const native = {
+      file: "packages/independum/src/create-sandbox.test.ts",
+      name: "native sandbox runs a node script by path",
+      status: "skipped",
+      reason: "Native containment is unavailable.",
+    };
+    const unix = {
+      ...native,
+      file: "packages/independum/src/private-runtime.test.ts",
+      name: "unix discovery rejects broad permissions and another owner",
+      reason: "Unix ownership and permission checks are unavailable on Windows.",
+      ciPlatforms: ["linux", "darwin"],
+    };
+    const signal = {
+      ...unix,
+      file: "packages/independum/src/tools/run-command.test.ts",
+      name: "a command that a signal ends says which signal",
+    };
+    const browser = browserRegressionTests.map((test) => ({
+      ...test,
+      status: "skipped",
+      reason: "The gate runs this browser regression separately.",
+    }));
+    expect(() =>
+      readGateReceipt(
+        { ...receipt, testAvailability: [unix, signal, ...browser] },
+        task,
+        revision,
+        pushFor(),
+      ),
+    ).not.toThrow();
+    for (const test of [
+      native,
+      { ...native, ciPlatforms: ["linux", "darwin"] },
+      { ...unix, ciPlatforms: undefined },
+      { ...unix, ciPlatforms: ["linux"] },
+      { ...unix, ciPlatforms: ["darwin"] },
+      { ...unix, ciPlatforms: ["linux", "darwin", "win32"] },
+      { ...unix, file: "unrelated.test.ts" },
+      { ...unix, name: "unrelated test" },
+      { ...browser[0], file: "unrelated.test.ts" },
+      { ...browser[0], status: "unavailable" },
+    ]) {
+      expect(() =>
+        readGateReceipt({ ...receipt, testAvailability: [test] }, task, revision, pushFor()),
+      ).toThrow();
+    }
+    for (const platform of [undefined, "linux x64", "darwin arm64", "unknown"]) {
+      expect(() =>
+        readGateReceipt(
+          { ...receipt, platform, testAvailability: [unix] },
+          task,
+          revision,
+          pushFor(),
+        ),
+      ).toThrow();
+    }
+  });
+});
+
 test.each([revision.head, "c".repeat(40)])(
   "push receipts reject a reviewed base of %s that omits outgoing commits",
   async (base) => {
@@ -166,6 +222,19 @@ test.each([revision.head, "c".repeat(40)])(
 
 function pushFor(head = revision.head): string {
   return `refs/heads/work ${head} refs/heads/work ${revision.base}`;
+}
+
+function receiptFor(path: string): object {
+  return {
+    revision,
+    platform: "win32 x64",
+    verdict: "pass",
+    checks: "pass",
+    testAvailability: [],
+    browserChecks: [],
+    browserRegressions: regressionsFor(path),
+    roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
+  };
 }
 
 function regressionsFor(path: string): object {

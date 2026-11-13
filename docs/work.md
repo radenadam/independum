@@ -1,6 +1,6 @@
 # Current work
 
-Building is stopped for repository healing. The maintainer's 2026-11-09 instruction and 2026-11-10 proposal answers govern. [Decision 0071](decisions/0071-repository-healing.md) records the stop and resumption condition.
+Building stops for repository healing under the maintainer's 2026-11-09 instruction and 2026-11-10 answers. [Decision 0071](decisions/0071-repository-healing.md) records resumption conditions.
 
 The 2026-11-13 direct maintainer correction makes passing deterministic checks, AI review, and AI browser QA sufficient for landing within settled intent. The maintainer tests at milestones. [The working agreement](standard.md#authority) owns authority, and [decision 0079](decisions/0079-gates-authorize-landing.md) records the amendment.
 
@@ -14,9 +14,9 @@ The healing worker stays offline in its supplied worktree, makes no git mutation
 
 The 2026-11-13 direct repair scopes acceptance to context and harness changes. The manifest and evidence use ignored `node_modules/.cache/healing`. Pi writes 240 requests and four compactions for `qa/long-session.json`. Changed app scenarios await coordinator execution.
 
-The 2026-11-14 direct sixth-run repair adds owner hover before action targeting and waits for menu animations before recording geometry. QR checks verify the exact named viewport pixels. Transient blanks retry and persistent blanks retain diagnostic evidence. No product QR gap is established. [Browser QA](browser-qa.md) owns these rules.
+The 2026-11-14 seventh-run repair waits for visible upload and preparation and checks the waiting row's attachment. An offline actual-composer probe confirms unready Send and Queue retain drafts without sending. This is a scenario race, without a product gap or manifest exception. CP-21 retains full-journey verification. [Browser QA](browser-qa.md) owns synchronization and viewport QR evidence.
 
-The gate runs both real-browser regressions and binds named results to the reviewed revision. [Checks](checks.md) separates platform CI coverage from missing capabilities. Offline Edge regressions verify diagnostic and viewport blank rejection. Formatting and static checks pass. Full checks need a default shell and native setup. Availability reports name each limitation. Queue delivery in `hooks-runtime.test.ts` fails in full checks and passes alone. `run-file-operation.test.ts` times out once. Its cause and the earlier replaced-file identity failure in `permission-policy.test.ts` remain unexplained.
+The gate binds both browser regressions to the reviewed revision. Required skips block passing roles. Only allowlisted Unix-only or macOS-only tests on Windows may substitute exact CI platforms. [Checks](checks.md) owns this boundary. Seventh-repair formatting and static checks pass. Tests report 657 passes, 12 shell failures, 10 native skips, two browser opt-in skips, one Unix-only skip, and one uncollected shell module. Ignored availability evidence names each. Earlier intermittent queue delivery, file-operation timeout, and replaced-file identity failures remain unexplained.
 
 The coordinator must rerun with a shell, run scenarios and AI gates, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
 
