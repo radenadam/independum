@@ -12,10 +12,10 @@ The healing worker stays offline in its supplied worktree, makes no git mutation
 
 ## Resume pointers
 
-The correction updates landing authority and model-turn wording. Context and prose checks pass. `pnpm format` and `pnpm check` stop at missing Markdownlint dependency files after Biome passes. A separate test run has 313 passes, one skip, and 38 failed suites. Missing TypeBox files block native suites before their skip checks. `tools/run-command.test.ts` reports no default shell. Evidence stays in ignored worktree scratch.
+Gate receipts require passing roles and runner-selected identity. The runner executes manifest Playwright scenarios before QA, including after nonpassing review. All 14 gate tests and `pnpm format` pass. `pnpm check` passes static checks, then records 621 passes, 12 failures, and 11 skips. No default shell blocks `tools/run-command.test.ts` and 12 `create-chat-routes.test.ts` cases. Native skips: nine `create-sandbox.test.ts` cases and one `script-hook-sandbox.test.ts` case. One Unix-only `private-runtime.test.ts` case skips. Evidence remains in ignored scratch.
 
-The coordinator must restore dependencies, rerun checks, execute browser scenarios and AI gates, install the pre-push hook, and complete native evidence. Fresh agents must explain the product, checkpoint, authority, and correction and change cases using only the repository. Record the maintainer's milestone judgment here before lifting the stop. It remains pending.
+The coordinator must rerun checks with a shell, run `pnpm gate` with a concrete model outside the worker sandbox, install pre-push, and complete native evidence. Real CLI and browser execution remain unverified. Fresh agents must explain the product, checkpoint, authority, and correction and change cases from the repository. Record the pending maintainer milestone judgment before lifting the stop.
 
 After healing, [the roadmap](roadmap.md) orders work: reproduce contract contradictions, settle shared contracts, judge interface journeys, deliver one complete component journey, finish the common add-on contract and Pi text patch, finish checkpoint gaps, and assess the whole checkpoint. Later capabilities wait until that assessment passes.
 
-Keep only active state here. Replace this page at handoff instead of appending a diary. Keep revision-bound evidence in the gate output and update implementation and verification separately in the ledger.
+Replace state at handoff. Keep evidence in gate output and implementation and verification separate in the ledger.

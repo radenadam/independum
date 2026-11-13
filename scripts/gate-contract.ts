@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, relative } from "node:path";
+import { readGateBrowserChecks } from "./read-gate-browser-checks.ts";
 import type { Revision } from "./read-revision.ts";
 
 export interface GateTask {
@@ -35,6 +36,7 @@ export interface GateResult {
   verdict: "pass" | "fail" | "incomplete";
   revision: Revision;
   taskFingerprint: string;
+  engine: "codex" | "claude";
   model: string;
   platform: string;
   browser: string;
@@ -58,7 +60,12 @@ export interface GateResult {
 const textSchema = { type: "string", minLength: 1 };
 const textsSchema = { type: "array", items: textSchema };
 
-export const gateResultSchema: Record<string, unknown> = {
+export const gateReportSchema: {
+  type: "object";
+  additionalProperties: boolean;
+  required: string[];
+  properties: Record<string, unknown>;
+} = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -66,7 +73,6 @@ export const gateResultSchema: Record<string, unknown> = {
     "verdict",
     "revision",
     "taskFingerprint",
-    "model",
     "platform",
     "browser",
     "commands",
@@ -89,7 +95,6 @@ export const gateResultSchema: Record<string, unknown> = {
       },
     },
     taskFingerprint: textSchema,
-    model: textSchema,
     platform: textSchema,
     browser: textSchema,
     commands: textsSchema,
@@ -125,6 +130,29 @@ export const gateResultSchema: Record<string, unknown> = {
     },
   },
 };
+
+const gateResultSchema = {
+  ...gateReportSchema,
+  required: [...gateReportSchema.required, "engine", "model"],
+  properties: {
+    ...gateReportSchema.properties,
+    engine: { enum: ["codex", "claude"] },
+    model: textSchema,
+  },
+};
+
+/** Requires a concrete CLI model id instead of a missing identity or selection alias. */
+export function readGateModel(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    !/^[a-z0-9][a-z0-9._:/-]*$/i.test(value) ||
+    /^(unknown|default|auto|latest|sonnet|opus|haiku|n\/a)$/i.test(value) ||
+    /(?:^|[-_/])(unknown|latest)(?:$|[-_/])/i.test(value)
+  ) {
+    throw new Error("Pass a concrete CLI model id with --model.");
+  }
+  return value;
+}
 
 /** Validates task context and learning before a gate starts any agent. */
 export function readGateTask(value: unknown, folder: string): GateTask {
@@ -164,6 +192,7 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     task.requirements.length === 0 ||
     task.reading.length === 0 ||
     task.capabilities.length === 0 ||
+    new Set(task.scenarios).size !== task.scenarios.length ||
     (task.isVisible && task.scenarios.length === 0)
   ) {
     throw new Error(
@@ -232,6 +261,9 @@ export function readGateResult(
 ): GateResult {
   validateShape(value, gateResultSchema);
   const result = value as GateResult;
+  if (result.verdict === "pass") {
+    readGateModel(result.model);
+  }
   if (result.taskFingerprint !== gateTaskFingerprint(task)) {
     throw new Error("Acceptance or task changes invalidate gate evidence.");
   }
@@ -269,7 +301,7 @@ export function readGateResult(
       "A pass requires complete verified coverage without findings or missing checks.",
     );
   }
-  if (role === "qa" && task.isVisible && result.verdict === "pass") {
+  if (role === "qa" && (task.isVisible || task.scenarios.length > 0) && result.verdict === "pass") {
     const evidence = result.coverage.flatMap((coverage) => coverage.evidence);
     if (
       !evidence.some((path) => path.endsWith(".png")) ||
@@ -277,17 +309,26 @@ export function readGateResult(
     ) {
       throw new Error("Visible QA needs screenshots and named browser values.");
     }
-    const capture = evidence.find((path) => path.endsWith("revision.json"));
-    if (capture === undefined) {
+    const captures = evidence.filter((path) => path.endsWith("revision.json"));
+    if (captures.length === 0) {
       throw new Error("Visible QA needs the browser revision capture.");
     }
-    const captured = JSON.parse(readFileSync(capture, "utf8")) as Revision;
+    const captured = captures.map(
+      (path) => JSON.parse(readFileSync(path, "utf8")) as Revision & { scenario: string },
+    );
     if (
-      Object.entries(revision).some(
-        ([key, expected]) => captured[key as keyof Revision] !== expected,
+      captured.some((capture) =>
+        Object.entries(revision).some(
+          ([key, expected]) => capture[key as keyof Revision] !== expected,
+        ),
       )
     ) {
       throw new Error("Browser evidence belongs to another revision.");
+    }
+    if (
+      task.scenarios.some((scenario) => !captured.some((capture) => capture.scenario === scenario))
+    ) {
+      throw new Error("QA coverage must cite current browser captures for every task scenario.");
     }
   }
   return result;
@@ -316,8 +357,12 @@ export function readGateReceipt(
   ) {
     throw new Error("Source or context changes invalidate the local receipt.");
   }
-  readGateResult(value.roles[0], task, "review", revision);
-  readGateResult(value.roles[1], task, "qa", revision);
+  for (const [index, role] of (["review", "qa"] as const).entries()) {
+    if (readGateResult(value.roles[index], task, role, revision).verdict !== "pass") {
+      throw new Error("Every role must pass for the local receipt to pass.");
+    }
+  }
+  readGateBrowserChecks(value.browserChecks, task, revision);
   for (const line of outgoing.trim().split("\n")) {
     const [, commit] = line.trim().split(/\s+/);
     if (commit !== revision.head) {

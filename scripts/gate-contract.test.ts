@@ -76,6 +76,7 @@ test("push receipts require both roles and the actual outgoing commit", async ()
       revision,
       verdict: "pass",
       checks: "pass",
+      browserChecks: [],
       roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
     };
     expect(() =>
@@ -100,6 +101,54 @@ test("push receipts require both roles and the actual outgoing commit", async ()
         "refs/heads/work head refs/heads/work previous",
       ),
     ).toThrow("invalidate");
+  });
+});
+
+test("passing receipts reject either nonpassing role even without coverage", async () => {
+  await withEvidence((path) => {
+    const roles = [resultFor(path), { ...resultFor(path), role: "qa" }];
+    for (const index of [0, 1]) {
+      for (const verdict of ["fail", "incomplete"]) {
+        for (const coverage of [roles[index]?.coverage, []]) {
+          const receipt = {
+            revision,
+            verdict: "pass",
+            checks: "pass",
+            browserChecks: [],
+            roles: roles.map((role, position) =>
+              position === index ? { ...role, verdict, coverage } : role,
+            ),
+          };
+          expect(() =>
+            readGateReceipt(
+              receipt,
+              taskFor(path),
+              revision,
+              "refs/heads/work head remote previous",
+            ),
+          ).toThrow("Every role must pass");
+        }
+      }
+    }
+  });
+});
+
+test("passing roles require a known engine and concrete model identity", async () => {
+  await withEvidence((path) => {
+    for (const identity of [
+      { model: "unknown" },
+      { model: "Unknown actual CLI model identity." },
+      { model: "default" },
+      { model: "not recorded" },
+      { model: " " },
+      { model: undefined },
+      { engine: undefined },
+      { engine: "unknown" },
+    ]) {
+      expect(() =>
+        readGateResult({ ...resultFor(path), ...identity }, taskFor(path), "review", revision),
+      ).toThrow();
+    }
   });
 });
 
@@ -129,6 +178,7 @@ function resultFor(path: string): GateResult {
     verdict: "pass",
     revision,
     taskFingerprint: gateTaskFingerprint(taskFor(path)),
+    engine: "codex",
     model: "fixture",
     platform: "fixture",
     browser: "Not required for review.",
