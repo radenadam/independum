@@ -29,6 +29,24 @@ test("availability reporter retains dynamic notes declaration reasons and collec
             meta: () => ({ skipReason: "No browser is selected." }),
           },
           {
+            fullName: "other platform boundary",
+            result: () => ({ state: "skipped" }),
+            meta: () => ({
+              skipReason: "Other platform only.",
+              ciPlatforms: process.platform === "win32" ? ["linux", "darwin"] : ["win32"],
+            }),
+          },
+          {
+            fullName: "current platform capability",
+            result: () => ({ state: "skipped", note: "Native containment is unavailable." }),
+            meta: () => ({ ciPlatforms: [process.platform] }),
+          },
+          {
+            fullName: "executed regression",
+            result: () => ({ state: "passed" }),
+            meta: () => ({}),
+          },
+          {
             fullName: "shell command",
             result: () => ({ state: "failed", errors: [{ message: "No shell." }] }),
             meta: () => ({}),
@@ -56,7 +74,23 @@ test("availability reporter retains dynamic notes declaration reasons and collec
         status: "skipped",
         reason: "No browser is selected.",
       },
+      {
+        file: "native.test.ts",
+        name: "other platform boundary",
+        status: "skipped",
+        reason: "Other platform only.",
+        ciPlatforms: process.platform === "win32" ? ["linux", "darwin"] : ["win32"],
+      },
+      {
+        file: "native.test.ts",
+        name: "current platform capability",
+        status: "skipped",
+        reason: "Native containment is unavailable.",
+      },
       { file: "native.test.ts", name: "shell command", status: "failed", reason: "No shell." },
+    ]);
+    expect(JSON.parse(await readFile(path, "utf8")).passedTests).toEqual([
+      { file: "native.test.ts", name: "executed regression" },
     ]);
     expect(output).toHaveBeenCalledWith(
       expect.stringContaining("native boundary: Native containment is unavailable."),

@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import {
   type GateResult,
   type GateTask,
@@ -10,6 +11,7 @@ import {
   readGateResult,
   readGateTask,
 } from "./gate-contract.ts";
+import { browserRegressionTests } from "./read-gate-browser-checks.ts";
 
 const revision = {
   head: "a".repeat(40),
@@ -78,9 +80,13 @@ test("push receipts require both roles and the actual outgoing commit", async ()
       checks: "pass",
       testAvailability: [],
       browserChecks: [],
+      browserRegressions: regressionsFor(path),
       roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
     };
     expect(() => readGateReceipt(receipt, task, revision, pushFor())).not.toThrow();
+    expect(() =>
+      readGateReceipt({ ...receipt, browserRegressions: undefined }, task, revision, pushFor()),
+    ).toThrow("Real-browser regressions");
     expect(() =>
       readGateReceipt({ ...receipt, testAvailability: undefined }, task, revision, pushFor()),
     ).toThrow("availability report");
@@ -145,6 +151,7 @@ test.each([revision.head, "c".repeat(40)])(
         checks: "pass",
         testAvailability: [],
         browserChecks: [],
+        browserRegressions: { ...regressionsFor(path), revision: reviewed },
         roles: [
           { ...resultFor(path), revision: reviewed },
           { ...resultFor(path), revision: reviewed, role: "qa" },
@@ -159,6 +166,16 @@ test.each([revision.head, "c".repeat(40)])(
 
 function pushFor(head = revision.head): string {
   return `refs/heads/work ${head} refs/heads/work ${revision.base}`;
+}
+
+function regressionsFor(path: string): object {
+  return {
+    revision,
+    browser: "msedge",
+    command: ["exec", "vitest", "run", ...browserRegressionTests.map((test) => test.file)],
+    log: path,
+    report: path,
+  };
 }
 
 test("passing roles require a known engine and concrete model identity", async () => {
@@ -223,7 +240,7 @@ async function withEvidence(run: (path: string) => void): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "independum-gate-test-"));
   try {
     const path = join(directory, "evidence.txt");
-    await writeFile(path, "Observed evidence.");
+    await writeFile(path, JSON.stringify(createTestBrowserReport(directory)));
     run(path);
   } finally {
     await rm(directory, { recursive: true, force: true });

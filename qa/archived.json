@@ -18,6 +18,9 @@
       }
     },
     {
+      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
+    },
+    {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
     },
     {
@@ -30,10 +33,16 @@
       "key": "Enter"
     },
     {
+      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
+    },
+    {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
     },
     {
       "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Archive\")"
+    },
+    {
+      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
     },
     {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
@@ -46,6 +55,9 @@
     },
     {
       "key": "Enter"
+    },
+    {
+      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
     },
     {
       "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"

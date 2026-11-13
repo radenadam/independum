@@ -1,12 +1,13 @@
 import { writeFileSync } from "node:fs";
 import type { Reporter, TestModule } from "vitest/node";
-import type { TestAvailability } from "./read-test-availability.ts";
+import { formatTestAvailability, type TestAvailability } from "./read-test-availability.ts";
 
 /** Reports every skipped, failed, or uncollected test with its reason. */
 // biome-ignore lint/style/noDefaultExport: Vitest loads custom reporter constructors from the default export.
 export default class ReportTestAvailability implements Reporter {
   onTestRunEnd(modules: readonly TestModule[]): void {
     const tests: TestAvailability[] = [];
+    const passedTests: { file: string; name: string }[] = [];
     for (const module of modules) {
       const errors = module.errors();
       if (errors.length > 0) {
@@ -20,16 +21,23 @@ export default class ReportTestAvailability implements Reporter {
       for (const test of module.children.allTests()) {
         const result = test.result();
         if (result.state === "skipped") {
-          const reason = result.note ?? (test.meta() as { skipReason?: string }).skipReason;
+          const metadata = test.meta() as { skipReason?: string; ciPlatforms?: string[] };
+          const reason = result.note ?? metadata.skipReason;
+          const ciPlatforms = metadata.ciPlatforms?.includes(process.platform)
+            ? undefined
+            : metadata.ciPlatforms;
           tests.push({
             file: module.moduleId,
             name: test.fullName,
             status: "skipped",
             reason: reason ?? "Vitest supplies no skip reason.",
+            ...(ciPlatforms === undefined ? {} : { ciPlatforms }),
           });
           if (!reason) {
             process.exitCode = 1;
           }
+        } else if (result.state === "passed") {
+          passedTests.push({ file: module.moduleId, name: test.fullName });
         } else if (result.state === "failed" || result.state === "pending") {
           tests.push({
             file: module.moduleId,
@@ -43,11 +51,11 @@ export default class ReportTestAvailability implements Reporter {
       }
     }
     for (const test of tests) {
-      process.stdout.write(`Test ${test.status}: ${test.file} > ${test.name}: ${test.reason}\n`);
+      process.stdout.write(`${formatTestAvailability(test)}\n`);
     }
     const path = process.env.INDEPENDUM_TEST_REPORT;
     if (path !== undefined) {
-      writeFileSync(path, JSON.stringify({ completed: true, tests }, null, 2));
+      writeFileSync(path, JSON.stringify({ completed: true, tests, passedTests }, null, 2));
     }
   }
 }

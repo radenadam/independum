@@ -154,7 +154,7 @@
       "clickOn": "document.querySelector('button[aria-label=Send]')"
     },
     {
-      "run": "(async () => { for (let tries = 0; tries < 50 && !document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); for (let tries = 0; tries < 150 && document.querySelector('main button[aria-label=Stop]'); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector('main button[aria-label=Stop]'), replyVisible: document.querySelector('main').innerText.includes('Preview reply complete.'), approvalEnds: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()"
+      "run": "(async () => { const isDone = () => document.querySelector(\"main\").innerText.includes(\"Preview reply complete.\") && !document.querySelector(\"main button[aria-label=Stop]\"); for (let tries = 0; tries < 300 && !isDone(); tries += 1) await new Promise(resolve => setTimeout(resolve, 100)); return { replyCompletes: !document.querySelector(\"main button[aria-label=Stop]\"), replyVisible: document.querySelector(\"main\").innerText.includes(\"Preview reply complete.\"), approvalEnds: ![...document.querySelectorAll(\"main button\")].some(button => button.textContent.trim() === \"Allow once\") }; })()"
     },
     {
       "shot": "command-without-approval",

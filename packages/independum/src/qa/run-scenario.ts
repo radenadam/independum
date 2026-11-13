@@ -110,10 +110,10 @@ export async function runScenario(
         await client.page.mouse.move(x, y);
       }
       if (step.checkQr !== undefined) {
-        const value = await checkRenderedQr(client.page, step.checkQr, directory);
+        const value = await checkRenderedQr(client.page, step.checkQr, directory, step.shot);
         await record(index, value);
       }
-      if (step.shot !== undefined) {
+      if (step.shot !== undefined && step.checkQr === undefined) {
         await screenshot(step.shot);
       }
     } catch (error) {

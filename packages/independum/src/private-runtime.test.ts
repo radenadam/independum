@@ -27,7 +27,10 @@ const parent = createTestFolder("private-runtime");
 let nextCase = 0;
 const connection = createTestConnection();
 const windowsTestOptions = {
-  meta: { skipReason: "Windows ACL checks are unavailable on this platform." },
+  meta: {
+    skipReason: "Windows ACL checks are unavailable on this platform.",
+    ciPlatforms: ["win32"],
+  },
 };
 
 function directory(): string {
@@ -96,7 +99,12 @@ test("linked directories and multiply linked token files refuse discovery", () =
 
 test.skipIf(process.platform === "win32")(
   "unix discovery rejects broad permissions and another owner",
-  { meta: { skipReason: "Unix ownership and permission checks are unavailable on Windows." } },
+  {
+    meta: {
+      skipReason: "Unix ownership and permission checks are unavailable on Windows.",
+      ciPlatforms: ["linux", "darwin"],
+    },
+  },
   () => {
     const folder = directory();
     publishServer(folder, connection);

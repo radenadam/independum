@@ -18,6 +18,9 @@
       "text": "Keep this ordinary draft."
     },
     {
+      "hoverOn": "document.querySelector('button[aria-label=\"Edit message\"]')?.closest('[data-user]')"
+    },
+    {
       "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')"
     },
     {
@@ -38,6 +41,9 @@
       }
     },
     {
+      "hoverOn": "document.querySelector('button[aria-label=\"Edit message\"]')?.closest('[data-user]')"
+    },
+    {
       "clickOn": "document.querySelector('button[aria-label=\"Edit message\"]')"
     },
     {
@@ -55,6 +61,9 @@
     {
       "run": "(async () => { for (let attempt = 0; attempt < 350; attempt += 1) { if (!document.querySelector('button[aria-label=Stop]') && document.body.innerText.includes('Prompt 2 of 2') && document.querySelector('button[aria-label=\"Reply actions\"]')) return { editedBranch: true, ordinaryDraftKept: document.querySelector('textarea[aria-label=Message]').value === 'Keep this ordinary draft.' }; await new Promise(resolve => setTimeout(resolve, 50)); } return false; })()",
       "shot": "edited-desktop"
+    },
+    {
+      "hoverOn": "document.querySelector('button[aria-label=\"Reply actions\"]')?.closest('li')"
     },
     {
       "clickOn": "document.querySelector('button[aria-label=\"Reply actions\"]')"

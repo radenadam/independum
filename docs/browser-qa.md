@@ -1,14 +1,14 @@
 # Browser QA
 
-Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation workers' sandbox. The harness uses `playwright-core` with installed Edge through `channel: "msedge"`, or Chrome through `channel: "chrome"`. It downloads no browser. `--browser chrome` selects Chrome and `--browser <path>` selects an explicit installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the old direct DevTools driver.
+Run `pnpm qa <scenario>` on a coordinator-controlled host outside implementation workers' sandbox. The harness uses `playwright-core` with installed Edge through `channel: "msedge"`, or Chrome through `channel: "chrome"`. `--browser chrome` selects Chrome and `--browser <path>` selects an explicit installed Chromium executable. [Decision 0071](decisions/0071-repository-healing.md) replaces the old direct DevTools driver.
 
 ## Evidence
 
 The command prints a fresh temporary output folder with screenshots, named values in `values.jsonl`, diagnostics in `browser.jsonl`, browser launch details, the scenario, and revision metadata. `--base <revision>` chooses the comparison base, defaulting to `main`. Failures preserve `failure.txt` and a screenshot when possible. Clients use isolated contexts. Playwright's protocol session updates live touch, pixel ratio, and focus without replacing transient UI state. Browser and preview teardown belongs to the command. Evidence stays for review.
 
-False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. A scenario pass does not establish visual quality or newcomer comprehension. The independent AI QA role inspects every screenshot and named value and assesses those qualities. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
+False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and the browser's missing favicon request are excluded. Independent AI QA inspects every screenshot and named value for visual quality and newcomer comprehension. A scenario pass alone cannot establish these. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Gate receipts bind review to the base, HEAD, source content, and context. Changed source invalidates affected evidence.
 
-The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captures and hit tests through `hoverOn` or `clickOn`. Close covering drawers and scroll content into view. `checkQr` samples element screenshot pixels, never the SVG source. After loading and finite animations, it captures until modules and white background appear within five seconds. Persistent blanks fail and retain their PNG. The component probe's transient blank recovers without app changes. No product gap is established.
+The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captures and hit tests through `hoverOn` or `clickOn`. Reveal hover controls by hovering or focusing their owner first. Close covering drawers and scroll content into view. Wait for finite animations before recording geometry baselines. `checkQr` samples rendered PNG pixels, never the SVG source. With `shot`, it checks the QR region in that exact viewport capture before saving the named evidence. After loading and finite animations, it retries blanks for five seconds. Persistent blanks fail and retain their PNG. A separate passing element capture cannot establish viewport evidence. Transient blanks alone establish no product gap.
 
 ## Preview
 
@@ -16,13 +16,13 @@ The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captur
 
 Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. Compacted has eight turns and one compaction after six. Long-history has 240 requests and four compactions after requests 50, 100, 150, and 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
 
-`--url <complete-preview-link>` reuses a running preview and leaves it running. It must have the expected fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a local delayed Shell command, and stream a table. Permission and queue scenarios use their named stand-in triggers without a model connection.
+`--url <complete-preview-link>` reuses a preview and keeps it running. It must match the fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a local delayed Shell command, and stream a table. Permission and queue scenarios use their named stand-in triggers without a model connection.
 
 ## Scenarios
 
 Use `pnpm qa welcome`, `message`, `switch-chats`, `model-menu`, `session`, `compacted`, `long-session`, `settings`, `profiles`, `queue`, `attachments`, `branches`, `context`, `hooks`, `permissions`, `headless`, `phone`, `phone-pairing`, or `archived`. Their JSON files own the exact flows and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
 
-On a capable host, set `INDEPENDUM_QA_BROWSER` to `msedge`, `chrome`, or an installed executable path, then run `pnpm exec vitest run packages/independum/src/qa/connect-browser.test.ts`. This opt-in test uses the production connection, runner, and diagnostic rejection. Its page logs an error and warning, throws, and issues requests intercepted by Playwright as network and HTTP failures. Each diagnostic independently rejects the run. Ordinary `pnpm check` skips it and launches no browser.
+The gate runs `connect-browser.test.ts` and `check-rendered-qr.test.ts` with `INDEPENDUM_QA_BROWSER` set from `--browser`, defaulting to `msedge`. They exercise diagnostic rejection and persistent blank rejection through the production harness. Requests are intercepted by Playwright. Ordinary `pnpm check` skips these opt-in tests and launches no browser. [Checks](checks.md#local-gates) owns their revision-bound receipts.
 
 Visible changes require the actual built UI, both themes, touch at 360 pixels, relevant long content, recovery, and repeated use. Add coverage when absent. Check development reload when affected. Scenarios starting from configured hooks do not establish creation from empty setup.
 
@@ -52,4 +52,4 @@ Fields execute in this order:
 | `checkQr` | After actions, capture element expression `on` to PNG `name` and check its rendered pixels. |
 | `shot` | Save a kebab-case PNG name. |
 
-Separate focus, text, and Enter. Touch Enter adds a newline, so press Send on phones. Close phone drawers before chatting. Fixed delays are rejected. Wait for saves and polling refreshes with bounded conditions and failure messages. Targets await visibility, reachability, and finite animations. Expressions time out after 25 seconds.
+Separate focus, text, and Enter. Press Send on phones because Enter adds a newline. Close phone drawers before chatting. Fixed delays are rejected. Wait for saves and polling refreshes with bounded conditions and failure messages. Targets await visibility, reachability, and finite animations. Expressions time out after 25 seconds.

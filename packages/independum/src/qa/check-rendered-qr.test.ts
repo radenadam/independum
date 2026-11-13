@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderSVG } from "uqr";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { checkRenderedQr } from "./check-rendered-qr.ts";
 import { connectBrowser } from "./connect-browser.ts";
 import { runScenario } from "./run-scenario.ts";
@@ -81,7 +81,39 @@ test.skipIf(selection === undefined)(
           qrHasWhiteBackground: true,
         });
       }
+      const screenshot = browser.page.screenshot.bind(browser.page);
       await browser.page.addStyleTag({ content: "img { filter: brightness(0) invert(1); }" });
+      const blankViewport = await screenshot({ scale: "css" });
+      await browser.page.evaluate("document.querySelector('img').style.filter = 'none'");
+      const captures = vi.spyOn(browser.page, "screenshot").mockResolvedValueOnce(blankViewport);
+      try {
+        await runScenario(
+          browser,
+          "about:blank",
+          [{ checkQr: target, shot: "viewport-recovered" }],
+          directory,
+        );
+        expect(captures).toHaveBeenCalledTimes(2);
+        expect(await readFile(join(directory, "viewport-recovered.png"))).toEqual(
+          await captures.mock.results[1]?.value,
+        );
+        await expect(
+          readFile(join(directory, "viewport-recovered-unverified.png")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+        captures.mockResolvedValue(blankViewport);
+        await expect(
+          checkRenderedQr(browser.page, target, directory, "viewport-blank"),
+        ).rejects.toThrow("The rendered QR stays blank or lacks contrast");
+        await expect(readFile(join(directory, "viewport-blank.png"))).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+        expect(await readFile(join(directory, "viewport-blank-unverified.png"))).toEqual(
+          blankViewport,
+        );
+      } finally {
+        captures.mockRestore();
+      }
+      await browser.page.evaluate("document.querySelector('img').style.removeProperty('filter')");
       expect(
         await browser.page.evaluate(
           "(() => { const image = document.querySelector('img'); return image.complete && image.naturalWidth > 0 && image.checkVisibility(); })()",

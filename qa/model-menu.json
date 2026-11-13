@@ -17,7 +17,7 @@
       "run": "(() => { const menu = document.querySelector('[role=dialog][aria-label=\"Choose a model\"]'); const search = [...(menu?.querySelectorAll('input') ?? [])].find(input => input.labels?.[0]?.textContent === 'Search models'); window.modelMenuOpeningBox = menu.getBoundingClientRect().toJSON(); return { menuOpens: menu?.checkVisibility() === true, modelSearchFocused: !!search && document.activeElement === search, standInModelChosen: menu?.querySelector('button[aria-current=true]')?.textContent.startsWith('Faux typing') === true, thinkingEffortShowsMedium: menu?.querySelector('input[aria-label=\"Thinking effort\"]')?.getAttribute('aria-valuetext') === 'Medium' && menu.innerText.includes('Thinking effort\\nMedium') }; })()",
       "shot": "model-menu",
       "waitFor": {
-        "condition": "!!document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.checkVisibility({checkOpacity:true})",
+        "condition": "!!document.querySelector('[role=dialog][aria-label=\"Choose a model\"]')?.checkVisibility({checkOpacity:true}) && !document.getAnimations().some(animation => animation.playState === 'running' && animation.effect?.getComputedTiming().iterations !== Infinity)",
         "message": "The model chooser does not finish opening.",
         "timeoutMs": 25000
       }

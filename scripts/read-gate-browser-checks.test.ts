@@ -2,7 +2,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { type GateBrowserCheck, readGateBrowserChecks } from "./read-gate-browser-checks.ts";
+import { createTestBrowserReport } from "./create-test-browser-report.ts";
+import {
+  browserRegressionTests,
+  type GateBrowserCheck,
+  readGateBrowserChecks,
+  readGateBrowserRegressions,
+} from "./read-gate-browser-checks.ts";
 
 const revision = {
   head: "head",
@@ -10,6 +16,38 @@ const revision = {
   fingerprint: "source",
   contextFingerprint: "context",
 };
+
+test("real-browser receipts reject missing stale skipped and unnamed results", async () => {
+  await withBrowserEvidence(async (scenario) => {
+    const check = {
+      revision,
+      browser: "msedge",
+      command: ["exec", "vitest", "run", ...browserRegressionTests.map((test) => test.file)],
+      log: scenario.log,
+      report: join(scenario.directory, "tests.json"),
+    };
+    const report = createTestBrowserReport(scenario.directory);
+    await writeFile(check.report, JSON.stringify(report));
+    expect(() => readGateBrowserRegressions(check, revision)).not.toThrow();
+    for (const value of [
+      undefined,
+      { ...check, revision: { ...revision, fingerprint: "stale" } },
+      { ...check, command: [] },
+    ]) {
+      expect(() => readGateBrowserRegressions(value, revision)).toThrow();
+    }
+    for (const value of [
+      {},
+      { ...report, completed: false },
+      { ...report, tests: [{ status: "skipped" }] },
+      { ...report, passedTests: [] },
+      { ...report, passedTests: [report.passedTests[0], report.passedTests[0]] },
+    ]) {
+      await writeFile(check.report, JSON.stringify(value));
+      expect(() => readGateBrowserRegressions(check, revision)).toThrow();
+    }
+  });
+});
 
 test("browser receipts require every scenario with its own complete evidence", async () => {
   await withBrowserEvidence(async (check) => {

@@ -13,9 +13,19 @@ import {
   readGateResult,
   readGateTask,
 } from "./gate-contract.ts";
-import { type GateBrowserCheck, readGateBrowserChecks } from "./read-gate-browser-checks.ts";
+import {
+  browserRegressionTests,
+  type GateBrowserCheck,
+  type GateBrowserRegressions,
+  readGateBrowserChecks,
+  readGateBrowserRegressions,
+} from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
-import { readTestAvailability, type TestAvailability } from "./read-test-availability.ts";
+import {
+  formatTestAvailability,
+  readTestAvailability,
+  type TestAvailability,
+} from "./read-test-availability.ts";
 
 /** Runs deterministic checks and fresh local agent roles against one source revision. */
 export async function runGate(arguments_: string[]): Promise<void> {
@@ -87,6 +97,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     roles: GateResult[];
     browserChecks: GateBrowserCheck[];
     testAvailability: TestAvailability[];
+    browserRegressions?: GateBrowserRegressions;
     error?: string;
   } = {
     revision,
@@ -136,7 +147,44 @@ export async function runGate(arguments_: string[]): Promise<void> {
         errors.push("Deterministic test availability evidence is missing.");
       }
       for (const test of receipt.testAvailability) {
-        process.stdout.write(`Test ${test.status}: ${test.file} > ${test.name}: ${test.reason}\n`);
+        process.stdout.write(`${formatTestAvailability(test)}\n`);
+      }
+      requireRevision();
+      const regressions: GateBrowserRegressions = {
+        revision,
+        browser: values.browser ?? "msedge",
+        command: [
+          "exec",
+          "vitest",
+          "run",
+          ...browserRegressionTests.map((test) => test.file),
+          "--reporter",
+          "default",
+          "--reporter",
+          "./scripts/report-test-availability.ts",
+        ],
+        log: join(directory, "browser-regressions.log"),
+        report: join(directory, "browser-regressions-tests.json"),
+      };
+      receipt.browserRegressions = regressions;
+      writeFileSync(
+        join(directory, "browser-regressions.json"),
+        JSON.stringify(regressions, null, 2),
+      );
+      try {
+        await packageCommand(regressions.command, regressions.log, {
+          // biome-ignore-start lint/style/useNamingConvention: Child processes receive environment names in capitals.
+          INDEPENDUM_QA_BROWSER: regressions.browser,
+          INDEPENDUM_TEST_REPORT: regressions.report,
+          // biome-ignore-end lint/style/useNamingConvention: Child processes receive environment names in capitals.
+        });
+        requireRevision();
+        readGateBrowserRegressions(
+          JSON.parse(await readFile(join(directory, "browser-regressions.json"), "utf8")),
+          revision,
+        );
+      } catch (error) {
+        errors.push(`Real-browser regressions fail or are incomplete. ${errorMessage(error)}`);
       }
     }
     requireRevision();
@@ -165,7 +213,10 @@ export async function runGate(arguments_: string[]): Promise<void> {
         `Record commands, platform and browser. The runner records engine and model from its CLI invocation. Do not infer or report model identity. Unavailable required capability means incomplete. Each acceptance id needs observation and absolute nonempty evidence paths. For visible QA, include screenshots, values.jsonl and revision.json from pnpm qa with --base ${revision.base}. Inspect evidence before citing it. A skip, timeout, authentication failure or missing check is never pass.`,
         `Return only the schema result. Copy this revision exactly: ${JSON.stringify(revision)}. Task fingerprint: ${gateTaskFingerprint(task)}.`,
         `Task: ${JSON.stringify(task)}`,
-        `Deterministic test availability: ${JSON.stringify(receipt.testAvailability)}. Skips remain missing evidence.`,
+        `Deterministic test availability: ${JSON.stringify(receipt.testAvailability)}. Tests with ciPlatforms are named platform-only skips covered by CI on those platforms before merge. They are not local passes and need no impossible local rerun. Other skips remain missing capability evidence.`,
+        role === "gate"
+          ? `Current revision-bound real-browser regression evidence: ${join(directory, "browser-regressions.json")}. Inspect its command, log, and report. Both named regressions must execute and pass. This execution supersedes their opt-in skips in the deterministic run.`
+          : "This standalone command does not run gate browser regressions.",
       ].join("\n\n");
       writeFileSync(join(directory, `${currentRole}-prompt.txt`), prompt);
       const log = join(directory, `${currentRole}.log`);

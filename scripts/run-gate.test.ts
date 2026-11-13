@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import type { GateResult, GateTask } from "./gate-contract.ts";
+import { browserRegressionTests } from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
 import type { TestAvailability } from "./read-test-availability.ts";
 import { runGate } from "./run-gate.ts";
@@ -60,6 +62,20 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   ]);
   expect(fixture.prompts.at(-1)).toContain("revision.json");
   expect(fixture.prompts[0]).toContain("browser-checks.json");
+  expect(fixture.prompts[0]).toContain("browser-regressions.json");
+  const regressionCall = vi
+    .mocked(spawn)
+    .mock.calls.find(([, parameters]) => (parameters as string[]).includes("vitest"));
+  expect(regressionCall?.[2]?.env?.INDEPENDUM_QA_BROWSER).toBe("chrome");
+  const regressions = JSON.parse(
+    await readFile(join(fixture.directory(), "browser-regressions.json"), "utf8"),
+  );
+  expect(regressions.revision).toEqual(receipt.roles[0]?.revision);
+  expect(
+    JSON.parse(await readFile(regressions.report, "utf8")).passedTests.map(
+      (test: { name: string }) => test.name,
+    ),
+  ).toEqual(browserRegressionTests.map((test) => test.name));
   const calls = vi.mocked(spawn).mock.calls;
   expect(calls.findIndex(([executable]) => executable === "codex")).toBeGreaterThan(
     calls.findLastIndex(([, parameters]) =>
@@ -77,8 +93,9 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   }
 });
 
-test("runner pins identity and overrides role guesses for both engines", async () => {
-  for (const engine of ["codex", "claude"]) {
+test.each(["codex", "claude"])(
+  "runner pins %s identity and overrides role guesses",
+  async (engine) => {
     const fixture = await prepareGate("pass", engine);
     await runGate(fixture.arguments);
     const receipt = await fixture.receipt();
@@ -94,9 +111,8 @@ test("runner pins identity and overrides role guesses for both engines", async (
       expect(parameters).not.toContain("danger-full-access");
     }
     expect(fixture.prompts[1]).toContain("browser-checks.json");
-    vi.mocked(spawn).mockClear();
-  }
-});
+  },
+);
 
 test("failed scenarios preserve evidence run later scenarios and prevent a pass", async () => {
   const fixture = await prepareGate("pass", "codex", { hasScenarioFailure: true });
@@ -179,6 +195,16 @@ test("missing test reports and unavailable tests block passing agent verdicts", 
   }
 });
 
+test.each(["missing", "skipped", "failed", "stale"])(
+  "%s browser regression results prevent passing receipts",
+  async (failure) => {
+    const fixture = await prepareGate("pass", "codex", { regressionFailure: failure });
+    await runGate(fixture.arguments);
+    expect((await fixture.receipt()).verdict).not.toBe("pass");
+    expect(fixture.scenarios).toEqual(fixture.task.scenarios);
+  },
+);
+
 async function prepareGate(
   verdict: GateResult["verdict"],
   engine = "codex",
@@ -188,6 +214,7 @@ async function prepareGate(
     hasReviewCommandFailure?: boolean;
     hasTestReportOverride?: boolean;
     testReport?: unknown;
+    regressionFailure?: string;
   } = {},
 ): Promise<{
   arguments: string[];
@@ -267,6 +294,32 @@ async function prepareGate(
         }
       }
       const arguments_ = parameters as string[];
+      if (arguments_.includes("vitest") && report) {
+        const unavailable = {
+          ...browserRegressionTests[0],
+          status: options.regressionFailure,
+          reason: "Browser unavailable.",
+        };
+        if (options.regressionFailure !== "missing") {
+          await writeFile(
+            report,
+            JSON.stringify({
+              ...createTestBrowserReport(folder),
+              tests:
+                options.regressionFailure && options.regressionFailure !== "stale"
+                  ? [unavailable]
+                  : [],
+            }),
+          );
+        }
+        child.stdout.write("Real-browser regressions execute.\n");
+        if (options.regressionFailure === "stale") {
+          const metadataPath = join(report, "..", "browser-regressions.json");
+          const metadata = JSON.parse(await readFile(metadataPath, "utf8"));
+          metadata.revision.fingerprint = "stale";
+          await writeFile(metadataPath, JSON.stringify(metadata));
+        }
+      }
       if (executable === "codex" || executable === "claude") {
         prompts.push(prompt);
         revision = JSON.parse(

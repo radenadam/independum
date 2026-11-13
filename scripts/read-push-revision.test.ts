@@ -4,12 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test, vi } from "vitest";
 import { checkGateReceipt } from "./check-gate-receipt.ts";
+import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import {
   type GateResult,
   type GateTask,
   gateTaskFingerprint,
   readGateReceipt,
 } from "./gate-contract.ts";
+import { browserRegressionTests } from "./read-gate-browser-checks.ts";
 import { readPushRevision } from "./read-push-revision.ts";
 import { readRevision } from "./read-revision.ts";
 
@@ -190,6 +192,8 @@ async function prepareReceipt(folder: string, base: string): Promise<void> {
     missingChecks: [],
   }));
   const receiptPath = join(directory, "receipt.json");
+  const regressionReport = join(directory, "browser-regressions-tests.json");
+  await writeFile(regressionReport, JSON.stringify(createTestBrowserReport(folder)));
   await writeFile(join(directory, "latest.json"), JSON.stringify({ receiptPath }));
   await writeFile(join(directory, "task.json"), JSON.stringify(task));
   await writeFile(
@@ -200,6 +204,13 @@ async function prepareReceipt(folder: string, base: string): Promise<void> {
       checks: "pass",
       roles,
       browserChecks: [],
+      browserRegressions: {
+        revision,
+        browser: "msedge",
+        command: ["exec", "vitest", "run", ...browserRegressionTests.map((test) => test.file)],
+        log: regressionReport,
+        report: regressionReport,
+      },
       testAvailability: [],
     }),
   );

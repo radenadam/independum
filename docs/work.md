@@ -12,11 +12,11 @@ The healing worker stays offline in its supplied worktree, makes no git mutation
 
 ## Resume pointers
 
-The 2026-11-13 direct repair scopes acceptance to context and harness changes. The manifest and evidence use ignored `node_modules/.cache/healing`. Captures frame controls and hit-test visibility. Pi writes 240 requests and four compactions for `qa/long-session.json`. Changed app scenarios await coordinator execution.
+The 2026-11-13 direct repair scopes acceptance to context and harness changes. The manifest and evidence use ignored `node_modules/.cache/healing`. Pi writes 240 requests and four compactions for `qa/long-session.json`. Changed app scenarios await coordinator execution.
 
-The 2026-11-14 direct repair rejects source-image sampling and unnamed skips. The cited light QR is blank. An offline pairing component probe reproduces a transient blank after resizing and changing theme. Later captures recover without app changes. QR checks sample element screenshots. Bounded condition waits include rename refresh. Availability reports retain names and reasons. No product QR gap is established.
+The 2026-11-14 direct sixth-run repair adds owner hover before action targeting and waits for menu animations before recording geometry. QR checks verify the exact named viewport pixels. Transient blanks retry and persistent blanks retain diagnostic evidence. No product QR gap is established. [Browser QA](browser-qa.md) owns these rules.
 
-Formatting and static checks pass. Without a default shell, `tools/run-command.test.ts` cannot collect and 12 `create-chat-routes.test.ts` cases fail. Ten native tests skip in `create-sandbox.test.ts` and `script-hook-sandbox.test.ts`. Unix-only `private-runtime.test.ts` and both opt-in browser tests skip normally. Explicit Edge regressions and focused checks pass: 45 tests. The availability report names each limitation. The earlier intermittent replaced-file identity failure in `permission-policy.test.ts` remains unexplained.
+The gate runs both real-browser regressions and binds named results to the reviewed revision. [Checks](checks.md) separates platform CI coverage from missing capabilities. Offline Edge regressions verify diagnostic and viewport blank rejection. Formatting and static checks pass. Full checks need a default shell and native setup. Availability reports name each limitation. Queue delivery in `hooks-runtime.test.ts` fails in full checks and passes alone. `run-file-operation.test.ts` times out once. Its cause and the earlier replaced-file identity failure in `permission-policy.test.ts` remain unexplained.
 
 The coordinator must rerun with a shell, run scenarios and AI gates, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
 

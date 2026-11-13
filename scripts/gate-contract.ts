@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, isAbsolute, relative } from "node:path";
-import { readGateBrowserChecks } from "./read-gate-browser-checks.ts";
+import { readGateBrowserChecks, readGateBrowserRegressions } from "./read-gate-browser-checks.ts";
 import { readPushUpdates } from "./read-push-revision.ts";
 import type { Revision } from "./read-revision.ts";
 import { readTestAvailability } from "./read-test-availability.ts";
@@ -365,6 +365,7 @@ export function readGateReceipt(
     }
   }
   readGateBrowserChecks(value.browserChecks, task, revision);
+  readGateBrowserRegressions(value.browserRegressions, revision);
   if (
     readTestAvailability({ completed: true, tests: value.testAvailability }).some(
       (test) => test.status !== "skipped",
