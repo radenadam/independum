@@ -1522,6 +1522,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                     models,
                     context.model,
                     settings.get(),
+                    directory,
                     (request) => {
                       const run = hold.run;
                       if (run !== undefined) {

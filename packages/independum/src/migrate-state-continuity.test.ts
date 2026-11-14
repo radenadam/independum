@@ -402,7 +402,7 @@ test("discovery refuses a legacy collision before reading or contacting the serv
 });
 
 test.each([false, true])(
-  "saved legacy attachment file choice %s projects the moved path",
+  "saved legacy attachment file choice %s projects ordinary summary and continuation requests",
   async (isBinary) => {
     const fixture = await legacy(false, !isBinary, isBinary);
     const { directory, project, chatId, attachment, session, oldAttachments } = fixture;
@@ -428,22 +428,82 @@ test.each([false, true])(
     await models.setRuntimeApiKey(projectionProvider, "test-key");
     const chats = await createChat({ models, directory, folder: project });
     try {
-      const chat = await chats.open(chatId);
-      if (chat === undefined) {
+      const projectId = chats.profiles.projects()[0]?.id ?? "";
+      const reference = { scope: "user", id: "default" } as const;
+      await chats.profiles.putProfile(
+        reference,
+        projectId,
+        {
+          profile: {
+            formatVersion: 1,
+            name: "Migration",
+            settings: {
+              compaction: { isEnabled: false, reserveTokens: 0, keepRecentTokens: 0 },
+            },
+          },
+          systemPrompt: "",
+          modelTexts: null,
+        },
+        chats.profiles.profile(reference, projectId).revision,
+      );
+      const opened = await chats.open(chatId);
+      if (opened === undefined) {
         throw new Error("The saved attachment chat did not open.");
+      }
+      const chat = opened;
+      async function continueChat(text: string): Promise<void> {
+        providerMessages = "";
+        expect(await chat.send(text, "literal")).toBe(true);
+        await waitFor(() => expect(providerMessages).toContain(expected));
+        await waitFor(() => expect(chat.getState().isReplying).toBe(false));
+        expect(providerMessages).not.toContain(obsolete);
       }
       expect(readFileSync(sessionPath, "utf8").startsWith(saved)).toBe(true);
       expect(existsSync(oldPath)).toBe(false);
       expect(existsSync(newPath)).toBe(true);
       expect(await chat.chooseModel(projectionProvider, modelId)).toBe(true);
-      expect(await chat.send("Continue.", "literal")).toBe(true);
-      await waitFor(() => expect(providerMessages).toContain(expected));
-      await waitFor(() => expect(chat.getState().isReplying).toBe(false));
-      expect(providerMessages).toContain(expected);
-      expect(providerMessages).not.toContain(obsolete);
+      await continueChat("Continue.");
       const inspected = JSON.stringify(chat.getContext().lastRequest);
       expect(inspected).toContain(expected);
       expect(inspected).not.toContain(obsolete);
+      let summaryRequest = "";
+      faux.setResponses([
+        async (context, options, _state, model) => {
+          const content = context.messages.find((message) => message.role === "user")?.content;
+          summaryRequest =
+            typeof content === "string"
+              ? content
+              : (content ?? [])
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.text)
+                  .join("");
+          await options?.onPayload?.({ messages: context.messages }, model);
+          return fauxAssistantMessage(`Retained attachment: ${JSON.stringify(newPath)}`);
+        },
+      ]);
+      expect(await chat.compact()).toBe(true);
+      await waitFor(() => expect(chat.getState().isCompacting).toBe(false));
+      expect(chat.getState().compactionError).toBeNull();
+      expect(summaryRequest).toContain(expected);
+      expect(summaryRequest).not.toContain(obsolete);
+      const entries = SessionManager.open(sessionPath).getEntries();
+      const capture = entries.findLast(
+        (entry) => entry.type === "custom" && entry.customType === "independum-compaction-request",
+      );
+      expect(capture?.type).toBe("custom");
+      if (capture?.type !== "custom") {
+        throw new Error("The saved summary request is missing.");
+      }
+      const input = JSON.stringify((capture.data as { input: unknown }).input);
+      expect(input).toContain(expected);
+      expect(input).not.toContain(obsolete);
+      faux.setResponses([
+        (context) => {
+          providerMessages = JSON.stringify(context.messages);
+          return fauxAssistantMessage("Continued after compaction.");
+        },
+      ]);
+      await continueChat("Continue after compaction.");
       expect(readFileSync(sessionPath, "utf8").startsWith(saved)).toBe(true);
       expect(SessionManager.open(sessionPath).getEntries().slice(0, canonical.length)).toEqual(
         canonical,

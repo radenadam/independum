@@ -28,11 +28,11 @@ Each source has `~/.independum/attachments/<attachmentId>/content` and `manifest
 
 The store is inside the state folder at `attachments`. Startup renames the former sibling store here without reading its contents and refuses when both paths exist. [Decision 0080](../decisions/0080-private-state-folder.md) replaces the storage boundary of decision 0068. Uploading saves no read approval because state outside `private` is readable. Model writes to state require explicit approval by default even under allow rules. Saved ask and deny rules still apply to tool reads. Uploading grants no write or network access.
 
-Discovery preserves phones' legacy runtime paths until record removal or connection refusal. Saved Independum input maps exact quoted legacy paths for its attachment ids throughout the user message, leaving Pi files unchanged. The request inspector shows mapped paths.
+Discovery preserves phones' legacy runtime paths until record removal or connection refusal. Owned input's exact quoted legacy attachment paths share one projection across ordinary context, compaction history, and turn prefixes for models. Pi files stay unchanged. Inspectors show mapped paths. Direct maintainer implementation correction: 2026-11-15.
 
 Pending inputs retain `attachmentIds`, `fileAttachmentIds`, and original summaries. File choices name unique attached ids. The `independum-input` Pi entry adds pre-hook offsets, text prefixes, SHA-256 digests, and image indexes. Prepared content stays in Pi's user message. Metadata never enters model context.
 
-Legacy offsets require re-preparing input and matching complete saved text and attachment boundaries, allowing path migration. Editable wrappers prove nothing. Unverified input keeps the unavailable notice. Direct maintainer product corrections: 2026-11-14, 2026-11-15.
+Legacy offsets require re-preparing and matching complete saved input and attachment boundaries, allowing path migration. Wrappers alone prove nothing. Unverified input shows unavailable. Direct maintainer product corrections: 2026-11-14, 2026-11-15.
 
 Sources remain while any saved branch, archived chat, or waiting input refers to them. Cleanup runs at startup and hourly, and removes unreferenced sources at least seven days old after scanning all retained references. Unreadable reference files prevent cleanup. Deleting a chat does not immediately remove shared sources. Cleanup requires no saved approval changes.
 

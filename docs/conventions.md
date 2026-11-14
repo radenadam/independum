@@ -38,6 +38,8 @@ Comments use complete sentences, present tense, neutral voice, a capital start, 
 
 Tests use Vitest `test` without `describe`. The file is the group. Names are lowercase behavior phrases without a final period. Exercise exported behavior rather than internals. The shared timeout is 20 seconds because Windows starts Pi and processes slowly. Override only when a test needs more. Await conditions with `waitFor` from `scripts/wait-for.ts`, which uses the test's remaining budget and preserves the failed assertion. Process tests take two to five times longer when other heavy work shares the machine, and fewer workers do not prevent it. Rerun one timeout before calling it a defect, and treat a timeout that repeats on a quiet machine as one.
 
+Bind test timers, loops, and processes to test cancellation and register teardown that runs on failure and timeout. A timed-out test body can outlive its `finally`, so body cleanup alone does not protect later tests or temporary folders. This rule follows the direct maintainer correction of 2026-11-15.
+
 ## Writing and Markdown
 
 Write plain short sentences in present tense. Instructions use imperative verbs. Connect ideas explicitly or split sentences. These rules cover docs, comments, UI text, errors, commits, and pull requests.

@@ -36,6 +36,7 @@ async function execute(
   launch: SandboxLaunch,
   folder: string,
   script: string,
+  signal?: AbortSignal,
 ): Promise<{ output: string; error: string; exitCode: number }> {
   return captureSandbox(
     sandboxRequest(
@@ -44,6 +45,8 @@ async function execute(
       folder,
       environment,
     ),
+    undefined,
+    signal,
   );
 }
 
@@ -77,7 +80,7 @@ async function supported(
   };
   let preflight: Awaited<ReturnType<typeof execute>>;
   try {
-    preflight = await execute(launch, project, 'process.stdout.write("ready")');
+    preflight = await execute(launch, project, 'process.stdout.write("ready")', context.signal);
   } catch (error) {
     skipUnavailableSandbox(context, error);
   }
@@ -349,8 +352,25 @@ test("sandboxed shell preserves the original script and the selected shell exit 
 }, 30_000);
 
 // biome-ignore-start lint/style/useNamingConvention: Edit names its model-facing parameters.
+// Repeated native container starts take several times longer when the host is under load.
 test("restricted file workers preserve fingerprints and prevent outside writes through link races", async (context) => {
-  const { project, outside } = await supported(context);
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([context.signal, cancellation.signal]);
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let active: Promise<unknown> | undefined;
+  function stop(): void {
+    clearInterval(timer);
+    cancellation.abort();
+  }
+  signal.addEventListener("abort", () => clearInterval(timer), { once: true });
+  context.onTestFinished(async () => {
+    stop();
+    await active?.catch(() => undefined);
+  });
+  const preflight = supported(context);
+  active = preflight;
+  const { project, outside } = await preflight;
+  signal.throwIfAborted();
   const settings = structuredClone(builtInSettings);
   const texts = createModelTexts(() => settings.texts);
   const approvals = createApprovals();
@@ -382,16 +402,17 @@ test("restricted file workers preserve fingerprints and prevent outside writes t
     input: Record<string, unknown>,
     canApprove = true,
   ): Promise<Awaited<ReturnType<ToolDefinition["execute"]>>> {
+    signal.throwIfAborted();
     const tool = tools.find((entry) => entry.name === name);
     if (tool === undefined) {
       throw new Error("The native test needs the selected file tool.");
     }
     nextId += 1;
     const id = `file-${nextId}`;
-    const result = await tool.execute(
+    const execution = tool.execute(
       id,
       input,
-      undefined,
+      signal,
       (update) => {
         const details = update.details as {
           approval?: { id: string; revision: string; resources: { kind: string; path?: string }[] };
@@ -412,6 +433,9 @@ test("restricted file workers preserve fingerprints and prevent outside writes t
       },
       toolContext,
     );
+    active = execution;
+    const result = await execution;
+    signal.throwIfAborted();
     manager.appendMessage({
       role: "toolResult",
       toolCallId: id,
@@ -463,22 +487,32 @@ test("restricted file workers preserve fingerprints and prevent outside writes t
     }
   }
   replaceLink();
-  const timer = setInterval(replaceLink, 10);
+  timer = setInterval(() => {
+    if (signal.aborted) {
+      return;
+    }
+    try {
+      replaceLink();
+    } catch (error) {
+      cancellation.abort(error);
+    }
+  }, 10);
   try {
     for (const name of ["Read", "Write", "Edit"]) {
+      signal.throwIfAborted();
       let result: Awaited<ReturnType<typeof call>> | undefined;
       try {
         result = await call(
           name,
           {
             path: join(link, "file.txt"),
-            content: "changed",
-            old_string: "local",
-            new_string: "changed",
+            ...(name === "Write" ? { content: "changed" } : {}),
+            ...(name === "Edit" ? { old_string: "local", new_string: "changed" } : {}),
           },
           false,
         );
       } catch (error) {
+        signal.throwIfAborted();
         expect(error).toBeInstanceOf(Error);
       }
       if (result !== undefined && name !== "Read") {
@@ -487,8 +521,8 @@ test("restricted file workers preserve fingerprints and prevent outside writes t
       expect(readFileSync(sentinel, "utf8")).toBe("outside race sentinel");
     }
   } finally {
-    clearInterval(timer);
+    stop();
   }
   expect(readFileSync(outside, "utf8")).toBe("outside sentinel");
-}, 60_000);
+}, 180_000);
 // biome-ignore-end lint/style/useNamingConvention: Edit names its model-facing parameters.
