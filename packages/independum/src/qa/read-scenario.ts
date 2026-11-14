@@ -41,6 +41,7 @@ export async function readScenario(
         "hooks",
         "user-profile",
         "legacy-state",
+        "legacy-long-history",
         "long-history",
       ].includes(String(value.fixture))
     ) {

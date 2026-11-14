@@ -14,7 +14,7 @@ Scenarios use framed captures and hit tests through `hoverOn` or `clickOn`. Reve
 
 `pnpm preview` starts the real UI and API with Pi's stand-in provider and a temporary home. It prints a loopback link and home path. Ctrl+C closes and removes the preview home. Forced termination can leave temporary files. Pi writes all fixture chats.
 
-Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `user-profile`, `legacy-state`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. User-profile selects a user profile in state with a Shell hook script and a write rule for state `notes`. Legacy-state keeps placeholder secrets, connection records, and a saved attachment in former paths. Compacted has eight turns and one compaction after six. Long-history has 240 requests with compactions after requests 50, 100, 150, and 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
+Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `user-profile`, `legacy-state`, `legacy-long-history`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. User-profile selects a user profile in state with a Shell hook and a write rule for state `notes`. Legacy-state keeps placeholder secrets, connection records, and a saved attachment in former paths. Legacy-long-history extends that chat to 240 requests. Compacted has eight turns and one compaction after six. Long-history has 240 requests with compactions after every 50 up to 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
 
 `--url <complete-preview-link>` reuses a preview and keeps it running. It must match the fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a delayed Shell command, and stream a table. Named triggers in `serve-preview.ts` script other tool calls.
 
@@ -22,7 +22,7 @@ Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `user-profile`, `l
 
 `pnpm qa <name>` runs `qa/<name>.json`, which owns its exact flow and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
 
-The gate runs `connect-browser.test.ts` and `check-rendered-qr.test.ts` with `INDEPENDUM_QA_BROWSER` set from `--browser`, defaulting to `msedge`. They exercise diagnostic and persistent blank rejection through the production harness. Requests are intercepted by Playwright. Ordinary `pnpm check` skips these opt-in tests and launches no browser. [Checks](checks.md#local-gates) owns their revision-bound receipts.
+The gate runs `connect-browser.test.ts` and `check-rendered-qr.test.ts` with `INDEPENDUM_QA_BROWSER` set from `--browser`, defaulting to `msedge`. They exercise diagnostic and persistent blank rejection through the production harness. Ordinary `pnpm check` skips these opt-in tests and launches no browser. [Checks](checks.md#local-gates) owns their revision-bound receipts.
 
 Visible changes require the actual built UI, both themes, touch at 360 pixels, relevant long content, recovery, and repeated use. Add coverage when absent. Check development reload when affected. Scenarios starting from configured hooks do not establish creation from empty setup.
 
@@ -41,7 +41,7 @@ Fields execute in this order:
 | `size`, `scale` | Viewport pair and optional pixel ratio. Below 500 pixels enables touch and mobile behavior. Resize before navigation when changing device identity. |
 | `scheme` | Emulated light or dark scheme. |
 | `go` | Navigate to the preview. |
-| `reload`, `closePage`, `restart` | Await reload, a blank page, or a server process restart like `pnpm dev`, keeping port and token. A restart logs unreachable-server failures in `restart.jsonl`. |
+| `reload`, `closePage`, `restart` | Await reload, a blank page, or a server process restart like `pnpm dev`, keeping port and token. Unreachable-server failures go to `restart.jsonl`. |
 | `waitFor` | Poll `condition` and record its truthy value with no false fields within `timeoutMs`, at most 25000. Fail with `message`. |
 | `run` | Await an expression and record its returned value. False checks fail by name. |
 | `key` | Playwright key chord such as `Enter`, `Control+Enter`, or `Shift+ArrowRight`. |

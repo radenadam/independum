@@ -21,6 +21,7 @@ export type PreviewFixture =
   | "hooks"
   | "user-profile"
   | "legacy-state"
+  | "legacy-long-history"
   | "long-history";
 
 /** Creates saved chats through Pi in a new preview home. */
@@ -150,34 +151,15 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     return project;
   }
   const manager = createSession();
-  if (fixture === "legacy-state") {
-    await createLegacyState(home, manager);
+  if (fixture === "legacy-state" || fixture === "legacy-long-history") {
+    const attachmentTurn = await createLegacyState(home, manager);
+    if (fixture === "legacy-long-history") {
+      appendLongHistory(manager, [attachmentTurn]);
+    }
     return project;
   }
   if (fixture === "long-history") {
-    const turns: string[] = [];
-    for (let request = 1; request <= 240; request += 1) {
-      turns.push(
-        appendTurn(
-          manager,
-          `History request ${request}.`,
-          `Reply ${request}. ${"The saved work remains available for inspection. ".repeat(8)}`,
-          2000 + (request % 50) * 900,
-        ),
-      );
-      if (request % 50 === 0 && request <= 200) {
-        const firstKept = turns[request - 5];
-        if (firstKept === undefined) {
-          throw new Error("The long history has no retained message.");
-        }
-        manager.appendCompaction(
-          `History summary ${request / 50}. Requests 1 to ${request - 5} are summarized. Continue from request ${request - 4}.`,
-          firstKept,
-          48000,
-        );
-        manager.appendThinkingLevelChange(request % 100 === 0 ? "high" : "medium");
-      }
-    }
+    appendLongHistory(manager, []);
     return project;
   }
   const ids: string[] = [];
@@ -218,8 +200,8 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
 // Before decision 0080, logins sat at the top of the state folder, the server connection and phone
 // pairings sat in runtime, and attachments sat in a folder beside the state folder. Every secret
 // here is a placeholder. The saved chat holds a file attachment from that former store, so its
-// message gives the model a path inside it.
-async function createLegacyState(home: string, manager: SessionManager): Promise<void> {
+// message gives the model a path inside it. The id of that message turn comes back.
+async function createLegacyState(home: string, manager: SessionManager): Promise<string> {
   const state = join(home, ".independum");
   // The record names a port where no server listens, so startup finds it stale and removes it.
   const reservation = createServer().listen(0, "127.0.0.1");
@@ -290,7 +272,35 @@ async function createLegacyState(home: string, manager: SessionManager): Promise
     })),
     receivesImages: false,
   });
-  appendTurn(manager, prepared.text, "The saved notes list two legacy items.", 300);
+  return appendTurn(manager, prepared.text, "The saved notes list two legacy items.", 300);
+}
+
+// Each compaction keeps the five turns before it, so the history after the given turns runs to
+// request 240 with summaries after requests 50, 100, 150, and 200.
+/** Appends numbered requests with long replies after the given turns. */
+function appendLongHistory(manager: SessionManager, turns: string[]): void {
+  for (let request = turns.length + 1; request <= 240; request += 1) {
+    turns.push(
+      appendTurn(
+        manager,
+        `History request ${request}.`,
+        `Reply ${request}. ${"The saved work remains available for inspection. ".repeat(8)}`,
+        2000 + (request % 50) * 900,
+      ),
+    );
+    if (request % 50 === 0 && request <= 200) {
+      const firstKept = turns[request - 5];
+      if (firstKept === undefined) {
+        throw new Error("The long history has no retained message.");
+      }
+      manager.appendCompaction(
+        `History summary ${request / 50}. Requests 1 to ${request - 5} are summarized. Continue from request ${request - 4}.`,
+        firstKept,
+        48000,
+      );
+      manager.appendThinkingLevelChange(request % 100 === 0 ? "high" : "medium");
+    }
+  }
 }
 
 function appendTurn(

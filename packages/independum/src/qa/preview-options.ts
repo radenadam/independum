@@ -38,10 +38,11 @@ export function previewOptions(
     fixture !== "long-history" &&
     fixture !== "hooks" &&
     fixture !== "user-profile" &&
-    fixture !== "legacy-state"
+    fixture !== "legacy-state" &&
+    fixture !== "legacy-long-history"
   ) {
     throw new Error(
-      "The fixture must be empty, chats, compacted, hooks, user-profile, legacy-state, or long-history.",
+      "The fixture must be empty, chats, compacted, hooks, user-profile, legacy-state, legacy-long-history, or long-history.",
     );
   }
   const port = Number(values.port);

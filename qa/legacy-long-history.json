@@ -1,0 +1,263 @@
+{
+  "fixture": "legacy-long-history",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "restart": true
+    },
+    {
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && !!document.querySelector('textarea[aria-label=Message]')",
+        "message": "The app does not show its working screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "legacy-long-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const main = document.querySelector('main'); const messages = main.innerText.replace(main.querySelector('header')?.innerText ?? '', ''); return { retainedHistoryShown: messages.includes('History request 196.') && messages.includes('History request 240.'), compactedRequestsFolded: !messages.includes('History request 195.'), noLegacyPathInMessages: !/\\.independum-attachments[\\\\/]/.test(messages), noSignIn: !document.body.innerText.includes('This link has expired.'), following: !main.innerText.includes('Reconnecting to Independum.'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), noAttachmentTileInRetainedHistory: ![...main.querySelectorAll('button')].some(button => button.textContent.startsWith('legacy-notes.txt')) }; })()",
+        "message": "The expected checks do not become true: retainedHistoryShown, compactedRequestsFolded, noLegacyPathInMessages, noSignIn, following, doneTyping, noAttachmentTileInRetainedHistory.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const label = [...panel.querySelectorAll('p')].find(element => element.textContent === 'Conversation'); return { conversationShown: isVisible(label), fourCompactions: [...panel.querySelectorAll('button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 }; })()",
+        "message": "The expected checks do not become true: conversationShown, fourCompactions.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "shot": "earlier-history-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const row = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); return { earlierHistoryUnfolds: isVisible(row) }; })()",
+        "message": "The expected checks do not become true: earlierHistoryUnfolds.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.')"
+    },
+    {
+      "shot": "request-1-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 1'); const input = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.'); const saved = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.includes('legacy-notes.txt')); return { requestOneOpened: isVisible(heading), savedInputShown: !!saved, savedInputPath: /Path: \\\\\"(.*?)\\\\\"/.exec(saved?.textContent ?? '')?.[1] ?? null }; })()",
+        "message": "The expected checks do not become true: requestOneOpened, savedInputShown, savedInputPath.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Read the saved attachment."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "shot": "new-reply-desktop-light",
+      "waitFor": {
+        "condition": "({ replyComplete: [...document.querySelectorAll('main p')].some(paragraph => paragraph.textContent === 'No attachment path reaches the model.') && !document.querySelector('main button[aria-label=Stop]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty') })",
+        "message": "The expected checks do not become true: replyComplete, doneTyping.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('241You wrote'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('241You wrote'))"
+    },
+    {
+      "shot": "new-request-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 241'); const sent = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Read the saved attachment.'); const answer = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Model replied: No attachment path reaches the model.'); const shown = panel.innerText; return { newRequestOpened: isVisible(heading), newMessageReachedModel: isVisible(sent), modelFoundNoAttachmentPath: isVisible(answer), noLegacyPathInRequest: !/\\.independum-attachments[\\\\/]/.test(shown), compactedAttachmentNotSent: !shown.includes('legacy-notes.txt') }; })()",
+        "message": "The expected checks do not become true: newRequestOpened, newMessageReachedModel, modelFoundNoAttachmentPath, noLegacyPathInRequest, compactedAttachmentNotSent.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "new-request-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 241'); const sent = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Read the saved attachment.'); const answer = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Model replied: No attachment path reaches the model.'); const shown = panel.innerText; return { newRequestOpened: isVisible(heading), newMessageReachedModel: isVisible(sent), modelFoundNoAttachmentPath: isVisible(answer), noLegacyPathInRequest: !/\\.independum-attachments[\\\\/]/.test(shown), compactedAttachmentNotSent: !shown.includes('legacy-notes.txt') }; })()",
+        "message": "The expected checks do not become true: newRequestOpened, newMessageReachedModel, modelFoundNoAttachmentPath, noLegacyPathInRequest, compactedAttachmentNotSent.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "shot": "new-request-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 241'); const sent = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Read the saved attachment.'); const answer = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Model replied: No attachment path reaches the model.'); const shown = panel.innerText; return { newRequestOpened: isVisible(heading), newMessageReachedModel: isVisible(sent), modelFoundNoAttachmentPath: isVisible(answer), noLegacyPathInRequest: !/\\.independum-attachments[\\\\/]/.test(shown), compactedAttachmentNotSent: !shown.includes('legacy-notes.txt'), phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: newRequestOpened, newMessageReachedModel, modelFoundNoAttachmentPath, noLegacyPathInRequest, compactedAttachmentNotSent, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "new-request-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 241'); const sent = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Read the saved attachment.'); const answer = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'Model replied: No attachment path reaches the model.'); const shown = panel.innerText; return { newRequestOpened: isVisible(heading), newMessageReachedModel: isVisible(sent), modelFoundNoAttachmentPath: isVisible(answer), noLegacyPathInRequest: !/\\.independum-attachments[\\\\/]/.test(shown), compactedAttachmentNotSent: !shown.includes('legacy-notes.txt'), phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: newRequestOpened, newMessageReachedModel, modelFoundNoAttachmentPath, noLegacyPathInRequest, compactedAttachmentNotSent, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const label = [...panel.querySelectorAll('p')].find(element => element.textContent === 'Conversation'); return { conversationShown: isVisible(label), fourCompactions: [...panel.querySelectorAll('button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: conversationShown, fourCompactions, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "long-conversation-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const label = [...panel.querySelectorAll('p')].find(element => element.textContent === 'Conversation'); return { conversationShown: isVisible(label), fourCompactions: [...panel.querySelectorAll('button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: conversationShown, fourCompactions, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.')"
+    },
+    {
+      "shot": "request-1-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 1'); const input = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.'); const saved = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.includes('legacy-notes.txt')); return { requestOneOpened: isVisible(heading), savedInputShown: !!saved, savedInputPath: /Path: \\\\\"(.*?)\\\\\"/.exec(saved?.textContent ?? '')?.[1] ?? null, phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: requestOneOpened, savedInputShown, savedInputPath, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "request-1-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 1'); const input = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.'); const saved = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.includes('legacy-notes.txt')); return { requestOneOpened: isVisible(heading), savedInputShown: !!saved, savedInputPath: /Path: \\\\\"(.*?)\\\\\"/.exec(saved?.textContent ?? '')?.[1] ?? null, phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: requestOneOpened, savedInputShown, savedInputPath, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [1440, 1000],
+      "scheme": "dark",
+      "shot": "request-1-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const heading = [...panel.querySelectorAll('h3')].find(element => element.textContent === 'Request 1'); const input = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim() === 'You wrote: Summarize the saved notes.'); const saved = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.includes('legacy-notes.txt')); return { requestOneOpened: isVisible(heading), savedInputShown: !!saved, savedInputPath: /Path: \\\\\"(.*?)\\\\\"/.exec(saved?.textContent ?? '')?.[1] ?? null }; })()",
+        "message": "The expected checks do not become true: requestOneOpened, savedInputShown, savedInputPath.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside p')].find(element => element.textContent === 'Conversation')"
+    },
+    {
+      "shot": "long-conversation-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + Math.min(box.width / 2, 40), box.top + Math.min(box.height / 2, 10)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const panel = document.querySelector('aside [role=tabpanel]'); const label = [...panel.querySelectorAll('p')].find(element => element.textContent === 'Conversation'); return { conversationShown: isVisible(label), fourCompactions: [...panel.querySelectorAll('button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 }; })()",
+        "message": "The expected checks do not become true: conversationShown, fourCompactions.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
+    },
+    {
+      "shot": "legacy-long-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const main = document.querySelector('main'); const messages = main.innerText.replace(main.querySelector('header')?.innerText ?? '', ''); return { retainedHistoryShown: messages.includes('History request 196.') && messages.includes('History request 240.'), compactedRequestsFolded: !messages.includes('History request 195.'), noLegacyPathInMessages: !/\\.independum-attachments[\\\\/]/.test(messages), noSignIn: !document.body.innerText.includes('This link has expired.'), following: !main.innerText.includes('Reconnecting to Independum.'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), noAttachmentTileInRetainedHistory: ![...main.querySelectorAll('button')].some(button => button.textContent.startsWith('legacy-notes.txt')) }; })()",
+        "message": "The expected checks do not become true: retainedHistoryShown, compactedRequestsFolded, noLegacyPathInMessages, noSignIn, following, doneTyping, noAttachmentTileInRetainedHistory.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false })",
+        "message": "The expected checks do not become true: drawerOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "shot": "legacy-long-phone-light",
+      "waitFor": {
+        "condition": "(() => { const main = document.querySelector('main'); const messages = main.innerText.replace(main.querySelector('header')?.innerText ?? '', ''); return { retainedHistoryShown: messages.includes('History request 196.') && messages.includes('History request 240.'), compactedRequestsFolded: !messages.includes('History request 195.'), noLegacyPathInMessages: !/\\.independum-attachments[\\\\/]/.test(messages), noSignIn: !document.body.innerText.includes('This link has expired.'), following: !main.innerText.includes('Reconnecting to Independum.'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), noAttachmentTileInRetainedHistory: ![...main.querySelectorAll('button')].some(button => button.textContent.startsWith('legacy-notes.txt')), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: retainedHistoryShown, compactedRequestsFolded, noLegacyPathInMessages, noSignIn, following, doneTyping, noAttachmentTileInRetainedHistory, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "legacy-long-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const main = document.querySelector('main'); const messages = main.innerText.replace(main.querySelector('header')?.innerText ?? '', ''); return { retainedHistoryShown: messages.includes('History request 196.') && messages.includes('History request 240.'), compactedRequestsFolded: !messages.includes('History request 195.'), noLegacyPathInMessages: !/\\.independum-attachments[\\\\/]/.test(messages), noSignIn: !document.body.innerText.includes('This link has expired.'), following: !main.innerText.includes('Reconnecting to Independum.'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), noAttachmentTileInRetainedHistory: ![...main.querySelectorAll('button')].some(button => button.textContent.startsWith('legacy-notes.txt')), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: retainedHistoryShown, compactedRequestsFolded, noLegacyPathInMessages, noSignIn, following, doneTyping, noAttachmentTileInRetainedHistory, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}
