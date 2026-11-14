@@ -95,6 +95,7 @@ import { executeScriptHook } from "./execute-script-hook.ts";
 import type { OperationResult } from "./headless-types.ts";
 import { type HookEvent, type HookSummary, hookModelTexts } from "./hook-contract.ts";
 import { listRequests } from "./list-requests.ts";
+import { locateAttachmentText } from "./locate-attachment-text.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import {
@@ -2528,17 +2529,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         error = messageOf(failure);
       }
       const image = position?.imageIndex == null ? null : (images[position.imageIndex] ?? null);
+      const modelText = position === undefined ? null : locateAttachmentText(text, position);
       return {
         ...summary,
         isFile: position?.isFile ?? false,
         modelText:
-          position === undefined
-            ? ""
-            : projectAttachmentText(
-                text.slice(position.start, position.end),
-                position.id,
-                directory,
-              ),
+          modelText === null ? null : projectAttachmentText(modelText, summary.id, directory),
         image,
         error,
         notice:

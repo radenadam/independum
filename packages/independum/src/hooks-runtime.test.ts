@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   fauxAssistantMessage,
@@ -8,9 +8,11 @@ import {
   getCurrentSystemPrompt,
 } from "@earendil-works/pi-ai";
 import { AssistantMessageEventStream } from "@earendil-works/pi-ai/utils/event-stream";
+import { type SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
 import type { ChatEvent, InputOptions } from "./api-types.ts";
+import type { AttachmentPosition } from "./create-attachments.ts";
 import { createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
 import { createModelRuntime } from "./create-model-runtime.ts";
@@ -134,6 +136,142 @@ async function reply(opened: OpenChat): Promise<ChatEvent[]> {
     stop();
   }
 }
+
+function optionsFor(
+  opened: OpenChat,
+  attachmentIds: string[] = [],
+  delivery: InputOptions["delivery"] = "queue",
+): InputOptions {
+  const state = opened.getState();
+  return {
+    id: randomUUID(),
+    delivery,
+    expectedRevision: state.pending.revision,
+    expectedLeafId: state.leafId,
+    attachmentIds,
+  };
+}
+
+test("prepending input hooks preserve exact attachment inspection and moved legacy input", async () => {
+  const prefix = "x".repeat(580);
+  vi.mocked(executeScriptHook).mockImplementation(async (_hook, input) => ({
+    output: JSON.stringify({
+      apiVersion: 1,
+      action: "replace",
+      replacement: { text: prefix + String(input.data.text), images: input.data.images ?? [] },
+    }),
+    error: "",
+    exitCode: 0,
+  }));
+  const { chats, opened, models, directory, folder, faux } = await setup("input");
+  const attachment = await opened.uploadAttachment(
+    "file.pdf",
+    "application/pdf",
+    new Response("%PDF-fixture").body,
+  );
+  const expected = (await opened.previewAttachment(attachment.id, false)).modelText;
+  const chatId = opened.getState().id;
+  try {
+    const events: ChatEvent[] = [];
+    const stop = opened.subscribe((event) => events.push(event));
+    try {
+      expect(
+        await opened.send(
+          "Question.",
+          "literal",
+          undefined,
+          false,
+          optionsFor(opened, [attachment.id]),
+        ),
+      ).toBe(true);
+      await waitFor(() =>
+        expect(opened.getState().messages[0]?.attachments?.[0]?.modelText).toBe(expected),
+      );
+      await waitFor(() =>
+        expect(opened.getState().messages.at(-1)?.parts).toEqual([
+          { type: "text", text: "Complete." },
+        ]),
+      );
+      await waitFor(() => expect(opened.getState().isReplying).toBe(false));
+      expect(
+        events.some(
+          (event) =>
+            event.type === "message" && event.message.attachments?.[0]?.modelText === expected,
+        ),
+      ).toBe(true);
+    } finally {
+      stop();
+    }
+  } finally {
+    opened.close();
+    await chats.stopAll();
+  }
+  const saved = (await SessionManager.listAll(join(directory, "sessions"))).find(
+    (chat) => chat.id === chatId,
+  );
+  if (saved === undefined) {
+    throw new Error("The saved hook chat is missing.");
+  }
+  const reopened = await createChat({ models, directory, folder });
+  try {
+    expect((await reopened.open(chatId))?.getState().messages[0]?.attachments?.[0]?.modelText).toBe(
+      expected,
+    );
+  } finally {
+    await reopened.stopAll();
+  }
+  const current = JSON.stringify(join(directory, "attachments", attachment.id, "content"));
+  const legacyStore = `${directory}-attachments`;
+  const legacy = JSON.stringify(join(legacyStore, attachment.id, "content"));
+  const entries = `${readFileSync(saved.path, "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => {
+      const entry = JSON.parse(line) as SessionEntry;
+      if (entry.type === "custom" && entry.customType === "independum-input") {
+        const data = entry.data as { attachmentPositions: AttachmentPosition[] };
+        data.attachmentPositions = data.attachmentPositions.map(
+          ({ textPrefix: _prefix, textHash: _hash, ...position }) => position,
+        );
+      }
+      return JSON.stringify(entry).replaceAll(
+        JSON.stringify(current).slice(1, -1),
+        JSON.stringify(legacy).slice(1, -1),
+      );
+    })
+    .join("\n")}\n`;
+  writeFileSync(saved.path, entries);
+  renameSync(join(directory, "attachments"), legacyStore);
+  const migrated = await createChat({ models, directory, folder });
+  try {
+    const chat = await migrated.open(chatId);
+    if (chat === undefined) {
+      throw new Error("The migrated hook chat did not open.");
+    }
+    expect(chat.getState().messages[0]?.attachments?.[0]?.modelText).toBeNull();
+    await chat.resumePending();
+    let received = "";
+    faux.setResponses([
+      async (context, options, _state, model) => {
+        received = JSON.stringify(context.messages);
+        await options?.onPayload?.({ messages: context.messages }, model);
+        return fauxAssistantMessage("Continued.");
+      },
+    ]);
+    expect(await chat.send("Continue.", "literal")).toBe(true);
+    const escaped = JSON.stringify(current).slice(1, -1);
+    const obsolete = JSON.stringify(legacy).slice(1, -1);
+    await waitFor(() => expect(received).toContain(escaped));
+    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
+    expect(received).toContain(prefix);
+    expect(received).not.toContain(obsolete);
+    expect(JSON.stringify(chat.getContext().lastRequest)).toContain(escaped);
+    expect(JSON.stringify(chat.getContext().lastRequest)).not.toContain(obsolete);
+    expect(readFileSync(saved.path, "utf8").startsWith(entries)).toBe(true);
+  } finally {
+    await migrated.stopAll();
+  }
+});
 
 test.each([
   "input",
@@ -266,13 +404,7 @@ test.each(["queue", "steer", "headless"] as const)(
         }
       }
       expect(
-        await opened.send("Start", "literal", undefined, false, {
-          id: randomUUID(),
-          delivery: "queue",
-          expectedRevision: opened.getState().pending.revision,
-          expectedLeafId: opened.getState().leafId,
-          attachmentIds,
-        }),
+        await opened.send("Start", "literal", undefined, false, optionsFor(opened, attachmentIds)),
       ).toBe(true);
       await entered.promise;
       const commands = join(folder, ".independum", "commands");
@@ -281,13 +413,7 @@ test.each(["queue", "steer", "headless"] as const)(
       writeFileSync(source, "---\ndescription: Review data.\n---\nCaptured $1.");
       const preview = opened.compose("/review result", "commands");
       const state = opened.getState();
-      const options: InputOptions = {
-        id: randomUUID(),
-        delivery: delivery === "steer" ? "steer" : "queue",
-        expectedRevision: state.pending.revision,
-        expectedLeafId: state.leafId,
-        attachmentIds,
-      };
+      const options = optionsFor(opened, attachmentIds, delivery === "steer" ? "steer" : "queue");
       const requestId = options.id;
       async function submit(): Promise<boolean> {
         if (delivery === "headless") {
@@ -436,13 +562,7 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
   try {
     await opened.send("Start", "literal");
     await entered.promise;
-    const state = opened.getState();
-    await opened.send("Held steer", "literal", undefined, false, {
-      id: randomUUID(),
-      delivery: "steer",
-      expectedRevision: state.pending.revision,
-      expectedLeafId: state.leafId,
-    });
+    await opened.send("Held steer", "literal", undefined, false, optionsFor(opened, [], "steer"));
     fail.resolve();
     await waitFor(() => expect(opened.getState().isReplying).toBe(false));
     expect(opened.getState().pending).toMatchObject({

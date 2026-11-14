@@ -9,7 +9,7 @@ import { createTestFolder } from "./tools/create-test-folder.ts";
 const parent = createTestFolder("attachment-path-projection");
 
 test.each([false, true])(
-  "only owned attachment ranges project exact paths in block form %s",
+  "owned user messages project exact attachment paths regardless of offsets in block form %s",
   (hasBlocks) => {
     const directory = join(parent, "custom-state");
     const id = randomUUID();
@@ -17,11 +17,13 @@ test.each([false, true])(
     const current = join(directory, "attachments", id, "content");
     const path = JSON.stringify(legacy);
     const similar = JSON.stringify(join(parent, "custom-state-attachments-other", id, "content"));
+    const other = JSON.stringify(join(parent, "custom-state-attachments", randomUUID(), "content"));
     const text = `User text: ${path}\n`;
-    const details = `Path: ${path}\nSimilar: ${similar}`;
+    const details = `Path: ${path}\nSimilar: ${similar}\nOther: ${other}\nUnquoted: ${legacy}`;
     const manager = SessionManager.create(parent, join(parent, randomUUID()));
     manager.appendCustomEntry("independum-input", {
       version: 1,
+      attachmentIds: [id, "../invalid"],
       attachmentPositions: [
         {
           id,
@@ -32,12 +34,14 @@ test.each([false, true])(
         },
       ],
     });
+    const prefix = "Hook prefix. ".repeat(49).slice(0, 580);
     const content = hasBlocks
       ? [
+          { type: "text" as const, text: prefix },
           { type: "text" as const, text: text + details },
           { type: "image" as const, data: "fixture", mimeType: "image/png" },
         ]
-      : text + details;
+      : prefix + text + details;
     manager.appendMessage({ role: "user", content, timestamp: 1000 });
     manager.appendMessage(fauxAssistantMessage(path));
     manager.appendMessage({ role: "user", content: details, timestamp: 2000 });
@@ -50,13 +54,14 @@ test.each([false, true])(
     if (first?.role !== "user") {
       throw new Error("The projected user message is missing.");
     }
-    const expected = `${text}Path: ${JSON.stringify(current)}\nSimilar: ${similar}`;
+    const expected = `${prefix}User text: ${JSON.stringify(current)}\nPath: ${JSON.stringify(current)}\nSimilar: ${similar}\nOther: ${other}\nUnquoted: ${legacy}`;
     expect(
       typeof first.content === "string"
         ? first.content
-        : first.content[0]?.type === "text"
-          ? first.content[0].text
-          : "",
+        : first.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join(""),
     ).toBe(expected);
     expect(projected.slice(1)).toEqual(messages.slice(1));
     expect(messages).toEqual(before);

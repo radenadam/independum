@@ -1,15 +1,14 @@
 import { basename, dirname, join, resolve } from "node:path";
 import type { AgentSession, SessionEntry } from "@earendil-works/pi-coding-agent";
-import type { AttachmentPosition } from "./create-attachments.ts";
 
 type AgentMessage = AgentSession["messages"][number];
 
 interface AttachmentInput {
   version?: number;
-  attachmentPositions?: AttachmentPosition[];
+  attachmentIds?: string[];
 }
 
-/** Maps the legacy store path of one retained attachment in its marked text to the current store. */
+/** Maps the exact quoted legacy store path of one retained attachment to the current store. */
 export function projectAttachmentText(text: string, id: string, directory: string): string {
   const state = resolve(directory);
   const before = JSON.stringify(
@@ -25,14 +24,20 @@ export function projectAttachmentPaths(
   entries: SessionEntry[],
   directory: string,
 ): AgentMessage[] {
-  const owned = new Map<string, AttachmentPosition[]>();
+  const owned = new Map<string, string[]>();
   let input: AttachmentInput | undefined;
   for (const entry of entries) {
     if (entry.type === "custom" && entry.customType === "independum-input") {
       input = entry.data as AttachmentInput | undefined;
     } else if (entry.type === "message" && entry.message.role === "user") {
-      if (input?.version === 1 && Array.isArray(input.attachmentPositions)) {
-        owned.set(JSON.stringify(entry.message), input.attachmentPositions);
+      if (input?.version === 1 && Array.isArray(input.attachmentIds)) {
+        owned.set(
+          JSON.stringify(entry.message),
+          input.attachmentIds.filter(
+            (id) =>
+              typeof id === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id),
+          ),
+        );
       }
       input = undefined;
     }
@@ -41,33 +46,14 @@ export function projectAttachmentPaths(
     if (message.role !== "user") {
       return message;
     }
-    const positions = owned.get(JSON.stringify(message)) ?? [];
-    if (positions.length === 0) {
+    const ids = owned.get(JSON.stringify(message)) ?? [];
+    if (ids.length === 0) {
       return message;
     }
-    let offset = 0;
     function project(text: string): string {
-      const start = offset;
-      offset += text.length;
       let projected = text;
-      // Saved offsets describe the original text, so replacements run from its end.
-      for (const position of [...positions].sort((left, right) => right.start - left.start)) {
-        if (
-          !Number.isSafeInteger(position.start) ||
-          !Number.isSafeInteger(position.end) ||
-          position.start < start ||
-          position.end > offset ||
-          position.start > position.end ||
-          !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(position.id)
-        ) {
-          continue;
-        }
-        const from = position.start - start;
-        const to = position.end - start;
-        projected =
-          projected.slice(0, from) +
-          projectAttachmentText(projected.slice(from, to), position.id, directory) +
-          projected.slice(to);
+      for (const id of ids) {
+        projected = projectAttachmentText(projected, id, directory);
       }
       return projected;
     }
