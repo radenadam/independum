@@ -926,9 +926,7 @@ test("an empty system file removes the owned preamble and disabled tools from th
   await chats.stopAll();
 });
 
-// Pi converts the arguments of each call to the types of its schema before the tool runs, and the
-// permission gate converts them again, so the tool acts on values that the model never sent.
-test.fails.each([
+test.each([
   ["Write", { path: "number.txt", content: 42 }],
   ["Read", { path: "lines.txt", offset: "2" }],
   ["Read", { path: "lines.txt", limit: null }],
@@ -954,7 +952,18 @@ test.fails.each([
     try {
       await reply(chat, "Use the tool.");
       expect(existsSync(join(project, "number.txt"))).toBe(false);
-      expect(results).toMatchObject([{ toolName: name, isError: true }]);
+      expect(results).toMatchObject([
+        {
+          toolName: name,
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: expect.stringContaining(`Arguments for ${name} do not match its schema:`),
+            },
+          ],
+        },
+      ]);
     } finally {
       await chats.stopAll();
     }

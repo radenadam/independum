@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { getCurrentSystemMessage, validateToolArguments } from "@earendil-works/pi-ai";
+import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
   type AgentSession,
@@ -135,6 +135,7 @@ import {
   missingShellOf,
   sandboxShellReason,
 } from "./tools/find-shell.ts";
+import { validateToolArguments } from "./validate-tool-arguments.ts";
 
 type Model = NonNullable<ReturnType<ModelRuntime["getModel"]>>;
 type AgentMessage = AgentSession["messages"][number];
@@ -1609,12 +1610,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         if (tool === undefined) {
           throw new Error("The hook names an unavailable tool.");
         }
-        validateToolArguments(tool, {
-          type: "toolCall",
-          id: "hook-validation",
-          name,
-          arguments: input as Record<string, never>,
-        });
+        validateToolArguments(tool, input, texts);
       },
       onChange: announceContext,
     });

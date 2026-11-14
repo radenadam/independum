@@ -217,6 +217,9 @@ importers:
       koffi:
         specifier: ^3.3.4
         version: 3.3.4
+      typebox:
+        specifier: 1.3.27
+        version: 1.3.27
       uqr:
         specifier: 0.1.3
         version: 0.1.3

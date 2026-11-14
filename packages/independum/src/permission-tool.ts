@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateToolArguments } from "@earendil-works/pi-ai";
 import {
   type ExtensionToolContext,
   type ToolDefinition,
@@ -42,6 +41,7 @@ import { writeTextList } from "./tools/create-write-tool.ts";
 import { type Shell, sandboxShellReason } from "./tools/find-shell.ts";
 import { fileTextList } from "./tools/text-file.ts";
 import { fingerprintTextList } from "./tools/version-of.ts";
+import { validateToolArguments } from "./validate-tool-arguments.ts";
 
 const workerTextIds = new Set(
   [...readTextList, ...writeTextList, ...editTextList, ...fileTextList, ...fingerprintTextList].map(
@@ -68,23 +68,17 @@ export interface PermissionToolsOptions {
   audit: (chatId: string, data: unknown) => void;
 }
 
-/** Adds the final permission gate after Pi validates and transforms tool arguments. */
+/** Checks raw arguments before Pi conversion and gates the final exact arguments before execution. */
 export function permissionTool(
   tool: ToolDefinition,
   options: PermissionToolsOptions,
 ): ToolDefinition {
   return {
     ...tool,
+    prepareArguments: (input) => validateToolArguments(tool, input, options.texts),
     async execute(id, parameters, signal, onUpdate, context) {
       const isCommand = tool.name === "Shell" || options.scriptExecutable !== undefined;
-      const input = structuredClone(
-        validateToolArguments(tool, {
-          type: "toolCall",
-          id,
-          name: tool.name,
-          arguments: parameters as Record<string, never>,
-        }),
-      ) as Record<string, unknown>;
+      const input = validateToolArguments(tool, parameters, options.texts);
       const settings = options.settings;
       const chatId = context.sessionManager.getSessionId();
       options.beforeExecute?.(chatId);
