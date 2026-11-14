@@ -40,7 +40,7 @@ The script reads one UTF-8 JSON object from standard input until it closes. It w
 
 A block reason is `{ id, values }`. Its id names the hook's inline `texts` record. Each text declares `label`, `builtIn`, and `slots`. Each slot declares `meaning` and `example`. Values supply exactly the declared slot names with strings or finite numbers. Text identity is `hook.<hookId>.<textId>`, and its editor group is `Hook <hookId>`. Fixed host failure text belongs to Hooks. Text edits live in the profile's existing model text file, and use the same changed-default and reset behavior as tool texts.
 
-For a project-scoped profile, add this definition under `settings.hooks` and put `guard.ts` beside that profile file. A user-scoped profile lives inside the denied state folder, so this example does not work there. `packages/independum/src/sandbox-runtime.test.ts` reproduces this storage contradiction under CP-14, and it remains unrepaired.
+For a project-scoped profile, add this definition under `settings.hooks` and put `guard.ts` beside that profile file. A user-scoped profile lives inside the denied state folder, so this example does not work there. CP-14 records this storage contradiction, and a separate change repairs it.
 
 ```json
 {

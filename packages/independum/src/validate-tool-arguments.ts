@@ -1,8 +1,31 @@
 import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { Settings } from "typebox/system";
 import { Value } from "typebox/value";
 import { defineText, type ModelText, type ModelTexts } from "./model-texts.ts";
 
+const differenceExamples = new Map<
+  string,
+  { parameter: string; expected: string; received: string }
+>([
+  ["Read", { parameter: "/offset", expected: '{"type":"integer","minimum":1}', received: '"2"' }],
+  ["Write", { parameter: "/content", expected: '{"type":"string"}', received: "42" }],
+  ["Edit", { parameter: "/old_string", expected: '{"type":"string"}', received: "null" }],
+  ["Shell", { parameter: "/command", expected: '{"type":"string"}', received: "42" }],
+  [
+    "CheckCommand",
+    { parameter: "/id", expected: '{"type":"integer","minimum":1}', received: '"1"' },
+  ],
+  [
+    "StopCommand",
+    { parameter: "/id", expected: '{"type":"integer","minimum":1}', received: '"1"' },
+  ],
+]);
+
 function argumentTextsFor(name: string) {
+  const example = differenceExamples.get(name);
+  if (example === undefined) {
+    throw new Error(`The tool ${name} has no argument text example.`);
+  }
   const id = `${name[0]?.toLowerCase()}${name.slice(1)}.arguments`;
   return {
     invalid: defineText({
@@ -13,10 +36,10 @@ function argumentTextsFor(name: string) {
       builtIn:
         "Arguments for {tool} do not match its schema:\n{differences}\nNo tool operation ran.",
       slots: {
-        tool: { meaning: "The tool name.", example: "Read" },
+        tool: { meaning: "The tool name.", example: name },
         differences: {
           meaning: "Each differing parameter with its expected schema and supplied value.",
-          example: '/offset: expected {"type":"integer","minimum":1}. Received "2".',
+          example: `${example.parameter}: expected ${example.expected}. Received ${example.received}.`,
         },
       },
     }),
@@ -27,14 +50,14 @@ function argumentTextsFor(name: string) {
       label: "Each parameter that differs from the tool schema",
       builtIn: "{parameter}: expected {expected}. Received {received}.",
       slots: {
-        parameter: { meaning: "The parameter's JSON pointer.", example: "/offset" },
+        parameter: { meaning: "The parameter's JSON pointer.", example: example.parameter },
         expected: {
           meaning: "The required JSON schema without descriptive text.",
-          example: '{"type":"integer","minimum":1}',
+          example: example.expected,
         },
         received: {
           meaning: "The exact supplied JSON value, or the omission text.",
-          example: '"2"',
+          example: example.received,
         },
       },
     }),
@@ -65,7 +88,14 @@ export function validateToolArguments(
   input: unknown,
   texts: ModelTexts,
 ): Record<string, unknown> {
-  const errors = Value.Errors(tool.parameters, input);
+  const maxErrors = Settings.Get().maxErrors;
+  let errors: ReturnType<typeof Value.Errors>;
+  try {
+    Settings.Set({ maxErrors: Number.POSITIVE_INFINITY });
+    errors = Value.Errors(tool.parameters, input);
+  } finally {
+    Settings.Set({ maxErrors });
+  }
   if (errors.length === 0) {
     return structuredClone(input) as Record<string, unknown>;
   }

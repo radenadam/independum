@@ -1,9 +1,12 @@
 import { Type } from "@earendil-works/pi-ai";
+import { Settings } from "typebox/system";
 import { expect, test } from "vitest";
 import { allTexts } from "./agent-texts.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
+import { createBackgroundCommands } from "./tools/create-background-commands.ts";
 import { createReadTool } from "./tools/create-read-tool.ts";
-import { validateToolArguments } from "./validate-tool-arguments.ts";
+import { createShellTool } from "./tools/create-shell-tool.ts";
+import { toolArgumentTextList, validateToolArguments } from "./validate-tool-arguments.ts";
 
 const texts = createModelTexts(() => ({}));
 const read = createReadTool({ texts, getLimits: () => ({ maxLines: 2000, maxBytes: 51_200 }) });
@@ -45,6 +48,39 @@ test("argument failures identify missing and nested parameters without duplicate
       '/access/paths/0/scope: expected {"anyOf":[{"type":"string","const":"file"},{"type":"string","const":"tree"}]}. Received true.\n' +
       "No tool operation ran.",
   );
+});
+
+test("shell argument failures name every differing parameter beyond the default error limit", () => {
+  const maxErrors = Settings.Get().maxErrors;
+  const shell = createShellTool({
+    texts,
+    getShell: () => undefined,
+    getLimits: () => ({ maxLines: 2000, maxBytes: 51_200 }),
+    getEnvironment: () => ({}),
+    getHandBackSeconds: () => 0,
+    handBacks: new Map(),
+    outputFolder: ".",
+    stops: new Map(),
+    background: createBackgroundCommands({
+      onProgress: () => undefined,
+      onEnd: () => undefined,
+    }),
+  });
+  const input = {
+    command: 42,
+    access: { paths: [{ path: "example", scope: true, access: null }], network: "true" },
+    background: "false",
+  };
+  expect(() => validateToolArguments(shell, input, texts)).toThrow(
+    "Arguments for Shell do not match its schema:\n" +
+      '/access/paths/0/scope: expected {"anyOf":[{"type":"string","const":"file"},{"type":"string","const":"tree"}]}. Received true.\n' +
+      '/access/paths/0/access: expected {"anyOf":[{"type":"string","const":"read"},{"type":"string","const":"write"}]}. Received null.\n' +
+      '/access/network: expected {"type":"boolean"}. Received "true".\n' +
+      '/command: expected {"type":"string","minLength":1}. Received 42.\n' +
+      '/background: expected {"type":"boolean"}. Received "false".\n' +
+      "No tool operation ran.",
+  );
+  expect(Settings.Get().maxErrors).toBe(maxErrors);
 });
 
 test.each([null, [], "arguments", 42])("nonobject arguments fail exactly for %j", (input) => {
@@ -99,3 +135,13 @@ test.each(["Read", "Write", "Edit", "Shell", "CheckCommand", "StopCommand"])(
     );
   },
 );
+
+test("each tool previews its argument failure with its own name and parameter", () => {
+  for (const text of toolArgumentTextList.filter((entry) => entry.slots.tool !== undefined)) {
+    expect(text.slots.tool?.example).toBe(text.group);
+  }
+  const examples = toolArgumentTextList
+    .filter((entry) => entry.slots.differences !== undefined)
+    .map((entry) => entry.slots.differences?.example);
+  expect(new Set(examples).size).toBeGreaterThan(1);
+});

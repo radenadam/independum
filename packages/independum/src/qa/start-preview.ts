@@ -48,34 +48,81 @@ export async function startPreview(options: {
         : 'sleep 3\nprintf "Preview steps complete.\\n"';
     const reply =
       "Preview reply complete.\n\nThe stand-in model thinks, runs a command, and replies.\n\n| Check | Result |\n| --- | --- |\n| Steps | Complete |";
+    const noteRequest = "Write the preview note.";
+    // The long check sends Shell values of other types for most of its parameters at once, with a
+    // timeout text of several hundred characters, so its failure lists every differing parameter.
+    const longCheck = {
+      command: 42,
+      description: "Check the long preview arguments",
+      timeout: `${"Wait for the preview build to finish before the check reads its log. ".repeat(5)}${"0123456789".repeat(12)}`,
+      background: "false",
+      access: { network: "true", paths: [{ path: "notes", scope: true, access: null }] },
+    };
     faux.setResponses([respond]);
     async function respond(context: TranscriptContext): Promise<AssistantMessage> {
       faux.appendResponses([respond]);
       await setTimeout(500);
+      const requestIndex = context.messages.findLastIndex((message) => message.role === "user");
+      const request = JSON.stringify(context.messages[requestIndex]);
       if (
         context.messages.at(-1)?.role !== "toolResult" &&
-        JSON.stringify(context.messages.findLast((message) => message.role === "user")).includes(
-          "Hold queue preview.",
-        )
+        request.includes("Hold queue preview.")
       ) {
         await setTimeout(8000);
       }
-      const hasNetworkRequest = JSON.stringify(
-        context.messages.findLast((message) => message.role === "user"),
-      ).includes("Check network permissions.");
+      if (request.includes(noteRequest)) {
+        return writeNote(context.messages, requestIndex);
+      }
+      const hasNetworkRequest = request.includes("Check network permissions.");
+      const isLongCheck = request.includes("Run the long preview check.");
       return context.messages.at(-1)?.role === "toolResult"
-        ? fauxAssistantMessage([fauxText(reply)])
+        ? fauxAssistantMessage([
+            fauxText(isLongCheck ? "The long preview check ends at its failed call." : reply),
+          ])
         : fauxAssistantMessage(
             [
               fauxThinking("I check the project steps before writing the reply."),
-              fauxToolCall("Shell", {
-                command,
-                description: "Check the project steps",
-                ...(hasNetworkRequest ? { access: { network: true } } : {}),
-              }),
+              fauxToolCall(
+                "Shell",
+                isLongCheck
+                  ? longCheck
+                  : {
+                      command,
+                      description: "Check the project steps",
+                      ...(hasNetworkRequest ? { access: { network: true } } : {}),
+                    },
+              ),
             ],
             { stopReason: "toolUse" },
           );
+    }
+    // A note request first sends Write a number as its content, which differs from the schema,
+    // then sends the same call with text, and replies once that call returns. Each request names
+    // its own file, so every corrected call creates a new file.
+    function writeNote(
+      messages: TranscriptContext["messages"],
+      requestIndex: number,
+    ): AssistantMessage {
+      const notes = messages.filter(
+        (message) => message.role === "user" && JSON.stringify(message).includes(noteRequest),
+      ).length;
+      const path = join("notes", `preview-note-${notes}.txt`);
+      const results = messages
+        .slice(requestIndex)
+        .filter((message) => message.role === "toolResult").length;
+      if (results === 0) {
+        return fauxAssistantMessage(
+          [fauxThinking("I write the preview note."), fauxToolCall("Write", { path, content: 42 })],
+          { stopReason: "toolUse" },
+        );
+      }
+      if (results === 1) {
+        return fauxAssistantMessage(
+          [fauxToolCall("Write", { path, content: "Preview note 42.\nWritten as text.\n" })],
+          { stopReason: "toolUse" },
+        );
+      }
+      return fauxAssistantMessage([fauxText(`Preview note written to ${path}.`)]);
     }
     const chat = await createChat({ models, directory, folder: project });
     stop = stopChat;
