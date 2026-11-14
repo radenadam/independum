@@ -19,7 +19,7 @@ Give a genuine recommendation with reasons. Disagree when evidence warrants it. 
 
 Ask progressively. The full blueprint cannot be established in advance, and preferences can change. Use the standing question round in [workflow](workflow.md) at every piece of work. Work independently once the intended result is understood. Repeated permission requests for settled work and silent invention of intent both miss this agreement.
 
-The maintainer decides in the conversation, not by reading. Never hand them a long report, a worker's output, or a file to read in order to decide or judge. Give each decision as a short question with a recommendation, the few facts it needs, and the options, and summarize what workers produced in a few lines. Reading a long text to decide is no different from reading the whole repository, which defeats the purpose of this context.
+The maintainer decides in the conversation, not by reading. Never hand them a long report, a worker's output, or a file to read in order to decide or judge. Give each decision as a short question with a recommendation, the few facts it needs, and the options, and summarize what workers produced in a few lines. Reading a long text to decide is no different from reading the whole repository, which defeats the purpose of this context. Codex is the main worker. Without it, Claude Opus works at xhigh effort, and Haiku takes rule-following tasks without judgment. Fable and Sonnet are never used. This is a direct answer of 2026-11-14.
 
 Before building, recap the agreed outcome. For status, state phase, completed behavior, blocker, and next action. For an unclear mechanism, use a concrete example and distinguish its parts. If a question returns, reconsider the premise instead of expanding the same explanation. When words do not settle a visual preference, compare alternatives with identical content, today's version, and a long case.
 
@@ -43,4 +43,4 @@ Treat reversals as learning, not defects. Historical reasons stay in decisions. 
 
 ## Evaluation
 
-Evaluate agent work, repository context, and product behavior after milestones, regularly, and whenever something feels wrong. Maintainer corrections and agent questions can interleave. Fix one concern at a time and capture each finding as a rule, check, or decision. The initial repository-only cold start requires maintainer judgment before the building stop is lifted. Passing a quiz alone does not establish shared judgment.
+Evaluate agent work, repository context, and product behavior after milestones, regularly, and whenever something feels wrong. Maintainer corrections and agent questions can interleave. Fix one concern at a time and capture each finding as a rule, check, or decision. After a rebuild of the context, a repository-only cold start that the maintainer judges validates it. Passing a quiz alone does not establish shared judgment.

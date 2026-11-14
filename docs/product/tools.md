@@ -84,7 +84,7 @@ The required parameter is integer `id` of at least one. It aborts that running b
 
 ## Known differences from the decisions
 
-- CP-17 records the reader's confirmed Pi argument coercion and the inferred retained-output access conflict. Logs under the denied state folder need a reproduced retrieval path. Neither is repaired during healing.
+- CP-17 records two reproduced contradictions, each tested and marked to fail until its fix. Pi converts call arguments to their schema types before a tool runs, and the permission gate and the validation of hook replacements convert them again. See `packages/independum/src/profiles-runtime.test.ts` and `packages/independum/src/hooks-runtime.test.ts`. Retained Shell logs live under the denied state folder, so Read refuses the path that a cut note names. See `packages/independum/src/sandbox-runtime.test.ts`.
 - Decision 0006 describes one contract for built-ins and add-ons. Only direct registration of the built-ins exists, and discovered extensions are disabled. See `packages/independum/src/create-chat.ts:191` and `packages/independum/src/create-chat.ts:586`.
 - Decision 0053 accepts the limits of decision 0044. Diagnostics cap positions at twenty and differences at five. See `packages/independum/src/tools/create-edit-tool.ts:345`, `packages/independum/src/tools/create-edit-tool.ts:655`, and `packages/independum/src/tools/create-edit-tool.ts:706`.
 - Decision 0053 limits decision 0045 to retained text restoration. A binary replacement retains no original bytes. See `packages/independum/src/tools/create-write-tool.ts:176` and `packages/independum/src/tools/create-write-tool.ts:196`.

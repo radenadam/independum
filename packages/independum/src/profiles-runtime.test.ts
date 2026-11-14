@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
 import { expect, test } from "vitest";
@@ -925,6 +925,41 @@ test("an empty system file removes the owned preamble and disabled tools from th
   expect(request).toContain('"name":"Write"');
   await chats.stopAll();
 });
+
+// Pi converts the arguments of each call to the types of its schema before the tool runs, and the
+// permission gate converts them again, so the tool acts on values that the model never sent.
+test.fails.each([
+  ["Write", { path: "number.txt", content: 42 }],
+  ["Read", { path: "lines.txt", offset: "2" }],
+  ["Read", { path: "lines.txt", limit: null }],
+] as const)(
+  "a %s call fails without effects when its arguments differ from its schema %j",
+  async (name, input) => {
+    const { chats, chat, faux, reference, projectId, project } = await setup();
+    await chats.changeSettings(
+      reference,
+      projectId,
+      { permissions: { ...builtInPermissions, mode: "unrestricted" } },
+      chats.profiles.profile(reference, projectId).revision,
+    );
+    writeFileSync(join(project, "lines.txt"), "first\nsecond\n");
+    const results: unknown[] = [];
+    faux.setResponses([
+      fauxAssistantMessage([fauxToolCall(name, input)], { stopReason: "toolUse" }),
+      (context) => {
+        results.push(...context.messages.filter((message) => message.role === "toolResult"));
+        return fauxAssistantMessage("Done.");
+      },
+    ]);
+    try {
+      await reply(chat, "Use the tool.");
+      expect(existsSync(join(project, "number.txt"))).toBe(false);
+      expect(results).toMatchObject([{ toolName: name, isError: true }]);
+    } finally {
+      await chats.stopAll();
+    }
+  },
+);
 
 async function configureExternalCommand({
   chats,

@@ -468,6 +468,24 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
   }
 });
 
+// The replacement passes through the converting validator of Pi, which accepts a string where the
+// schema asks for an integer, and the permission gate converts it before the tool runs.
+test.fails("a tool call replacement that differs from the tool schema fails its hook", async () => {
+  replaceWith({ input: { id: "1" } });
+  const { chats, opened, faux } = await setup("tool_call");
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("CheckCommand", {})], { stopReason: "toolUse" }),
+    fauxAssistantMessage("Checked."),
+  ]);
+  try {
+    await reply(opened);
+    expect(opened.getHooks().invocations).toMatchObject([{ status: "failed" }]);
+  } finally {
+    opened.close();
+    await chats.stopAll();
+  }
+});
+
 function replaceWith(replacement: unknown): void {
   vi.mocked(executeScriptHook).mockResolvedValue({
     output: JSON.stringify({ apiVersion: 1, action: "replace", replacement }),
