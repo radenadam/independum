@@ -8,7 +8,7 @@ Evidence contains screenshots, `values.jsonl` checks, `browser.jsonl` diagnostic
 
 False named checks, exceptions, timeout, navigation failure, browser errors, warnings, and failed requests fail. Deliberately cancelled requests and missing favicon requests are excluded. Independent AI QA inspects screenshots and named values for visual quality and newcomer comprehension beyond a scenario pass. Passing the [local gates](checks.md#local-gates) authorizes landing within settled intent without a person inspecting each change. Receipts bind review to the base, HEAD, source content, and context. Changed source invalidates evidence.
 
-The direct maintainer repairs of 2026-11-13 and 2026-11-14 require framed captures and hit tests through `hoverOn` or `clickOn`. Reveal hover controls by hovering or focusing their owner first. Close covering drawers and scroll content into view. Wait for finite animations before recording geometry baselines. `checkQr` samples rendered PNG pixels, never the SVG source. With `shot`, it checks the QR region in that exact viewport capture before saving the named evidence. After loading and finite animations, it retries blanks for five seconds. Persistent blanks fail and retain their PNG. A separate passing element capture cannot establish viewport evidence. Transient blanks alone establish no product gap.
+Scenarios use framed captures and hit tests through `hoverOn` or `clickOn`. Reveal hover controls by hovering or focusing their owner first. Close covering drawers and scroll content into view. Wait for finite animations before recording geometry baselines. `checkQr` samples rendered PNG pixels, never the SVG source. With `shot`, it checks the QR region in that exact viewport capture before saving the named evidence. After loading and finite animations, it retries blanks for five seconds. Persistent blanks fail and retain their PNG. A separate passing element capture cannot establish viewport evidence. Transient blanks alone establish no product gap.
 
 ## Preview
 
@@ -54,4 +54,4 @@ Fields execute in this order:
 
 Separate focus, text, and Enter. Press Send on phones because Enter adds a newline. Close phone drawers before chatting. Fixed delays are rejected. Wait for saves and polling refreshes with bounded conditions and failure messages. Targets await visibility, reachability, and finite animations. Expressions time out after 25 seconds.
 
-The direct maintainer repair of 2026-11-14 requires visible upload and preparation completion before sending. Verify attachments and delivery on the waiting message itself. Draft filenames and empty fields cannot prove acceptance.
+Wait for visible upload and preparation completion before sending. Verify attachments and delivery on the waiting message itself. Draft filenames and empty fields cannot prove acceptance.
