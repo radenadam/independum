@@ -56,7 +56,7 @@ function fixture(isInteractive = true): {
 } {
   const { directory, project } = createTestProject(parent, true);
   const state = join(directory, ".independum");
-  mkdirSync(state);
+  mkdirSync(join(state, "private"), { recursive: true });
   const manager = SessionManager.inMemory(project);
   const settings = structuredClone(builtInSettings);
   let revision = "profile-revision";
@@ -318,9 +318,9 @@ test("local commands and outside reads need no startup approval", async () => {
   expect(options.approvals.pending()).toEqual([]);
 });
 
-test("the state folder stays denied even under explicit allow rules and saved approvals", async () => {
+test("the private folder stays denied even under explicit allow rules and saved approvals", async () => {
   const { tool, context, options, effect } = fixture();
-  const file = join(options.directory, "private.txt");
+  const file = join(options.directory, "private", "sentinel.txt");
   writeFileSync(file, "private");
   for (const access of ["read", "write"] as const) {
     const resource = { kind: "path", path: file, scope: "file", access } as const;
@@ -339,25 +339,25 @@ test("the state folder stays denied even under explicit allow rules and saved ap
         undefined,
         context,
       ),
-    ).rejects.toThrow("state folder is denied");
+    ).rejects.toThrow("private folder is denied");
   }
   expect(effect).not.toHaveBeenCalled();
   expect(options.approvals.pending()).toEqual([]);
 });
 
-test("a project inside the state folder refuses before creating project configuration", async () => {
+test("a project inside the private folder refuses before creating project configuration", async () => {
   const { tool, options, context, effect } = fixture();
   await expect(
     tool.execute("private-project", { command: "blocked" }, undefined, undefined, {
       ...context,
-      cwd: options.directory,
+      cwd: join(options.directory, "private"),
     }),
-  ).rejects.toThrow("inside Independum's denied state folder");
+  ).rejects.toThrow("inside Independum's denied private folder");
   expect(existsSync(join(options.directory, ".independum"))).toBe(false);
   expect(effect).not.toHaveBeenCalled();
 });
 
-test("read runs an outside file worker without approval and refuses the state folder before reading", async () => {
+test("read permits outside and ordinary state files but refuses private state before reading", async () => {
   const { context, options } = fixture(false);
   const { createReadTool } = await import("./tools/create-read-tool.ts");
   const read = permissionTool(
@@ -369,13 +369,94 @@ test("read runs an outside file worker without approval and refuses the state fo
   const result = await read.execute("outside", { path: outside }, undefined, undefined, context);
   expect(result.content).toEqual([{ type: "text", text: "worker result" }]);
   expect(options.approvals.pending()).toEqual([]);
+  for (const name of [
+    "outputs/chat/output.txt",
+    "attachments/source/content",
+    "profiles/default/hook.ts",
+    "sessions/chat.jsonl",
+  ]) {
+    const path = join(options.directory, name);
+    mkdirSync(join(path, ".."), { recursive: true });
+    writeFileSync(path, "readable fixture");
+    expect(
+      (await read.execute("read-state", { path }, undefined, undefined, context)).isError,
+    ).not.toBe(true);
+    expect(vi.mocked(sandboxRequest).mock.lastCall?.[0].deniedPaths).toEqual([
+      canonicalPermissionPath(join(options.directory, "private"), context.cwd),
+    ]);
+  }
   const calls = vi.mocked(captureSandbox).mock.calls.length;
-  const privateFile = join(options.directory, "private.txt");
+  const privateFile = join(options.directory, "private", "sentinel.txt");
   writeFileSync(privateFile, "private");
   await expect(
     read.execute("private", { path: privateFile }, undefined, undefined, context),
-  ).rejects.toThrow("state folder is denied");
+  ).rejects.toThrow("private folder is denied");
   expect(vi.mocked(captureSandbox).mock.calls).toHaveLength(calls);
+});
+
+test("state writes ask despite an allow rule and approval grants only the requested write", async () => {
+  const { tool, context, options, effect } = fixture();
+  const resource = {
+    kind: "path",
+    path: join(options.directory, "settings.json"),
+    scope: "file",
+    access: "write",
+  } as const;
+  writeFileSync(resource.path, "state fixture");
+  options.settings.permissions.rules.push({
+    id: "allow-state",
+    project: "*",
+    effect: "allow",
+    resource,
+  });
+  const execution = tool.execute(
+    "write-state",
+    { command: "write", access: { paths: [resource] } },
+    undefined,
+    undefined,
+    context,
+  );
+  const pending = options.approvals.pending()[0];
+  expect(pending?.requiredResources).toEqual([resource]);
+  expect(effect).not.toHaveBeenCalled();
+  expect(await options.approvals.resolve(pending?.id ?? "", pending?.revision ?? "", "allow")).toBe(
+    200,
+  );
+  await execution;
+  expect(effect).toHaveBeenCalledOnce();
+  options.isInteractive = vi.fn(() => false);
+  expect(
+    await tool.execute(
+      "write-again",
+      { command: "write", access: { paths: [resource] } },
+      undefined,
+      undefined,
+      context,
+    ),
+  ).toMatchObject({
+    isError: true,
+    details: { outcome: "approvalRequired" },
+  });
+});
+
+test("a project within readable state receives readonly protection without widening private access", async () => {
+  const { tool, context, options, effect } = fixture(false);
+  const project = join(options.directory, "work");
+  mkdirSync(project);
+  effect.mockImplementation(async () => {
+    expect(options.launches.get("state-project")?.readonlyPaths).toContain(
+      canonicalPermissionPath(project, project),
+    );
+    expect(options.launches.get("state-project")?.deniedPaths).toEqual([
+      canonicalPermissionPath(join(options.directory, "private"), project),
+    ]);
+    return { content: [], details: {} };
+  });
+  await tool.execute("state-project", { command: "read" }, undefined, undefined, {
+    ...context,
+    cwd: project,
+  });
+  expect(effect).toHaveBeenCalledOnce();
 });
 
 test.each(["chat", "project"] as const)(

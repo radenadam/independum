@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
@@ -31,6 +31,7 @@ import type {
   AgentSummary,
   ArchivedChatSummary,
   AttachmentPreview,
+  AttachmentSettings,
   AttachmentSummary,
   BranchChoice,
   BranchRequest,
@@ -95,6 +96,7 @@ import { executeScriptHook } from "./execute-script-hook.ts";
 import type { OperationResult } from "./headless-types.ts";
 import { type HookEvent, type HookSummary, hookModelTexts } from "./hook-contract.ts";
 import { listRequests } from "./list-requests.ts";
+import { locateAttachmentText } from "./locate-attachment-text.ts";
 import { applyModelOverrides, changeModelOverrides, modelSettingsOf } from "./model-settings.ts";
 import { changeTexts, createModelTexts, summarizeTexts } from "./model-texts.ts";
 import {
@@ -110,6 +112,8 @@ import {
   permissionTool,
 } from "./permission-tool.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
+import { privateRuntime } from "./private-runtime.ts";
+import { projectAttachmentPaths, projectAttachmentText } from "./project-attachment-paths.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
@@ -151,6 +155,15 @@ interface ThinkingTimes {
   durationsMs: (number | null)[];
 }
 
+interface AttachmentInput {
+  receivesImages?: boolean;
+  text?: string;
+  attachmentIds?: string[];
+  fileAttachmentIds?: string[];
+  attachments?: AttachmentSummary[];
+  attachmentPositions?: AttachmentPosition[];
+}
+
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
   branches: ConversationBranches;
@@ -158,6 +171,7 @@ interface ChatRun {
   inputMutation: Promise<unknown>;
   isDispatching: boolean;
   activeInput: string | undefined;
+  legacyAttachmentTexts: Map<AttachmentPosition, string>;
   hooks: ScriptHooks;
   hookSources: Map<string, string>;
   hookSystemPrompt: string | undefined;
@@ -296,14 +310,13 @@ export interface Chat {
 
 /** Keeps independent chat runs and reopens saved chats through Pi. */
 export async function createChat({ models, directory, folder }: ChatOptions): Promise<Chat> {
+  privateRuntime(directory);
   let isStopping = false;
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(folder);
   const existingChats = [...(await savedChats.list()), ...(await savedChats.listArchived())];
-  const attachments = createAttachments(
-    join(dirname(directory), `${basename(directory)}-attachments`),
-  );
+  const attachments = createAttachments(join(directory, "attachments"));
   const retainedAttachments = new Set<string>();
   for (const saved of existingChats) {
     for (const entry of SessionManager.open(saved.path, sessionDirectory).getEntries()) {
@@ -515,6 +528,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             access,
           },
           [directory, join(sessionFolder, ".independum")],
+          [join(directory, "private")],
         ).decision === "allow",
     });
     if (run !== undefined && run.resources?.revision !== revision.revision) {
@@ -1353,7 +1367,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             pi.on("context", async (event, context) => {
               const result = await dispatchHooks(
                 "context",
-                { messages: addMessageTimes(event.messages, settings.get()) },
+                {
+                  messages: addMessageTimes(
+                    projectAttachmentPaths(event.messages, manager.getBranch(), directory),
+                    settings.get(),
+                  ),
+                },
                 context,
               );
               return { messages: result.data.messages as typeof event.messages };
@@ -1503,6 +1522,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                     models,
                     context.model,
                     settings.get(),
+                    directory,
                     (request) => {
                       const run = hold.run;
                       if (run !== undefined) {
@@ -1620,6 +1640,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       inputMutation: previous?.inputMutation ?? Promise.resolve(),
       isDispatching: previous?.isDispatching ?? false,
       activeInput: previous?.activeInput,
+      legacyAttachmentTexts: new Map<AttachmentPosition, string>(),
       hooks,
       hookSources,
       hookSystemPrompt: undefined,
@@ -1659,6 +1680,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       preparedPiSections: {},
     });
     hold.run = run;
+    await verifyLegacyAttachmentInputs(run);
 
     const transformContext = session.agent.transformContext;
     async function transformHookContext(
@@ -1829,7 +1851,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
-      protectedConfigurationPaths: [join(folder, ".independum")],
+      protectedConfigurationPaths: [directory, join(folder, ".independum")],
       deniedPaths: deniedPermissionPaths(configuration.settings.permissions, folder, directory),
       attachments: settings.get().attachments,
       builtInAttachments: builtInSettings.attachments,
@@ -2470,6 +2492,67 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
   }
 
+  async function verifyLegacyAttachmentInputs(run: ChatRun): Promise<void> {
+    const inputs = new Map<string, AttachmentInput>();
+    for (const entry of run.session.sessionManager.getEntries()) {
+      const input =
+        entry.type === "custom" && entry.customType === "independum-input"
+          ? (entry.data as AttachmentInput)
+          : inputs.get(entry.parentId ?? "");
+      if (entry.type !== "message" || entry.message.role !== "user") {
+        if (input !== undefined) {
+          inputs.set(entry.id, input);
+        }
+        continue;
+      }
+      if (
+        typeof input?.text !== "string" ||
+        input.attachmentIds === undefined ||
+        input.fileAttachmentIds === undefined ||
+        !input.attachmentPositions?.some(
+          (position) => position.textPrefix === undefined && position.textHash === undefined,
+        ) ||
+        run.session.model === undefined
+      ) {
+        continue;
+      }
+      const text = userMessageText(entry.message.content);
+      const ids = input.attachmentIds;
+      function project(text: string): string {
+        return ids.reduce((value, id) => projectAttachmentText(value, id, directory), text);
+      }
+      try {
+        const prepared = await attachments.prepare(
+          project(input.text),
+          ids,
+          input.fileAttachmentIds,
+          run.session.sessionId,
+          attachmentSettingsFor(run.configuration.settings),
+          createModelTexts(() => run.configuration.settings.texts),
+          run.session.model,
+        );
+        if (project(text) !== prepared.text) {
+          continue;
+        }
+        for (const [index, position] of input.attachmentPositions.entries()) {
+          const current = prepared.positions[index];
+          // Migration changes path lengths, so both saved boundaries must match after projection.
+          if (
+            current?.id === position.id &&
+            current.isFile === position.isFile &&
+            locateAttachmentText(text, position, text) !== null &&
+            project(text.slice(0, position.start)) === prepared.text.slice(0, current.start) &&
+            project(text.slice(0, position.end)) === prepared.text.slice(0, current.end)
+          ) {
+            run.legacyAttachmentTexts.set(position, text);
+          }
+        }
+      } catch {
+        // Missing sources or changed preparation settings leave legacy offsets unverified.
+      }
+    }
+  }
+
   function showAttachments(
     run: ChatRun,
     shown: ChatMessage,
@@ -2484,23 +2567,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     ) {
       return;
     }
-    const input = data as {
-      receivesImages?: boolean;
-      text?: string;
-      attachments?: AttachmentSummary[];
-      attachmentPositions?: AttachmentPosition[];
-    };
+    const input = data as AttachmentInput;
     if (input.attachments === undefined || input.attachmentPositions === undefined) {
       return;
     }
     const content = canonical.content;
-    const text =
-      typeof content === "string"
-        ? content
-        : content
-            .filter((part) => part.type === "text")
-            .map((part) => part.text)
-            .join("");
+    const text = userMessageText(content);
     const images =
       typeof content === "string" ? [] : content.filter((part) => part.type === "image");
     shown.parts = [{ type: "text", text: input.text ?? "" }];
@@ -2521,10 +2593,15 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         error = messageOf(failure);
       }
       const image = position?.imageIndex == null ? null : (images[position.imageIndex] ?? null);
+      const modelText =
+        position === undefined
+          ? null
+          : locateAttachmentText(text, position, run.legacyAttachmentTexts.get(position));
       return {
         ...summary,
         isFile: position?.isFile ?? false,
-        modelText: position === undefined ? "" : text.slice(position.start, position.end),
+        modelText:
+          modelText === null ? null : projectAttachmentText(modelText, summary.id, directory),
         image,
         error,
         notice:
@@ -2703,12 +2780,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           input.attachmentIds ?? [],
           input.fileAttachmentIds ?? [],
           run.session.sessionId,
-          {
-            ...run.configuration.settings.attachments,
-            resizeImages:
-              run.configuration.settings.attachments.resizeImages &&
-              !run.configuration.settings.context.pi.disabled.includes("imageResize"),
-          },
+          attachmentSettingsFor(run.configuration.settings),
           createModelTexts(() => run.configuration.settings.texts),
           selected,
           source?.images,
@@ -2886,12 +2958,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           id,
           run.session.sessionId,
           isFile,
-          {
-            ...current.settings.attachments,
-            resizeImages:
-              current.settings.attachments.resizeImages &&
-              !current.settings.context.pi.disabled.includes("imageResize"),
-          },
+          attachmentSettingsFor(current.settings),
           createModelTexts(() => current.settings.texts),
           run.isModelChosen ? run.session.model : undefined,
           1,
@@ -3031,12 +3098,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             attachmentIds,
             fileAttachmentIds,
             run.session.sessionId,
-            {
-              ...settings.attachments,
-              resizeImages:
-                settings.attachments.resizeImages &&
-                !settings.context.pi.disabled.includes("imageResize"),
-            },
+            attachmentSettingsFor(settings),
             createModelTexts(() => settings.texts),
             model,
             source.images,
@@ -3373,12 +3435,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 attachmentIds,
                 fileAttachmentIds,
                 id,
-                {
-                  ...desired.settings.attachments,
-                  resizeImages:
-                    desired.settings.attachments.resizeImages &&
-                    !desired.settings.context.pi.disabled.includes("imageResize"),
-                },
+                attachmentSettingsFor(desired.settings),
                 createModelTexts(() => desired.settings.texts),
                 selected,
               );
@@ -3740,6 +3797,23 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
 // Windows paths can carry the drive letter in either case, so one folder could look like two.
 function toFolder(path: string): string {
   return resolve(path).replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+}
+
+function attachmentSettingsFor(settings: Settings): AttachmentSettings {
+  return {
+    ...settings.attachments,
+    resizeImages:
+      settings.attachments.resizeImages && !settings.context.pi.disabled.includes("imageResize"),
+  };
+}
+
+function userMessageText(content: Extract<AgentMessage, { role: "user" }>["content"]): string {
+  return typeof content === "string"
+    ? content
+    : content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
 }
 
 // Writes a chat as Markdown, with a heading for each prompt and for each reply, which names the

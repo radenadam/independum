@@ -34,7 +34,7 @@ Background completion wakes a retained run through a steering note. It waits for
 
 The normal home is `~/.independum`. Pi owns its credential stores and session files. Never inspect credential files during development. [Profiles](profiles.md#files), [headless](headless.md#storage-and-api), [attachments](attachments.md#storage-and-grants), and [hooks](hooks.md#inspection-and-reload) own their stores.
 
-Sessions save with the first message. Archived sessions move separately. Pins are saved ids. Outputs and the last request are per chat. Waiting inputs and receipts use atomic replacement. Account-only `runtime/phones.json` retains phone ids, names, times, and credential hashes. Plaintext phone credentials remain in their browser and temporary receipt memory.
+Sessions save with the first message. Archived sessions move separately. Pins are saved ids. Outputs and the last request are per chat. Waiting inputs and receipts use atomic replacement. Account-only `private/phones.json` retains phone ids, names, times, and credential hashes. Plaintext phone credentials remain in their browser and temporary receipt memory.
 
 [Request persistence](../../packages/independum/src/create-saved-requests.ts) overwrites one payload and silently tolerates save failure. Capture awaits that attempt before provider continuation. Missing or invalid data reads as null. Archive moves only the session. Runtime command records, subscribers, and warming counts are not resumed after restart. This is not full request retention. CP-06 records the accepted optional archive.
 

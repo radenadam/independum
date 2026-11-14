@@ -14,6 +14,7 @@ import {
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { isMissingFile } from "./is-missing-file.ts";
+import { migrateStateDirectory } from "./migrate-state-directory.ts";
 import { readServerUrl } from "./read-server-url.ts";
 
 /** The private connection record of one listening server. */
@@ -25,17 +26,20 @@ export interface ServerConnection {
   accessToken: string;
 }
 
-/** Creates or verifies the account-only runtime directory. */
-export function privateRuntime(directory: string): string {
-  const path = join(directory, "runtime");
-  mkdirSync(directory, { recursive: true });
-  if (process.platform === "win32") {
-    windowsPrivacy().create(path);
-  } else {
-    mkdirSync(path, { mode: 0o700, recursive: true });
-  }
-  checkPrivate(path, true);
-  return path;
+/** Selects verified runtime storage and defers migration while a legacy connection record remains. */
+export function privateRuntime(directory: string, isDiscovery = false): string {
+  return migrateStateDirectory(
+    directory,
+    (folder) => {
+      if (process.platform === "win32") {
+        windowsPrivacy().create(folder);
+      } else {
+        mkdirSync(folder, { mode: 0o700, recursive: true });
+      }
+      checkPrivate(folder, true);
+    },
+    isDiscovery,
+  );
 }
 
 /** Opens a new runtime file with verified account-only permissions. */
@@ -112,9 +116,9 @@ export function writePrivateRuntimeFile(path: string, content: string): void {
 
 /** Reads a bounded connection record only after verifying private ownership and permissions. */
 export function readServer(directory: string): ServerConnection | undefined {
-  const path = join(directory, "runtime", "server.json");
   let content: string | undefined;
   try {
+    const path = join(privateRuntime(directory, true), "server.json");
     content = readPrivateRuntimeFile(path);
   } catch (error) {
     if (isMissingFile(error)) {
@@ -159,7 +163,7 @@ export function readServer(directory: string): ServerConnection | undefined {
 /** Removes a stale record after an authenticated connection attempt fails to find a listener. */
 export function removeServer(directory: string, serverId: string): void {
   if (readServer(directory)?.serverId === serverId) {
-    unlinkSync(join(directory, "runtime", "server.json"));
+    unlinkSync(join(privateRuntime(directory, true), "server.json"));
   }
 }
 

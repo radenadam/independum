@@ -1,6 +1,6 @@
 # Phone access with device pairing
 
-- Status: accepted, with remaining checkpoint work in `docs/roadmap.md`
+- Status: accepted, with remaining checkpoint work in `docs/roadmap.md`, pairing storage moved to private state by [decision 0080](0080-private-state-folder.md)
 - Date: 2026-11-06
 
 ## Context

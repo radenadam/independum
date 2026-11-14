@@ -1,6 +1,6 @@
 # Read everywhere and write inside the project
 
-- Status: accepted, amends [decision 0063](0063-permissions-and-enforced-tool-access.md)
+- Status: accepted, amends [decision 0063](0063-permissions-and-enforced-tool-access.md), amended by [decision 0080](0080-private-state-folder.md) to deny secrets alone
 - Date: 2026-11-06
 
 ## Context

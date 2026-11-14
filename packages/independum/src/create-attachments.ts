@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
@@ -22,13 +22,15 @@ interface AttachmentManifest extends Omit<AttachmentSummary, "textBytes"> {
   createdAt: number;
 }
 
-/** The source references and offsets of attachment input in one canonical Pi message. */
+/** The source references and exact text locators captured before Pi input hooks. */
 export interface AttachmentPosition {
   id: string;
   isFile: boolean;
   start: number;
   end: number;
   imageIndex: number | null;
+  textPrefix?: string;
+  textHash?: string;
 }
 
 /** Prepared input whose originals remain available for a later handoff. */
@@ -61,7 +63,7 @@ export interface Attachments {
     model: Model<Api> | undefined,
     number?: number,
     retained?: string[],
-  ): Promise<AttachmentPreview>;
+  ): Promise<AttachmentPreview & { modelText: string }>;
   validate(
     ids: string[],
     files: string[],
@@ -390,6 +392,8 @@ export function createAttachments(directory: string): Attachments {
           start,
           end: result.text.length,
           imageIndex: preview.image === null ? null : result.images.length,
+          textPrefix: preview.modelText.slice(0, 64),
+          textHash: createHash("sha256").update(preview.modelText).digest("hex"),
         });
         if (preview.image !== null) {
           result.images.push({ type: "image", ...preview.image });

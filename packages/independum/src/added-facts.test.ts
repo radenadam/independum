@@ -132,7 +132,12 @@ test("linux permission facts name denied paths and temporary masking and remain 
     resource: { kind: "path", path: denied, scope: "tree", access: "read" },
   });
   const prompt = addedFactPrompt({ ...options, directory, settings });
-  expect(prompt).toContain(JSON.stringify([directory, denied]));
+  expect(prompt).toContain(JSON.stringify([join(directory, "private"), denied]));
+  expect(prompt).toContain(
+    "Independum's private folder stays denied even when access is approved.",
+  );
+  expect(prompt).toContain("Other state files are readable subject to permission rules.");
+  expect(prompt).toContain("even when an allow rule matches");
   expect(prompt).toContain("can read everywhere except denied paths");
   expect(prompt).toContain(
     "On Linux, bubblewrap shows each denied folder as an empty private mount.",
@@ -147,7 +152,7 @@ test("linux permission facts name denied paths and temporary masking and remain 
     changeTexts(addedFactTexts, {}, { "facts.permissions": "Denied folders: {deniedPaths}." }) ??
     {};
   expect(addedFactPrompt({ ...options, directory, settings })).toContain(
-    `Denied folders: ${JSON.stringify([directory, denied])}.`,
+    `Denied folders: ${JSON.stringify([join(directory, "private"), denied])}.`,
   );
   settings.disabledFacts = ["facts.permissions"];
   expect(addedFactPrompt({ ...options, directory, settings })).not.toContain("Denied folders:");

@@ -1,5 +1,11 @@
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { fauxAssistantMessage, fauxProvider, fauxToolCall } from "@earendil-works/pi-ai";
-import type { ModelRuntime, SessionBeforeCompactEvent } from "@earendil-works/pi-coding-agent";
+import {
+  type ModelRuntime,
+  type SessionBeforeCompactEvent,
+  SessionManager,
+} from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
 import { builtInSettings } from "./read-settings-change.ts";
 import { type SummaryRequest, summarizeContext } from "./summarize-context.ts";
@@ -62,9 +68,17 @@ test("summary payload hooks replace the captured body and a failed hook sends no
     captures.push(request);
   }
   function invokeHook(
-    transform: NonNullable<Parameters<typeof summarizeContext>[5]>,
+    transform: NonNullable<Parameters<typeof summarizeContext>[6]>,
   ): ReturnType<typeof summarizeContext> {
-    return summarizeContext(preparation(), models, model, configuration, capture, transform);
+    return summarizeContext(
+      preparation(),
+      models,
+      model,
+      configuration,
+      "state",
+      capture,
+      transform,
+    );
   }
   await invokeHook(async () => ({ rewritten: true }));
   expect(sent).toEqual([{ rewritten: true }]);
@@ -94,6 +108,7 @@ test("one replacement summary request includes both prepared arrays prior summar
     models,
     model,
     structuredClone(builtInSettings),
+    "state",
     (request) => captured.push(request),
   );
   expect(complete).toHaveBeenCalledOnce();
@@ -125,7 +140,7 @@ test("summary switches omit owned texts and file data without a replacement prom
     "summaryImageLabels",
   );
   const captures: SummaryRequest[] = [];
-  await summarizeContext(preparation(), models, model, settings, (request) =>
+  await summarizeContext(preparation(), models, model, settings, "state", (request) =>
     captures.push(request),
   );
   expect(captures[0]?.enabledTextIds).toEqual([]);
@@ -152,10 +167,72 @@ test("failed partial empty tool and aborted summaries never return a checkpoint"
     } as unknown as ModelRuntime;
     const captures: SummaryRequest[] = [];
     await expect(
-      summarizeContext(preparation(), models, model, structuredClone(builtInSettings), (request) =>
-        captures.push(request),
+      summarizeContext(
+        preparation(),
+        models,
+        model,
+        structuredClone(builtInSettings),
+        "state",
+        (request) => captures.push(request),
       ),
     ).rejects.toThrow("complete, nonempty");
     expect(captures[0]?.error).toContain("complete, nonempty");
   }
+});
+
+test("summary history and split prefix project owned attachment paths before virtual routing", async () => {
+  const directory = join(process.cwd(), "state");
+  const model = summaryModel();
+  const event = preparation();
+  const manager = SessionManager.inMemory(process.cwd());
+  const ids = [randomUUID(), randomUUID()];
+  for (const id of ids) {
+    manager.appendCustomEntry("independum-input", { version: 1, attachmentIds: [id] });
+    manager.appendMessage({
+      role: "user",
+      content: [
+        { type: "text", text: JSON.stringify(join(`${directory}-attachments`, id, "content")) },
+      ],
+      timestamp: 1,
+    });
+  }
+  event.branchEntries = manager.getBranch();
+  const messages = manager.buildSessionContext().messages;
+  event.preparation.messagesToSummarize = messages.slice(0, 1);
+  event.preparation.turnPrefixMessages = messages.slice(1);
+  const before = structuredClone({
+    preparation: event.preparation,
+    branchEntries: event.branchEntries,
+  });
+  const resolve = vi.fn(async (_model, _messages) => ({ model }));
+  const complete = vi.fn(async (_model, _input) => fauxAssistantMessage("Summary."));
+  const models = {
+    getPhysicalModel: () => undefined,
+    resolveModel: resolve,
+    completeSimple: complete,
+  } as unknown as ModelRuntime;
+  const captures: SummaryRequest[] = [];
+  await summarizeContext(
+    event,
+    models,
+    model,
+    structuredClone(builtInSettings),
+    directory,
+    (request) => captures.push(request),
+  );
+  const expected = ids.map((id) => ({
+    role: "user",
+    content: [
+      { type: "text", text: JSON.stringify(join(directory, "attachments", id, "content")) },
+    ],
+    timestamp: 1,
+  }));
+  expect(captures[0]?.input).toMatchObject({
+    messages: expected.slice(0, 1),
+    turnPrefixMessages: expected.slice(1),
+  });
+  expect(resolve).toHaveBeenCalledOnce();
+  expect(complete).toHaveBeenCalledOnce();
+  expect(resolve.mock.calls[0]?.[1]).toEqual(complete.mock.calls[0]?.[1].messages);
+  expect({ preparation: event.preparation, branchEntries: event.branchEntries }).toEqual(before);
 });

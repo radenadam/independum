@@ -8,6 +8,7 @@ import {
 import type { Settings } from "./api-types.ts";
 import { applyModelOverrides } from "./model-settings.ts";
 import { createModelTexts, defineText, type ModelText } from "./model-texts.ts";
+import { projectAttachmentPaths } from "./project-attachment-paths.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 
 const summarySystem: ModelText = defineText({
@@ -70,6 +71,7 @@ export async function summarizeContext(
   models: ModelRuntime,
   selected: NonNullable<ReturnType<ModelRuntime["getModel"]>>,
   settings: Settings,
+  directory: string,
   capture: (request: SummaryRequest) => void,
   transformPayload?: (payload: unknown) => Promise<unknown>,
 ): Promise<CompactionResult> {
@@ -112,10 +114,24 @@ export async function summarizeContext(
   const input = dataOf({
     previousSummary: event.preparation.previousSummary ?? null,
     messages: convertToLlm(
-      projectContextMessages(event.preparation.messagesToSummarize, settings.context),
+      projectContextMessages(
+        projectAttachmentPaths(
+          event.preparation.messagesToSummarize,
+          event.branchEntries,
+          directory,
+        ),
+        settings.context,
+      ),
     ),
     turnPrefixMessages: convertToLlm(
-      projectContextMessages(event.preparation.turnPrefixMessages, settings.context),
+      projectContextMessages(
+        projectAttachmentPaths(
+          event.preparation.turnPrefixMessages,
+          event.branchEntries,
+          directory,
+        ),
+        settings.context,
+      ),
     ),
     ...(disabled.includes("summaryFiles") ? {} : { fileOperations: event.preparation.fileOps }),
     ...(event.customInstructions === undefined ? {} : { instructions: event.customInstructions }),

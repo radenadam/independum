@@ -142,7 +142,11 @@ function PreparedInput({ preview }: { preview: AttachmentPreview }): ReactElemen
   return (
     <>
       {preview.notice === null ? null : <PlaceNote>{preview.notice}</PlaceNote>}
-      {preview.modelText === "" ? (
+      {preview.modelText === null ? (
+        <PlaceNote>
+          The attachment's exact model text cannot be located in this saved message.
+        </PlaceNote>
+      ) : preview.modelText === "" ? (
         <PlaceNote>No attachment text is included.</PlaceNote>
       ) : (
         <CodeWell code={preview.modelText} copyLabel="Copy attachment model input" />

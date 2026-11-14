@@ -63,6 +63,27 @@ function fixture(): {
   };
 }
 
+test("context reads ordinary state but denies private state and asks before allowed state writes", async () => {
+  const { permissions, options, policy } = fixture();
+  const path = join(options.userDirectory, "profiles", "default", "instructions.md");
+  policy.rules.push({
+    id: "allow-state",
+    project: "*",
+    effect: "allow",
+    resource: {
+      kind: "path",
+      path: options.userDirectory,
+      scope: "tree",
+      access: "write",
+    },
+  });
+  expect(permissions.check(path, "file", "read")).toBe(true);
+  expect(permissions.check(path, "file", "write")).toBe(false);
+  expect(() =>
+    permissions.check(join(options.userDirectory, "private", "sentinel.txt"), "file", "read"),
+  ).toThrow("denies access");
+});
+
 test("external command sources remain unread until the shared approval service allows their exact read", async () => {
   const { options, permissions, approvals, external } = fixture();
   const source = join(external, "review.md");

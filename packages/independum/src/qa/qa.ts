@@ -64,11 +64,18 @@ try {
   const browserOptions =
     preview?.certificatePin === undefined ? {} : { certificatePin: preview.certificatePin };
   browser = await connectBrowser(options.browser, directory, browserOptions);
-  await runScenario(browser, url, scenario.steps, directory, async (name) => {
-    const client = await connectBrowser(options.browser, directory, browserOptions);
-    clients.set(name, client);
-    return client;
-  });
+  await runScenario(
+    browser,
+    url,
+    scenario.steps,
+    directory,
+    async (name) => {
+      const client = await connectBrowser(options.browser, directory, browserOptions);
+      clients.set(name, client);
+      return client;
+    },
+    preview?.restart,
+  );
   for (const client of clients.values()) {
     await client.close();
   }

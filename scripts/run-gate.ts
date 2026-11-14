@@ -219,7 +219,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
         `Deterministic test availability: ${JSON.stringify(receipt.testAvailability)}. Only allowlisted Unix-only or macOS-only tests on Windows with exact ciPlatforms may substitute CI coverage before merge. Other required skips remain missing capability evidence and block passing receipts. The separately validated browser regressions replace only their own opt-in skips.`,
         "Required CI runs pnpm check on Linux, macOS, and Windows before GitHub merges, and its Linux and macOS runners execute the native sandbox tests. Native behavior of the gate platform needs local evidence. Native behavior of another platform is established by that CI before merge, so its absence here is not missing evidence.",
         role === "gate"
-          ? `Current revision-bound real-browser regression evidence: ${join(directory, "browser-regressions.json")}. Inspect its command, log, and report. Both named regressions must execute and pass. This execution supersedes their opt-in skips in the deterministic run.`
+          ? `Current revision-bound real-browser regression evidence: ${join(directory, "browser-regressions.json")}. Inspect its command, log, and report. Every named regression must execute and pass. This execution supersedes their opt-in skips in the deterministic run.`
           : "This standalone command does not run gate browser regressions.",
       ].join("\n\n");
       writeFileSync(join(directory, `${currentRole}-prompt.txt`), prompt);

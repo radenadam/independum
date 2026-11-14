@@ -11,6 +11,7 @@ export async function runScenario(
   steps: QaStep[],
   directory: string,
   createClient?: (name: string) => Promise<BrowserConnection>,
+  restartServer?: () => Promise<void>,
 ): Promise<void> {
   let client = browser;
   const clients = new Map<string, BrowserConnection>([["owner", browser]]);
@@ -51,19 +52,44 @@ export async function runScenario(
       if (step.closePage) {
         await client.page.goto("about:blank");
       }
+      if (step.restart) {
+        if (restartServer === undefined) {
+          throw new Error("Restarting requires a preview that QA starts.");
+        }
+        for (const open of clients.values()) {
+          open.expectDisconnection(true);
+        }
+        await restartServer();
+      }
       if (step.waitFor !== undefined) {
         try {
-          const condition = await client.page.waitForFunction(
-            `(() => { try { const condition = (${step.waitFor.condition}); const value = typeof condition === 'function' ? condition() : condition; return value && !(typeof value === 'object' && Object.values(value).some(part => part === false)) ? value : false; } catch { return false; } })()`,
-            undefined,
-            {
-              timeout: step.waitFor.timeoutMs,
-            },
-          );
-          try {
-            await record(index, await condition.jsonValue());
-          } finally {
+          const deadline = Date.now() + step.waitFor.timeoutMs;
+          for (;;) {
+            const condition = await client.page.waitForFunction(
+              `(() => { try { const condition = (${step.waitFor.condition}); const value = typeof condition === 'function' ? condition() : condition; return value && !(typeof value === 'object' && Object.values(value).some(part => part === false)) ? value : false; } catch { return false; } })()`,
+              undefined,
+              {
+                timeout: Math.max(1, deadline - Date.now()),
+              },
+            );
+            let value: unknown;
+            try {
+              value = await condition.jsonValue();
+            } catch (error) {
+              // A page that navigates while its checks are read, such as the reload of the
+              // development client after a restart, takes its checks again in the new page.
+              if (
+                error instanceof Error &&
+                error.message.includes("Execution context was destroyed") &&
+                Date.now() < deadline
+              ) {
+                continue;
+              }
+              throw error;
+            }
             await condition.dispose();
+            await record(index, value);
+            break;
           }
         } catch (error) {
           throw new Error(step.waitFor.message, { cause: error });
@@ -119,6 +145,12 @@ export async function runScenario(
     } catch (error) {
       await screenshot("failure").catch(() => undefined);
       throw new Error(`Scenario step ${index + 1} fails.`, { cause: error });
+    } finally {
+      if (step.restart) {
+        for (const open of clients.values()) {
+          open.expectDisconnection(false);
+        }
+      }
     }
   }
 

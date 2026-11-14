@@ -36,9 +36,14 @@ export function previewOptions(
     fixture !== "chats" &&
     fixture !== "compacted" &&
     fixture !== "long-history" &&
-    fixture !== "hooks"
+    fixture !== "hooks" &&
+    fixture !== "user-profile" &&
+    fixture !== "legacy-state" &&
+    fixture !== "legacy-long-history"
   ) {
-    throw new Error("The fixture must be empty, chats, compacted, hooks, or long-history.");
+    throw new Error(
+      "The fixture must be empty, chats, compacted, hooks, user-profile, legacy-state, legacy-long-history, or long-history.",
+    );
   }
   const port = Number(values.port);
   if (!/^\d+$/.test(values.port) || !Number.isInteger(port) || port < 0 || port > 65535) {

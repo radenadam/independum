@@ -48,31 +48,38 @@ test("compacted fixture retains recent turns and summarizes older turns through 
   }
 });
 
-test("long history preserves hundreds of requests and four compaction boundaries through pi", async () => {
-  const home = await mkdtemp(join(tmpdir(), "independum-long-history-test-"));
-  const sessions = join(home, ".independum", "sessions");
-  try {
-    const project = await createPreviewFixture(home, "long-history");
-    const [saved] = await SessionManager.list(project, sessions);
-    if (saved === undefined) {
-      throw new Error("The long history chat is missing.");
+test.each(["long-history", "legacy-long-history"] as const)(
+  "%s preserves hundreds of requests and four compaction boundaries through pi",
+  async (fixture) => {
+    const home = await mkdtemp(join(tmpdir(), "independum-long-history-test-"));
+    const sessions = join(home, ".independum", "sessions");
+    try {
+      const project = await createPreviewFixture(home, fixture);
+      const [saved] = await SessionManager.list(project, sessions);
+      if (saved === undefined) {
+        throw new Error("The long history chat is missing.");
+      }
+      const manager = SessionManager.open(saved.path, sessions);
+      const { requests } = listRequests(manager.getBranch());
+      expect(requests).toHaveLength(240);
+      expect(requests.filter((request) => request.isSummarized)).toHaveLength(195);
+      expect(
+        requests
+          .flatMap((request) => request.changes)
+          .filter((change) => change.kind === "compaction"),
+      ).toMatchObject([45, 95, 145, 195].map((summarizedRequests) => ({ summarizedRequests })));
+      const context = manager.buildSessionContext();
+      const users = context.messages.filter((message) => message.role === "user");
+      expect(users).toHaveLength(45);
+      expect(users[0]?.content).toBe("History request 196.");
+      expect(users.at(-1)?.content).toBe("History request 240.");
+      expect(JSON.stringify(context.messages)).toContain("History summary 4.");
+      const first = manager.getEntries().find((entry) => entry.type === "message");
+      expect(JSON.stringify(first)).toContain(
+        fixture === "long-history" ? "History request 1." : ".independum-attachments",
+      );
+    } finally {
+      await rm(home, { recursive: true, force: true });
     }
-    const manager = SessionManager.open(saved.path, sessions);
-    const { requests } = listRequests(manager.getBranch());
-    expect(requests).toHaveLength(240);
-    expect(requests.filter((request) => request.isSummarized)).toHaveLength(195);
-    expect(
-      requests
-        .flatMap((request) => request.changes)
-        .filter((change) => change.kind === "compaction"),
-    ).toMatchObject([45, 95, 145, 195].map((summarizedRequests) => ({ summarizedRequests })));
-    const context = manager.buildSessionContext();
-    const users = context.messages.filter((message) => message.role === "user");
-    expect(users).toHaveLength(45);
-    expect(users[0]?.content).toBe("History request 196.");
-    expect(users.at(-1)?.content).toBe("History request 240.");
-    expect(JSON.stringify(context.messages)).toContain("History summary 4.");
-  } finally {
-    await rm(home, { recursive: true, force: true });
-  }
-});
+  },
+);

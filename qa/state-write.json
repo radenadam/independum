@@ -1,0 +1,262 @@
+{
+  "fixture": "user-profile",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the state note."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "shot": "state-approval-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { stepWaits: !!buttons.findLast(button => button.textContent.startsWith('state-note-1.txt') && button.textContent.includes('Needs approval')), saysWhy: isShown(reason), namesStateNotes: !!card && /[\\\\/]\\.independum[\\\\/]notes$/m.test(card.innerText) }; })()",
+        "message": "The expected checks do not become true: stepWaits, saysWhy, namesStateNotes.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "state-choices-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { denyShown: isShown(deny), allowOnceShown: isShown(allow) }; })()",
+        "message": "The expected checks do not become true: denyShown, allowOnceShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'All access for this command')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'Matching saved rules')"
+    },
+    {
+      "shot": "state-rule-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const rules = [...document.querySelectorAll('main pre, main code')].findLast(element => element.textContent.includes('\"stateNotes\"')); return { allowRuleShown: isShown(rules), allowRuleMatches: !!rules && /\"effect\": \"allow\"/.test(rules.textContent) && /\"access\": \"write\"/.test(rules.textContent) && /\\.independum\\/notes\"/.test(rules.textContent) }; })()",
+        "message": "The expected checks do not become true: allowRuleShown, allowRuleMatches.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "state-rule-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const rules = [...document.querySelectorAll('main pre, main code')].findLast(element => element.textContent.includes('\"stateNotes\"')); return { allowRuleShown: isShown(rules) }; })()",
+        "message": "The expected checks do not become true: allowRuleShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'Allow once')"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); return { replyComplete: document.querySelector('main').innerText.includes('State note 1 was written into the state folder.') && !document.querySelector('main button[aria-label=Stop]'), noteCreated: !!buttonOf('state-note-1.txt', 'New, 2 lines'), approvalGone: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: replyComplete, noteCreated, approvalGone.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the state note."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "shot": "state-approval-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { stepWaits: !!buttons.findLast(button => button.textContent.startsWith('state-note-2.txt') && button.textContent.includes('Needs approval')), saysWhy: isShown(reason), namesStateNotes: !!card && /[\\\\/]\\.independum[\\\\/]notes$/m.test(card.innerText) }; })()",
+        "message": "The expected checks do not become true: stepWaits, saysWhy, namesStateNotes.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "state-choices-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { denyShown: isShown(deny), allowOnceShown: isShown(allow) }; })()",
+        "message": "The expected checks do not become true: denyShown, allowOnceShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'Deny')"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); return { replyComplete: document.querySelector('main').innerText.includes('State note 2 was not written.') && !document.querySelector('main button[aria-label=Stop]'), noteDenied: !!buttonOf('state-note-2.txt', 'Denied'), approvalGone: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: replyComplete, noteDenied, approvalGone.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith('state-note-2.txt'))"
+    },
+    {
+      "shot": "state-denied-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const denial = outputOf('The user denied this call.'); return { deniedShown: isShown(denial), denialExact: denial?.textContent === 'The user denied this call. No tool operation ran.', stepDenied: !!buttonOf('state-note-2.txt', 'Denied') }; })()",
+        "message": "The expected checks do not become true: deniedShown, denialExact, stepDenied.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "shot": "state-denied-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const denial = outputOf('The user denied this call.'); return { deniedShown: isShown(denial), denialExact: denial?.textContent === 'The user denied this call. No tool operation ran.', stepDenied: !!buttonOf('state-note-2.txt', 'Denied') }; })()",
+        "message": "The expected checks do not become true: deniedShown, denialExact, stepDenied.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false })",
+        "message": "The expected checks do not become true: drawerOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the state note."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "shot": "state-approval-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { stepWaits: !!buttons.findLast(button => button.textContent.startsWith('state-note-3.txt') && button.textContent.includes('Needs approval')), saysWhy: isShown(reason), namesStateNotes: !!card && /[\\\\/]\\.independum[\\\\/]notes$/m.test(card.innerText), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: stepWaits, saysWhy, namesStateNotes, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "state-choices-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { denyShown: isShown(deny), allowOnceShown: isShown(allow), phoneFits: document.documentElement.scrollWidth <= 360, choicesFit: !!card && [...card.querySelectorAll('button')].every(button => button.getBoundingClientRect().right <= 360) }; })()",
+        "message": "The expected checks do not become true: denyShown, allowOnceShown, phoneFits, choicesFit.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'Allow once')"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); return { replyComplete: document.querySelector('main').innerText.includes('State note 3 was written into the state folder.') && !document.querySelector('main button[aria-label=Stop]'), noteCreated: !!buttonOf('state-note-3.txt', 'New, 2 lines'), approvalGone: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: replyComplete, noteCreated, approvalGone.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the state note."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "shot": "state-approval-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { stepWaits: !!buttons.findLast(button => button.textContent.startsWith('state-note-4.txt') && button.textContent.includes('Needs approval')), saysWhy: isShown(reason), namesStateNotes: !!card && /[\\\\/]\\.independum[\\\\/]notes$/m.test(card.innerText), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: stepWaits, saysWhy, namesStateNotes, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "state-choices-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttons = [...document.querySelectorAll('main button')]; const allow = buttons.findLast(button => button.textContent.trim() === 'Allow once'); const deny = buttons.findLast(button => button.textContent.trim() === 'Deny'); const card = allow?.closest('[aria-busy]'); const reason = [...(card?.querySelectorAll('p') ?? [])].find(paragraph => paragraph.textContent === \"This access can change Independum's state or saved project settings.\"); return { denyShown: isShown(deny), allowOnceShown: isShown(allow), phoneFits: document.documentElement.scrollWidth <= 360, choicesFit: !!card && [...card.querySelectorAll('button')].every(button => button.getBoundingClientRect().right <= 360) }; })()",
+        "message": "The expected checks do not become true: denyShown, allowOnceShown, phoneFits, choicesFit.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === 'Deny')"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); return { replyComplete: document.querySelector('main').innerText.includes('State note 4 was not written.') && !document.querySelector('main button[aria-label=Stop]'), noteDenied: !!buttonOf('state-note-4.txt', 'Denied'), approvalGone: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: replyComplete, noteDenied, approvalGone.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith('state-note-4.txt'))"
+    },
+    {
+      "shot": "state-denied-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const denial = outputOf('The user denied this call.'); return { deniedShown: isShown(denial), denialExact: denial?.textContent === 'The user denied this call. No tool operation ran.', stepDenied: !!buttonOf('state-note-4.txt', 'Denied'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: deniedShown, denialExact, stepDenied, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "shot": "state-denied-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const buttonOf = (start, status) => [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(start) && button.textContent.includes(status)); const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const denial = outputOf('The user denied this call.'); return { deniedShown: isShown(denial), denialExact: denial?.textContent === 'The user denied this call. No tool operation ran.', stepDenied: !!buttonOf('state-note-4.txt', 'Denied'), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: deniedShown, denialExact, stepDenied, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

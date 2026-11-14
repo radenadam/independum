@@ -603,7 +603,7 @@ export interface AttachmentSummary {
 export interface AttachmentPreview extends AttachmentSummary {
   text?: string;
   isFile: boolean;
-  modelText: string;
+  modelText: string | null;
   image: ToolImage | null;
   notice: string | null;
   error: string | null;

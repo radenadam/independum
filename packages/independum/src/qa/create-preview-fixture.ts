@@ -1,10 +1,28 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { once } from "node:events";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
+import { createServer } from "node:net";
 import { join } from "node:path";
-import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import type { ProfileDocument, ProfileReference } from "../api-types.ts";
+import { createAttachments } from "../create-attachments.ts";
 import { createProfileStore } from "../create-profile-store.ts";
+import { createModelTexts } from "../model-texts.ts";
+import { builtInPermissions, serializePermissionPath } from "../permission-policy.ts";
+import { privateRuntime, writePrivateRuntimeFile } from "../private-runtime.ts";
+import { builtInAttachments } from "../read-attachment-settings.ts";
 
-export type PreviewFixture = "empty" | "chats" | "compacted" | "hooks" | "long-history";
+export type PreviewFixture =
+  | "empty"
+  | "chats"
+  | "compacted"
+  | "hooks"
+  | "user-profile"
+  | "legacy-state"
+  | "legacy-long-history"
+  | "long-history";
 
 /** Creates saved chats through Pi in a new preview home. */
 export async function createPreviewFixture(home: string, fixture: PreviewFixture): Promise<string> {
@@ -15,55 +33,95 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
   if (fixture === "empty") {
     return project;
   }
-  if (fixture === "chats" || fixture === "hooks") {
+  if (fixture === "chats" || fixture === "hooks" || fixture === "user-profile") {
     if (fixture === "hooks") {
-      const profileFolder = join(project, ".independum", "profiles", "hooks");
-      await mkdir(profileFolder, { recursive: true });
-      await writeFile(
-        join(profileFolder, "observe.ts"),
-        'for await (const chunk of process.stdin) { void chunk; }\nprocess.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));\n',
-      );
-      await writeFile(
-        join(profileFolder, "profile.json"),
-        JSON.stringify(
-          {
-            formatVersion: 1,
-            name: "Hook workflows",
-            settings: {
-              hooks: [
-                {
-                  id: "observeRequest",
-                  event: "before_provider_request",
-                  mode: "observe",
-                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+      await selectProfile(
+        home,
+        project,
+        { scope: "project", id: "hooks" },
+        {
+          formatVersion: 1,
+          name: "Hook workflows",
+          settings: {
+            hooks: [
+              {
+                id: "observeRequest",
+                event: "before_provider_request",
+                mode: "observe",
+                run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+              },
+              {
+                id: "guardCommands",
+                event: "tool_call",
+                mode: "transform",
+                match: { toolNames: ["Shell"] },
+                run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+                texts: {
+                  blocked: {
+                    label: "When the workflow blocks a command",
+                    builtIn: "The workflow blocks this command.",
+                    slots: {},
+                  },
                 },
+              },
+            ],
+          },
+        },
+        {
+          "observe.ts":
+            'for await (const chunk of process.stdin) { void chunk; }\nprocess.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));\n',
+        },
+      );
+    }
+    if (fixture === "user-profile") {
+      const state = join(home, ".independum");
+      await mkdir(join(state, "notes"));
+      // The script names the folder that it runs in, so its saved standard error shows that it
+      // runs from the profile folder in the state. It waits two seconds before it answers, so the
+      // running hook stays in view long enough for a person, and a scenario, to see it.
+      await selectProfile(
+        home,
+        project,
+        { scope: "user", id: "user-workflows" },
+        {
+          formatVersion: 1,
+          name: "User workflows",
+          settings: {
+            permissions: {
+              ...builtInPermissions,
+              rules: [
                 {
-                  id: "guardCommands",
-                  event: "tool_call",
-                  mode: "transform",
-                  match: { toolNames: ["Shell"] },
-                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
-                  texts: {
-                    blocked: {
-                      label: "When the workflow blocks a command",
-                      builtIn: "The workflow blocks this command.",
-                      slots: {},
-                    },
+                  id: "stateNotes",
+                  effect: "allow",
+                  project: "*",
+                  resource: {
+                    kind: "path",
+                    path: serializePermissionPath(join(state, "notes")),
+                    scope: "tree",
+                    access: "write",
                   },
                 },
               ],
             },
+            hooks: [
+              {
+                id: "observeShell",
+                event: "tool_call",
+                mode: "observe",
+                match: { toolNames: ["Shell"] },
+                run: {
+                  command: [process.execPath, "observe-shell.ts"],
+                  workingDirectory: "source",
+                },
+              },
+            ],
           },
-          null,
-          2,
-        ),
+        },
+        {
+          "observe-shell.ts":
+            'let input = "";\nfor await (const chunk of process.stdin) {\n  input += chunk;\n}\nconst event = JSON.parse(input);\nprocess.stderr.write("observeShell saw a " + event.data.toolName + " call from this folder:\\n" + process.cwd() + "\\n");\nsetTimeout(() => process.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" })), 2000);\n',
+        },
       );
-      await writeFile(
-        join(project, ".independum", "settings.json"),
-        JSON.stringify({ formatVersion: 1, profile: { scope: "project", id: "hooks" } }, null, 2),
-      );
-      const profiles = await createProfileStore(join(home, ".independum"), [project], []);
-      profiles.close();
     }
     const skills = join(project, ".agents", "skills", "review");
     const commands = join(project, ".independum", "commands");
@@ -93,30 +151,15 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     return project;
   }
   const manager = createSession();
-  if (fixture === "long-history") {
-    const turns: string[] = [];
-    for (let request = 1; request <= 240; request += 1) {
-      turns.push(
-        appendTurn(
-          manager,
-          `History request ${request}.`,
-          `Reply ${request}. ${"The saved work remains available for inspection. ".repeat(8)}`,
-          2000 + (request % 50) * 900,
-        ),
-      );
-      if (request % 50 === 0 && request <= 200) {
-        const firstKept = turns[request - 5];
-        if (firstKept === undefined) {
-          throw new Error("The long history has no retained message.");
-        }
-        manager.appendCompaction(
-          `History summary ${request / 50}. Requests 1 to ${request - 5} are summarized. Continue from request ${request - 4}.`,
-          firstKept,
-          48000,
-        );
-        manager.appendThinkingLevelChange(request % 100 === 0 ? "high" : "medium");
-      }
+  if (fixture === "legacy-state" || fixture === "legacy-long-history") {
+    const attachmentTurn = await createLegacyState(home, manager);
+    if (fixture === "legacy-long-history") {
+      appendLongHistory(manager, [attachmentTurn]);
     }
+    return project;
+  }
+  if (fixture === "long-history") {
+    appendLongHistory(manager, []);
     return project;
   }
   const ids: string[] = [];
@@ -154,6 +197,112 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
   }
 }
 
+// Before decision 0080, logins sat at the top of the state folder, the server connection and phone
+// pairings sat in runtime, and attachments sat in a folder beside the state folder. Every secret
+// here is a placeholder. The saved chat holds a file attachment from that former store, so its
+// message gives the model a path inside it. The id of that message turn comes back.
+async function createLegacyState(home: string, manager: SessionManager): Promise<string> {
+  const state = join(home, ".independum");
+  // The record names a port where no server listens, so startup finds it stale and removes it.
+  const reservation = createServer().listen(0, "127.0.0.1");
+  await once(reservation, "listening");
+  const { port } = reservation.address() as AddressInfo;
+  reservation.close();
+  // The private folder gets the account-only permissions that runtime had, then its former name.
+  const runtime = privateRuntime(state);
+  writePrivateRuntimeFile(
+    join(runtime, "server.json"),
+    JSON.stringify({
+      version: 1,
+      serverId: randomUUID(),
+      pid: process.pid,
+      url: `http://127.0.0.1:${port}`,
+      accessToken: "placeholder-".repeat(4),
+    }),
+  );
+  writePrivateRuntimeFile(
+    join(runtime, "phones.json"),
+    JSON.stringify([
+      {
+        id: randomUUID(),
+        name: "Legacy phone",
+        pairedAt: 1000,
+        lastSeenAt: 1000,
+        credentialHash: createHash("sha256").update("placeholder phone credential").digest("hex"),
+      },
+    ]),
+  );
+  await rename(runtime, join(state, "runtime"));
+  await writeFile(join(state, "auth.json"), "{}\n");
+  await writeFile(join(state, "models.json"), `${JSON.stringify({ providers: {} })}\n`);
+  const chatId = manager.getSessionId();
+  const attachments = createAttachments(join(home, ".independum-attachments"));
+  const text = "Summarize the saved notes.";
+  const attachment = await attachments.upload(
+    chatId,
+    "legacy-notes.txt",
+    "text/plain",
+    new Response("Legacy note one.\nLegacy note two.\n").body,
+    builtInAttachments.maxFileBytes,
+  );
+  const prepared = await attachments.prepare(
+    text,
+    [attachment.id],
+    [attachment.id],
+    chatId,
+    builtInAttachments,
+    createModelTexts(() => ({})),
+    fauxProvider().getModel(),
+  );
+  manager.appendCustomEntry("independum-input", {
+    version: 1,
+    inputId: randomUUID(),
+    delivery: "queue",
+    isSteered: false,
+    text,
+    attachmentIds: [attachment.id],
+    fileAttachmentIds: [attachment.id],
+    attachments: [attachment],
+    attachmentPositions: prepared.positions.map(({ id, isFile, start, end, imageIndex }) => ({
+      id,
+      isFile,
+      start,
+      end,
+      imageIndex,
+    })),
+    receivesImages: false,
+  });
+  return appendTurn(manager, prepared.text, "The saved notes list two legacy items.", 300);
+}
+
+// Each compaction keeps the five turns before it, so the history after the given turns runs to
+// request 240 with summaries after requests 50, 100, 150, and 200.
+/** Appends numbered requests with long replies after the given turns. */
+function appendLongHistory(manager: SessionManager, turns: string[]): void {
+  for (let request = turns.length + 1; request <= 240; request += 1) {
+    turns.push(
+      appendTurn(
+        manager,
+        `History request ${request}.`,
+        `Reply ${request}. ${"The saved work remains available for inspection. ".repeat(8)}`,
+        2000 + (request % 50) * 900,
+      ),
+    );
+    if (request % 50 === 0 && request <= 200) {
+      const firstKept = turns[request - 5];
+      if (firstKept === undefined) {
+        throw new Error("The long history has no retained message.");
+      }
+      manager.appendCompaction(
+        `History summary ${request / 50}. Requests 1 to ${request - 5} are summarized. Continue from request ${request - 4}.`,
+        firstKept,
+        48000,
+      );
+      manager.appendThinkingLevelChange(request % 100 === 0 ? "high" : "medium");
+    }
+  }
+}
+
 function appendTurn(
   manager: SessionManager,
   question: string,
@@ -174,4 +323,33 @@ function appendTurn(
   };
   manager.appendMessage(message);
   return id;
+}
+
+// The project default selects the profile, so the saved chats of the project use it as well.
+/** Saves a profile and its scripts in the folder of its scope and makes it the project default. */
+async function selectProfile(
+  home: string,
+  project: string,
+  reference: ProfileReference,
+  profile: ProfileDocument,
+  scripts: Record<string, string>,
+): Promise<void> {
+  const folder = join(
+    reference.scope === "user" ? home : project,
+    ".independum",
+    "profiles",
+    reference.id,
+  );
+  await mkdir(folder, { recursive: true });
+  for (const [name, content] of Object.entries(scripts)) {
+    await writeFile(join(folder, name), content);
+  }
+  await writeFile(join(folder, "profile.json"), JSON.stringify(profile, null, 2));
+  await mkdir(join(project, ".independum"), { recursive: true });
+  await writeFile(
+    join(project, ".independum", "settings.json"),
+    JSON.stringify({ formatVersion: 1, profile: reference }, null, 2),
+  );
+  const profiles = await createProfileStore(join(home, ".independum"), [project], []);
+  profiles.close();
 }

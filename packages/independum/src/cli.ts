@@ -1,7 +1,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { connectHeadless } from "./connect-headless.ts";
 import { createAccessToken } from "./create-access-token.ts";
+import { HeadlessError } from "./headless-types.ts";
 import { runHeadless } from "./run-headless.ts";
 
 const port = 4870;
@@ -60,6 +62,19 @@ if (process.argv.length > 2) {
 }
 
 async function start(isDevelopment: boolean): Promise<void> {
+  try {
+    await connectHeadless({
+      directory,
+      folder: process.env.INIT_CWD ?? process.cwd(),
+      start: "never",
+      signal: new AbortController().signal,
+    });
+    throw new Error("An Independum server is already running.");
+  } catch (error) {
+    if (!(error instanceof HeadlessError) || error.code !== "serverMissing") {
+      throw error;
+    }
+  }
   const [{ createChat }, { createModelRuntime }, { startAppServer }] = await Promise.all([
     import("./create-chat.ts"),
     import("./create-model-runtime.ts"),

@@ -119,11 +119,12 @@ export function ApprovalActions({ approval }: { approval: ApprovalRequest }): Re
           {!approval.readonlyPaths?.length ? null : (
             <>
               <PlaceNote>
-                These settings folders stay readable, and the command cannot change them.
+                These protected folders stay readable outside denied paths. The command cannot
+                change them.
               </PlaceNote>
               <CodeWell
                 code={approval.readonlyPaths.join("\n")}
-                copyLabel="Copy protected settings folders"
+                copyLabel="Copy protected folders"
               />
             </>
           )}

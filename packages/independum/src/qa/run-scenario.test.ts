@@ -96,6 +96,39 @@ test("isolated clients do not put invitation urls into named values", async () =
   });
 });
 
+test("a restart step expects disconnection only until its own checks end", async () => {
+  await inScenario(async (directory) => {
+    const calls: string[] = [];
+    await runScenario(
+      fakeBrowser(true, calls),
+      "http://127.0.0.1",
+      [{ restart: true, run: "reconnected()" }, { run: "check()" }],
+      directory,
+      undefined,
+      async () => {
+        calls.push("restart");
+      },
+    );
+    expect(calls).toEqual([
+      "expect disconnection true",
+      "restart",
+      "evaluate",
+      "expect disconnection false",
+      "evaluate",
+    ]);
+  });
+});
+
+test("a restart step fails without a preview that qa starts", async () => {
+  await inScenario(async (directory) => {
+    await expect(
+      runScenario(fakeBrowser(true), "http://127.0.0.1", [{ restart: true }], directory),
+    ).rejects.toMatchObject({
+      cause: { message: "Restarting requires a preview that QA starts." },
+    });
+  });
+});
+
 async function inScenario(run: (directory: string) => Promise<void>): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "independum-scenario-"));
   try {
@@ -145,5 +178,12 @@ function fakeBrowser(value: unknown, calls: string[] = []): BrowserConnection {
       },
     },
   } as unknown as Page;
-  return { page, async resize() {}, async close() {} };
+  return {
+    page,
+    async resize() {},
+    expectDisconnection(isExpected) {
+      calls.push(`expect disconnection ${isExpected}`);
+    },
+    async close() {},
+  };
 }

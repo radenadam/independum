@@ -305,11 +305,16 @@ export function evaluatePermission(
     resource.kind === "network"
       ? resource
       : { ...resource, path: canonicalPermissionPath(resource.path, project) };
-  if (
-    requested.kind === "path" &&
-    deniedPaths.some((path) => containsPermissionPath(path, requested.path))
-  ) {
-    return { decision: "deny", matches: [], reason: "Independum's state folder is denied." };
+  const denied =
+    requested.kind === "path"
+      ? deniedPaths.find((path) => containsPermissionPath(path, requested.path))
+      : undefined;
+  if (denied !== undefined) {
+    return {
+      decision: "deny",
+      matches: [],
+      reason: `Independum's private folder is denied: ${denied}.`,
+    };
   }
   const isProtected =
     requested.kind === "path" &&
@@ -347,7 +352,7 @@ export function evaluatePermission(
     return {
       decision: "ask",
       matches,
-      reason: "This access can change Independum's saved settings.",
+      reason: "This access can change Independum's state or saved project settings.",
     };
   }
   if (selected !== undefined) {
@@ -377,7 +382,7 @@ export function evaluatePermission(
   };
 }
 
-/** Lists the state folder and active read denials that restrict system reads. */
+/** Lists the private state folder and active read denials that restrict system reads. */
 export function deniedPermissionPaths(
   policy: PermissionPolicy,
   project: string,
@@ -386,7 +391,7 @@ export function deniedPermissionPaths(
   return [
     ...new Set(
       [
-        directory,
+        join(directory, "private"),
         ...policy.rules.flatMap((rule) =>
           rule.effect === "deny" &&
           rule.resource.kind === "path" &&

@@ -14,7 +14,7 @@ import { createLoginRoutes } from "./create-login-routes.ts";
 import { createOperations } from "./create-operations.ts";
 import { createPhoneAccess } from "./create-phone-access.ts";
 import { createServer } from "./create-server.ts";
-import { publishServer, readServer, removeServer } from "./private-runtime.ts";
+import { privateRuntime, publishServer, readServer, removeServer } from "./private-runtime.ts";
 import { readInstallationId } from "./read-installation-id.ts";
 
 /** Starts the UI and API on one loopback port. */
@@ -28,6 +28,7 @@ export async function startAppServer(options: {
   onPhoneStatus?: (message: string) => void;
 }): Promise<{ url: string; close: () => Promise<void> }> {
   const { chat, models, directory, token, port } = options;
+  privateRuntime(directory);
   const serverId = randomUUID();
   const version = (
     JSON.parse(readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")) as {

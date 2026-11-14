@@ -1,0 +1,197 @@
+{
+  "fixture": "user-profile",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Check the preview steps."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "shot": "hook-running-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const row = [...document.querySelectorAll('main span')].find(span => span.textContent === 'Running hook observeShell'); const stop = document.querySelector('main button[aria-label=\"Stop hook observeShell\"]'); return { runningHookShown: !!row && row.checkVisibility(), stopReachable: !!stop && stop.checkVisibility() }; })()",
+        "message": "The expected checks do not become true: runningHookShown, stopReachable.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: [...document.querySelectorAll('main p')].filter(paragraph => paragraph.textContent === 'Preview reply complete.').length === 1 && !document.querySelector('main button[aria-label=Stop]'), hookFinished: !document.querySelector('main button[aria-label=\"Stop hook observeShell\"]') })",
+        "message": "The expected checks do not become true: replyComplete, hookFinished.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Hooks') && button.innerText.includes('1 configured'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Completed invocations of observeShell')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim().endsWith(' succeeded'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Standard error')"
+    },
+    {
+      "shot": "hook-folder-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderShown: isShown(folder), lastRunSucceeded: factOf('Last invocation') === 'succeeded' }; })()",
+        "message": "The expected checks do not become true: profileFolderShown, lastRunSucceeded.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "hook-evidence-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderInState: !!folder, lastRunSucceeded: factOf('Last invocation') === 'succeeded', everyRunRecorded: records.length === 1, exitCodeZero: factOf('Exit code') === '0', stderrNamesProfileFolder: !!stderr && !!folder && stderr.textContent.trim() === 'observeShell saw a Shell call from this folder:\\n' + folder.textContent.trim(), stderrShown: isShown(stderr) }; })()",
+        "message": "The expected checks do not become true: profileFolderInState, lastRunSucceeded, everyRunRecorded, exitCodeZero, stderrNamesProfileFolder, stderrShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "shot": "hook-evidence-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderInState: !!folder, lastRunSucceeded: factOf('Last invocation') === 'succeeded', everyRunRecorded: records.length === 1, exitCodeZero: factOf('Exit code') === '0', stderrNamesProfileFolder: !!stderr && !!folder && stderr.textContent.trim() === 'observeShell saw a Shell call from this folder:\\n' + folder.textContent.trim(), stderrShown: isShown(stderr) }; })()",
+        "message": "The expected checks do not become true: profileFolderInState, lastRunSucceeded, everyRunRecorded, exitCodeZero, stderrNamesProfileFolder, stderrShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Session')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ sessionListShown: !![...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Hooks') && button.innerText.includes('1 configured')) })",
+        "message": "The expected checks do not become true: sessionListShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('aside button[aria-label=\"Hide side panel\"]')"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false })",
+        "message": "The expected checks do not become true: drawerOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Check the preview steps."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "shot": "hook-running-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const row = [...document.querySelectorAll('main span')].find(span => span.textContent === 'Running hook observeShell'); const stop = document.querySelector('main button[aria-label=\"Stop hook observeShell\"]'); return { runningHookShown: !!row && row.checkVisibility(), stopReachable: !!stop && stop.checkVisibility(), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: runningHookShown, stopReachable, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: [...document.querySelectorAll('main p')].filter(paragraph => paragraph.textContent === 'Preview reply complete.').length === 2 && !document.querySelector('main button[aria-label=Stop]'), hookFinished: !document.querySelector('main button[aria-label=\"Stop hook observeShell\"]') })",
+        "message": "The expected checks do not become true: replyComplete, hookFinished.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.includes('Hooks') && button.innerText.includes('1 configured'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Completed invocations of observeShell')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim().endsWith(' succeeded'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside [role=tabpanel] button')].find(button => button.innerText.trim() === 'Standard error')"
+    },
+    {
+      "shot": "hook-folder-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderShown: isShown(folder), lastRunSucceeded: factOf('Last invocation') === 'succeeded' }; })()",
+        "message": "The expected checks do not become true: profileFolderShown, lastRunSucceeded.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "hook-evidence-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderInState: !!folder, lastRunSucceeded: factOf('Last invocation') === 'succeeded', everyRunRecorded: records.length === 2, exitCodeZero: factOf('Exit code') === '0', stderrNamesProfileFolder: !!stderr && !!folder && stderr.textContent.trim() === 'observeShell saw a Shell call from this folder:\\n' + folder.textContent.trim(), stderrShown: isShown(stderr), phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: profileFolderInState, lastRunSucceeded, everyRunRecorded, exitCodeZero, stderrNamesProfileFolder, stderrShown, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light"
+    },
+    {
+      "shot": "hook-evidence-phone-light",
+      "waitFor": {
+        "condition": "(() => { const panel = document.querySelector('aside [role=tabpanel]'); const folder = [...panel.querySelectorAll('pre, code')].find(element => /[\\\\/]\\.independum[\\\\/]profiles[\\\\/]user-workflows$/.test(element.textContent.trim())); const stderr = [...panel.querySelectorAll('pre, code')].find(element => element.textContent.startsWith('observeShell saw a Shell call from this folder:')); const factOf = name => [...panel.querySelectorAll('span')].find(span => span.textContent === name)?.nextElementSibling?.textContent; const records = [...panel.querySelectorAll('button')].filter(button => button.innerText.trim().endsWith(' succeeded')); const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { profileFolderInState: !!folder, lastRunSucceeded: factOf('Last invocation') === 'succeeded', everyRunRecorded: records.length === 2, exitCodeZero: factOf('Exit code') === '0', stderrNamesProfileFolder: !!stderr && !!folder && stderr.textContent.trim() === 'observeShell saw a Shell call from this folder:\\n' + folder.textContent.trim(), stderrShown: isShown(stderr), phoneFits: document.documentElement.scrollWidth <= 360, panelFits: panel.scrollWidth <= panel.clientWidth }; })()",
+        "message": "The expected checks do not become true: profileFolderInState, lastRunSucceeded, everyRunRecorded, exitCodeZero, stderrNamesProfileFolder, stderrShown, phoneFits, panelFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

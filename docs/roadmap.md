@@ -4,13 +4,12 @@
 
 ## Product work
 
-1. Reproduce exact-call coercion, inaccessible retained output, and user-profile hook storage contradictions from CP-14 and CP-17. Preserve the state-folder security boundary while fixing storage and retrieval.
-2. Agree shared contracts before dependent work: detailed kernel, detachable and removable contributions, historical evidence, ownership, and application timing. CP-02 through CP-08.
-3. Develop interface architecture through the seven [journeys](design.md#journeys), identical alternatives, long content, both themes, and phone layouts. Record accepted reasoning. CP-24.
-4. Deliver one complete component journey, using hook creation as an acceptance case. CP-14.
-5. Complete the common add-on contract and narrow Pi text patch. Include managed code, declared settings and tools, prompt pieces, activities and presentations, dependency cleanup, notes, lifecycle events, continuations, reload generations, older evidence, and conformance. Preserve text identities. CP-07, CP-08, CP-15.
-6. Finish remaining acceptance in dependency order: profile preferences and deletion, individual sources and inheritance, stale drafts, redundant edits, locks and staging recovery, resource creation and navigation, rule authoring and testing, shell version and denial reporting, write exclusions, conversation forks and Stop disclosure, complete headless client and operation controls, attachments and phone continuity. CP-09 through CP-23.
-7. Assess the whole checkpoint with default and substantially changed setups, long histories, all controls, supported native systems, actual built phone UI and real phone trust, and relevant real models. CP-25. Drop `-dev` only after acceptance.
+1. Agree shared contracts before dependent work: detailed kernel, detachable and removable contributions, historical evidence, ownership, and application timing. CP-02 through CP-08.
+2. Develop interface architecture through the seven [journeys](design.md#journeys), identical alternatives, long content, both themes, and phone layouts. Record accepted reasoning. CP-24.
+3. Deliver one complete component journey, using hook creation as an acceptance case. CP-14.
+4. Complete the common add-on contract and narrow Pi text patch. Include managed code, declared settings and tools, prompt pieces, activities and presentations, dependency cleanup, notes, lifecycle events, continuations, reload generations, older evidence, and conformance. Preserve text identities. CP-07, CP-08, CP-15.
+5. Finish remaining acceptance in dependency order: profile preferences and deletion, individual sources and inheritance, stale drafts, redundant edits, locks and staging recovery, resource creation and navigation, rule authoring and testing, shell version and denial reporting, write exclusions, conversation forks and Stop disclosure, complete headless client and operation controls, attachments and phone continuity. CP-09 through CP-23.
+6. Assess the whole checkpoint with default and substantially changed setups, long histories, all controls, supported native systems, actual built phone UI and real phone trust, and relevant real models. CP-25. Drop `-dev` only after acceptance.
 
 ## Later capabilities and release
 

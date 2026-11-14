@@ -40,7 +40,7 @@ The script reads one UTF-8 JSON object from standard input until it closes. It w
 
 A block reason is `{ id, values }`. Its id names the hook's inline `texts` record. Each text declares `label`, `builtIn`, and `slots`. Each slot declares `meaning` and `example`. Values supply exactly the declared slot names with strings or finite numbers. Text identity is `hook.<hookId>.<textId>`, and its editor group is `Hook <hookId>`. Fixed host failure text belongs to Hooks. Text edits live in the profile's existing model text file, and use the same changed-default and reset behavior as tool texts.
 
-For a project-scoped profile, add this definition under `settings.hooks` and put `guard.ts` beside that profile file. A user-scoped profile lives inside the denied state folder, so this example does not work there. CP-14 records this storage contradiction, and a separate change repairs it.
+For either a user or project profile, add this definition under `settings.hooks` and put `guard.ts` beside that profile file. User scripts run from `profiles/<id>` inside readable state. [Decision 0080](../decisions/0080-private-state-folder.md) replaces the whole-state denial, and `packages/independum/src/sandbox-runtime.test.ts` covers this CP-14 behavior.
 
 ```json
 {
@@ -70,7 +70,7 @@ const output: HookOutput = arguments_.command.includes("publish")
 process.stdout.write(JSON.stringify(output));
 ```
 
-This workflow filter is user code and grants no access. All script operations still use [permissions](permissions.md). Hooks require project mode in this slice. Like chat commands, the native adapter receives system read roots, project writes, and nested read-only protection for project `.independum`, where project hooks live. Independum's state folder stays denied. The editable permission fact describes Linux's empty private masks and their temporary writes. Source folders outside the project and runtime startup need no approval unless a saved read rule asks for it. Outside writes and network access need explicit authority. API delivery remains headless by default, and unresolved approval fails without launching code. Browser delivery shows its approval beside the chat.
+This workflow filter is user code and grants no access. All script operations still use [permissions](permissions.md). Hooks require project mode in this slice. Like chat commands, the native adapter receives system read roots, project writes, and nested read-only protection for project `.independum`, where project hooks live. State outside `private` is readable, including user profile scripts. Every state write requires explicit approval even under an allow rule. Only `private` stays denied. The editable permission fact describes Linux's empty private masks and their temporary writes. Source folders outside the project and runtime startup need no approval unless a saved read rule asks for it. Outside writes and network access need explicit authority. API delivery remains headless by default, and unresolved approval fails without launching code. Browser delivery shows its approval beside the chat.
 
 ## Inspection and reload
 
@@ -78,7 +78,7 @@ Session lists every configured hook and shows its last invocation. Details discl
 
 The Hooks detail explains when scripts run, where their definitions and limits are saved, and how changed script files affect the next run. The shared profile note shows its folder once. Invocation details label the captured generation as the script version.
 
-Evidence lives beneath `outputs/<chatId>/hooks/<invocationId>` in the Independum home, with `input.json`, `result.json`, and `stderr.txt`. Records survive browser reconnection and runtime reopening. A server interruption marks an unfinished record cancelled when reopened. Records do not become model messages. Deleting the chat deletes these outputs.
+Evidence lives beneath `outputs/<chatId>/hooks/<invocationId>` in the state folder, with `input.json`, `result.json`, and `stderr.txt`. Records survive browser reconnection and runtime reopening. A server interruption marks an unfinished record cancelled when reopened. Records do not become model messages. Deleting the chat deletes these outputs.
 
 Executable and existing file arguments are fingerprinted only after permission. A captured file that changes refuses before native launch. Reload scripts clears that generation's captured fingerprints. Captured entry fingerprints persist in `sources.json` across runtime reopening. Reload refuses while hooks run, so the user can stop them first. This slice does not track transitive imports or arbitrary files that a script later evaluates. Those belong to the full add-on loader work.
 

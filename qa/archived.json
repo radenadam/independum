@@ -42,10 +42,17 @@
       "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Archive\")"
     },
     {
-      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
+      "waitFor": {
+        "condition": "({ firstChatLeavesSidebar: ![...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].some(button => button.textContent.includes('distinct first ending')) })",
+        "message": "The expected checks do not become true: firstChatLeavesSidebar.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+      "hoverOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Check the phone layout.'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Check the phone layout.'))?.nextElementSibling?.querySelector('button[aria-label=\"Chat actions\"]')"
     },
     {
       "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Rename\")"
@@ -57,13 +64,27 @@
       "key": "Enter"
     },
     {
-      "hoverOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')?.parentElement?.previousElementSibling"
+      "waitFor": {
+        "condition": "({ secondChatRenamed: !![...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.includes('distinct second ending')) })",
+        "message": "The expected checks do not become true: secondChatRenamed.",
+        "timeoutMs": 25000
+      }
     },
     {
-      "clickOn": "document.querySelector('nav[aria-label=\"Projects and chats\"] button[aria-label=\"Chat actions\"]')"
+      "hoverOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.includes('distinct second ending'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.includes('distinct second ending'))?.nextElementSibling?.querySelector('button[aria-label=\"Chat actions\"]')"
     },
     {
       "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.trim() === \"Archive\")"
+    },
+    {
+      "waitFor": {
+        "condition": "({ secondChatLeavesSidebar: ![...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].some(button => button.textContent.includes('distinct second ending')) })",
+        "message": "The expected checks do not become true: secondChatLeavesSidebar.",
+        "timeoutMs": 25000
+      }
     },
     {
       "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith(\"Settings\"))"

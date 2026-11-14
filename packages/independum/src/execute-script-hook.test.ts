@@ -63,7 +63,7 @@ test("scripts run without startup approval through the command boundary with pro
         },
       ]),
       readonlyPaths: [canonicalPermissionPath(join(project, ".independum"), project)],
-      deniedPaths: [canonicalPermissionPath(options.directory, project)],
+      deniedPaths: [canonicalPermissionPath(join(options.directory, "private"), project)],
       network: false,
     }),
     expect.any(String),
@@ -116,22 +116,32 @@ test("unrestricted mode never bypasses script isolation", async () => {
   expect(vi.mocked(captureSandbox).mock.calls.length).toBe(before);
 });
 
-test("scripts cannot run from the denied state folder", async () => {
+test.each(["entry", "executable"])("scripts cannot run a private %s file", async (kind) => {
   const created = createHookTest(parent);
-  const script = join(created.options.directory, "hook.ts");
+  const script = join(created.options.directory, "private", "hook.ts");
   writeFileSync(script, "process.stdout.write('result');");
-  created.hook.run.command = [process.execPath, script];
+  created.hook.run.command = kind === "entry" ? [process.execPath, script] : [script];
   const before = vi.mocked(captureSandbox).mock.calls.length;
-  await expect(runScript(created)).rejects.toThrow("state folder is denied");
+  await expect(runScript(created)).rejects.toThrow("private folder is denied");
   expect(vi.mocked(captureSandbox).mock.calls.length).toBe(before);
   expect(created.snapshots.size).toBe(0);
 });
 
-test("scripts refuse projects inside the denied state folder before creating configuration", async () => {
+test("scripts beside user profiles run from their readable source folder", async () => {
+  const created = createHookTest(parent);
+  const source = join(created.options.directory, "profiles", "default");
+  mkdirSync(source, { recursive: true });
+  writeFileSync(join(source, "hook.ts"), "process.stdout.write('result');");
+  created.hook.run = { command: [process.execPath, "hook.ts"], workingDirectory: "source" };
+  await expect(runScript(created, source)).resolves.toMatchObject({ exitCode: 0 });
+  expect(vi.mocked(sandboxRequest).mock.lastCall?.[2]).toBe(source);
+});
+
+test("scripts refuse projects inside the denied private folder before creating configuration", async () => {
   const created = createHookTest(parent);
   const { context, options } = created;
-  context.cwd = canonicalPermissionPath(options.directory, options.directory);
-  await expect(runScript(created)).rejects.toThrow("inside Independum's denied state folder");
+  context.cwd = canonicalPermissionPath(join(options.directory, "private"), options.directory);
+  await expect(runScript(created)).rejects.toThrow("inside Independum's denied private folder");
   expect(existsSync(join(context.cwd, ".independum"))).toBe(false);
 });
 

@@ -1,10 +1,13 @@
+import { existsSync, readdirSync } from "node:fs";
 import { access } from "node:fs/promises";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { AgentSummary, ProviderSummary } from "../api-types.ts";
 import { startPreview } from "./start-preview.ts";
 
-test("preview serves the app with token protection and isolates fixture logins", async () => {
-  for (const fixture of ["empty", "chats", "hooks"] as const) {
+test.each(["empty", "chats", "hooks", "user-profile"] as const)(
+  "%s preview serves the app with token protection and isolates fixture logins",
+  async (fixture) => {
     const preview = await startPreview({ fixture, port: 0, hasRealLogins: false });
     const url = new URL(preview.url);
     const token = new URLSearchParams(url.hash.slice(1)).get("token");
@@ -24,17 +27,34 @@ test("preview serves the app with token protection and isolates fixture logins",
       const body = (await response.json()) as { providers: ProviderSummary[] };
       const faux = body.providers.find((provider) => provider.id === "faux");
       expect(faux !== undefined && faux.login !== null).toBe(fixture !== "empty");
-      if (fixture === "hooks") {
+      if (fixture === "hooks" || fixture === "user-profile") {
         const id = url.searchParams.get("chat");
         const response = await fetch(new URL(`/api/chats/${id}/agent`, url), { headers });
         expect(response.status).toBe(200);
         const agent = (await response.json()) as AgentSummary;
-        expect(agent.configuration?.profile.reference).toEqual({ scope: "project", id: "hooks" });
-        expect(agent.hooks?.hooks.map((hook) => hook.id)).toEqual([
-          "observeRequest",
-          "guardCommands",
-        ]);
-        expect(agent.hooks?.disabledHooks).toEqual([]);
+        expect({
+          reference: agent.configuration?.profile.reference,
+          source: agent.hooks?.source,
+          hooks: agent.hooks?.hooks.map((hook) => hook.id),
+          disabledHooks: agent.hooks?.disabledHooks,
+          rules: agent.permissions?.rules.map((rule) => rule.id),
+        }).toEqual(
+          fixture === "hooks"
+            ? {
+                reference: { scope: "project", id: "hooks" },
+                source: join(preview.home, "project", ".independum", "profiles", "hooks"),
+                hooks: ["observeRequest", "guardCommands"],
+                disabledHooks: [],
+                rules: [],
+              }
+            : {
+                reference: { scope: "user", id: "user-workflows" },
+                source: join(preview.home, ".independum", "profiles", "user-workflows"),
+                hooks: ["observeShell"],
+                disabledHooks: [],
+                rules: ["stateNotes"],
+              },
+        );
       }
       const html = await fetch(url);
       expect(html.status).toBe(200);
@@ -43,5 +63,36 @@ test("preview serves the app with token protection and isolates fixture logins",
       await preview.close();
     }
     await expect(access(preview.home)).rejects.toThrow();
+  },
+);
+
+test("legacy preview migrates its home and keeps its link across a server restart", async () => {
+  const preview = await startPreview({ fixture: "legacy-state", port: 0, hasRealLogins: false });
+  const url = new URL(preview.url);
+  const headers = {
+    authorization: `Bearer ${new URLSearchParams(url.hash.slice(1)).get("token")}`,
+  };
+  const state = join(preview.home, ".independum");
+  try {
+    for (const isRestarted of [false, true]) {
+      if (isRestarted) {
+        await preview.restart();
+      }
+      expect((await fetch(new URL("/api/health", url), { headers })).status).toBe(200);
+      expect(
+        ["runtime", "auth.json", "models.json"]
+          .map((name) => join(state, name))
+          .concat(join(preview.home, ".independum-attachments"))
+          .filter((path) => existsSync(path)),
+      ).toEqual([]);
+      expect(
+        ["auth.json", "models.json", "server.json", "phones.json"].filter(
+          (name) => !existsSync(join(state, "private", name)),
+        ),
+      ).toEqual([]);
+      expect(readdirSync(join(state, "attachments"))).toHaveLength(1);
+    }
+  } finally {
+    await preview.close();
   }
 });
