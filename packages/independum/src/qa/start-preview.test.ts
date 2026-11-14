@@ -1,10 +1,11 @@
 import { access } from "node:fs/promises";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { AgentSummary, ProviderSummary } from "../api-types.ts";
 import { startPreview } from "./start-preview.ts";
 
 test("preview serves the app with token protection and isolates fixture logins", async () => {
-  for (const fixture of ["empty", "chats", "hooks"] as const) {
+  for (const fixture of ["empty", "chats", "hooks", "user-profile"] as const) {
     const preview = await startPreview({ fixture, port: 0, hasRealLogins: false });
     const url = new URL(preview.url);
     const token = new URLSearchParams(url.hash.slice(1)).get("token");
@@ -24,17 +25,34 @@ test("preview serves the app with token protection and isolates fixture logins",
       const body = (await response.json()) as { providers: ProviderSummary[] };
       const faux = body.providers.find((provider) => provider.id === "faux");
       expect(faux !== undefined && faux.login !== null).toBe(fixture !== "empty");
-      if (fixture === "hooks") {
+      if (fixture === "hooks" || fixture === "user-profile") {
         const id = url.searchParams.get("chat");
         const response = await fetch(new URL(`/api/chats/${id}/agent`, url), { headers });
         expect(response.status).toBe(200);
         const agent = (await response.json()) as AgentSummary;
-        expect(agent.configuration?.profile.reference).toEqual({ scope: "project", id: "hooks" });
-        expect(agent.hooks?.hooks.map((hook) => hook.id)).toEqual([
-          "observeRequest",
-          "guardCommands",
-        ]);
-        expect(agent.hooks?.disabledHooks).toEqual([]);
+        expect({
+          reference: agent.configuration?.profile.reference,
+          source: agent.hooks?.source,
+          hooks: agent.hooks?.hooks.map((hook) => hook.id),
+          disabledHooks: agent.hooks?.disabledHooks,
+          rules: agent.permissions?.rules.map((rule) => rule.id),
+        }).toEqual(
+          fixture === "hooks"
+            ? {
+                reference: { scope: "project", id: "hooks" },
+                source: join(preview.home, "project", ".independum", "profiles", "hooks"),
+                hooks: ["observeRequest", "guardCommands"],
+                disabledHooks: [],
+                rules: [],
+              }
+            : {
+                reference: { scope: "user", id: "user-workflows" },
+                source: join(preview.home, ".independum", "profiles", "user-workflows"),
+                hooks: ["observeShell"],
+                disabledHooks: [],
+                rules: ["stateNotes"],
+              },
+        );
       }
       const html = await fetch(url);
       expect(html.status).toBe(200);

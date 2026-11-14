@@ -26,7 +26,7 @@ export interface ServerConnection {
   accessToken: string;
 }
 
-/** Creates or verifies the account-only runtime directory. */
+/** Finishes state migration and verifies the private directory before any state consumer opens it. */
 export function privateRuntime(directory: string): string {
   const path = join(directory, "private");
   migrateStateDirectory(directory, (folder) => {
@@ -114,9 +114,9 @@ export function writePrivateRuntimeFile(path: string, content: string): void {
 
 /** Reads a bounded connection record only after verifying private ownership and permissions. */
 export function readServer(directory: string): ServerConnection | undefined {
-  const path = join(directory, "private", "server.json");
   let content: string | undefined;
   try {
+    const path = join(privateRuntime(directory), "server.json");
     content = readPrivateRuntimeFile(path);
   } catch (error) {
     if (isMissingFile(error)) {

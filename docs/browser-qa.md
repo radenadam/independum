@@ -14,13 +14,13 @@ Scenarios use framed captures and hit tests through `hoverOn` or `clickOn`. Reve
 
 `pnpm preview` starts the real UI and API with Pi's stand-in provider and a temporary home. It prints a loopback link and home path. Ctrl+C closes and removes the preview home. Forced termination can leave temporary files. Pi writes all fixture chats.
 
-Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. Compacted has eight turns and one compaction after six. Long-history has 240 requests and four compactions after requests 50, 100, 150, and 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
+Flags shared with QA are `--fixture empty`, `chats`, `hooks`, `user-profile`, `compacted`, or `long-history`, `--port <number>`, and `--real-logins`. Chats is default. Empty has no stand-in or saved chats. Hooks declares project scripts. User-profile selects a user profile in state with a Shell hook script and a write rule for state `notes`. Compacted has eight turns and one compaction after six. Long-history has 240 requests and four compactions after requests 50, 100, 150, and 200, each retaining five earlier turns. Real logins load only through Pi. Follow the product model limits in `AGENTS.md`.
 
-`--url <complete-preview-link>` reuses a preview and keeps it running. It must match the fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a local delayed Shell command, and stream a table. Permission, queue, and exact-call scenarios use their named stand-in triggers without a model connection.
+`--url <complete-preview-link>` reuses a preview and keeps it running. It must match the fixture. Otherwise QA owns startup and shutdown. Explicit fixture flags override scenario fixtures. Links retain chat ids. Stand-in responses think, call a local delayed Shell command, and stream a table. Scenarios that script other tool calls use named stand-in triggers in `start-preview.ts` without a model connection.
 
 ## Scenarios
 
-Use `pnpm qa welcome`, `message`, `switch-chats`, `model-menu`, `session`, `compacted`, `long-session`, `settings`, `profiles`, `queue`, `attachments`, `branches`, `context`, `hooks`, `permissions`, `exact-calls`, `headless`, `phone`, `phone-pairing`, or `archived`. Their JSON files own the exact flows and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
+`pnpm qa <name>` runs `qa/<name>.json`, which owns its exact flow and named checks. Run related flows together when they share boundaries. `pnpm qa <path.json>` accepts a custom path relative to the invoking folder.
 
 The gate runs `connect-browser.test.ts` and `check-rendered-qr.test.ts` with `INDEPENDUM_QA_BROWSER` set from `--browser`, defaulting to `msedge`. They exercise diagnostic rejection and persistent blank rejection through the production harness. Requests are intercepted by Playwright. Ordinary `pnpm check` skips these opt-in tests and launches no browser. [Checks](checks.md#local-gates) owns their revision-bound receipts.
 

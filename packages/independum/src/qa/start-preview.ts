@@ -49,6 +49,15 @@ export async function startPreview(options: {
     const reply =
       "Preview reply complete.\n\nThe stand-in model thinks, runs a command, and replies.\n\n| Check | Result |\n| --- | --- |\n| Steps | Complete |";
     const noteRequest = "Write the preview note.";
+    const cutRequest = "Print the long preview output.";
+    const privateRequest = "Read the private preview folder.";
+    const stateNoteRequest = "Write the state note.";
+    // The long output has more lines and bytes than the built-in output limits keep, so the model
+    // gets its start and end with a cut note between them.
+    const longOutput =
+      process.platform === "win32"
+        ? '1..3000 | ForEach-Object { "Preview output line $_." }'
+        : 'for line in $(seq 1 3000); do echo "Preview output line $line."; done';
     // The long check sends Shell values of other types for most of its parameters at once, with a
     // timeout text of several hundred characters, so its failure lists every differing parameter.
     const longCheck = {
@@ -72,6 +81,15 @@ export async function startPreview(options: {
       }
       if (request.includes(noteRequest)) {
         return writeNote(context.messages, requestIndex);
+      }
+      if (request.includes(cutRequest)) {
+        return readCutOutput(resultsSince(context.messages, requestIndex));
+      }
+      if (request.includes(privateRequest)) {
+        return readPrivateFolder(resultsSince(context.messages, requestIndex));
+      }
+      if (request.includes(stateNoteRequest)) {
+        return writeStateNote(context.messages, requestIndex);
       }
       const hasNetworkRequest = request.includes("Check network permissions.");
       const isLongCheck = request.includes("Run the long preview check.");
@@ -103,13 +121,8 @@ export async function startPreview(options: {
       messages: TranscriptContext["messages"],
       requestIndex: number,
     ): AssistantMessage {
-      const notes = messages.filter(
-        (message) => message.role === "user" && JSON.stringify(message).includes(noteRequest),
-      ).length;
-      const path = join("notes", `preview-note-${notes}.txt`);
-      const results = messages
-        .slice(requestIndex)
-        .filter((message) => message.role === "toolResult").length;
+      const path = join("notes", `preview-note-${requestCount(messages, noteRequest)}.txt`);
+      const results = resultsSince(messages, requestIndex).length;
       if (results === 0) {
         return fauxAssistantMessage(
           [fauxThinking("I write the preview note."), fauxToolCall("Write", { path, content: 42 })],
@@ -123,6 +136,98 @@ export async function startPreview(options: {
         );
       }
       return fauxAssistantMessage([fauxText(`Preview note written to ${path}.`)]);
+    }
+    // A cut request prints the long output, then reads the line in the middle of the lines that
+    // the cut note names, from the file that the note names, and replies once that read returns.
+    function readCutOutput(results: ToolOutcome[]): AssistantMessage {
+      const [printed, read] = results;
+      if (printed === undefined) {
+        return fauxAssistantMessage(
+          [
+            fauxThinking("I print the long preview output."),
+            fauxToolCall("Shell", { command: longOutput, description: "Print the long output" }),
+          ],
+          { stopReason: "toolUse" },
+        );
+      }
+      const cut =
+        /Lines ([\d,]+) to ([\d,]+) of [\d,]+ are cut here\..*The whole output is in (.+)\]$/m.exec(
+          printed.text,
+        );
+      if (cut === null) {
+        return fauxAssistantMessage([fauxText("The long preview output is not cut.")]);
+      }
+      const [, first = "", last = "", path = ""] = cut;
+      const line = Math.round(
+        (Number(first.replaceAll(",", "")) + Number(last.replaceAll(",", ""))) / 2,
+      );
+      if (read === undefined) {
+        return fauxAssistantMessage([fauxToolCall("Read", { path, offset: line, limit: 1 })], {
+          stopReason: "toolUse",
+        });
+      }
+      return fauxAssistantMessage([
+        fauxText(
+          read.isError
+            ? `Line ${line} of the cut output could not be read.`
+            : `Line ${line} of the cut output is back from the saved output.`,
+        ),
+      ]);
+    }
+    // A private request reads the server connection in the private folder of the state, which the
+    // sandbox denies, then reads the user settings beside that folder, and replies after both.
+    function readPrivateFolder(results: ToolOutcome[]): AssistantMessage {
+      const [denied, recovered] = results;
+      if (denied === undefined) {
+        return fauxAssistantMessage(
+          [
+            fauxThinking("I read the server connection in the private folder."),
+            fauxToolCall("Read", { path: join(directory, "private", "server.json") }),
+          ],
+          { stopReason: "toolUse" },
+        );
+      }
+      if (recovered === undefined) {
+        return fauxAssistantMessage(
+          [fauxToolCall("Read", { path: join(directory, "settings.json") })],
+          { stopReason: "toolUse" },
+        );
+      }
+      return fauxAssistantMessage([
+        fauxText(
+          recovered.isError
+            ? "The state settings could not be read either."
+            : "The private folder is denied, so the state settings beside it answer instead.",
+        ),
+      ]);
+    }
+    // A state note request writes a new file into the notes folder of the state, which asks for
+    // approval even where a saved rule allows the write, and replies with how that call ended.
+    function writeStateNote(
+      messages: TranscriptContext["messages"],
+      requestIndex: number,
+    ): AssistantMessage {
+      const note = requestCount(messages, stateNoteRequest);
+      const [written] = resultsSince(messages, requestIndex);
+      if (written === undefined) {
+        return fauxAssistantMessage(
+          [
+            fauxThinking("I write the state note."),
+            fauxToolCall("Write", {
+              path: join(directory, "notes", `state-note-${note}.txt`),
+              content: `State note ${note}.\nWritten into the state folder.\n`,
+            }),
+          ],
+          { stopReason: "toolUse" },
+        );
+      }
+      return fauxAssistantMessage([
+        fauxText(
+          written.isError
+            ? `State note ${note} was not written.`
+            : `State note ${note} was written into the state folder.`,
+        ),
+      ]);
     }
     const chat = await createChat({ models, directory, folder: project });
     stop = stopChat;
@@ -161,4 +266,34 @@ export async function startPreview(options: {
       await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   }
+}
+
+/** The text and error flag of one tool result that the stand-in model reads. */
+interface ToolOutcome {
+  text: string;
+  isError: boolean;
+}
+
+function requestCount(messages: TranscriptContext["messages"], text: string): number {
+  return messages.filter(
+    (message) => message.role === "user" && JSON.stringify(message).includes(text),
+  ).length;
+}
+
+function resultsSince(
+  messages: TranscriptContext["messages"],
+  requestIndex: number,
+): ToolOutcome[] {
+  return messages.slice(requestIndex).flatMap((message) =>
+    message.role === "toolResult"
+      ? [
+          {
+            text: message.content
+              .map((block) => (block.type === "text" ? block.text : ""))
+              .join(""),
+            isError: message.isError,
+          },
+        ]
+      : [],
+  );
 }

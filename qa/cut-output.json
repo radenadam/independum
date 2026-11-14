@@ -1,0 +1,166 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Print the long preview output."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: /Line [\\d,]+ of the cut output is back from the saved output\\./.test(document.querySelector('main').innerText) && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')?.getAttribute('aria-expanded') === 'false' })",
+        "message": "The expected checks do not become true: replyComplete, stepsFold.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith('Print the long output'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => /\\.log, line [\\d,]+/.test(button.textContent))"
+    },
+    {
+      "shot": "cut-note-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); let noteShown = false; if (output && note) { const text = output.firstChild; const start = text.data.indexOf(note[0]); const range = document.createRange(); range.setStart(text, start); range.setEnd(text, start + note[0].length); output.scrollIntoView({ block: 'center' }); output.scrollTop += range.getBoundingClientRect().top - output.getBoundingClientRect().top - output.clientHeight / 2; const rects = [...range.getClientRects()]; noteShown = rects.length > 0 && [rects[0], rects.at(-1)].every(rect => { const hit = document.elementFromPoint(rect.left + 4, rect.top + rect.height / 2); return !!hit && output.contains(hit); }); } return { noteShown: noteShown, noteNamesStateOutput: !!note && /[\\\\/]\\.independum[\\\\/]outputs[\\\\/][^\\\\/]+[\\\\/][^\\\\/]+\\.log$/.test(note[3]), middleCut: !!output && middle > 0 && !output.textContent.includes(`Preview output line ${middle}.`) }; })()",
+        "message": "The expected checks do not become true: noteShown, noteNamesStateOutput, middleCut.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "cut-line-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); const read = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.startsWith(middle + '\\t')); const name = note === null ? '' : note[3].split(/[\\\\/]/).at(-1); const step = [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(name + ', line ' + middle.toLocaleString('en-US'))); return { lineShown: isShown(read), lineExact: read?.textContent === `${middle}\\tPreview output line ${middle}.\\n[Lines ${(middle + 1).toLocaleString('en-US')} to 3,000 are not shown.]`, stepNamesLine: !!step && step.textContent.endsWith('1 of 3,000 lines'), readsNotePath: !!note && [...document.querySelectorAll('main *')].some(element => element.textContent === note[3] && element.closest('pre') === null) }; })()",
+        "message": "The expected checks do not become true: lineShown, lineExact, stepNamesLine, readsNotePath.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "shot": "cut-note-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); let noteShown = false; if (output && note) { const text = output.firstChild; const start = text.data.indexOf(note[0]); const range = document.createRange(); range.setStart(text, start); range.setEnd(text, start + note[0].length); output.scrollIntoView({ block: 'center' }); output.scrollTop += range.getBoundingClientRect().top - output.getBoundingClientRect().top - output.clientHeight / 2; const rects = [...range.getClientRects()]; noteShown = rects.length > 0 && [rects[0], rects.at(-1)].every(rect => { const hit = document.elementFromPoint(rect.left + 4, rect.top + rect.height / 2); return !!hit && output.contains(hit); }); } return { noteShown: noteShown, noteNamesStateOutput: !!note && /[\\\\/]\\.independum[\\\\/]outputs[\\\\/][^\\\\/]+[\\\\/][^\\\\/]+\\.log$/.test(note[3]), middleCut: !!output && middle > 0 && !output.textContent.includes(`Preview output line ${middle}.`) }; })()",
+        "message": "The expected checks do not become true: noteShown, noteNamesStateOutput, middleCut.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "cut-line-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); const read = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.startsWith(middle + '\\t')); const name = note === null ? '' : note[3].split(/[\\\\/]/).at(-1); const step = [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(name + ', line ' + middle.toLocaleString('en-US'))); return { lineShown: isShown(read), lineExact: read?.textContent === `${middle}\\tPreview output line ${middle}.\\n[Lines ${(middle + 1).toLocaleString('en-US')} to 3,000 are not shown.]`, stepNamesLine: !!step && step.textContent.endsWith('1 of 3,000 lines'), readsNotePath: !!note && [...document.querySelectorAll('main *')].some(element => element.textContent === note[3] && element.closest('pre') === null) }; })()",
+        "message": "The expected checks do not become true: lineShown, lineExact, stepNamesLine, readsNotePath.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false })",
+        "message": "The expected checks do not become true: drawerOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Print the long preview output."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: /Line [\\d,]+ of the cut output is back from the saved output\\./.test(document.querySelector('main').innerText) && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')?.getAttribute('aria-expanded') === 'false' })",
+        "message": "The expected checks do not become true: replyComplete, stepsFold.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith('Print the long output'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => /\\.log, line [\\d,]+/.test(button.textContent))"
+    },
+    {
+      "shot": "cut-note-phone-light",
+      "waitFor": {
+        "condition": "(() => { const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); let noteShown = false; if (output && note) { const text = output.firstChild; const start = text.data.indexOf(note[0]); const range = document.createRange(); range.setStart(text, start); range.setEnd(text, start + note[0].length); output.scrollIntoView({ block: 'center' }); output.scrollTop += range.getBoundingClientRect().top - output.getBoundingClientRect().top - output.clientHeight / 2; const rects = [...range.getClientRects()]; noteShown = rects.length > 0 && [rects[0], rects.at(-1)].every(rect => { const hit = document.elementFromPoint(rect.left + 4, rect.top + rect.height / 2); return !!hit && output.contains(hit); }); } return { noteShown: noteShown, noteNamesStateOutput: !!note && /[\\\\/]\\.independum[\\\\/]outputs[\\\\/][^\\\\/]+[\\\\/][^\\\\/]+\\.log$/.test(note[3]), middleCut: !!output && middle > 0 && !output.textContent.includes(`Preview output line ${middle}.`), phoneFits: document.documentElement.scrollWidth <= 360, outputFits: !!output && output.getBoundingClientRect().right <= 360 && output.scrollWidth <= output.clientWidth }; })()",
+        "message": "The expected checks do not become true: noteShown, noteNamesStateOutput, middleCut, phoneFits, outputFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "cut-line-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); const read = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.startsWith(middle + '\\t')); const name = note === null ? '' : note[3].split(/[\\\\/]/).at(-1); const step = [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(name + ', line ' + middle.toLocaleString('en-US'))); return { lineShown: isShown(read), lineExact: read?.textContent === `${middle}\\tPreview output line ${middle}.\\n[Lines ${(middle + 1).toLocaleString('en-US')} to 3,000 are not shown.]`, stepNamesLine: !!step && step.textContent.endsWith('1 of 3,000 lines'), readsNotePath: !!note && [...document.querySelectorAll('main *')].some(element => element.textContent === note[3] && element.closest('pre') === null), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: lineShown, lineExact, stepNamesLine, readsNotePath, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark"
+    },
+    {
+      "shot": "cut-note-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); let noteShown = false; if (output && note) { const text = output.firstChild; const start = text.data.indexOf(note[0]); const range = document.createRange(); range.setStart(text, start); range.setEnd(text, start + note[0].length); output.scrollIntoView({ block: 'center' }); output.scrollTop += range.getBoundingClientRect().top - output.getBoundingClientRect().top - output.clientHeight / 2; const rects = [...range.getClientRects()]; noteShown = rects.length > 0 && [rects[0], rects.at(-1)].every(rect => { const hit = document.elementFromPoint(rect.left + 4, rect.top + rect.height / 2); return !!hit && output.contains(hit); }); } return { noteShown: noteShown, noteNamesStateOutput: !!note && /[\\\\/]\\.independum[\\\\/]outputs[\\\\/][^\\\\/]+[\\\\/][^\\\\/]+\\.log$/.test(note[3]), middleCut: !!output && middle > 0 && !output.textContent.includes(`Preview output line ${middle}.`), phoneFits: document.documentElement.scrollWidth <= 360, outputFits: !!output && output.getBoundingClientRect().right <= 360 && output.scrollWidth <= output.clientWidth }; })()",
+        "message": "The expected checks do not become true: noteShown, noteNamesStateOutput, middleCut, phoneFits, outputFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "cut-line-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('are cut here.')); const note = /\\[Lines ([\\d,]+) to ([\\d,]+) of 3,000 are cut here\\. The whole output is in (.+)\\]/.exec(output?.textContent ?? ''); const middle = note === null ? 0 : Math.round((Number(note[1].replaceAll(',', '')) + Number(note[2].replaceAll(',', ''))) / 2); const read = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.startsWith(middle + '\\t')); const name = note === null ? '' : note[3].split(/[\\\\/]/).at(-1); const step = [...document.querySelectorAll('main button')].findLast(button => button.textContent.startsWith(name + ', line ' + middle.toLocaleString('en-US'))); return { lineShown: isShown(read), lineExact: read?.textContent === `${middle}\\tPreview output line ${middle}.\\n[Lines ${(middle + 1).toLocaleString('en-US')} to 3,000 are not shown.]`, stepNamesLine: !!step && step.textContent.endsWith('1 of 3,000 lines'), readsNotePath: !!note && [...document.querySelectorAll('main *')].some(element => element.textContent === note[3] && element.closest('pre') === null), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: lineShown, lineExact, stepNamesLine, readsNotePath, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

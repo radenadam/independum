@@ -250,7 +250,7 @@ test.skipIf(process.platform !== "win32")(
           signal: new AbortController().signal,
         }),
       ).rejects.toMatchObject({
-        message: `The private runtime directory cannot be secured. ${failure}`,
+        message: `The private server record cannot be read securely. ${failure}`,
         code: "privateRecordDenied",
         exitCode: 4,
       });

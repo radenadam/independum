@@ -2,9 +2,17 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
+import type { ProfileDocument, ProfileReference } from "../api-types.ts";
 import { createProfileStore } from "../create-profile-store.ts";
+import { builtInPermissions, serializePermissionPath } from "../permission-policy.ts";
 
-export type PreviewFixture = "empty" | "chats" | "compacted" | "hooks" | "long-history";
+export type PreviewFixture =
+  | "empty"
+  | "chats"
+  | "compacted"
+  | "hooks"
+  | "user-profile"
+  | "long-history";
 
 /** Creates saved chats through Pi in a new preview home. */
 export async function createPreviewFixture(home: string, fixture: PreviewFixture): Promise<string> {
@@ -15,55 +23,95 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
   if (fixture === "empty") {
     return project;
   }
-  if (fixture === "chats" || fixture === "hooks") {
+  if (fixture === "chats" || fixture === "hooks" || fixture === "user-profile") {
     if (fixture === "hooks") {
-      const profileFolder = join(project, ".independum", "profiles", "hooks");
-      await mkdir(profileFolder, { recursive: true });
-      await writeFile(
-        join(profileFolder, "observe.ts"),
-        'for await (const chunk of process.stdin) { void chunk; }\nprocess.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));\n',
-      );
-      await writeFile(
-        join(profileFolder, "profile.json"),
-        JSON.stringify(
-          {
-            formatVersion: 1,
-            name: "Hook workflows",
-            settings: {
-              hooks: [
-                {
-                  id: "observeRequest",
-                  event: "before_provider_request",
-                  mode: "observe",
-                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+      await selectProfile(
+        home,
+        project,
+        { scope: "project", id: "hooks" },
+        {
+          formatVersion: 1,
+          name: "Hook workflows",
+          settings: {
+            hooks: [
+              {
+                id: "observeRequest",
+                event: "before_provider_request",
+                mode: "observe",
+                run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+              },
+              {
+                id: "guardCommands",
+                event: "tool_call",
+                mode: "transform",
+                match: { toolNames: ["Shell"] },
+                run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
+                texts: {
+                  blocked: {
+                    label: "When the workflow blocks a command",
+                    builtIn: "The workflow blocks this command.",
+                    slots: {},
+                  },
                 },
+              },
+            ],
+          },
+        },
+        {
+          "observe.ts":
+            'for await (const chunk of process.stdin) { void chunk; }\nprocess.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));\n',
+        },
+      );
+    }
+    if (fixture === "user-profile") {
+      const state = join(home, ".independum");
+      await mkdir(join(state, "notes"));
+      // The script names the folder that it runs in, so its saved standard error shows that it
+      // runs from the profile folder in the state. It waits two seconds before it answers, so the
+      // running hook stays in view long enough for a person, and a scenario, to see it.
+      await selectProfile(
+        home,
+        project,
+        { scope: "user", id: "user-workflows" },
+        {
+          formatVersion: 1,
+          name: "User workflows",
+          settings: {
+            permissions: {
+              ...builtInPermissions,
+              rules: [
                 {
-                  id: "guardCommands",
-                  event: "tool_call",
-                  mode: "transform",
-                  match: { toolNames: ["Shell"] },
-                  run: { command: [process.execPath, "observe.ts"], workingDirectory: "source" },
-                  texts: {
-                    blocked: {
-                      label: "When the workflow blocks a command",
-                      builtIn: "The workflow blocks this command.",
-                      slots: {},
-                    },
+                  id: "stateNotes",
+                  effect: "allow",
+                  project: "*",
+                  resource: {
+                    kind: "path",
+                    path: serializePermissionPath(join(state, "notes")),
+                    scope: "tree",
+                    access: "write",
                   },
                 },
               ],
             },
+            hooks: [
+              {
+                id: "observeShell",
+                event: "tool_call",
+                mode: "observe",
+                match: { toolNames: ["Shell"] },
+                run: {
+                  command: [process.execPath, "observe-shell.ts"],
+                  workingDirectory: "source",
+                },
+              },
+            ],
           },
-          null,
-          2,
-        ),
+        },
+        {
+          "observe-shell.ts":
+            'let input = "";\nfor await (const chunk of process.stdin) {\n  input += chunk;\n}\nconst event = JSON.parse(input);\nprocess.stderr.write("observeShell saw a " + event.data.toolName + " call from this folder:\\n" + process.cwd() + "\\n");\nsetTimeout(() => process.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" })), 2000);\n',
+        },
       );
-      await writeFile(
-        join(project, ".independum", "settings.json"),
-        JSON.stringify({ formatVersion: 1, profile: { scope: "project", id: "hooks" } }, null, 2),
-      );
-      const profiles = await createProfileStore(join(home, ".independum"), [project], []);
-      profiles.close();
     }
     const skills = join(project, ".agents", "skills", "review");
     const commands = join(project, ".independum", "commands");
@@ -174,4 +222,33 @@ function appendTurn(
   };
   manager.appendMessage(message);
   return id;
+}
+
+// The project default selects the profile, so the saved chats of the project use it as well.
+/** Saves a profile and its scripts in the folder of its scope and makes it the project default. */
+async function selectProfile(
+  home: string,
+  project: string,
+  reference: ProfileReference,
+  profile: ProfileDocument,
+  scripts: Record<string, string>,
+): Promise<void> {
+  const folder = join(
+    reference.scope === "user" ? home : project,
+    ".independum",
+    "profiles",
+    reference.id,
+  );
+  await mkdir(folder, { recursive: true });
+  for (const [name, content] of Object.entries(scripts)) {
+    await writeFile(join(folder, name), content);
+  }
+  await writeFile(join(folder, "profile.json"), JSON.stringify(profile, null, 2));
+  await mkdir(join(project, ".independum"), { recursive: true });
+  await writeFile(
+    join(project, ".independum", "settings.json"),
+    JSON.stringify({ formatVersion: 1, profile: reference }, null, 2),
+  );
+  const profiles = await createProfileStore(join(home, ".independum"), [project], []);
+  profiles.close();
 }
