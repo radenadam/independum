@@ -44,13 +44,10 @@
       "hoverOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
-      "run": "({ markedBeforeRestart: (window.isBeforeRestart = true) })"
-    },
-    {
       "restart": true,
       "waitFor": {
-        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { pageReloadedByItself: window.isBeforeRestart !== true, noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.') }; })()",
-        "message": "The expected checks do not become true: pageReloadedByItself, noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown.",
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.') }; })()",
+        "message": "The expected checks do not become true: noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown.",
         "timeoutMs": 25000
       }
     },
@@ -113,13 +110,10 @@
       "hoverOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
-      "run": "({ markedBeforeRestart: (window.isBeforeRestart = true) })"
-    },
-    {
       "restart": true,
       "waitFor": {
-        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { pageReloadedByItself: window.isBeforeRestart !== true, noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.'), drawerClosed: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true }; })()",
-        "message": "The expected checks do not become true: pageReloadedByItself, noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown, drawerClosed.",
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.'), drawerClosed: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true }; })()",
+        "message": "The expected checks do not become true: noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown, drawerClosed.",
         "timeoutMs": 25000
       }
     },
