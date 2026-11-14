@@ -30,7 +30,9 @@ The store is inside the state folder at `attachments`. Startup renames the forme
 
 Discovery preserves phones' legacy runtime paths until record removal or connection refusal. Saved Independum input maps exact quoted legacy paths for its attachment ids throughout the user message, leaving Pi files unchanged. The request inspector shows mapped paths.
 
-Pending inputs retain `attachmentIds`, `fileAttachmentIds`, and original summaries. File choices name unique attached ids. The `independum-input` Pi entry adds pre-hook offsets, text prefixes and SHA-256 digests for exact location after hooks, and image indexes. Prepared content stays in Pi's user message. Metadata never enters model context. Source: direct maintainer correction, 2026-11-14.
+Pending inputs retain `attachmentIds`, `fileAttachmentIds`, and original summaries. File choices name unique attached ids. The `independum-input` Pi entry adds pre-hook offsets, text prefixes, SHA-256 digests, and image indexes. Prepared content stays in Pi's user message. Metadata never enters model context.
+
+Legacy offsets require re-preparing input and matching complete saved text and attachment boundaries, allowing path migration. Editable wrappers prove nothing. Unverified input keeps the unavailable notice. Direct maintainer product corrections: 2026-11-14, 2026-11-15.
 
 Sources remain while any saved branch, archived chat, or waiting input refers to them. Cleanup runs at startup and hourly, and removes unreferenced sources at least seven days old after scanning all retained references. Unreadable reference files prevent cleanup. Deleting a chat does not immediately remove shared sources. Cleanup requires no saved approval changes.
 
@@ -55,4 +57,4 @@ Invalid names, ids, or shapes return 400, missing sources or another chat's unre
 - [Draft lifecycle](../../packages/web/src/use-attachment-draft.ts), [tiles and details](../../packages/web/src/attachment-list.tsx), and [profile controls](../../packages/web/src/attachment-settings-detail.tsx).
 - `pnpm qa attachments` covers picker, paste, drop, each form, image limitations, details, queue, steer, stop, resume, and both phone themes. `pnpm qa queue` checks existing delivery boundaries.
 
-Edit and resend load retained sources and file path choices into the composer. Retry keeps its saved prompt's sources. Both prepare again at handoff and retain legacy images without duplication. Forks remain in [the roadmap](../roadmap.md). The 2026-11-10 reader evidence establishes no current browser pass. CP-21 keeps coordinator browser and native verification open. [Browser QA](../browser-qa.md) owns execution.
+Edit and resend restore retained sources and file choices. Retry keeps its prompt's sources. Both prepare at handoff without duplicating legacy images. [Forks remain planned](../roadmap.md). CP-21 keeps browser and native verification open. [Browser QA](../browser-qa.md) owns execution.

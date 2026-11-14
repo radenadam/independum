@@ -31,6 +31,7 @@ import type {
   AgentSummary,
   ArchivedChatSummary,
   AttachmentPreview,
+  AttachmentSettings,
   AttachmentSummary,
   BranchChoice,
   BranchRequest,
@@ -154,6 +155,15 @@ interface ThinkingTimes {
   durationsMs: (number | null)[];
 }
 
+interface AttachmentInput {
+  receivesImages?: boolean;
+  text?: string;
+  attachmentIds?: string[];
+  fileAttachmentIds?: string[];
+  attachments?: AttachmentSummary[];
+  attachmentPositions?: AttachmentPosition[];
+}
+
 /** A chat that runs: its Pi session, and what Independum keeps for it while it runs. */
 interface ChatRun {
   branches: ConversationBranches;
@@ -161,6 +171,7 @@ interface ChatRun {
   inputMutation: Promise<unknown>;
   isDispatching: boolean;
   activeInput: string | undefined;
+  legacyAttachmentTexts: Map<AttachmentPosition, string>;
   hooks: ScriptHooks;
   hookSources: Map<string, string>;
   hookSystemPrompt: string | undefined;
@@ -1628,6 +1639,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       inputMutation: previous?.inputMutation ?? Promise.resolve(),
       isDispatching: previous?.isDispatching ?? false,
       activeInput: previous?.activeInput,
+      legacyAttachmentTexts: new Map<AttachmentPosition, string>(),
       hooks,
       hookSources,
       hookSystemPrompt: undefined,
@@ -1667,6 +1679,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       preparedPiSections: {},
     });
     hold.run = run;
+    await verifyLegacyAttachmentInputs(run);
 
     const transformContext = session.agent.transformContext;
     async function transformHookContext(
@@ -2478,6 +2491,67 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     });
   }
 
+  async function verifyLegacyAttachmentInputs(run: ChatRun): Promise<void> {
+    const inputs = new Map<string, AttachmentInput>();
+    for (const entry of run.session.sessionManager.getEntries()) {
+      const input =
+        entry.type === "custom" && entry.customType === "independum-input"
+          ? (entry.data as AttachmentInput)
+          : inputs.get(entry.parentId ?? "");
+      if (entry.type !== "message" || entry.message.role !== "user") {
+        if (input !== undefined) {
+          inputs.set(entry.id, input);
+        }
+        continue;
+      }
+      if (
+        typeof input?.text !== "string" ||
+        input.attachmentIds === undefined ||
+        input.fileAttachmentIds === undefined ||
+        !input.attachmentPositions?.some(
+          (position) => position.textPrefix === undefined && position.textHash === undefined,
+        ) ||
+        run.session.model === undefined
+      ) {
+        continue;
+      }
+      const text = userMessageText(entry.message.content);
+      const ids = input.attachmentIds;
+      function project(text: string): string {
+        return ids.reduce((value, id) => projectAttachmentText(value, id, directory), text);
+      }
+      try {
+        const prepared = await attachments.prepare(
+          project(input.text),
+          ids,
+          input.fileAttachmentIds,
+          run.session.sessionId,
+          attachmentSettingsFor(run.configuration.settings),
+          createModelTexts(() => run.configuration.settings.texts),
+          run.session.model,
+        );
+        if (project(text) !== prepared.text) {
+          continue;
+        }
+        for (const [index, position] of input.attachmentPositions.entries()) {
+          const current = prepared.positions[index];
+          // Migration changes path lengths, so both saved boundaries must match after projection.
+          if (
+            current?.id === position.id &&
+            current.isFile === position.isFile &&
+            locateAttachmentText(text, position, text) !== null &&
+            project(text.slice(0, position.start)) === prepared.text.slice(0, current.start) &&
+            project(text.slice(0, position.end)) === prepared.text.slice(0, current.end)
+          ) {
+            run.legacyAttachmentTexts.set(position, text);
+          }
+        }
+      } catch {
+        // Missing sources or changed preparation settings leave legacy offsets unverified.
+      }
+    }
+  }
+
   function showAttachments(
     run: ChatRun,
     shown: ChatMessage,
@@ -2492,23 +2566,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     ) {
       return;
     }
-    const input = data as {
-      receivesImages?: boolean;
-      text?: string;
-      attachments?: AttachmentSummary[];
-      attachmentPositions?: AttachmentPosition[];
-    };
+    const input = data as AttachmentInput;
     if (input.attachments === undefined || input.attachmentPositions === undefined) {
       return;
     }
     const content = canonical.content;
-    const text =
-      typeof content === "string"
-        ? content
-        : content
-            .filter((part) => part.type === "text")
-            .map((part) => part.text)
-            .join("");
+    const text = userMessageText(content);
     const images =
       typeof content === "string" ? [] : content.filter((part) => part.type === "image");
     shown.parts = [{ type: "text", text: input.text ?? "" }];
@@ -2529,7 +2592,10 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         error = messageOf(failure);
       }
       const image = position?.imageIndex == null ? null : (images[position.imageIndex] ?? null);
-      const modelText = position === undefined ? null : locateAttachmentText(text, position);
+      const modelText =
+        position === undefined
+          ? null
+          : locateAttachmentText(text, position, run.legacyAttachmentTexts.get(position));
       return {
         ...summary,
         isFile: position?.isFile ?? false,
@@ -2713,12 +2779,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           input.attachmentIds ?? [],
           input.fileAttachmentIds ?? [],
           run.session.sessionId,
-          {
-            ...run.configuration.settings.attachments,
-            resizeImages:
-              run.configuration.settings.attachments.resizeImages &&
-              !run.configuration.settings.context.pi.disabled.includes("imageResize"),
-          },
+          attachmentSettingsFor(run.configuration.settings),
           createModelTexts(() => run.configuration.settings.texts),
           selected,
           source?.images,
@@ -2896,12 +2957,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
           id,
           run.session.sessionId,
           isFile,
-          {
-            ...current.settings.attachments,
-            resizeImages:
-              current.settings.attachments.resizeImages &&
-              !current.settings.context.pi.disabled.includes("imageResize"),
-          },
+          attachmentSettingsFor(current.settings),
           createModelTexts(() => current.settings.texts),
           run.isModelChosen ? run.session.model : undefined,
           1,
@@ -3041,12 +3097,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             attachmentIds,
             fileAttachmentIds,
             run.session.sessionId,
-            {
-              ...settings.attachments,
-              resizeImages:
-                settings.attachments.resizeImages &&
-                !settings.context.pi.disabled.includes("imageResize"),
-            },
+            attachmentSettingsFor(settings),
             createModelTexts(() => settings.texts),
             model,
             source.images,
@@ -3383,12 +3434,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
                 attachmentIds,
                 fileAttachmentIds,
                 id,
-                {
-                  ...desired.settings.attachments,
-                  resizeImages:
-                    desired.settings.attachments.resizeImages &&
-                    !desired.settings.context.pi.disabled.includes("imageResize"),
-                },
+                attachmentSettingsFor(desired.settings),
                 createModelTexts(() => desired.settings.texts),
                 selected,
               );
@@ -3750,6 +3796,23 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
 // Windows paths can carry the drive letter in either case, so one folder could look like two.
 function toFolder(path: string): string {
   return resolve(path).replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+}
+
+function attachmentSettingsFor(settings: Settings): AttachmentSettings {
+  return {
+    ...settings.attachments,
+    resizeImages:
+      settings.attachments.resizeImages && !settings.context.pi.disabled.includes("imageResize"),
+  };
+}
+
+function userMessageText(content: Extract<AgentMessage, { role: "user" }>["content"]): string {
+  return typeof content === "string"
+    ? content
+    : content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
 }
 
 // Writes a chat as Markdown, with a heading for each prompt and for each reply, which names the

@@ -281,7 +281,13 @@ async function createLegacyState(home: string, manager: SessionManager): Promise
     attachmentIds: [attachment.id],
     fileAttachmentIds: [attachment.id],
     attachments: [attachment],
-    attachmentPositions: prepared.positions,
+    attachmentPositions: prepared.positions.map(({ id, isFile, start, end, imageIndex }) => ({
+      id,
+      isFile,
+      start,
+      end,
+      imageIndex,
+    })),
     receivesImages: false,
   });
   appendTurn(manager, prepared.text, "The saved notes list two legacy items.", 300);

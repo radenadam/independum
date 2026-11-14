@@ -20,13 +20,18 @@ import { createOperations } from "./create-operations.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
 import type { HookEvent, ScriptHook } from "./hook-contract.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
+import { envelopeText } from "./wrap-note.ts";
 
 vi.mock("./execute-script-hook.ts", () => ({ executeScriptHook: vi.fn() }));
 
 const parent = createTestFolder("hook-runtime");
 let nextId = 0;
 
-async function setup(event: HookEvent, additionalEvents: HookEvent[] = []) {
+async function setup(
+  event: HookEvent,
+  additionalEvents: HookEvent[] = [],
+  hasCustomEnvelope = false,
+) {
   nextId += 1;
   const { directory, project } = createTestProject(parent);
   const state = join(directory, "state");
@@ -98,7 +103,14 @@ async function setup(event: HookEvent, additionalEvents: HookEvent[] = []) {
         },
       },
       systemPrompt: "Base prompt.",
-      modelTexts: null,
+      modelTexts: hasCustomEnvelope
+        ? {
+            formatVersion: 1,
+            texts: {
+              "note.envelope": { text: "From {source}\n{note}", builtIn: envelopeText.builtIn },
+            },
+          }
+        : null,
     },
     profile.revision,
   );
@@ -152,126 +164,147 @@ function optionsFor(
   };
 }
 
-test("prepending input hooks preserve exact attachment inspection and moved legacy input", async () => {
-  const prefix = "x".repeat(580);
-  vi.mocked(executeScriptHook).mockImplementation(async (_hook, input) => ({
-    output: JSON.stringify({
-      apiVersion: 1,
-      action: "replace",
-      replacement: { text: prefix + String(input.data.text), images: input.data.images ?? [] },
-    }),
-    error: "",
-    exitCode: 0,
-  }));
-  const { chats, opened, models, directory, folder, faux } = await setup("input");
-  const attachment = await opened.uploadAttachment(
-    "file.pdf",
-    "application/pdf",
-    new Response("%PDF-fixture").body,
-  );
-  const expected = (await opened.previewAttachment(attachment.id, false)).modelText;
-  const chatId = opened.getState().id;
-  try {
-    const events: ChatEvent[] = [];
-    const stop = opened.subscribe((event) => events.push(event));
+test.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true],
+])(
+  "legacy attachments with changed input %s and custom wrapper %s require exact input",
+  async (doesHookChangeInput, hasCustomEnvelope) => {
+    const prefix = doesHookChangeInput ? "x".repeat(580) : "";
+    vi.mocked(executeScriptHook).mockImplementation(async (_hook, input) => ({
+      output: JSON.stringify({
+        apiVersion: 1,
+        action: "replace",
+        replacement: { text: prefix + String(input.data.text), images: input.data.images ?? [] },
+      }),
+      error: "",
+      exitCode: 0,
+    }));
+    const { chats, opened, models, directory, folder, faux } = await setup(
+      "input",
+      [],
+      hasCustomEnvelope,
+    );
+    const attachment = await opened.uploadAttachment(
+      "file.pdf",
+      "application/pdf",
+      new Response("%PDF-fixture").body,
+    );
+    const expected = (await opened.previewAttachment(attachment.id, false)).modelText;
+    const chatId = opened.getState().id;
+    try {
+      const events: ChatEvent[] = [];
+      const stop = opened.subscribe((event) => events.push(event));
+      try {
+        expect(
+          await opened.send(
+            "Question.",
+            "literal",
+            undefined,
+            false,
+            optionsFor(opened, [attachment.id]),
+          ),
+        ).toBe(true);
+        await waitFor(() =>
+          expect(opened.getState().messages[0]?.attachments?.[0]?.modelText).toBe(expected),
+        );
+        await waitFor(() =>
+          expect(opened.getState().messages.at(-1)?.parts).toEqual([
+            { type: "text", text: "Complete." },
+          ]),
+        );
+        await waitFor(() => expect(opened.getState().isReplying).toBe(false));
+        expect(
+          events.some(
+            (event) =>
+              event.type === "message" && event.message.attachments?.[0]?.modelText === expected,
+          ),
+        ).toBe(true);
+      } finally {
+        stop();
+      }
+    } finally {
+      opened.close();
+      await chats.stopAll();
+    }
+    const saved = (await SessionManager.listAll(join(directory, "sessions"))).find(
+      (chat) => chat.id === chatId,
+    );
+    if (saved === undefined) {
+      throw new Error("The saved hook chat is missing.");
+    }
+    const reopened = await createChat({ models, directory, folder });
     try {
       expect(
-        await opened.send(
-          "Question.",
-          "literal",
-          undefined,
-          false,
-          optionsFor(opened, [attachment.id]),
-        ),
-      ).toBe(true);
-      await waitFor(() =>
-        expect(opened.getState().messages[0]?.attachments?.[0]?.modelText).toBe(expected),
-      );
-      await waitFor(() =>
-        expect(opened.getState().messages.at(-1)?.parts).toEqual([
-          { type: "text", text: "Complete." },
-        ]),
-      );
-      await waitFor(() => expect(opened.getState().isReplying).toBe(false));
-      expect(
-        events.some(
-          (event) =>
-            event.type === "message" && event.message.attachments?.[0]?.modelText === expected,
-        ),
-      ).toBe(true);
+        (await reopened.open(chatId))?.getState().messages[0]?.attachments?.[0]?.modelText,
+      ).toBe(expected);
     } finally {
-      stop();
+      await reopened.stopAll();
     }
-  } finally {
-    opened.close();
-    await chats.stopAll();
-  }
-  const saved = (await SessionManager.listAll(join(directory, "sessions"))).find(
-    (chat) => chat.id === chatId,
-  );
-  if (saved === undefined) {
-    throw new Error("The saved hook chat is missing.");
-  }
-  const reopened = await createChat({ models, directory, folder });
-  try {
-    expect((await reopened.open(chatId))?.getState().messages[0]?.attachments?.[0]?.modelText).toBe(
-      expected,
-    );
-  } finally {
-    await reopened.stopAll();
-  }
-  const current = JSON.stringify(join(directory, "attachments", attachment.id, "content"));
-  const legacyStore = `${directory}-attachments`;
-  const legacy = JSON.stringify(join(legacyStore, attachment.id, "content"));
-  const entries = `${readFileSync(saved.path, "utf8")
-    .trim()
-    .split("\n")
-    .map((line) => {
-      const entry = JSON.parse(line) as SessionEntry;
-      if (entry.type === "custom" && entry.customType === "independum-input") {
-        const data = entry.data as { attachmentPositions: AttachmentPosition[] };
-        data.attachmentPositions = data.attachmentPositions.map(
-          ({ textPrefix: _prefix, textHash: _hash, ...position }) => position,
+    const current = JSON.stringify(join(directory, "attachments", attachment.id, "content"));
+    const legacyStore = `${directory}-attachments`;
+    const legacy = JSON.stringify(join(legacyStore, attachment.id, "content"));
+    const preparedText = `Question.\n\n${expected}`;
+    const entries = `${readFileSync(saved.path, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const entry = JSON.parse(line) as SessionEntry;
+        if (entry.type === "custom" && entry.customType === "independum-input") {
+          const data = entry.data as { attachmentPositions: AttachmentPosition[] };
+          data.attachmentPositions = data.attachmentPositions.map(
+            ({ id, isFile, start, end, imageIndex }) => ({
+              id,
+              isFile,
+              start: preparedText.slice(0, start).replaceAll(current, legacy).length,
+              end: preparedText.slice(0, end).replaceAll(current, legacy).length,
+              imageIndex,
+            }),
+          );
+        }
+        return JSON.stringify(entry).replaceAll(
+          JSON.stringify(current).slice(1, -1),
+          JSON.stringify(legacy).slice(1, -1),
         );
+      })
+      .join("\n")}\n`;
+    writeFileSync(saved.path, entries);
+    renameSync(join(directory, "attachments"), legacyStore);
+    const migrated = await createChat({ models, directory, folder });
+    try {
+      const chat = await migrated.open(chatId);
+      if (chat === undefined) {
+        throw new Error("The migrated hook chat did not open.");
       }
-      return JSON.stringify(entry).replaceAll(
-        JSON.stringify(current).slice(1, -1),
-        JSON.stringify(legacy).slice(1, -1),
+      expect(chat.getState().messages[0]?.attachments?.[0]?.modelText).toBe(
+        doesHookChangeInput ? null : expected,
       );
-    })
-    .join("\n")}\n`;
-  writeFileSync(saved.path, entries);
-  renameSync(join(directory, "attachments"), legacyStore);
-  const migrated = await createChat({ models, directory, folder });
-  try {
-    const chat = await migrated.open(chatId);
-    if (chat === undefined) {
-      throw new Error("The migrated hook chat did not open.");
+      await chat.resumePending();
+      let received = "";
+      faux.setResponses([
+        async (context, options, _state, model) => {
+          received = JSON.stringify(context.messages);
+          await options?.onPayload?.({ messages: context.messages }, model);
+          return fauxAssistantMessage("Continued.");
+        },
+      ]);
+      expect(await chat.send("Continue.", "literal")).toBe(true);
+      const escaped = JSON.stringify(current).slice(1, -1);
+      const obsolete = JSON.stringify(legacy).slice(1, -1);
+      await waitFor(() => expect(received).toContain(escaped));
+      await waitFor(() => expect(chat.getState().isReplying).toBe(false));
+      expect(received).toContain(prefix);
+      expect(received).not.toContain(obsolete);
+      expect(JSON.stringify(chat.getContext().lastRequest)).toContain(escaped);
+      expect(JSON.stringify(chat.getContext().lastRequest)).not.toContain(obsolete);
+      expect(readFileSync(saved.path, "utf8").startsWith(entries)).toBe(true);
+    } finally {
+      await migrated.stopAll();
     }
-    expect(chat.getState().messages[0]?.attachments?.[0]?.modelText).toBeNull();
-    await chat.resumePending();
-    let received = "";
-    faux.setResponses([
-      async (context, options, _state, model) => {
-        received = JSON.stringify(context.messages);
-        await options?.onPayload?.({ messages: context.messages }, model);
-        return fauxAssistantMessage("Continued.");
-      },
-    ]);
-    expect(await chat.send("Continue.", "literal")).toBe(true);
-    const escaped = JSON.stringify(current).slice(1, -1);
-    const obsolete = JSON.stringify(legacy).slice(1, -1);
-    await waitFor(() => expect(received).toContain(escaped));
-    await waitFor(() => expect(chat.getState().isReplying).toBe(false));
-    expect(received).toContain(prefix);
-    expect(received).not.toContain(obsolete);
-    expect(JSON.stringify(chat.getContext().lastRequest)).toContain(escaped);
-    expect(JSON.stringify(chat.getContext().lastRequest)).not.toContain(obsolete);
-    expect(readFileSync(saved.path, "utf8").startsWith(entries)).toBe(true);
-  } finally {
-    await migrated.stopAll();
-  }
-});
+  },
+);
 
 test.each([
   "input",

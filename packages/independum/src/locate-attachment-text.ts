@@ -1,17 +1,20 @@
 import { createHash } from "node:crypto";
 import type { AttachmentPosition } from "./create-attachments.ts";
 
-/** Locates captured attachment text by its exact prefix, length, and digest after input hooks. */
-export function locateAttachmentText(text: string, position: AttachmentPosition): string | null {
+/** Locates captured text by its digest or offsets in a verified unchanged legacy input. */
+export function locateAttachmentText(
+  text: string,
+  position: AttachmentPosition,
+  preparedText?: string,
+): string | null {
   const { textPrefix, textHash, start, end } = position;
-  if (
-    textPrefix === undefined ||
-    textHash === undefined ||
-    !Number.isSafeInteger(start) ||
-    !Number.isSafeInteger(end) ||
-    start < 0 ||
-    end < start
-  ) {
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start) {
+    return null;
+  }
+  if (textPrefix === undefined && textHash === undefined) {
+    return text === preparedText && end <= text.length ? text.slice(start, end) : null;
+  }
+  if (textPrefix === undefined || textHash === undefined) {
     return null;
   }
   const length = end - start;

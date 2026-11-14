@@ -10,7 +10,7 @@ import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("attachment-text-location");
 
-test("captured locators find exact text after hooks and reject changed or missing evidence", async () => {
+test("captured locators find exact text after hooks and legacy offsets require unchanged input", async () => {
   const store = createAttachments(join(parent, "attachments"));
   const chatId = randomUUID();
   const source = await store.upload(
@@ -42,7 +42,20 @@ test("captured locators find exact text after hooks and reject changed or missin
   expect(locateAttachmentText(changed, position)).toBeNull();
   expect(locateAttachmentText("Removed by hook.", position)).toBeNull();
   const { textPrefix: _prefix, textHash: _hash, ...legacy } = position;
-  expect(locateAttachmentText(prepared.text, legacy)).toBeNull();
+  expect(locateAttachmentText(prepared.text, legacy, prepared.text)).toBe(expected);
+  expect(locateAttachmentText(`Hook prefix.${prepared.text}`, legacy, prepared.text)).toBeNull();
+  expect(locateAttachmentText(changed, legacy, prepared.text)).toBeNull();
+  expect(locateAttachmentText(prepared.text, legacy, undefined)).toBeNull();
+  expect(
+    locateAttachmentText(
+      prepared.text,
+      { ...legacy, end: prepared.text.length + 1 },
+      prepared.text,
+    ),
+  ).toBeNull();
+  expect(
+    locateAttachmentText(prepared.text, { ...legacy, textPrefix: _prefix ?? "" }, prepared.text),
+  ).toBeNull();
   expect(locateAttachmentText(prepared.text, { ...position, start: -1 })).toBeNull();
   const empty = await store.prepare(
     "Prompt.",

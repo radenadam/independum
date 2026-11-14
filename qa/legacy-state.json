@@ -25,8 +25,8 @@
     {
       "shot": "legacy-attachment-desktop-light",
       "waitFor": {
-        "condition": "(() => { const dialog = document.querySelector('dialog[open]'); const text = dialog?.innerText ?? ''; return { originalNamed: text.includes('legacy-notes.txt') && text.includes('text/plain. 34 bytes.'), sourceFound: !text.includes('Attach this file again'), modelInputShown: /Path: \"/.test(text), modelInputCurrent: /Path: \".*[\\\\/]attachments[\\\\/]/.test(text) && !text.includes(\"-attachments\"), modelInputPath: /Path: (\".*\")/.exec(text)?.[1] ?? null }; })()",
-        "message": "The expected checks do not become true: originalNamed, sourceFound, modelInputShown, modelInputCurrent, modelInputPath.",
+        "condition": "(() => { const dialog = document.querySelector('dialog[open]'); const text = dialog?.innerText ?? ''; const path = /Path: (\".*\")/.exec(text)?.[1]; return { originalNamed: text.includes('legacy-notes.txt') && text.includes('text/plain. 34 bytes.'), sourceFound: !text.includes('Attach this file again'), exactTextLocated: !text.includes('cannot be located in this saved message'), modelInputShown: /Path: \"/.test(text), modelInputCurrent: !!path && /[\\\\/]\\.independum[\\\\/]attachments[\\\\/][0-9a-f-]{36}[\\\\/]content$/.test(JSON.parse(path)) && !text.includes('-attachments'), modelInputPath: path ?? null }; })()",
+        "message": "The expected checks do not become true: originalNamed, sourceFound, exactTextLocated, modelInputShown, modelInputCurrent, modelInputPath.",
         "timeoutMs": 25000
       }
     },
