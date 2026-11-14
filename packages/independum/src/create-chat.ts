@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { getCurrentSystemMessage, validateToolArguments } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
 import {
@@ -110,6 +110,7 @@ import {
   permissionTool,
 } from "./permission-tool.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
+import { privateRuntime } from "./private-runtime.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
@@ -295,14 +296,13 @@ export interface Chat {
 
 /** Keeps independent chat runs and reopens saved chats through Pi. */
 export async function createChat({ models, directory, folder }: ChatOptions): Promise<Chat> {
+  privateRuntime(directory);
   let isStopping = false;
   const sessionDirectory = join(directory, "sessions");
   const savedChats = await createSavedChats(sessionDirectory, join(directory, "pinned-chats.json"));
   const startFolder = toFolder(folder);
   const existingChats = [...(await savedChats.list()), ...(await savedChats.listArchived())];
-  const attachments = createAttachments(
-    join(dirname(directory), `${basename(directory)}-attachments`),
-  );
+  const attachments = createAttachments(join(directory, "attachments"));
   const retainedAttachments = new Set<string>();
   for (const saved of existingChats) {
     for (const entry of SessionManager.open(saved.path, sessionDirectory).getEntries()) {
@@ -514,6 +514,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             access,
           },
           [directory, join(sessionFolder, ".independum")],
+          [join(directory, "private")],
         ).decision === "allow",
     });
     if (run !== undefined && run.resources?.revision !== revision.revision) {
@@ -1833,7 +1834,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     const model =
       selected === undefined ? undefined : models.getModel(selected.provider, selected.id);
     return {
-      protectedConfigurationPaths: [join(folder, ".independum")],
+      protectedConfigurationPaths: [directory, join(folder, ".independum")],
       deniedPaths: deniedPermissionPaths(configuration.settings.permissions, folder, directory),
       attachments: settings.get().attachments,
       builtInAttachments: builtInSettings.attachments,

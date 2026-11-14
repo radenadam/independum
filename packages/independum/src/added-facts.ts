@@ -85,7 +85,7 @@ const permissions = defineText({
   section: "prompt",
   label: "In project mode when the sandbox is available",
   builtIn:
-    "Permission mode: project.\nProject folder: {project}.\nTool workers require {backend}. Commands and file tools can read everywhere except denied paths, subject to permission rules. Writes are limited to the project, subject to permission rules and protected configuration paths. Writes outside the project and network access require approval unless the permission policy allows them. Shell can request access through its access parameter.\nDenied paths: {deniedPaths}. Their host contents are inaccessible. On Linux, bubblewrap shows each denied folder as an empty private mount. That empty view does not describe its actual contents. Writes into a denied folder stay inside that command and disappear when it ends without reaching the host folder. Independum's state folder stays denied even when access is approved.\nProject .independum stays read-only unless a write is explicitly approved. Commands use the {environment} environment policy. Running commands retain their launch authority. Policies that the backend cannot enforce refuse before execution.\nRuntime access: {runtime}.\nRestrictions: {restrictions}.",
+    "Permission mode: project.\nProject folder: {project}.\nTool workers require {backend}. Commands and file tools can read everywhere except denied paths, subject to permission rules. Writes are limited to the project, subject to permission rules and protected configuration paths. Writes outside the project and network access require approval unless the permission policy allows them. Shell can request access through its access parameter.\nDenied paths: {deniedPaths}. Their host contents are inaccessible. On Linux, bubblewrap shows each denied folder as an empty private mount. That empty view does not describe its actual contents. Writes into a denied folder stay inside that command and disappear when it ends without reaching the host folder. Independum's private folder stays denied even when access is approved. Other state files are readable subject to permission rules.\nIndependum's state folder and project .independum stay read-only unless a write is explicitly approved, even when an allow rule matches. Commands use the {environment} environment policy. Running commands retain their launch authority. Policies that the backend cannot enforce refuse before execution.\nRuntime access: {runtime}.\nRestrictions: {restrictions}.",
   slots: {
     project: { meaning: "The project folder.", example: "C:/work/project" },
     backend: {
@@ -98,11 +98,11 @@ const permissions = defineText({
       example: "Read-only system roots and private devices.",
     },
     deniedPaths: {
-      meaning: "The state folder and active folders or files denied by the profile.",
-      example: '["C:/Users/person/.independum", "C:/private"]',
+      meaning: "The private state folder and active folders or files denied by the profile.",
+      example: '["C:/Users/person/.independum/private", "C:/private"]',
     },
     restrictions: {
-      meaning: "The active resource rules and read-only project configuration paths.",
+      meaning: "The active resource rules and protected state and project configuration paths.",
       example: "Project .independum.",
     },
   },
@@ -204,7 +204,10 @@ export function summarizeAddedFacts({
             ),
             restrictions: JSON.stringify({
               rules: settings.permissions.rules,
-              protectedPaths: [join(folder, ".independum")],
+              protectedPaths: [
+                directory ?? join(homedir(), ".independum"),
+                join(folder, ".independum"),
+              ],
             }),
           })
         : null,

@@ -179,9 +179,10 @@ test("all matching rules apply with deny before ask before allow", () => {
   ).toBe("ask");
 });
 
-test("state denial precedes allow rules and active profile denials use real project paths", () => {
+test("private denial precedes allow rules and active profile denials use real project paths", () => {
   const directory = join(folder, ".independum");
-  const denied = { ...inside, path: join(directory, "private.txt"), access: "read" } as const;
+  const privateFolder = join(directory, "private");
+  const denied = { ...inside, path: join(privateFolder, "secret.txt"), access: "read" } as const;
   const policy: PermissionPolicy = {
     ...builtInPermissions,
     rules: [
@@ -193,10 +194,59 @@ test("state denial precedes allow rules and active profile denials use real proj
   };
   for (const access of ["read", "write"] as const) {
     expect(
-      evaluatePermission(policy, project, { ...denied, access }, [], [directory]).decision,
+      evaluatePermission(policy, project, { ...denied, access }, [directory], [privateFolder])
+        .decision,
     ).toBe("deny");
   }
-  expect(deniedPermissionPaths(policy, project, directory)).toEqual([directory, inside.path]);
+  expect(deniedPermissionPaths(policy, project, directory)).toEqual([privateFolder, inside.path]);
+});
+
+test("state reads stay ordinary and every state write asks despite an allow rule", () => {
+  const directory = join(project, "state");
+  const denied = deniedPermissionPaths(builtInPermissions, project, directory);
+  const policy: PermissionPolicy = {
+    ...builtInPermissions,
+    rules: [
+      {
+        id: "allow-state",
+        project: "*",
+        effect: "allow",
+        resource: {
+          ...inside,
+          path: directory,
+          scope: "tree",
+        },
+      },
+    ],
+  };
+  for (const name of [
+    "sessions/chat.jsonl",
+    "outputs/chat/output.txt",
+    "attachments/source/content",
+    "profiles/default/observer.mjs",
+    "settings.json",
+  ]) {
+    const resource = { ...inside, path: join(directory, name) };
+    expect(
+      evaluatePermission(policy, project, { ...resource, access: "read" }, [directory], denied)
+        .decision,
+    ).toBe("allow");
+    expect(evaluatePermission(policy, project, resource, [directory], denied).decision).toBe("ask");
+    expect(
+      evaluatePermission(
+        { ...policy, mode: "unrestricted", rules: [] },
+        project,
+        resource,
+        [directory],
+        denied,
+      ).decision,
+    ).toBe("allow");
+  }
+  const secret = { ...inside, path: join(directory, "private", "secret.txt") };
+  expect(evaluatePermission(policy, project, secret, [directory], denied)).toMatchObject({
+    decision: "deny",
+    reason: `Independum's private folder is denied: ${join(directory, "private")}.`,
+  });
 });
 
 test("version one permissions migrate without losing other policy settings", () => {

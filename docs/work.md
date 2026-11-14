@@ -8,7 +8,7 @@ Passing deterministic checks, AI review, and AI browser QA authorize landing wit
 
 ## Active step
 
-Roadmap step 1: reproduce the exact-call coercion of CP-17, the retained cut output that the model cannot reach in CP-17, and the user-profile hook storage that the state-folder denial blocks in CP-14. Each contradiction is reproduced with a test that fails before its fix. The state-folder security boundary stays intact. A fix that needs a new security, privacy, or product tradeoff waits for the maintainer.
+Roadmap step 1: reproduce the exact-call coercion of CP-17, the retained cut output that the model cannot reach in CP-17, and the user-profile hook storage that the state-folder denial blocks in CP-14. Each contradiction is reproduced with a test that fails before its fix. The direct maintainer answer of 2026-11-14 authorizes [decision 0080](decisions/0080-private-state-folder.md): deny secrets in `private`, read the rest of state, protect state writes, and move attachments inside it. The private-state fix has ordinary regression tests. Native execution remains coordinator evidence. Exact-call coercion remains separate.
 
 ## Next
 

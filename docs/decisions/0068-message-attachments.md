@@ -1,6 +1,6 @@
 # Message attachments
 
-- Status: accepted
+- Status: accepted, storage moved inside state by [decision 0080](0080-private-state-folder.md)
 - Date: 2026-11-06
 
 ## Context

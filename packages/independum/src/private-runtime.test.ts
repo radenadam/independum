@@ -73,7 +73,7 @@ test("stale cleanup checks the exact server identity", () => {
 test("malformed oversized and non-loopback records fail without exposing their content", () => {
   const folder = directory();
   publishServer(folder, connection);
-  const path = join(folder, "runtime", "server.json");
+  const path = join(folder, "private", "server.json");
   for (const content of [
     "not JSON",
     "x".repeat(8193),
@@ -89,11 +89,11 @@ test("linked directories and multiply linked token files refuse discovery", () =
   const folder = directory();
   const target = privateRuntime(directory());
   mkdirSync(folder);
-  symlinkSync(target, join(folder, "runtime"), "junction");
+  symlinkSync(target, join(folder, "private"), "junction");
   expect(() => readServer(folder)).toThrow("securely");
   const second = directory();
   publishServer(second, connection);
-  linkSync(join(second, "runtime", "server.json"), join(second, "runtime", "second-link.json"));
+  linkSync(join(second, "private", "server.json"), join(second, "private", "second-link.json"));
   expect(() => readServer(second)).toThrow("securely");
 });
 
@@ -108,13 +108,13 @@ test.skipIf(process.platform === "win32")(
   () => {
     const folder = directory();
     publishServer(folder, connection);
-    const path = join(folder, "runtime", "server.json");
+    const path = join(folder, "private", "server.json");
     chmodSync(path, 0o644);
     expect(() => readServer(folder)).toThrow("securely");
     chmodSync(path, 0o600);
-    chmodSync(join(folder, "runtime"), 0o755);
+    chmodSync(join(folder, "private"), 0o755);
     expect(() => readServer(folder)).toThrow("securely");
-    chmodSync(join(folder, "runtime"), 0o700);
+    chmodSync(join(folder, "private"), 0o700);
     const owner = process.getuid?.() ?? 0;
     const getuid = vi.spyOn(process, "getuid").mockReturnValue(owner + 1);
     try {
@@ -138,7 +138,7 @@ test.skipIf(process.platform !== "win32")(
     expect(permissions.read(folder)).toContain("(A;OICIID;FA;;;WD)");
     publishServer(folder, connection);
     expect(readServer(folder)).toEqual(connection);
-    const runtime = join(folder, "runtime");
+    const runtime = join(folder, "private");
     for (const path of [runtime, join(runtime, "server.json")]) {
       expect(permissions.read(path)).toMatch(
         /^O:[^:]+D:P(?:AI)?\(A;(?:OICI)?;FA;;;(?:S-[\d-]+|LA|LG)\)$/,
@@ -170,7 +170,7 @@ test.skipIf(process.platform !== "win32").each(["WD", "BA", "SY"])(
   (identity) => {
     const folder = directory();
     publishServer(folder, connection);
-    const path = join(folder, "runtime", "server.json");
+    const path = join(folder, "private", "server.json");
     const permissions = windowsPermissions();
     const accountGrant = permissions.read(path).match(/\(A;;FA;;;[^)]+\)/)?.[0];
     expect(accountGrant).toBeDefined();

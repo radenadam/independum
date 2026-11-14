@@ -20,7 +20,7 @@ export const attachmentTexts: Record<"source" | "details" | "text", ModelText> =
       name: { meaning: "The original name as a JSON string.", example: '"notes.txt"' },
       path: {
         meaning: "The saved absolute path as a JSON string.",
-        example: '"/home/user/.independum-attachments/id/content"',
+        example: '"/home/user/.independum/attachments/id/content"',
       },
       mimeType: { meaning: "The media type of the original file.", example: "text/plain" },
       bytes: { meaning: "The exact original byte count.", example: "18" },

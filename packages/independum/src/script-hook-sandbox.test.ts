@@ -1,14 +1,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { MxcError } from "@microsoft/mxc-sdk/v1";
 import { expect, test } from "vitest";
 import { createHookTest } from "./create-hook-test.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
+import { skipUnavailableSandbox } from "./skip-unavailable-sandbox.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("script-hook-native");
 
-test("native script hooks read outside the project while protecting configuration and state", async (testContext) => {
+test("native script hooks read outside the project while protecting configuration and private state", async (testContext) => {
   const { hook, input, context, project, options, snapshots, script, runtime } =
     createHookTest(parent);
   if (runtime.unavailable !== null) {
@@ -16,11 +16,11 @@ test("native script hooks read outside the project while protecting configuratio
   }
   const sentinel = join(project, ".independum", "sentinel.txt");
   const outside = join(project, "..", "outside.txt");
-  const state = join(options.directory, "sentinel.txt");
+  const state = join(options.directory, "private", "sentinel.txt");
   const created = [
     join(project, ".independum", "created.txt"),
     join(project, "..", "created.txt"),
-    join(options.directory, "created.txt"),
+    join(options.directory, "private", "created.txt"),
   ];
   writeFileSync(sentinel, "protected");
   writeFileSync(outside, "outside");
@@ -54,13 +54,7 @@ process.stdout.write(JSON.stringify({ apiVersion: 1, action: "continue" }));
       options,
     );
   } catch (error) {
-    if (
-      error instanceof MxcError &&
-      ["backend_error", "backend_unavailable", "unsupported_containment"].includes(error.code)
-    ) {
-      testContext.skip(error.message);
-    }
-    throw error;
+    skipUnavailableSandbox(testContext, error);
   }
   expect(readFileSync(sentinel, "utf8")).toBe("protected");
   expect(readFileSync(outside, "utf8")).toBe("outside");

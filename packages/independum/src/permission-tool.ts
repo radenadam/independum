@@ -120,17 +120,18 @@ export function permissionTool(
         }
         const project = resolve(context.cwd);
         const location = canonicalPermissionPath(project, project);
-        if (containsPermissionPath(options.directory, project)) {
+        const privateFolder = join(options.directory, "private");
+        if (containsPermissionPath(privateFolder, project)) {
           throw new Error(
             options.texts.fill(permissionTexts.rule, {
-              reason: "The project folder is inside Independum's denied state folder.",
+              reason: `The project folder is inside Independum's denied private folder: ${privateFolder}.`,
             }),
           );
         }
         if (isCommand) {
           mkdirSync(join(project, ".independum"), { recursive: true });
         }
-        const protectedPaths = [join(project, ".independum")];
+        const protectedPaths = [options.directory, join(project, ".independum")];
         let resources: PermissionResource[];
         try {
           resources = requestedResources(isCommand ? "Shell" : tool.name, input, project);
@@ -159,7 +160,7 @@ export function permissionTool(
         const matchingRules = new Map<string, PermissionRule>();
         for (const resource of resources) {
           const result = evaluatePermission(policy, project, resource, protectedPaths, [
-            options.directory,
+            privateFolder,
           ]);
           for (const rule of result.matches) {
             matchingRules.set(rule.id, rule);

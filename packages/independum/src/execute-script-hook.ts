@@ -84,9 +84,7 @@ export async function executeScriptHook(
       command: sandboxCommand(executable, arguments_),
       workdir: folder,
       access: {
-        paths: files
-          .filter((path) => path !== executable)
-          .map((path) => ({ path, scope: "file", access: "read" })),
+        paths: files.map((path) => ({ path, scope: "file", access: "read" })),
       },
     },
     signal,

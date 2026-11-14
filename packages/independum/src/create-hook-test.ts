@@ -24,7 +24,7 @@ export function createHookTest(parent: string): {
   const { directory, project } = createTestProject(parent);
   const state = join(directory, "state");
   const configuration = join(project, ".independum");
-  mkdirSync(state);
+  mkdirSync(join(state, "private"), { recursive: true });
   mkdirSync(configuration);
   const script = join(configuration, "hook.ts");
   writeFileSync(script, "process.stdout.write('result');");

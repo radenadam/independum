@@ -151,8 +151,9 @@ export function PermissionDetail({
       </PlaceSection>
       <PlaceSection heading="Denied paths">
         <PlaceNote>
-          In project mode, commands and file tools cannot access Independum's state folder, which
-          holds the logins. Profile rules can deny more paths. An approval cannot override a denial.
+          In project mode, commands and file tools cannot access the private folder inside
+          Independum's state, which holds logins and connection secrets. Other state is readable
+          unless profile rules deny it. An approval cannot override a denial.
         </PlaceNote>
         <CodeWell code={(agent.deniedPaths ?? []).join("\n")} copyLabel="Copy denied paths" />
         <PlaceNote>
@@ -255,14 +256,14 @@ export function PermissionDetail({
           ))
         )}
       </PlaceSection>
-      <PlaceSection heading="Protected settings folders">
+      <PlaceSection heading="Protected folders">
         <PlaceNote>
-          Project settings stay in these folders. They stay readable, and changing them needs
-          explicit approval, even when a rule allows writes to the surrounding folder.
+          State and project settings stay in these folders. Contents outside denied paths stay
+          readable. Every write needs explicit approval, even when a rule allows it.
         </PlaceNote>
         <CodeWell
           code={(agent.protectedConfigurationPaths ?? []).join("\n")}
-          copyLabel="Copy protected settings folders"
+          copyLabel="Copy protected folders"
         />
         <PlaceNote>
           The command cannot change these folders through its usual project access. If the sandbox

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import {
   type AssistantMessage,
   fauxAssistantMessage,
@@ -127,12 +127,13 @@ test("waiting messages carry each attachment form through steer and follow-up ha
       scope: "file",
       access: "read",
     } as const;
-    expect(resource.path).toBe(
-      join(parent, `${basename(directory)}-attachments`, source.id, "content"),
+    expect(resource.path).toBe(join(directory, "attachments", source.id, "content"));
+    const denied = [join(directory, "private")];
+    expect(evaluatePermission(policy, folder, resource, [directory], denied).decision).toBe(
+      "allow",
     );
-    expect(evaluatePermission(policy, folder, resource, [], [directory]).decision).toBe("allow");
     expect(
-      evaluatePermission(policy, folder, { ...resource, access: "write" }, [], [directory])
+      evaluatePermission(policy, folder, { ...resource, access: "write" }, [directory], denied)
         .decision,
     ).toBe("ask");
     for (const effect of ["ask", "deny"] as const) {
@@ -141,8 +142,8 @@ test("waiting messages carry each attachment form through steer and follow-up ha
           { ...policy, rules: [{ id: "upload", effect, project: folder, resource }] },
           folder,
           resource,
-          [],
           [directory],
+          denied,
         ).decision,
       ).toBe(effect);
     }
@@ -150,9 +151,9 @@ test("waiting messages carry each attachment form through steer and follow-up ha
       evaluatePermission(
         policy,
         folder,
-        { ...resource, path: join(directory, "private.txt") },
-        [],
+        { ...resource, path: join(directory, "private", "sentinel.txt") },
         [directory],
+        denied,
       ).decision,
     ).toBe("deny");
   }

@@ -4,7 +4,7 @@
 
 ## Product work
 
-1. Reproduce exact-call coercion, inaccessible retained output, and user-profile hook storage contradictions from CP-14 and CP-17. Preserve the state-folder security boundary while fixing storage and retrieval.
+1. Fix exact-call coercion from CP-17. Verify the CP-14 user-profile hooks and CP-17 retained output under [decision 0080](decisions/0080-private-state-folder.md), which denies private secrets, permits other state reads, and protects state writes.
 2. Agree shared contracts before dependent work: detailed kernel, detachable and removable contributions, historical evidence, ownership, and application timing. CP-02 through CP-08.
 3. Develop interface architecture through the seven [journeys](design.md#journeys), identical alternatives, long content, both themes, and phone layouts. Record accepted reasoning. CP-24.
 4. Deliver one complete component journey, using hook creation as an acceptance case. CP-14.

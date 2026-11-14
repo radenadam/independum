@@ -295,6 +295,38 @@ async function submitHeadless(
   return operations.prompt({ requestId: "driver-one", text, chatId: chat.getState().id });
 }
 
+test("profile previews and open chats deny private context while reading other state", async () => {
+  const { chats, chat, directory, reference, projectId } = await setup();
+  const hidden = join(directory, "private", "hidden.md");
+  const visible = join(directory, "profiles", "default", "visible.md");
+  writeFileSync(hidden, "---\ndescription: Private fixture.\n---\nHidden fixture.");
+  writeFileSync(visible, "---\ndescription: Readable fixture.\n---\nVisible fixture.");
+  const context = chat.getResources().settings;
+  try {
+    await chats.changeSettings(
+      reference,
+      projectId,
+      {
+        context: {
+          ...context,
+          slashCommands: { ...context.slashCommands, paths: [hidden, visible] },
+        },
+      },
+      chats.profiles.profile(reference, projectId).revision,
+    );
+    for (const agent of [chats.profileAgent(reference, projectId), chat.getAgent()]) {
+      expect(agent.resources?.resources.find((resource) => resource.path === hidden)?.source).toBe(
+        "",
+      );
+      expect(
+        agent.resources?.resources.find((resource) => resource.path === visible)?.source,
+      ).toContain("Visible fixture.");
+    }
+  } finally {
+    await chats.stopAll();
+  }
+});
+
 test("context controls keep saved literal filenames visible while a reply waits for approval", async () => {
   const created = await setup();
   const { chats, chat, faux, reference, projectId } = created;

@@ -55,10 +55,13 @@ export function createContextPermissions(options: ContextPermissionsOptions): Co
   }
 
   function evaluation(resource: PathAccess): ReturnType<typeof evaluatePermission> {
-    return evaluatePermission(options.policy(), options.project, resource, [
-      options.directory,
-      join(options.project, ".independum"),
-    ]);
+    return evaluatePermission(
+      options.policy(),
+      options.project,
+      resource,
+      [options.directory, join(options.project, ".independum")],
+      [join(options.directory, "private")],
+    );
   }
 
   function check(path: string, scope: "file" | "tree", access: "read" | "write" = "read"): boolean {

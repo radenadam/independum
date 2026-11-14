@@ -5,6 +5,7 @@ import type { Readable } from "node:stream";
 import {
   type ContainerRequest,
   getPlatformSupport,
+  MxcError,
   type MxcProcess,
   type PlatformSupport,
   probe,
@@ -35,6 +36,14 @@ export interface SandboxLaunch {
   paths: PathAccess[];
   deniedPaths: string[];
   network: boolean;
+}
+
+/** Identifies native setup failures that leave supported-host verification unavailable. */
+export function isSandboxSetupFailure(error: unknown): error is MxcError {
+  return (
+    error instanceof MxcError &&
+    ["backend_error", "backend_unavailable", "unsupported_containment"].includes(error.code)
+  );
 }
 
 /** Discovers a concrete backend without selecting a weaker fallback. */

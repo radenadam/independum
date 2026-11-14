@@ -4,6 +4,7 @@ const nativeSandboxTests = [
   "packages/independum/src/create-sandbox.test.ts",
   "packages/independum/src/script-hook-sandbox.test.ts",
   "packages/independum/src/run-file-operation.test.ts",
+  "packages/independum/src/sandbox-runtime.test.ts",
 ];
 
 export default defineConfig({

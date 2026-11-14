@@ -61,7 +61,7 @@ test("credentials survive restart as hashes and each phone has independent revoc
     credentials.push(pairings.collect(claim.receipt).credential ?? "");
     pairings.authenticate(credentials.at(-1) ?? "");
   }
-  const disk = readFileSync(join(directory, "runtime", "phones.json"), "utf8");
+  const disk = readFileSync(join(directory, "private", "phones.json"), "utf8");
   for (const credential of credentials) {
     expect(disk).not.toContain(credential);
   }
@@ -142,7 +142,7 @@ test("pairing limits failed attempts and validates names without leaking supplie
 test("invalid saved registries fail closed without including saved content in errors", () => {
   const { directory, pairings } = setup();
   pairings.revoke("missing");
-  const path = join(directory, "runtime", "phones.json");
+  const path = join(directory, "private", "phones.json");
   for (const content of ["private-file-content", "{}", '[{"credentialHash":"private-secret"}]']) {
     writeFileSync(path, content);
     expect(() => createPhonePairings(directory)).toThrow("The saved phone registry is invalid.");

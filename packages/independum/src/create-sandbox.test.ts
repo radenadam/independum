@@ -6,7 +6,7 @@ import {
   SessionManager,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
-import { getPlatformSupport, MxcError } from "@microsoft/mxc-sdk/v1";
+import { getPlatformSupport } from "@microsoft/mxc-sdk/v1";
 import { expect, type TestContext, test } from "vitest";
 import { commandEnvironment } from "./command-environment.ts";
 import { createApprovals } from "./create-approvals.ts";
@@ -21,6 +21,7 @@ import { createModelTexts } from "./model-texts.ts";
 import { canonicalPermissionPath, containsPermissionPath } from "./permission-policy.ts";
 import { permissionTool } from "./permission-tool.ts";
 import { builtInSettings } from "./read-settings-change.ts";
+import { skipUnavailableSandbox } from "./skip-unavailable-sandbox.ts";
 import { createEditTool } from "./tools/create-edit-tool.ts";
 import { createReadTool } from "./tools/create-read-tool.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
@@ -58,7 +59,15 @@ async function supported(
   const outside = join(root, `${context.task.id.replaceAll(/[^a-z0-9]/gi, "")}-outside.txt`);
   writeFileSync(outside, "outside sentinel");
   const runtime = sandboxRuntime(process.execPath, "minimal", Object.keys(environment));
-  const denied = join(root, `${context.task.id.replaceAll(/[^a-z0-9]/gi, "")}-home`, ".independum");
+  if (runtime.unavailable !== null) {
+    context.skip(runtime.unavailable);
+  }
+  const denied = join(
+    root,
+    `${context.task.id.replaceAll(/[^a-z0-9]/gi, "")}-home`,
+    ".independum",
+    "private",
+  );
   mkdirSync(denied, { recursive: true });
   const launch: SandboxLaunch = {
     runtime,
@@ -70,16 +79,7 @@ async function supported(
   try {
     preflight = await execute(launch, project, 'process.stdout.write("ready")');
   } catch (error) {
-    if (
-      runtime.unavailable !== null ||
-      (error instanceof MxcError &&
-        ["backend_error", "backend_unavailable", "unsupported_containment"].includes(error.code))
-    ) {
-      context.skip(
-        `Sandbox setup fails before the native test: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    throw error;
+    skipUnavailableSandbox(context, error);
   }
   if (
     preflight.exitCode !== 0 &&
@@ -257,23 +257,31 @@ test("linux permits denied folder masks and refuses false denied file contents",
   );
 });
 
-test("native sandbox keeps the denied state folder private and unchanged on the host", async (context) => {
+test("native sandbox keeps the denied private folder unchanged and other state readable", async (context) => {
   const { project, launch } = await supported(context);
-  const configuration = join(project, ".independum");
-  mkdirSync(configuration);
+  const state = join(project, ".independum");
+  const configuration = join(state, "private");
+  mkdirSync(configuration, { recursive: true });
+  launch.readonlyPaths = [state];
   launch.deniedPaths = [configuration];
+  const readable = join(state, "output.txt");
+  writeFileSync(readable, "readable state sentinel");
   const policy = join(configuration, "settings.json");
   const created = join(configuration, "created.txt");
   writeFileSync(policy, "private sentinel");
   const command = sandboxCommand(process.execPath, [
     "-e",
-    `const fs = require('node:fs'); try { process.stdout.write(fs.readFileSync(${JSON.stringify(policy)}, 'utf8')); } catch { process.stdout.write('read denied '); } for (const path of ${JSON.stringify([policy, created])}) { try { fs.writeFileSync(path, 'widened'); process.stdout.write('ALLOWED '); } catch (error) { process.stdout.write('write denied ' + error.code + ' '); } }`,
+    `const fs = require('node:fs'); process.stdout.write(fs.readFileSync(${JSON.stringify(readable)}, 'utf8')); try { fs.writeFileSync(${JSON.stringify(readable)}, 'widened'); process.stdout.write('STATE WRITE ALLOWED'); } catch { process.stdout.write('state write denied '); } try { process.stdout.write(fs.readFileSync(${JSON.stringify(policy)}, 'utf8')); } catch { process.stdout.write('read denied '); } for (const path of ${JSON.stringify([policy, created])}) { try { fs.writeFileSync(path, 'widened'); process.stdout.write('ALLOWED '); } catch (error) { process.stdout.write('write denied ' + error.code + ' '); } }`,
   ]);
   const result = await captureSandbox(sandboxRequest(launch, command, project, environment));
   expect(readFileSync(policy, "utf8")).toBe("private sentinel");
   expect(existsSync(created)).toBe(false);
+  expect(readFileSync(readable, "utf8")).toBe("readable state sentinel");
   expect(result.exitCode, result.error).toBe(0);
   expect(result.output).toContain("read denied");
+  expect(result.output).toContain("readable state sentinel");
+  expect(result.output).toContain("state write denied");
+  expect(result.output).not.toContain("STATE WRITE ALLOWED");
   expect(result.output).not.toContain("private sentinel");
   if (launch.runtime.backend === "bubblewrap") {
     expect(result.output.match(/ALLOWED /g)).toHaveLength(2);
@@ -288,7 +296,7 @@ test("native sandbox keeps the denied state folder private and unchanged on the 
     expect(next.output).toBe("[]");
   } else {
     expect(result.output).not.toContain("ALLOWED");
-    expect(result.output.match(/write denied /g)).toHaveLength(2);
+    expect(result.output.match(/write denied /g)).toHaveLength(3);
   }
 }, 30_000);
 
@@ -348,6 +356,7 @@ test("restricted file workers preserve fingerprints and prevent outside writes t
   const approvals = createApprovals();
   const manager = SessionManager.inMemory(project);
   const toolContext = { cwd: project, sessionManager: manager } as unknown as ExtensionToolContext;
+  mkdirSync(join(root, "state", "private"), { recursive: true });
   const options: Parameters<typeof permissionTool>[1] = {
     settings,
     texts,
