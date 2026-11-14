@@ -8,10 +8,10 @@ Passing deterministic checks, AI review, and AI browser QA authorize landing wit
 
 ## Active step
 
-Roadmap step 1: reproduce the exact-call coercion of CP-17, the retained cut output that the model cannot reach in CP-17, and the user-profile hook storage that the state-folder denial blocks in CP-14. Each contradiction is reproduced with a test that fails before its fix. The direct maintainer answer of 2026-11-14 authorizes [decision 0080](decisions/0080-private-state-folder.md): deny secrets in `private`, read the rest of state, protect state writes, and move attachments inside it. The private-state fix has ordinary regression tests. Native execution remains coordinator evidence. Exact-call coercion remains separate.
+The first roadmap step agrees shared contracts. It opens with a question round on the kernel, the detachable and removable contributions, historical evidence, ownership, and application timing, for CP-02 through CP-08.
 
-## Next
+## Last step
 
-Roadmap step 2 opens with a question round on the kernel, the detachable and removable contributions, historical evidence, ownership, and application timing, for CP-02 through CP-08.
+The step that reproduced and fixed the CP-14 and CP-17 contradictions is complete. A tool call whose arguments differ from its schema fails instead of being converted. [Decision 0080](decisions/0080-private-state-folder.md) denies only the private folder of secrets, so the model reads cut output and user-profile hook scripts run, and writes into the state folder ask. Both follow direct maintainer answers of 2026-11-14.
 
 Implementation is not acceptance. [The checkpoint](checkpoint.md) keeps implementation and verification separate.

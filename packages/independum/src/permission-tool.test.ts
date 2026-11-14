@@ -137,6 +137,22 @@ function persistApprovals(options: Parameters<typeof permissionTool>[1]): void {
   options.saveApproval = saveApproval;
 }
 
+test("raw preparation and final permission validation reject inexact arguments before any effect", async () => {
+  const { tool, context, options, effect } = fixture();
+  const input = { command: 42, access: { network: "true" } };
+  expect(tool.prepareArguments).toBeTypeOf("function");
+  expect(() => tool.prepareArguments?.(input)).toThrow(
+    '/command: expected {"type":"string"}. Received 42.',
+  );
+  await expect(tool.execute("call", input, undefined, undefined, context)).rejects.toThrow(
+    '/access/network: expected {"type":"boolean"}. Received "true".',
+  );
+  expect(effect).not.toHaveBeenCalled();
+  expect(options.approvals.pending()).toEqual([]);
+  expect(options.launches.size).toBe(0);
+  expect(input).toEqual({ command: 42, access: { network: "true" } });
+});
+
 test("headless calls return approval required immediately without effects or pending prompts", async () => {
   const { tool, context, options, effect } = fixture(false);
   const result = await tool.execute(

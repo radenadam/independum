@@ -69,6 +69,9 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     const commands = join(project, ".independum", "commands");
     await mkdir(skills, { recursive: true });
     await mkdir(commands, { recursive: true });
+    // A new file directly in the project folder needs approval, because that folder holds project
+    // settings, so the stand-in model writes its notes into this folder instead.
+    await mkdir(join(project, "notes"));
     await writeFile(join(project, "AGENTS.md"), "Preview project facts.\n");
     await writeFile(join(project, "CLAUDE.md"), "Preview project facts.\n");
     await writeFile(

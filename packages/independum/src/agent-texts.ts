@@ -15,6 +15,7 @@ import { stopCommandTextList } from "./tools/create-stop-command-tool.ts";
 import { writeTextList } from "./tools/create-write-tool.ts";
 import { fileTextList } from "./tools/text-file.ts";
 import { fingerprintTextList } from "./tools/version-of.ts";
+import { toolArgumentTextList } from "./validate-tool-arguments.ts";
 import { envelopeText } from "./wrap-note.ts";
 
 // The harness identity and folder belong to added facts, so their switches control every copy.
@@ -46,4 +47,5 @@ export const allTexts: ModelText[] = [
   ...outputTextList,
   envelopeText,
   ...permissionTextList,
+  ...toolArgumentTextList,
 ];
