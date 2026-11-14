@@ -1,12 +1,8 @@
 # Roadmap
 
-[Current work](work.md) owns the active phase and building stop. [The checkpoint](checkpoint.md) owns required behavior, implementation, and verification. This page orders unfinished work instead of repeating its specification. Remove finished items and record lasting choices in decisions.
+[Current work](work.md) owns the active step. [The checkpoint](checkpoint.md) owns required behavior, implementation, and verification. This page orders unfinished work instead of repeating its specification. Remove finished items and record lasting choices in decisions.
 
-## Healing first
-
-Finish context and local gate foundations. Validate repository-only judgment with fresh agents and record the maintainer's assessment before resuming product building. [Decision 0071](decisions/0071-repository-healing.md) owns acceptance.
-
-## After healing
+## Product work
 
 1. Reproduce exact-call coercion, inaccessible retained output, and user-profile hook storage contradictions from CP-14 and CP-17. Preserve the state-folder security boundary while fixing storage and retrieval.
 2. Agree shared contracts before dependent work: detailed kernel, detachable and removable contributions, historical evidence, ownership, and application timing. CP-02 through CP-08.

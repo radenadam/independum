@@ -1,23 +1,17 @@
 # Current work
 
-Building stops for repository healing under the maintainer's 2026-11-09 instruction and 2026-11-10 answers. [Decision 0071](decisions/0071-repository-healing.md) records resumption conditions.
+Repository healing is complete. The maintainer judged the repository-only cold start on 2026-11-13, and the healing landed through the local gates on 2026-11-14. Product building resumes under the conditions of [decision 0071](decisions/0071-repository-healing.md).
 
-The 2026-11-13 direct maintainer correction makes passing deterministic checks, AI review, and AI browser QA sufficient for landing within settled intent. The maintainer tests at milestones. [The working agreement](standard.md#authority) owns authority, and [decision 0079](decisions/0079-gates-authorize-landing.md) records the amendment.
+On 2026-11-14 the maintainer chose, directly, to follow [the roadmap](roadmap.md) in its order. Each step opens with a question round, as [the workflow](workflow.md#questions-and-planning) describes, and asks the maintainer only what [the working agreement](standard.md#authority) leaves to them.
 
-Product behavior stays unchanged. Implementation is not acceptance. [The checkpoint](checkpoint.md) records product gaps.
+Passing deterministic checks, AI review, and AI browser QA authorize landing within settled intent, and the maintainer tests the app at milestones. [Decision 0079](decisions/0079-gates-authorize-landing.md) records this.
 
-## Current boundary
+## Active step
 
-The healing worker stays offline in its supplied worktree, makes no git mutations, writes nowhere else, and leaves changes uncommitted. Native tests skip and shell tests lack a default shell. Installed Edge runs offline data pages with intercepted requests. Full app scenarios and AI gates remain coordinator work. Missing evidence is not a pass.
+Roadmap step 1: reproduce the exact-call coercion of CP-17, the retained cut output that the model cannot reach in CP-17, and the user-profile hook storage that the state-folder denial blocks in CP-14. Each contradiction is reproduced with a test that fails before its fix. The state-folder security boundary stays intact. A fix that needs a new security, privacy, or product tradeoff waits for the maintainer.
 
-## Resume pointers
+## Next
 
-The 2026-11-13 direct repair scopes acceptance to context and harness changes. The manifest and evidence use ignored `node_modules/.cache/healing`. Pi writes 240 requests and four compactions for `qa/long-session.json`. Changed app scenarios await coordinator execution.
+Roadmap step 2 opens with a question round on the kernel, the detachable and removable contributions, historical evidence, ownership, and application timing, for CP-02 through CP-08.
 
-The 2026-11-14 seventh-run repair waits for visible upload and preparation and checks the waiting row's attachment. An offline actual-composer probe confirms unready Send and Queue retain drafts without sending. This is a scenario race, without a product gap or manifest exception. CP-21 retains full-journey verification. [Browser QA](browser-qa.md) owns synchronization and viewport QR evidence.
-
-The gate binds both browser regressions to the reviewed revision. Required skips block passing roles. Only allowlisted Unix-only or macOS-only tests on Windows may substitute exact CI platforms. [Checks](checks.md) owns this boundary and serialization. Seventh-repair formatting and static checks pass. Tests report 657 passes, 12 shell failures, 10 native skips, two browser opt-in skips, one Unix-only skip, and one uncollected shell module. Ignored availability evidence names each. Earlier intermittent queue delivery and replaced-file identity failures remain unexplained.
-
-The coordinator must rerun with a shell, run scenarios and AI gates, install pre-push, and complete native evidence. Real CLI execution remains unverified. Fresh agents must explain product, checkpoint, authority, and correction cases. Record maintainer milestone judgment before lifting the stop.
-
-After healing, [the roadmap](roadmap.md) orders product work. Keep implementation and verification separate in the ledger.
+Implementation is not acceptance. [The checkpoint](checkpoint.md) keeps implementation and verification separate.

@@ -468,6 +468,22 @@ test("a stopped tool result hook holds steers before handoff until resume", asyn
   }
 });
 
+test("a tool call replacement that differs from the tool schema fails its hook", async () => {
+  replaceWith({ input: { id: "1" } });
+  const { chats, opened, faux } = await setup("tool_call");
+  faux.setResponses([
+    fauxAssistantMessage([fauxToolCall("CheckCommand", {})], { stopReason: "toolUse" }),
+    fauxAssistantMessage("Checked."),
+  ]);
+  try {
+    await reply(opened);
+    expect(opened.getHooks().invocations).toMatchObject([{ status: "failed" }]);
+  } finally {
+    opened.close();
+    await chats.stopAll();
+  }
+});
+
 function replaceWith(replacement: unknown): void {
   vi.mocked(executeScriptHook).mockResolvedValue({
     output: JSON.stringify({ apiVersion: 1, action: "replace", replacement }),

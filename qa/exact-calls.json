@@ -1,0 +1,626 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the preview note."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { inexactCallFails: !!stepOf('preview-note-1.txt', 'Failed'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: inexactCallFails, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ correctedCallStarts: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('preview-note-1.txt')).length === 2 })",
+        "message": "The expected checks do not become true: correctedCallStarts.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { correctedCallSucceeds: !!stepOf('preview-note-1.txt', 'New, 2 lines'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: correctedCallSucceeds, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: /Preview note written to notes[\\\\/]preview-note-1\\.txt\\./.test(document.querySelector('main').innerText) && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')?.getAttribute('aria-expanded') === 'false' })",
+        "message": "The expected checks do not become true: replyComplete, stepsFold.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')"
+    },
+    {
+      "clickOn": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return stepOf('preview-note-1.txt', 'Failed'); })()"
+    },
+    {
+      "clickOn": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return stepOf('preview-note-1.txt', 'New, 2 lines'); })()"
+    },
+    {
+      "shot": "exact-call-desktop",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const failure = outputOf('do not match its schema'); const created = outputOf('with 2 lines.'); return { failureShown: isShown(failure), failureNamesArgument: failure?.textContent === \"Arguments for Write do not match its schema:\\n/content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\\nNo tool operation ran.\", nothingWritten: /^Created notes[\\\\/]preview-note-1\\.txt with 2 lines\\.$/.test(created?.textContent ?? ''), correctedResultShown: isShown(created) }; })()",
+        "message": "The expected checks do not become true: failureShown, failureNamesArgument, nothingWritten, correctedResultShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Write\"]')"
+    },
+    {
+      "shot": "failure-text-built-in",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); return { textFound: isShown(label), inResults: label?.closest('section')?.querySelector('h3')?.textContent === 'Results', builtInShown: field?.value === \"Arguments for {tool} do not match its schema:\\n{differences}\\nNo tool operation ran.\", notEdited: !reset, previewNamesWrite: preview === \"Arguments for Write do not match its schema:\\n/content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\\nNo tool operation ran.\" }; })()",
+        "message": "The expected checks do not become true: textFound, inResults, builtInShown, notEdited, previewNamesWrite.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; return field; })()"
+    },
+    {
+      "key": "ControlOrMeta+A"
+    },
+    {
+      "text": "Edited text: {tool} refused these arguments, so nothing ran. {differences}"
+    },
+    {
+      "shot": "failure-text-edited",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; return { fieldEdited: field?.value === \"Edited text: {tool} refused these arguments, so nothing ran. {differences}\", editedMarked: head?.textContent.includes('edited') === true && isShown(reset), previewFilled: preview === \"Edited text: Write refused these arguments, so nothing ran. /content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\" }; })()",
+        "message": "The expected checks do not become true: fieldEdited, editedMarked, previewFilled.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Write] button')].find(button => button.textContent.trim() === 'Save')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ editorCloses: !document.querySelector('dialog[aria-label=Write]'), writeMarkedEdited: !!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Write to built-in\"]') })",
+        "message": "The expected checks do not become true: editorCloses, writeMarkedEdited.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsClose: document.querySelector('dialog[aria-label=Settings]')?.open !== true })",
+        "message": "The expected checks do not become true: settingsClose.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the preview note."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { inexactCallFails: !!stepOf('preview-note-2.txt', 'Failed'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: inexactCallFails, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ correctedCallStarts: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('preview-note-2.txt')).length === 2 })",
+        "message": "The expected checks do not become true: correctedCallStarts.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { correctedCallSucceeds: !!stepOf('preview-note-2.txt', 'New, 2 lines'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: correctedCallSucceeds, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: /Preview note written to notes[\\\\/]preview-note-2\\.txt\\./.test(document.querySelector('main').innerText) && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')?.getAttribute('aria-expanded') === 'false' })",
+        "message": "The expected checks do not become true: replyComplete, stepsFold.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')"
+    },
+    {
+      "clickOn": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return stepOf('preview-note-2.txt', 'Failed'); })()"
+    },
+    {
+      "shot": "edited-failure-desktop",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const outputOf = text => [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes(text)); const failure = outputOf('refused these arguments'); return { editedTextShown: isShown(failure), editedTextExact: failure?.textContent === \"Edited text: Write refused these arguments, so nothing ran. /content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\" }; })()",
+        "message": "The expected checks do not become true: editedTextShown, editedTextExact.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Run the long preview check."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "waitFor": {
+        "condition": "({ everyCallFails: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('Check the long preview arguments') && button.textContent.includes('Failed')).length === 1, replyComplete: document.querySelector('main').innerText.split('The long preview check ends at its failed call.').length === 2 && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')?.getAttribute('aria-expanded') === 'false', noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') })",
+        "message": "The expected checks do not become true: everyCallFails, replyComplete, stepsFold, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.includes('Check the long preview arguments'))"
+    },
+    {
+      "shot": "long-failure-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' });  const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), everyLineVisible: isLineShown(rects[0]) && isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 1440, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, everyLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "long-failure-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' });  const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), everyLineVisible: isLineShown(rects[0]) && isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 1440, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, everyLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false && document.querySelector('nav[aria-label=\"Projects and chats\"]').getBoundingClientRect().right <= 360 })",
+        "message": "The expected checks do not become true: drawerOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Write\"]')"
+    },
+    {
+      "shot": "text-editor-phone-light",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Write]').getBoundingClientRect(); return { textFound: isShown(label), editedTextKept: field?.value === \"Edited text: {tool} refused these arguments, so nothing ran. {differences}\", resetVisible: isShown(reset), previewNamesTool: preview.startsWith(\"Edited text: Write refused\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, editedTextKept, resetVisible, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "text-editor-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Write]').getBoundingClientRect(); return { textFound: isShown(label), editedTextKept: field?.value === \"Edited text: {tool} refused these arguments, so nothing ran. {differences}\", resetVisible: isShown(reset), previewNamesTool: preview.startsWith(\"Edited text: Write refused\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, editedTextKept, resetVisible, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; return reset; })()"
+    },
+    {
+      "shot": "text-editor-reset-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Write] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Write]').getBoundingClientRect(); return { textFound: isShown(label), builtInRestored: field?.value === \"Arguments for {tool} do not match its schema:\\n{differences}\\nNo tool operation ran.\", resetGone: !reset, previewNamesTool: preview.startsWith(\"Arguments for Write\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, builtInRestored, resetGone, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Write] button')].find(button => button.textContent.trim() === 'Save')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ editorCloses: !document.querySelector('dialog[aria-label=Write]'), writeBackToBuiltIn: !!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Write\"]') && !!!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Write to built-in\"]') })",
+        "message": "The expected checks do not become true: editorCloses, writeBackToBuiltIn.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsClose: document.querySelector('dialog[aria-label=Settings]')?.open !== true })",
+        "message": "The expected checks do not become true: settingsClose.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Shell\"]')"
+    },
+    {
+      "clickOn": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Shell] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; return field; })()"
+    },
+    {
+      "key": "ControlOrMeta+A"
+    },
+    {
+      "text": "The {tool} call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them."
+    },
+    {
+      "key": "Enter"
+    },
+    {
+      "text": "{differences}"
+    },
+    {
+      "shot": "long-text-editor-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Shell] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Shell]').getBoundingClientRect(); return { textFound: isShown(label), editedTextKept: field?.value === \"The {tool} call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n{differences}\", resetVisible: isShown(reset), previewNamesTool: preview.startsWith(\"The Shell call was refused\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, editedTextKept, resetVisible, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "long-text-editor-phone-light",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Shell] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Shell]').getBoundingClientRect(); return { textFound: isShown(label), editedTextKept: field?.value === \"The {tool} call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n{differences}\", resetVisible: isShown(reset), previewNamesTool: preview.startsWith(\"The Shell call was refused\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, editedTextKept, resetVisible, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Shell] button')].find(button => button.textContent.trim() === 'Save')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ editorCloses: !document.querySelector('dialog[aria-label=Shell]'), shellMarkedEdited: !!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Shell to built-in\"]'), writeStaysBuiltIn: !!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Write\"]') && !!!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Write to built-in\"]') })",
+        "message": "The expected checks do not become true: editorCloses, shellMarkedEdited, writeStaysBuiltIn.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsClose: document.querySelector('dialog[aria-label=Settings]')?.open !== true })",
+        "message": "The expected checks do not become true: settingsClose.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Write the preview note."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { inexactCallFails: !!stepOf('preview-note-3.txt', 'Failed'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: inexactCallFails, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ correctedCallStarts: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('preview-note-3.txt')).length === 2 })",
+        "message": "The expected checks do not become true: correctedCallStarts.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return { correctedCallSucceeds: !!stepOf('preview-note-3.txt', 'New, 2 lines'), noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') }; })()",
+        "message": "The expected checks do not become true: correctedCallSucceeds, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: /Preview note written to notes[\\\\/]preview-note-3\\.txt\\./.test(document.querySelector('main').innerText) && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')?.getAttribute('aria-expanded') === 'false' })",
+        "message": "The expected checks do not become true: replyComplete, stepsFold.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '2 steps')"
+    },
+    {
+      "clickOn": "(() => { const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); return stepOf('preview-note-3.txt', 'Failed'); })()"
+    },
+    {
+      "scheme": "dark",
+      "shot": "failure-card-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/content: expected')); const step = stepOf('preview-note-3.txt', 'Failed'); return { failureShown: isShown(step) && isShown(output), builtInTextBack: output?.textContent === \"Arguments for Write do not match its schema:\\n/content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\\nNo tool operation ran.\", outputFits: !!output && output.getBoundingClientRect().right <= 360 && output.scrollWidth <= output.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: failureShown, builtInTextBack, outputFits, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "failure-card-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const stepOf = (file, status) => [...document.querySelectorAll('main button')].find(button => button.textContent.includes(file) && button.textContent.includes(status)); const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/content: expected')); const step = stepOf('preview-note-3.txt', 'Failed'); return { failureShown: isShown(step) && isShown(output), builtInTextBack: output?.textContent === \"Arguments for Write do not match its schema:\\n/content: expected {\\\"type\\\":\\\"string\\\"}. Received 42.\\nNo tool operation ran.\", outputFits: !!output && output.getBoundingClientRect().right <= 360 && output.scrollWidth <= output.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: failureShown, builtInTextBack, outputFits, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Run the long preview check."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ everyCallFails: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('Check the long preview arguments') && button.textContent.includes('Failed')).length === 2, replyComplete: document.querySelector('main').innerText.split('The long preview check ends at its failed call.').length === 3 && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')?.getAttribute('aria-expanded') === 'false', noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') })",
+        "message": "The expected checks do not become true: everyCallFails, replyComplete, stepsFold, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.includes('Check the long preview arguments'))"
+    },
+    {
+      "scheme": "light",
+      "shot": "edited-long-failure-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = 0; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), editedText: output.textContent === \"The Shell call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), firstLineVisible: isLineShown(rects[0]), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, editedText, everyDifferenceListed, longValueWhole, firstLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "edited-long-failure-phone-light-end",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = output.scrollHeight; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), editedText: output.textContent === \"The Shell call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), lastLineVisible: isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, editedText, everyDifferenceListed, longValueWhole, lastLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "edited-long-failure-phone-dark-end",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = output.scrollHeight; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), editedText: output.textContent === \"The Shell call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), lastLineVisible: isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, editedText, everyDifferenceListed, longValueWhole, lastLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "edited-long-failure-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = 0; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), editedText: output.textContent === \"The Shell call was refused before anything ran. Each line below names one parameter that differs from the schema, the schema that this parameter requires, and the exact value that arrived instead. No command started, no file or folder changed, and no network access was granted. The lines follow the order in which the schema check found them.\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), firstLineVisible: isLineShown(rects[0]), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, editedText, everyDifferenceListed, longValueWhole, firstLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show sidebar\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Shell to built-in\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ shellBackToBuiltIn: !!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Shell\"]') && !!!document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Reset Shell to built-in\"]') })",
+        "message": "The expected checks do not become true: shellBackToBuiltIn.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsClose: document.querySelector('dialog[aria-label=Settings]')?.open !== true })",
+        "message": "The expected checks do not become true: settingsClose.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.innerText.trim() === 'Profiles')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] button')].find(button => button.innerText.includes('Default') && button.innerText.includes('user profile'))"
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=\"Edit the texts of Shell\"]')"
+    },
+    {
+      "shot": "long-text-reset-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const label = [...document.querySelectorAll('dialog[aria-label=Shell] label')].find(label => label.textContent === 'When arguments differ from the tool schema'); const field = label?.control; const head = label?.parentElement?.parentElement; const reset = head?.querySelector('button[aria-label=\"Reset to the built-in text\"]'); const preview = [...(head?.parentElement?.querySelectorAll('span') ?? [])].find(span => span.textContent === 'Preview')?.nextElementSibling?.textContent ?? ''; const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; label?.scrollIntoView({ block: 'start' }); const dialog = document.querySelector('dialog[aria-label=Shell]').getBoundingClientRect(); return { textFound: isShown(label), builtInRestored: field?.value === \"Arguments for {tool} do not match its schema:\\n{differences}\\nNo tool operation ran.\", resetGone: !reset, previewNamesTool: preview.startsWith(\"Arguments for Shell\"), dialogFits: dialog.left >= 0 && dialog.right <= 360, fieldWraps: !!field && field.getBoundingClientRect().right <= 360 && field.scrollWidth <= field.clientWidth, phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: textFound, builtInRestored, resetGone, previewNamesTool, dialogFits, fieldWraps, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Shell] button')].find(button => button.textContent.trim() === 'Cancel')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ editorCloses: !document.querySelector('dialog[aria-label=Shell]') })",
+        "message": "The expected checks do not become true: editorCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsClose: document.querySelector('dialog[aria-label=Settings]')?.open !== true })",
+        "message": "The expected checks do not become true: settingsClose.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true })",
+        "message": "The expected checks do not become true: drawerCloses.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Run the long preview check."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ everyCallFails: [...document.querySelectorAll('main button')].filter(button => button.textContent.includes('Check the long preview arguments') && button.textContent.includes('Failed')).length === 3, replyComplete: document.querySelector('main').innerText.split('The long preview check ends at its failed call.').length === 4 && !document.querySelector('main button[aria-label=Stop]'), stepsFold: [...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')?.getAttribute('aria-expanded') === 'false', noApprovalAsked: ![...document.querySelectorAll('main button')].some(button => button.textContent.trim() === 'Allow once') })",
+        "message": "The expected checks do not become true: everyCallFails, replyComplete, stepsFold, noApprovalAsked.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.trim() === '1 step')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('main button')].findLast(button => button.textContent.includes('Check the long preview arguments'))"
+    },
+    {
+      "scheme": "light",
+      "shot": "long-failure-phone-light",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = 0; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), firstLineVisible: isLineShown(rects[0]), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, firstLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "long-failure-phone-light-end",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = output.scrollHeight; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), lastLineVisible: isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, lastLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "long-failure-phone-dark-end",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = output.scrollHeight; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), lastLineVisible: isLineShown(rects.at(-1)), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, lastLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "long-failure-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'nearest' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const output = [...document.querySelectorAll('main pre')].findLast(pre => pre.textContent.includes('/access/paths/0/scope')); if (!output) return { outputFound: false }; output.scrollIntoView({ block: 'center' }); output.scrollTop = 0; const range = document.createRange(); range.selectNodeContents(output); const rects = [...range.getClientRects()]; const isLineShown = line => { const hit = line && document.elementFromPoint(line.left + 2, (line.top + line.bottom) / 2); return !!hit && output.contains(hit); }; const lines = output.textContent.split('\\n'); return { outputShown: isShown(output), builtInText: output.textContent === \"Arguments for Shell do not match its schema:\\n/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\\n/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\\n/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\\n/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\\n/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\\n/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\\nNo tool operation ran.\", everyDifferenceListed: [\"/access/paths/0/scope: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"file\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"tree\\\"}]}. Received true.\",\"/access/paths/0/access: expected {\\\"anyOf\\\":[{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"read\\\"},{\\\"type\\\":\\\"string\\\",\\\"const\\\":\\\"write\\\"}]}. Received null.\",\"/access/network: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"true\\\".\",\"/command: expected {\\\"type\\\":\\\"string\\\",\\\"minLength\\\":1}. Received 42.\",\"/timeout: expected {\\\"type\\\":\\\"number\\\",\\\"exclusiveMinimum\\\":0}. Received \\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\".\",\"/background: expected {\\\"type\\\":\\\"boolean\\\"}. Received \\\"false\\\".\"].every(difference => lines.includes(difference)), longValueWhole: output.textContent.includes(\"\\\"Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. Wait for the preview build to finish before the check reads its log. 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\\\"\"), firstLineVisible: isLineShown(rects[0]), wrapsWithoutOverflow: output.scrollWidth <= output.clientWidth && document.documentElement.scrollWidth <= 360, readableSize: parseFloat(getComputedStyle(output).fontSize) >= 12 }; })()",
+        "message": "The expected checks do not become true: outputShown, builtInText, everyDifferenceListed, longValueWhole, firstLineVisible, wrapsWithoutOverflow, readableSize.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}
