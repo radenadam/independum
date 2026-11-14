@@ -36,6 +36,13 @@ test("gate results reject missing coverage stale evidence and incomplete passes"
   await withEvidence((path) => {
     const task = taskFor(path);
     const result = resultFor(path);
+    const finding = {
+      kind: "defect",
+      trigger: "A call differs.",
+      consequence: "It fails.",
+      location: path,
+      requirement: "CP-01",
+    };
     expect(readGateResult(result, task, "review", revision)).toEqual(result);
     for (const invalid of [
       { ...result, coverage: [] },
@@ -45,8 +52,15 @@ test("gate results reject missing coverage stale evidence and incomplete passes"
       { ...result, coverage: [{ ...result.coverage[0], evidence: [join(path, "absent")] }] },
       { ...result, unknown: true },
       { ...result, taskFingerprint: "stale acceptance" },
+      { ...result, verdict: "fail", findings: [{ ...finding, requirement: "A1 needs more." }] },
     ]) {
       expect(() => readGateResult(invalid, task, "review", revision)).toThrow();
+    }
+    for (const requirement of ["CP-01", "A1"]) {
+      const failed = { ...result, verdict: "fail", findings: [{ ...finding, requirement }] };
+      expect(readGateResult(failed, task, "review", revision).findings[0]?.requirement).toBe(
+        requirement,
+      );
     }
     expect(
       readGateResult(

@@ -288,7 +288,8 @@ export function readGateResult(
       requirePath(path);
     }
   }
-  if (result.findings.some((finding) => !task.requirements.includes(finding.requirement))) {
+  const knownIds = new Set([...task.requirements, ...task.acceptance.map((entry) => entry.id)]);
+  if (result.findings.some((finding) => !knownIds.has(finding.requirement))) {
     throw new Error("A gate finding has an unknown requirement.");
   }
   if (
