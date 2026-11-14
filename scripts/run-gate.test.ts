@@ -62,6 +62,9 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   expect(fixture.prompts.at(-1)).toContain("revision.json");
   expect(fixture.prompts[0]).toContain("browser-checks.json");
   expect(fixture.prompts[0]).toContain("browser-regressions.json");
+  expect(fixture.prompts[0]).toContain(
+    "its Linux and macOS runners execute the native sandbox tests",
+  );
   const regressionCall = vi
     .mocked(spawn)
     .mock.calls.find(([, parameters]) => (parameters as string[]).includes("vitest"));
