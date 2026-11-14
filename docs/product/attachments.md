@@ -28,6 +28,8 @@ Each source has `~/.independum/attachments/<attachmentId>/content` and `manifest
 
 The store is inside the state folder at `attachments`. Startup renames the former sibling store here without reading its contents and refuses when both paths exist. [Decision 0080](../decisions/0080-private-state-folder.md) replaces the storage boundary of decision 0068. Uploading saves no read approval because state outside `private` is readable. Model writes to state require explicit approval by default even under allow rules. Saved ask and deny rules still apply to tool reads. Uploading grants no write or network access.
 
+Discovery preserves legacy runtime paths for phones until the server removes its record or its recorded address refuses connection, and saved Independum attachment input maps exact former sibling source paths into the new store without rewriting Pi files, with mapped paths visible in the request inspector.
+
 Pending files add `attachmentIds`, `fileAttachmentIds`, and original source summaries to each input. File path choices name attached ids, and ids must be unique. Existing text-only inputs need no new fields. The `independum-input` Pi custom entry adds those references and summaries, plus offsets into canonical user text and image block indexes. Prepared content lives only in Pi's user message. Metadata never enters model context.
 
 Sources remain while any saved branch, archived chat, or waiting input refers to them. Cleanup runs at startup and hourly, and removes unreferenced sources at least seven days old after scanning all retained references. Unreadable reference files prevent cleanup. Deleting a chat does not immediately remove shared sources. Cleanup requires no saved approval changes.

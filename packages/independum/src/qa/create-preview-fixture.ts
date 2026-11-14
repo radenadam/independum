@@ -1,10 +1,18 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { once } from "node:events";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import type { AddressInfo } from "node:net";
+import { createServer } from "node:net";
 import { join } from "node:path";
-import { fauxAssistantMessage } from "@earendil-works/pi-ai";
+import { fauxAssistantMessage, fauxProvider } from "@earendil-works/pi-ai";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { ProfileDocument, ProfileReference } from "../api-types.ts";
+import { createAttachments } from "../create-attachments.ts";
 import { createProfileStore } from "../create-profile-store.ts";
+import { createModelTexts } from "../model-texts.ts";
 import { builtInPermissions, serializePermissionPath } from "../permission-policy.ts";
+import { privateRuntime, writePrivateRuntimeFile } from "../private-runtime.ts";
+import { builtInAttachments } from "../read-attachment-settings.ts";
 
 export type PreviewFixture =
   | "empty"
@@ -12,6 +20,7 @@ export type PreviewFixture =
   | "compacted"
   | "hooks"
   | "user-profile"
+  | "legacy-state"
   | "long-history";
 
 /** Creates saved chats through Pi in a new preview home. */
@@ -141,6 +150,10 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     return project;
   }
   const manager = createSession();
+  if (fixture === "legacy-state") {
+    await createLegacyState(home, manager);
+    return project;
+  }
   if (fixture === "long-history") {
     const turns: string[] = [];
     for (let request = 1; request <= 240; request += 1) {
@@ -200,6 +213,78 @@ export async function createPreviewFixture(home: string, fixture: PreviewFixture
     manager.appendThinkingLevelChange("medium");
     return manager;
   }
+}
+
+// Before decision 0080, logins sat at the top of the state folder, the server connection and phone
+// pairings sat in runtime, and attachments sat in a folder beside the state folder. Every secret
+// here is a placeholder. The saved chat holds a file attachment from that former store, so its
+// message gives the model a path inside it.
+async function createLegacyState(home: string, manager: SessionManager): Promise<void> {
+  const state = join(home, ".independum");
+  // The record names a port where no server listens, so startup finds it stale and removes it.
+  const reservation = createServer().listen(0, "127.0.0.1");
+  await once(reservation, "listening");
+  const { port } = reservation.address() as AddressInfo;
+  reservation.close();
+  // The private folder gets the account-only permissions that runtime had, then its former name.
+  const runtime = privateRuntime(state);
+  writePrivateRuntimeFile(
+    join(runtime, "server.json"),
+    JSON.stringify({
+      version: 1,
+      serverId: randomUUID(),
+      pid: process.pid,
+      url: `http://127.0.0.1:${port}`,
+      accessToken: "placeholder-".repeat(4),
+    }),
+  );
+  writePrivateRuntimeFile(
+    join(runtime, "phones.json"),
+    JSON.stringify([
+      {
+        id: randomUUID(),
+        name: "Legacy phone",
+        pairedAt: 1000,
+        lastSeenAt: 1000,
+        credentialHash: createHash("sha256").update("placeholder phone credential").digest("hex"),
+      },
+    ]),
+  );
+  await rename(runtime, join(state, "runtime"));
+  await writeFile(join(state, "auth.json"), "{}\n");
+  await writeFile(join(state, "models.json"), `${JSON.stringify({ providers: {} })}\n`);
+  const chatId = manager.getSessionId();
+  const attachments = createAttachments(join(home, ".independum-attachments"));
+  const text = "Summarize the saved notes.";
+  const attachment = await attachments.upload(
+    chatId,
+    "legacy-notes.txt",
+    "text/plain",
+    new Response("Legacy note one.\nLegacy note two.\n").body,
+    builtInAttachments.maxFileBytes,
+  );
+  const prepared = await attachments.prepare(
+    text,
+    [attachment.id],
+    [attachment.id],
+    chatId,
+    builtInAttachments,
+    createModelTexts(() => ({})),
+    fauxProvider().getModel(),
+  );
+  manager.appendCustomEntry("independum-input", {
+    version: 1,
+    inputId: randomUUID(),
+    delivery: "queue",
+    isSteered: false,
+    text,
+    attachmentIds: [attachment.id],
+    fileAttachmentIds: [attachment.id],
+    attachments: [attachment],
+    attachmentPositions: prepared.positions,
+    receivesImages: false,
+  });
+  appendTurn(manager, prepared.text, "The saved notes list two legacy items.", 300);
 }
 
 function appendTurn(

@@ -11,7 +11,7 @@ function legacy(): { directory: string; moves: [string, string][] } {
   const directory = join(home, ".independum");
   const runtime = join(directory, "runtime");
   renameSync(privateRuntime(directory), runtime);
-  for (const name of ["server.json", "phones.json", "startup.lock"]) {
+  for (const name of ["retained.json", "phones.json", "startup.lock"]) {
     writeFileSync(join(runtime, name), "temporary fixture", { mode: 0o600 });
   }
   for (const name of ["auth.json", "models.json"]) {
@@ -41,7 +41,7 @@ test("startup renames legacy state without replacing identities and restart leav
   const retained = [
     join(directory, "sessions"),
     join(directory, "outputs"),
-    join(directory, "runtime", "server.json"),
+    join(directory, "runtime", "retained.json"),
     join(directory, "runtime", "phones.json"),
     join(directory, "runtime", "startup.lock"),
   ];

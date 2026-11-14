@@ -11,6 +11,7 @@ export async function runScenario(
   steps: QaStep[],
   directory: string,
   createClient?: (name: string) => Promise<BrowserConnection>,
+  restartServer?: () => Promise<void>,
 ): Promise<void> {
   let client = browser;
   const clients = new Map<string, BrowserConnection>([["owner", browser]]);
@@ -50,6 +51,15 @@ export async function runScenario(
       }
       if (step.closePage) {
         await client.page.goto("about:blank");
+      }
+      if (step.restart) {
+        if (restartServer === undefined) {
+          throw new Error("Restarting requires a preview that QA starts.");
+        }
+        for (const open of clients.values()) {
+          open.expectDisconnection(true);
+        }
+        await restartServer();
       }
       if (step.waitFor !== undefined) {
         try {
@@ -119,6 +129,12 @@ export async function runScenario(
     } catch (error) {
       await screenshot("failure").catch(() => undefined);
       throw new Error(`Scenario step ${index + 1} fails.`, { cause: error });
+    } finally {
+      if (step.restart) {
+        for (const open of clients.values()) {
+          open.expectDisconnection(false);
+        }
+      }
     }
   }
 

@@ -7,6 +7,11 @@ const nativeSandboxTests = [
   "packages/independum/src/sandbox-runtime.test.ts",
 ];
 
+const serverProcessTests = [
+  "packages/independum/src/qa/start-preview.test.ts",
+  "scripts/run-gate.test.ts",
+];
+
 export default defineConfig({
   test: {
     projects: [
@@ -14,7 +19,7 @@ export default defineConfig({
         test: {
           name: "parallel",
           sequence: { groupOrder: 0 },
-          exclude: [...configDefaults.exclude, ...nativeSandboxTests],
+          exclude: [...configDefaults.exclude, ...nativeSandboxTests, ...serverProcessTests],
           setupFiles: ["packages/independum/src/require-serial-sandbox.ts"],
         },
       },
@@ -25,6 +30,16 @@ export default defineConfig({
           // timing checks of the parallel tests.
           sequence: { groupOrder: 1 },
           include: nativeSandboxTests,
+          fileParallelism: false,
+        },
+      },
+      {
+        test: {
+          name: "server-processes",
+          // These files start whole server and gate processes, which take a few seconds alone but
+          // pass the test limit while every parallel worker is busy.
+          sequence: { groupOrder: 2 },
+          include: serverProcessTests,
           fileParallelism: false,
         },
       },

@@ -111,6 +111,7 @@ import {
 } from "./permission-tool.ts";
 import { summarizePiTexts } from "./pi-texts.ts";
 import { privateRuntime } from "./private-runtime.ts";
+import { projectAttachmentPaths, projectAttachmentText } from "./project-attachment-paths.ts";
 import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
@@ -1354,7 +1355,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
             pi.on("context", async (event, context) => {
               const result = await dispatchHooks(
                 "context",
-                { messages: addMessageTimes(event.messages, settings.get()) },
+                {
+                  messages: addMessageTimes(
+                    projectAttachmentPaths(event.messages, manager.getBranch(), directory),
+                    settings.get(),
+                  ),
+                },
                 context,
               );
               return { messages: result.data.messages as typeof event.messages };
@@ -2525,7 +2531,14 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       return {
         ...summary,
         isFile: position?.isFile ?? false,
-        modelText: position === undefined ? "" : text.slice(position.start, position.end),
+        modelText:
+          position === undefined
+            ? ""
+            : projectAttachmentText(
+                text.slice(position.start, position.end),
+                position.id,
+                directory,
+              ),
         image,
         error,
         notice:

@@ -9,7 +9,7 @@
 - Character, layout, comment, code, style, markup, and release-age scripts check selected patterns, including test-budget waits. They cannot prove every language, security, tooltip, motion, or dependency-age property. Release-age checks reject policy overrides.
 - Knip finds unused code under its configuration. jscpd detects token duplication. Neither proves one semantic fact per owner.
 - Vitest checks behavior, scenarios, gates, and native boundaries. Its reporter names unavailable tests with reasons. Platform skips declare CI platforms. Skips never pass. Native skips remain missing evidence. Pi inventory tests check fragments.
-- Vitest serializes native sandbox files and the file-worker test because concurrent MXC containers cause timeouts. `require-serial-sandbox.ts` rejects native launches from parallel tests.
+- Vitest serializes native sandbox files and the file-worker test because concurrent MXC containers cause timeouts. `require-serial-sandbox.ts` rejects native launches from parallel tests. Server and gate process files run serially last, because busy workers push them past the limit.
 - CI and the pre-commit hook retain `pnpm check`. Required CI runs native sandbox tests on Linux and macOS before merge, so the gate needs native evidence only for its own platform. CI runs no AI gates and establishes no visual quality.
 
 ## Local gates
@@ -28,7 +28,7 @@ pnpm gate --task /absolute/task.json --output /absolute/evidence --model <model-
 
 Review checks behavior, callers, invariants, false docs, missing surfaces, omitted learning, and unsupported completion. It flags reintroduced personal landing gates and preserves maintainer intent authority. QA checks complete agreed journeys in the actual built UI, diagnostics, both themes, 360-pixel touch, long and repeated cases, recovery, and screenshots. [Browser QA](browser-qa.md) owns operation. Development reload also needs evidence when affected. Native enforcement and real phone trust require separate capable hosts.
 
-The coordinator launches the gate outside workers' sandbox. It runs both opt-in browser regressions before building the UI and executing every manifest scenario. `--browser` selects the installed browser, defaulting to `msedge`, and supplies `INDEPENDUM_QA_BROWSER`. Regression receipts retain commands, logs, named passing results, and the reviewed revision. Missing, skipped, failed, or stale regression evidence blocks a pass. Both roles receive it and investigate read-only. Source changes invalidate evidence.
+The coordinator launches the gate outside worker sandboxes. It runs the opt-in browser regressions of `scripts/read-gate-browser-checks.ts` before building the UI and executing every manifest scenario. `--browser` selects the installed browser, defaulting to `msedge`, and supplies `INDEPENDUM_QA_BROWSER`. Regression receipts retain commands, logs, named passing results, and the reviewed revision. Missing, skipped, failed, or stale regression evidence blocks a pass. Both roles receive it and investigate read-only. Source changes invalidate evidence.
 
 `receipt.json` records fail-closed `testAvailability`. Required skips block passing roles. Only Unix-only or macOS-only tests on Windows may substitute named CI platforms. `scripts/read-test-availability.ts` binds allowed files, names, and exact platforms. Verified browser regressions replace only their own opt-in skips. Native skips and shell failures require capable-host evidence. Missing or malformed reports block passing.
 

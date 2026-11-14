@@ -12,6 +12,7 @@ export interface QaStep {
   checkQr?: { on: string; name: string };
   reload?: boolean;
   closePage?: boolean;
+  restart?: boolean;
   run?: string;
   shot?: string;
   clickOn?: string;
@@ -33,9 +34,15 @@ export async function readScenario(
     if (
       Object.keys(value).some((key) => !["fixture", "steps", "phoneRoute"].includes(key)) ||
       (value.phoneRoute !== undefined && typeof value.phoneRoute !== "boolean") ||
-      !["empty", "chats", "compacted", "hooks", "user-profile", "long-history"].includes(
-        String(value.fixture),
-      )
+      ![
+        "empty",
+        "chats",
+        "compacted",
+        "hooks",
+        "user-profile",
+        "legacy-state",
+        "long-history",
+      ].includes(String(value.fixture))
     ) {
       throw new Error("A scenario object needs a fixture, steps, and optional phoneRoute.");
     }
@@ -94,6 +101,7 @@ function isStepField(key: string, value: unknown): boolean {
       return typeof value === "boolean";
     case "reload":
     case "closePage":
+    case "restart":
       return value === true;
     case "waitFor":
       return (

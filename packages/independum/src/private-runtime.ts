@@ -26,18 +26,20 @@ export interface ServerConnection {
   accessToken: string;
 }
 
-/** Finishes state migration and verifies the private directory before any state consumer opens it. */
-export function privateRuntime(directory: string): string {
-  const path = join(directory, "private");
-  migrateStateDirectory(directory, (folder) => {
-    if (process.platform === "win32") {
-      windowsPrivacy().create(folder);
-    } else {
-      mkdirSync(folder, { mode: 0o700, recursive: true });
-    }
-    checkPrivate(folder, true);
-  });
-  return path;
+/** Selects verified runtime storage and defers migration while a legacy connection record remains. */
+export function privateRuntime(directory: string, isDiscovery = false): string {
+  return migrateStateDirectory(
+    directory,
+    (folder) => {
+      if (process.platform === "win32") {
+        windowsPrivacy().create(folder);
+      } else {
+        mkdirSync(folder, { mode: 0o700, recursive: true });
+      }
+      checkPrivate(folder, true);
+    },
+    isDiscovery,
+  );
 }
 
 /** Opens a new runtime file with verified account-only permissions. */
@@ -116,7 +118,7 @@ export function writePrivateRuntimeFile(path: string, content: string): void {
 export function readServer(directory: string): ServerConnection | undefined {
   let content: string | undefined;
   try {
-    const path = join(privateRuntime(directory), "server.json");
+    const path = join(privateRuntime(directory, true), "server.json");
     content = readPrivateRuntimeFile(path);
   } catch (error) {
     if (isMissingFile(error)) {
@@ -161,7 +163,7 @@ export function readServer(directory: string): ServerConnection | undefined {
 /** Removes a stale record after an authenticated connection attempt fails to find a listener. */
 export function removeServer(directory: string, serverId: string): void {
   if (readServer(directory)?.serverId === serverId) {
-    unlinkSync(join(directory, "private", "server.json"));
+    unlinkSync(join(privateRuntime(directory, true), "server.json"));
   }
 }
 

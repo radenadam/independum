@@ -6,7 +6,8 @@ import { isMissingFile } from "./is-missing-file.ts";
 export function migrateStateDirectory(
   directory: string,
   preparePrivate: (path: string) => void,
-): void {
+  isDiscovery = false,
+): string {
   const privateFolder = join(directory, "private");
   const runtime = join(directory, "runtime");
   const hasRuntime = exists(runtime);
@@ -39,6 +40,15 @@ export function migrateStateDirectory(
       throw new Error(`Cannot migrate linked state path "${source}".`);
     }
   }
+  if (hasRuntime && exists(join(runtime, "server.json"))) {
+    if (!isDiscovery) {
+      throw new Error(
+        "The legacy server record must be checked before migrating state. Stop the legacy server or run server status before starting.",
+      );
+    }
+    preparePrivate(runtime);
+    return runtime;
+  }
   mkdirSync(directory, { recursive: true });
   if (hasRuntime) {
     renameSync(runtime, privateFolder);
@@ -49,6 +59,7 @@ export function migrateStateDirectory(
       renameSync(source, destination);
     }
   }
+  return privateFolder;
 }
 
 function exists(path: string): boolean {

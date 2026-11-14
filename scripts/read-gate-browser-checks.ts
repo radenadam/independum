@@ -17,6 +17,10 @@ export const browserRegressionTests: { file: string; name: string }[] = [
     name: "real playwright diagnostics each reject an otherwise successful scenario",
   },
   {
+    file: "packages/independum/src/qa/connect-browser.test.ts",
+    name: "a restart step keeps unreachable server failures apart and still rejects other failures",
+  },
+  {
     file: "packages/independum/src/qa/check-rendered-qr.test.ts",
     name: "rendered qr checks reject blank captures despite a decoded source and survive theme changes",
   },

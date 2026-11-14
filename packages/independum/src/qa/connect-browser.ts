@@ -5,8 +5,13 @@ import { chromium, type Page } from "playwright-core";
 export interface BrowserConnection {
   page: Page;
   resize(size: [number, number], scale: number): Promise<void>;
+  expectDisconnection(isExpected: boolean): void;
   close(): Promise<void>;
 }
+
+// These are the failures of a request whose server does not listen, or stops while it answers.
+const unreachableServer =
+  /net::ERR_(?:CONNECTION_REFUSED|CONNECTION_RESET|CONNECTION_CLOSED|EMPTY_RESPONSE|INCOMPLETE_CHUNKED_ENCODING)/;
 
 /** Starts Playwright with an installed browser and records diagnostics before navigation. */
 export async function connectBrowser(
@@ -15,6 +20,7 @@ export async function connectBrowser(
   options: { certificatePin?: string } = {},
 ): Promise<BrowserConnection> {
   const channel = selection ?? "msedge";
+  let isDisconnectionExpected = false;
   const browser = await chromium.launch({
     ...(isAbsolute(channel) ? { executablePath: channel } : { channel }),
     headless: true,
@@ -85,6 +91,9 @@ export async function connectBrowser(
         });
         await emulation.send("Emulation.setTouchEmulationEnabled", { enabled: size[0] < 500 });
       },
+      expectDisconnection(isExpected) {
+        isDisconnectionExpected = isExpected;
+      },
       async close() {
         await browser.close();
       },
@@ -94,8 +103,14 @@ export async function connectBrowser(
     throw error;
   }
 
+  // A restart stops the server on purpose, so requests that cannot reach it meanwhile are kept apart
+  // as evidence of the restart instead of failing the run.
   function record(kind: string, message: string): void {
-    appendFileSync(join(directory, "browser.jsonl"), `${JSON.stringify({ kind, message })}\n`);
+    const file =
+      isDisconnectionExpected && unreachableServer.test(message)
+        ? "restart.jsonl"
+        : "browser.jsonl";
+    appendFileSync(join(directory, file), `${JSON.stringify({ kind, message })}\n`);
   }
 }
 
