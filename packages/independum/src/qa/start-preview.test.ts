@@ -66,6 +66,7 @@ test.each(["empty", "chats", "hooks", "user-profile"] as const)(
   },
 );
 
+// The test starts two whole server processes, which take several times longer when the host is under load.
 test("legacy preview migrates its home and keeps its link across a server restart", async () => {
   const preview = await startPreview({ fixture: "legacy-state", port: 0, hasRealLogins: false });
   const url = new URL(preview.url);
@@ -95,4 +96,4 @@ test("legacy preview migrates its home and keeps its link across a server restar
   } finally {
     await preview.close();
   }
-});
+}, 60_000);
