@@ -13,7 +13,7 @@ export function migrateStateDirectory(
   const hasRuntime = exists(runtime);
   const moves = [
     [runtime, privateFolder],
-    ...["auth.json", "models.json"].map((name): [string, string] => [
+    ...["auth.json", "models.json", "models-store.json"].map((name): [string, string] => [
       join(directory, name),
       join(privateFolder, name),
     ]),
