@@ -1,6 +1,6 @@
 # Message attachments
 
-- Status: accepted, storage moved inside state by [decision 0080](0080-private-state-folder.md)
+- Status: accepted, storage moved inside state by [decision 0080](0080-private-state-folder.md), attachment delivery integration changes under [decision 0085](0085-independum-owns-the-loop.md) for retained attachment input
 - Date: 2026-11-06
 
 ## Context

@@ -1,6 +1,6 @@
 # Server
 
-The server owns lifecycle and transport. Pi owns providers, logins, models, and session format. [The product contract](README.md) and [checkpoint](../checkpoint.md) distinguish acceptance from this implementation.
+The server owns lifecycle and transport. Pi owns providers, logins, models, and current session format. The accepted foundation puts every model call and its exact saved input and output in the kernel, with Independum's replaceable loop outside it. [Decision 0085](../decisions/0085-independum-owns-the-loop.md) records this unimplemented ownership change. [The product contract](README.md) and [checkpoint](../checkpoint.md) distinguish acceptance from this implementation.
 
 ## Startup and access
 
@@ -36,7 +36,7 @@ The normal home is `~/.independum`. Pi owns its credential stores and session fi
 
 Sessions save with the first message. Archived sessions move separately. Pins are saved ids. Outputs and the last request are per chat. Waiting inputs and receipts use atomic replacement. Account-only `private/phones.json` retains phone ids, names, times, and credential hashes. Plaintext phone credentials remain in their browser and temporary receipt memory.
 
-[Request persistence](../../packages/independum/src/create-saved-requests.ts) overwrites one payload and silently tolerates save failure. Capture awaits that attempt before provider continuation. Missing or invalid data reads as null. Archive moves only the session. Runtime command records, subscribers, and warming counts are not resumed after restart. This is not full request retention. CP-06 records the accepted optional archive.
+[Request persistence](../../packages/independum/src/create-saved-requests.ts) overwrites one payload and silently tolerates save failure. Capture awaits that attempt before provider continuation. Missing or invalid data reads as null. Archive moves only the session. Runtime command records, subscribers, and warming counts are not resumed after restart. This is not full request retention. CP-06 now requires every exact input and output record under [decision 0082](../decisions/0082-kernel-without-harness-decisions.md), replacing optional default-off capture. Retention and explicit deletion controls remain. Current storage does not satisfy this target.
 
 ## Routes and payloads
 

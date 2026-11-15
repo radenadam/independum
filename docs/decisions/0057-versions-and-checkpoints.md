@@ -1,6 +1,6 @@
 # Versions and checkpoints
 
-- Status: accepted, with requirement-level acceptance clarified in [decision 0071](0071-repository-healing.md)
+- Status: accepted, with requirement-level acceptance clarified in [decision 0071](0071-repository-healing.md), amended by [decision 0081](0081-harness-engineering-and-two-halves.md)
 - Date: 2026-11-05
 
 ## Context

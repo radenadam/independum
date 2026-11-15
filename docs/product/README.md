@@ -1,41 +1,56 @@
 # Product definition
 
-Independum is a harness where a user builds their own agent. Its default profile is also a working agent after the user connects a model login or API key. It serves newcomers willing to learn, enthusiasts, researchers, automation builders, and organizations. It is not limited to coding.
+Independum is a harness engineering tool, made easy and transparent. Build your own agent, see exactly what it does, and change any part. It serves research, development, teaching, automation, businesses, teams, and assistants. Judge each market by how easily people can engineer Independum into their workflow.
 
-This is the accepted contract, not a claim of completion. [The checkpoint](../checkpoint.md) owns acceptance and evidence. Area pages below own shipped behavior and limits. [Decision 0071](../decisions/0071-repository-healing.md) records the reset.
+This contract follows direct maintainer product answers of 2026-11-15. The kernel boundary is coordinator judgment accepted by the maintainer. The meanings of easy and the language-neutral protocol are delegated choices. [Decisions 0081](../decisions/0081-harness-engineering-and-two-halves.md) through [0086](../decisions/0086-stay-in-typescript.md) record reasons and reversals. [The checkpoint](../checkpoint.md) owns acceptance. Area pages distinguish implementation from promises.
+
+## Two halves
+
+This checkpoint makes Independum ready as a harness engineering tool. Everything about engineering the harness belongs here. A default profile works after connecting a model, with minimal tools and a full agent loop. The screen layout redesign serves someone who already knows agents, starting with the maintainer. [Design](../design.md#journeys) owns its seven journeys.
+
+The shipping half follows: agent capability competing with Claude Code, Codex, OpenCode, and Cursor, mostly through more tools, packaging, extensive documentation, the GitHub README, website, memory across chats, and tailoring language and guidance for people new to agents. That tailoring adjusts the redesigned interface.
+
+## Principles
+
+- Easy means no cliff. Touch the same part on screen, in a file, in a small script, or in code.
+- Transparent means exact. Everything the model saw and the harness did is visible, recorded, and reproducible.
+- Modular means real removal. Apart from a small kernel, every part can be added, detached, or deleted from disk.
+
+## Parts of a harness
+
+A harness includes context assembly and earlier turns, model texts, tools, execution, the loop, hook stages, permissions, and profiles that compose them. Inspection connects their effects to their causes.
+
+The kernel holds no harness decisions. It connects through Pi, makes one model call, records exactly what went in and came out, saves that record, and offers screen, files, and settings to engineer everything else. Only the kernel calls models. Without a loop, each message makes one exact call without earlier turns, and the screen says so. A chatbot adds a small chat loop component. [Decision 0082](../decisions/0082-kernel-without-harness-decisions.md) replaces the chatbot kernel.
+
+Everything outside the kernel is a component. Origin identifies who made it, such as Independum, the user, or an MCP server. Built-in and add-on are retired as kinds. Components use a language-neutral kernel protocol. TypeScript stays the easiest path. Detach ends a profile's contributions while keeping the installation. Remove deletes it from disk. Download it again to restore it. Settings deletion remains explicit. Changes apply from the next request. A running reply finishes with its captured setup. Old chats retain exact records, marked Removed in card headers, without actions needing the component. [Decision 0083](../decisions/0083-components-removal-and-origin.md) owns this lifecycle.
+
+One universal tool contract supplies name, description, parameters, execution, and editable texts. Independum tools, scripts, MCP servers, command line programs, and HTTP APIs enter through this doorway. The model still sees tools and calls them. Script is a removable tool component. Its parameter is a short program calling other tools as functions, from any source. Each profile exposes each tool directly, inside Script, or both. [Tools](tools.md#universal-tool-contract) owns this target.
+
+Independum owns the replaceable loop. It runs requested tools, returns results, and repeats until done. Engineer it through screen controls, file stages, a script, or a code component. Hook events become stages of that loop. Pi keeps providers, logins, and models. Independum stays in TypeScript.
+
+## What easy means
+
+1. From effect to cause: select any exact request part, find its component, and edit there.
+2. No cliff: screen, files, scripts, and code expose the same part and show the next depth.
+3. Safe experiments: reset, revert, copy a profile, replay a past request, and compare side by side.
+4. Fast feedback: preview the exact request and test tools or hooks with sample input without a model call.
+5. Shareable: version, copy, and install plain profile and component files.
+6. Self-explaining: components declare effects and dependencies, and failures give exact reasons.
+7. Few concepts: use one small, consistent vocabulary.
 
 ## Visibility and control
 
-The user sees what the model receives and what the harness does around it. They can inspect, edit, reset, disable, detach, or remove components wherever applicable, down to a plain chatbot. Detaching removes a profile's future contributions while keeping the part installed for others. Removing it from Independum also ends its future contributions. Historical evidence remains. Deleting settings is a separate explicit choice. The kernel retains model connection, login, configuration, and conversation. Its detailed boundary must be agreed in writing before implementation. [Decision 0073](../decisions/0073-component-removal-and-kernel.md) owns that distinction.
+Screen, authoritative files, and headless workflows cover settings, user work, and agent operations. Transient screen mechanics are excluded. Raw JSON alone does not complete screen authoring. An endpoint alone does not complete a headless workflow. Supply complete facts and exact calls without unsolicited advice or silent repairs. Every owned text and added fact has controls. Only explicitly controlled steering mechanisms steer. Knowledge cutoffs use only the user's provider and model value. Tool names and parameter names and types stay fixed for a tool definition. Edits exist only while values differ from shipped defaults. Provider requirements stay visible and explained. [Decision 0072](../decisions/0072-editable-pi-texts.md) permits a narrow text patch without transferring provider compatibility.
 
-Three controls express one contract:
+## Running elsewhere
 
-- On screen, discover, understand, configure, and operate the mechanism.
-- In plain files, read and change authoritative configuration in an ordinary editor.
-- Headless, control the same mechanisms from scripts, agents, and other software with efficient commands and structured results.
-
-Parity covers settings, the user's work, and agent operations. Menus, hover, selection, and folded sections are transient screen mechanics. A raw JSON editor does not complete an understandable authoring flow. An HTTP endpoint alone does not complete a documented headless workflow. New tool logic may need code, but its finding, installation, configuration, inspection, disabling, and removal have all three controls. Tool source editing on screen is a later decision. [Decision 0075](../decisions/0075-control-parity-and-newcomer-journeys.md) records these boundaries.
-
-## What the model receives
-
-Independum is sufficient. It gives complete facts and functions, and the model decides how to work. It adds no unsolicited best practices and never silently repairs a call. Unsupported exact behavior fails with its reason. It states environment facts instead of changing a program to compensate for model knowledge. Shared conditions such as cut output are explained when they happen, outside tool descriptions. Research informs choices that fit this purpose.
-
-An explicitly controlled feature whose purpose is steering, such as compaction, can steer. Every added fact has its own switch and model text. A model cutoff comes only from the user's value for that provider and model. A model text or setting is edited only while its value differs from its built-in value. Tool names and parameter names and types remain fixed. Descriptions and all conditional result wording are model texts with individual resets from shipping.
-
-Provider-imposed texts stay visible and explained. Pi-owned wording becomes editable through the narrow patch of [decision 0072](../decisions/0072-editable-pi-texts.md). Required protocol structure does not make chosen wording immutable. Pi retains compatibility ownership.
-
-## Readiness
-
-Technically ready means fulfilling these promises with the current six tools. It includes complete profiles, resources, compaction, hooks and add-ons, permissions, conversation controls, attachments, headless control, phone use, and newcomer usability. More tools, memory, extended learning material, distribution, and the website follow later. The coordinator's `0.5` naming in decision 0057 does not reduce acceptance.
-
-Full request history is optional and off by default for performance. When enabled, ordinary calls, retries, compaction, and cache warming retain their settings with retention and deletion controls and incomplete-capture labels. [Decision 0074](../decisions/0074-optional-request-history.md) records the accepted target. The current last-request capture is partial support.
+Channels such as Discord, WhatsApp, team services, schedules, and batch runs are direction only. Each gets its own profile, tools, and permissions. Exposed channels never inherit local account authority.
 
 ## Area router
 
-- [Chats](chats.md), [message box](message-box.md), [replies](replies.md), and [attachments](attachments.md) own conversation behavior.
-- [Profiles](profiles.md), [settings](settings.md), [context](context.md), and [hooks](hooks.md) own configuration and composition.
-- [Permissions](permissions.md) and [tools](tools.md) own execution and access.
-- [Side panel](side-panel.md) owns inspection and navigation.
-- [Headless](headless.md) owns the implemented command protocol. [Server](server.md) owns lifecycle and transport.
+- [Chats](chats.md), [message box](message-box.md), [replies](replies.md), and [attachments](attachments.md) own conversations.
+- [Profiles](profiles.md), [settings](settings.md), [context](context.md), and [hooks](hooks.md) own composition.
+- [Permissions](permissions.md) and [tools](tools.md) own execution.
+- [Side panel](side-panel.md) owns inspection. [Headless](headless.md) and [server](server.md) own control and transport.
 
-Use the [glossary](../glossary.md). [Design](../design.md) owns visual meanings. [The roadmap](../roadmap.md) orders unfinished work.
+Use the [glossary](../glossary.md) and [roadmap](../roadmap.md).

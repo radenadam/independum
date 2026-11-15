@@ -1,10 +1,14 @@
 # Hooks
 
-Decision: [0065](../decisions/0065-script-hooks-and-the-add-on-contract.md). A hook is a configured script that observes or transforms an event. This is the first slice of the approved add-on contract. External add-on manifests and code exports remain planned.
+Decision: [0065](../decisions/0065-script-hooks-and-the-add-on-contract.md). A hook is a configured script that observes or transforms an event. This is the shipped script slice. The general component loader remains planned.
+
+## Loop target
+
+The direct maintainer product answer of 2026-11-15 makes Independum own the replaceable loop under [decision 0085](../decisions/0085-independum-owns-the-loop.md). It runs requested tools, returns results, and repeats until done. Engineer it through screen controls, file stages, a small script, or a code component. Hook events become stages of that loop. Only the kernel calls models and saves exact input and output. Current Pi callbacks below are implementation, not the completed stage contract. CP-28 tracks replacement and CP-32 requires sample-input tests without model calls.
 
 ## Configuration
 
-The selected [profile](profiles.md) owns `hooks`, `disabledHooks`, and `hookOrder` under `settings`. Missing values use an empty array, an empty array, and an empty object. The profile file editor edits script definitions and limits. Session opens Hooks for switches, order, failure policy, texts, and evidence. A raw file bundle is not the accepted newcomer authoring workflow. Structured creation and the shared lifecycle remain CP-14 and CP-15. A saved change follows the profile application boundary, so running replies keep their captured setup.
+The selected [profile](profiles.md) owns `hooks`, `disabledHooks`, and `hookOrder` under `settings`. Missing values use an empty array, an empty array, and an empty object. The profile file editor edits script definitions and limits. Session opens Hooks for switches, order, failure policy, texts, and evidence. A raw file bundle does not complete screen authoring for the checkpoint's reader, who knows agents. Structured creation and the shared lifecycle remain CP-14 and CP-15. A saved change follows the profile application boundary, so running replies keep their captured setup.
 
 Each definition has a unique `id` matching `^[a-z][a-zA-Z0-9]*$`, an `event`, a `mode` of `observe` or `transform`, and `run`. `run.command` is a nonempty executable argument array. `run.workingDirectory` is `source` for the profile folder or `project` for the chat folder. Relative arguments retain their program's meaning. There is no shell, variable expansion, or quote expansion. A bare executable resolves through the server's command path. Windows resolves native executable files, without shell or batch aliases.
 
@@ -80,7 +84,7 @@ The Hooks detail explains when scripts run, where their definitions and limits a
 
 Evidence lives beneath `outputs/<chatId>/hooks/<invocationId>` in the state folder, with `input.json`, `result.json`, and `stderr.txt`. Records survive browser reconnection and runtime reopening. A server interruption marks an unfinished record cancelled when reopened. Records do not become model messages. Deleting the chat deletes these outputs.
 
-Executable and existing file arguments are fingerprinted only after permission. A captured file that changes refuses before native launch. Reload scripts clears that generation's captured fingerprints. Captured entry fingerprints persist in `sources.json` across runtime reopening. Reload refuses while hooks run, so the user can stop them first. This slice does not track transitive imports or arbitrary files that a script later evaluates. Those belong to the full add-on loader work.
+Executable and existing file arguments are fingerprinted only after permission. A captured file that changes refuses before native launch. Reload scripts clears that generation's captured fingerprints. Captured entry fingerprints persist in `sources.json` across runtime reopening. Reload refuses while hooks run, so the user can stop them first. This slice does not track transitive imports or arbitrary files that a script later evaluates. Those belong to the full component loader work.
 
 ## API
 
@@ -98,7 +102,7 @@ The profile routes own definitions, switches, order, policies, and model text ed
 
 ## Remaining work
 
-The [roadmap](../roadmap.md) lists the rest of the approved contract. This slice has no code add-ons, tools from manifests, prompt pieces, background activities owned by add-ons, hook fixture action, notes, lifecycle events, or hook-requested continuations. Session and the invocation API currently expose the newest 100 records. Older records remain on disk. Provider retry, cache warming, large history, and full native descendant coverage still need their dedicated conformance checks. Entry fingerprints persist across runtime reopening, and transitive code changes are not tracked.
+The [roadmap](../roadmap.md) lists the rest of the approved contract. This slice has no general code components, tools from manifests, prompt pieces, component-owned background activities, hook fixture action, notes, lifecycle events, or hook-requested continuations. Session and the invocation API currently expose the newest 100 records. Older records remain on disk. Provider retry, cache warming, large history, and full native descendant coverage still need their dedicated conformance checks. Entry fingerprints persist across runtime reopening, and transitive code changes are not tracked.
 
 ## Code
 

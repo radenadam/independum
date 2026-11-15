@@ -12,6 +12,10 @@ Step boxes open and follow the latest lines while their work runs, with a fade a
 
 The chat shows a thinking indicator while a reply waits without new parts or a pending tool call. Completed reply errors appear after text finishes typing. An aborted reply says Stopped in the muted tone. A provider failure keeps its exact error in the alert tone. These display choices leave the model's conversation unchanged. The jump button appears when the latest message is below the view. A chat at its end stays there when its width changes and text wraps again. Reading earlier messages keeps the scroll position instead. New prompts anchor near the top while the reply fills the room below them.
 
+## Removed components
+
+The direct maintainer product answer of 2026-11-15 requires old chats to keep exact records where a removed component acted. Mark Removed in the card header and omit buttons that need the component. Preserve captured input, output, effects, and revisions. This target is unimplemented. CP-36 and [decision 0083](../decisions/0083-components-removal-and-origin.md) own acceptance and reasons.
+
 ## Thoughts and groups
 
 Thought labels say Thinking while active, then Thought or Thought for a measured duration. The server times each thinking part between its stream start and end and saves those times in a custom session entry. Restored thoughts without times have no duration. Empty thoughts have no body unless the provider marks them hidden, in which case the body explains that. The raven turns while thinking and faces forward when its row is pointed at or focused. Reduced motion keeps its profile still.

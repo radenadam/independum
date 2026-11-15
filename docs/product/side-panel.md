@@ -32,6 +32,8 @@ The bar and caption start pinned above the scrolling overview. The pin toggles t
 
 ## Conversation
 
+[Replies](replies.md#removed-components) owns historical cards after removal. Session keeps exact captured evidence and omits actions needing missing components. The coordinator's delegated easy criterion of 2026-11-15 requires every exact request part to open its contributing component and editor. CP-29 remains partial. Current matching below does not establish complete provenance.
+
 The conversation is reconstructed from the current session branch, with one row for each assistant message. It is not a complete log of HTTP requests. Each row shows its number, last input source, time, model, and input and output tokens. Five newest rows show immediately. Older stretches between compactions unfold in place.
 
 Model and effort changes and Pi's setup records appear below the request they lead to. Only the final changed value before a request appears. Pending changes wait above the newest row. Compactions show which earlier requests became a summary, and open the saved summary. Summarized requests fade, and messages that Pi keeps whole remain unfaded. Only the latest compaction links its hover to the summary in the figure.
