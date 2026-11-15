@@ -1,6 +1,6 @@
 # Pi updates arrive as reviewed pull requests
 
-- Status: accepted, amended by [decision 0072](0072-editable-pi-texts.md) and [decision 0079](0079-gates-authorize-landing.md)
+- Status: accepted, amended by [decision 0072](0072-editable-pi-texts.md) and [decision 0079](0079-gates-authorize-landing.md), partly superseded for loop ownership by [decision 0085](0085-independum-owns-the-loop.md)
 - Date: 2026-10-25
 
 ## Context

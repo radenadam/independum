@@ -1,6 +1,6 @@
 # Optional request history
 
-- Status: accepted, amends [decision 0034](0034-texts-of-pi.md), [decision 0048](0048-session-place.md), and [decision 0053](0053-documented-behavior-and-limits.md)
+- Status: accepted, amends [decision 0034](0034-texts-of-pi.md), [decision 0048](0048-session-place.md), and [decision 0053](0053-documented-behavior-and-limits.md), amended for mandatory exact recording by [decision 0082](0082-kernel-without-harness-decisions.md)
 - Date: 2026-11-10
 - Source: direct maintainer answer 3 to the healing proposal on 2026-11-10
 

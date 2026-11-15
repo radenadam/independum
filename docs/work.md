@@ -1,17 +1,15 @@
 # Current work
 
-Repository healing is complete. The maintainer judged the repository-only cold start on 2026-11-13, and the healing landed through the local gates on 2026-11-14. Product building resumes under the conditions of [decision 0071](decisions/0071-repository-healing.md).
-
-On 2026-11-14 the maintainer chose, directly, to follow [the roadmap](roadmap.md) in its order. Each step opens with a question round, as [the workflow](workflow.md#questions-and-planning) describes, and asks the maintainer only what [the working agreement](standard.md#authority) leaves to them.
-
-Passing deterministic checks, AI review, and AI browser QA authorize landing within settled intent, and the maintainer tests the app at milestones. [Decision 0079](decisions/0079-gates-authorize-landing.md) records this.
+The maintainer settled Independum's foundation on 2026-11-14 and 2026-11-15. It is a harness engineering tool, made easy and transparent. [The product definition](product/README.md) owns this product requirement. [Decisions 0081](decisions/0081-harness-engineering-and-two-halves.md) through [0086](decisions/0086-stay-in-typescript.md) record direct answers, delegated choices, and reversals.
 
 ## Active step
 
-The first roadmap step agrees shared contracts. It opens with a question round on the kernel, the detachable and removable contributions, historical evidence, ownership, and application timing, for CP-02 through CP-08.
+Turn the foundation into contracts, beginning with the kernel and component protocol. The kernel makes exact recorded model calls and holds no harness decisions. Every other part is a removable component. Define lifecycle, origin, disk removal and download, historical evidence, and application timing before the universal tool contract, Script, and Independum's own replaceable loop. [The roadmap](roadmap.md) orders dependent work. CP-02, CP-03, CP-05, CP-06, CP-15, CP-26 through CP-28, and CP-36 own acceptance.
+
+The question round for this context reconciliation needs no new decision. The maintainer's direct task of 2026-11-15 and settled foundation supply intent. Technical and architectural choices belong to the coordinator under [the working agreement](standard.md#authority). Ask about product meaning and first encounters when necessary. Do not reopen settled answers.
 
 ## Last step
 
-The step that reproduced and fixed the CP-14 and CP-17 contradictions is complete. A tool call whose arguments differ from its schema fails instead of being converted. [Decision 0080](decisions/0080-private-state-folder.md) denies only the private folder of secrets, so the model reads cut output and user-profile hook scripts run, and writes into the state folder ask. Both follow direct maintainer answers of 2026-11-14.
+Repository healing and the CP-14 and CP-17 contradiction repairs are integrated. Exact argument checks and [private state protection](decisions/0080-private-state-folder.md) ship. The foundation replaces the older chatbot kernel, built-in and add-on kinds, Pi loop ownership, optional call recording, and newcomer checkpoint scope.
 
-Implementation is not acceptance. [The checkpoint](checkpoint.md) keeps implementation and verification separate.
+Implementation is not acceptance. [The checkpoint](checkpoint.md) keeps evidence honest. Deterministic checks, independent AI review, and AI browser QA authorize ordinary landing within settled intent under [decision 0079](decisions/0079-gates-authorize-landing.md).

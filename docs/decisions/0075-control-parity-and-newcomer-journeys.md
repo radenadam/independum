@@ -1,6 +1,6 @@
 # Control parity and newcomer journeys
 
-- Status: accepted, amends [decision 0006](0006-built-ins-and-add-ons-share-one-contract.md), [decision 0048](0048-session-place.md), [decision 0061](0061-profiles-and-plain-settings.md), [decision 0065](0065-script-hooks-and-the-add-on-contract.md), and [decision 0066](0066-headless-mode.md)
+- Status: accepted, amends [decision 0006](0006-built-ins-and-add-ons-share-one-contract.md), [decision 0048](0048-session-place.md), [decision 0061](0061-profiles-and-plain-settings.md), [decision 0065](0065-script-hooks-and-the-add-on-contract.md), and [decision 0066](0066-headless-mode.md), amended for checkpoint audience by [decision 0081](0081-harness-engineering-and-two-halves.md)
 - Date: 2026-11-10
 - Source: direct maintainer answers 4, 5, and 6 to the healing proposal on 2026-11-10
 

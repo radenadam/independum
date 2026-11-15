@@ -1,6 +1,6 @@
 # Queue and steer
 
-- Status: accepted, amended by [decision 0076](0076-explicit-send-after-stop.md)
+- Status: accepted, amended by [decision 0076](0076-explicit-send-after-stop.md), durable input handoff changes under [decision 0085](0085-independum-owns-the-loop.md) for queued and steered delivery
 - Date: 2026-11-06
 
 ## Context

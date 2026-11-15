@@ -1,6 +1,8 @@
 # Profiles
 
-Decision: [0061](../decisions/0061-profiles-and-plain-settings.md). A profile is one complete agent setup without inheritance. User and project defaults affect new chats. Each chat keeps its resolved profile, and edits to that profile affect its later work.
+Decision: [0061](../decisions/0061-profiles-and-plain-settings.md). A profile is one complete agent setup without inheritance. User and project defaults affect new chats. Each chat keeps its resolved profile, and edits affect later work.
+
+The direct maintainer product answers of 2026-11-14 and 2026-11-15 in [decision 0083](../decisions/0083-components-removal-and-origin.md) require disk deletion, restoration by download, explicit settings deletion, and component changes from the next request while running replies finish unchanged. General component lifecycle remains unimplemented.
 
 ## Files
 
@@ -30,7 +32,7 @@ Profiles in Settings lists user profiles and profiles of the current project, ch
 
 The profile editor reuses the existing tool, model text, fact, model override, and compaction editors. It shows the folder, scope, and number of chats affected. The file bundle editor keeps a dirty draft across external edits and offers reload and a comparison before saving against the newer revision. A model text dialog captures its starting save revision and keeps its draft after a failed conditional save.
 
-The server watches parent folders and rereads configuration before mutations and new work. Formatting changes update disk revisions without changing the effective revision. Running replies keep their setup until Pi settles after continuation. A changed profile then builds fresh tools, hooks, and in-memory Pi settings around the same session manager. A background command retains its launch settings and completion texts.
+The server watches parent folders and rereads configuration before mutations and new work. Formatting changes update disk revisions without changing the effective revision. Today, running replies keep their setup until Pi settles after continuation. A changed profile then builds fresh tools, hooks, and in-memory Pi settings around the same session manager. A background command retains its launch settings and completion texts.
 
 Invalid configuration blocks dependent new work and shows a precise issue. An existing run keeps its last applied setup visible. A broken project default does not affect chats with an already saved reference. Unrelated profiles keep working.
 

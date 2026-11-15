@@ -6,7 +6,7 @@ This page owns current visual meanings. The structural redesign is pending, with
 
 Organize around user questions. Identify the object, its owner, its time, and its effect. Distinguish this chat, project, shared profile, installation, and browser. Separate saved, applied, pending, running, and historical facts. Historical inspection must show the captured object and revision before linking to current editing. Explain affected chats, application boundaries, and reversibility. Exact raw and readable views identify the same thing.
 
-Details remain discoverable at every depth. A long editor behind one disclosure is still overload. Creation, inspection, editing, reset, disabling, removal, and recovery form one lifecycle where applicable. Use newcomer language without requiring Pi knowledge. Ask before inventing a new visual or interaction meaning.
+Details remain discoverable at every depth. A long editor behind one disclosure is still overload. Creation, inspection, editing, reset, disabling, removal, and recovery form one lifecycle where applicable. Use plain language for people who know agents without requiring Pi knowledge. The maintainer owns first encounters. The coordinator owns technical choices within accepted meanings.
 
 | Look | Meaning | Piece |
 | --- | --- | --- |
@@ -47,5 +47,7 @@ Quantities keep consistent part colors in figures, legends, and rows, with linke
 Motion is ambient and unnecessary for understanding. CSS motion sits inside `prefers-reduced-motion: no-preference`. JavaScript checks `prefersReducedMotion()`. Text never slides or scrolls by itself.
 
 ## Journeys
+
+The direct maintainer product answer of 2026-11-15 keeps structural redesign in this checkpoint for people who already know agents, starting with the maintainer. Tailoring language and guidance for people new to agents follows in the shipping half. [Decision 0081](decisions/0081-harness-engineering-and-two-halves.md) amends the earlier newcomer scope.
 
 The seven accepted redesign journeys are connect a model, start work, inspect exactly what the model received, change agent behavior, create a hook, recover from failure, and reproduce the setup headlessly. The maintainer refines expected understanding when each journey approaches. Compare alternatives with identical content, current behavior, long cases, and phone layouts before broad implementation. [Decision 0075](decisions/0075-control-parity-and-newcomer-journeys.md) records the source.

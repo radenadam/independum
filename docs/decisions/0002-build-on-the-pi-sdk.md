@@ -1,6 +1,6 @@
 # Build on the Pi SDK
 
-- Status: accepted, and amended by [decision 0012](0012-pi-updates-arrive-as-reviewed-pull-requests.md), which leaves provider behavior to Pi, by [decision 0033](0033-model-texts.md), which initially keeps Pi texts read-only, and by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies the controls Independum owns, amended by [decision 0072](0072-editable-pi-texts.md)
+- Status: accepted, and amended by [decision 0012](0012-pi-updates-arrive-as-reviewed-pull-requests.md), which leaves provider behavior to Pi, by [decision 0033](0033-model-texts.md), which initially keeps Pi texts read-only, and by [decision 0053](0053-documented-behavior-and-limits.md), which clarifies the controls Independum owns, amended by [decision 0072](0072-editable-pi-texts.md), partly superseded for loop ownership by [decision 0085](0085-independum-owns-the-loop.md)
 - Date: 2026-10-24
 
 ## Context

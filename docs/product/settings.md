@@ -30,7 +30,7 @@ A phone sees only its own name, rename field, and Disconnect this browser in thi
 
 ## Tools and model texts
 
-Session's tools detail shows each built-in tool's description, enable switch, unavailability reason, fixed parameter schema, edit action, and reset action. A disabled or unavailable tool is excluded from the active tools. Shell adds shell choice, hand-back time, and environment variables. Session's [Permissions detail](permissions.md) shows policy, runtime acceptance, and environment inheritance. Output limit is a separate part below the tool cards. [Tools](tools.md#shared-contract) owns the defaults, ranges, and effects of these settings.
+Session's tools detail currently shows each Independum tool's description, enable switch, unavailability reason, fixed parameter schema, edit action, and reset action. A disabled or unavailable tool is excluded from the active tools. Shell adds shell choice, hand-back time, and environment variables. Session's [Permissions detail](permissions.md) shows policy, runtime acceptance, and environment inheritance. Output limit is a separate part below the tool cards. [Tools](tools.md#shared-contract) owns the defaults, ranges, and effects of these settings.
 
 Each registered model text has an id, group, section, condition label, built-in text, and slots. The text dialog edits a group's texts and saves them together. It shows parameter types, slot insertion at the cursor, example previews, and warnings about missing or unknown slots. Unknown brace names stay literal. Tool names, parameter names, and types are fixed. The system prompt has its own detail and editor. The shared note envelope belongs to Notes, attachment facts belong to [Attachments](attachments.md), and shared file error and fingerprint texts belong to Read.
 
@@ -38,7 +38,7 @@ Edits persist with the built-in text they started from. Resetting one text or sa
 
 A part's reset restores its texts and settings. Resetting Shell also enables it, selects the system default shell, restores hand-back, and clears added environment variables. Resetting Output limit restores its bounds and cut-note texts. A part says edited while its values differ from the built-in state. Choosing the system default shell stores no explicit shell choice.
 
-[Profiles](profiles.md) owns settings persistence, strict file validation, migration, conditional saves, and live application. Runtime settings and texts belong to the selected profile. Running work keeps an immutable configuration until Pi settles, including queued continuation. Invalid files block dependent new work and preserve the last applied setup for inspection.
+[Profiles](profiles.md) owns settings persistence, strict file validation, migration, conditional saves, and live application. Runtime settings and texts belong to the selected profile. Current running work keeps an immutable configuration until Pi settles, including queued continuation. The accepted component boundary applies changes from the next request while a running reply finishes with its starting setup, under [decision 0083](../decisions/0083-components-removal-and-origin.md). Invalid files block dependent new work and preserve the last applied setup for inspection.
 
 ## Model settings and compaction
 
