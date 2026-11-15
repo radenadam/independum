@@ -6,7 +6,7 @@ Decisions: [0006](../decisions/0006-built-ins-and-add-ons-share-one-contract.md)
 
 The direct maintainer product answers of 2026-11-15 in [decision 0084](../decisions/0084-universal-tools-and-script.md) require one doorway for Independum tools, small scripts, MCP servers, command line programs, and HTTP APIs: name, description, parameters, execution, and editable texts. All sources use the same contract. The model still sees a list of tools and calls them. The language-neutral component protocol is a delegated coordinator choice, keeping TypeScript the easiest path.
 
-Script is itself a removable tool component. Its parameter is a short program calling other tools as functions, regardless of source. MCP supplies tools and Script calls tools, so they coexist. Each profile chooses direct exposure, Script exposure, or both per tool. CP-26 and CP-27 track these unimplemented targets.
+Script is itself a removable tool component. Its parameter is a short program calling other tools as functions, regardless of source. MCP supplies tools and Script calls tools, so they coexist. Each profile chooses direct exposure, Script exposure, or both per tool. [The tool contract](../contracts/tools.md) owns target definitions, source adapters, and Script execution. CP-26 and CP-27 track these unimplemented targets.
 
 ## Shared contract
 

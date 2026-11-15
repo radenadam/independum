@@ -1,6 +1,6 @@
 # Editable Pi texts
 
-- Status: accepted, amends [decision 0002](0002-build-on-the-pi-sdk.md), [decision 0012](0012-pi-updates-arrive-as-reviewed-pull-requests.md), [decision 0033](0033-model-texts.md), [decision 0034](0034-texts-of-pi.md), and [decision 0062](0062-project-resources-and-context-controls.md), amended for loop ownership by [decision 0085](0085-independum-owns-the-loop.md)
+- Status: accepted, amends [decision 0002](0002-build-on-the-pi-sdk.md), [decision 0012](0012-pi-updates-arrive-as-reviewed-pull-requests.md), [decision 0033](0033-model-texts.md), [decision 0034](0034-texts-of-pi.md), and [decision 0062](0062-project-resources-and-context-controls.md), amended for loop ownership by [decision 0085](0085-independum-owns-the-loop.md) and local transport observation by [decision 0087](0087-local-capture-and-component-protocol.md)
 - Date: 2026-11-10
 - Source: direct maintainer instruction on 2026-11-09 and patch approval recorded in the healing plan on 2026-11-10
 

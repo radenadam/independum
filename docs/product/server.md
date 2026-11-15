@@ -1,6 +1,6 @@
 # Server
 
-The server owns lifecycle and transport. Pi owns providers, logins, models, and current session format. The accepted foundation puts every model call and its exact saved input and output in the kernel, with Independum's replaceable loop outside it. [Decision 0085](../decisions/0085-independum-owns-the-loop.md) records this unimplemented ownership change. [The product contract](README.md) and [checkpoint](../checkpoint.md) distinguish acceptance from this implementation.
+The server owns lifecycle and transport. Pi owns providers, logins, models, and current session format. The accepted foundation puts every model call and its exact saved input and output in the kernel, with Independum's replaceable loop outside it. [The kernel contract](../contracts/kernel.md) owns the unimplemented call boundary, journal, and per-call completeness. [Decision 0087](../decisions/0087-local-capture-and-component-protocol.md) chooses local transport observation, with narrow Pi observation patches where needed. [The product contract](README.md) and [checkpoint](../checkpoint.md) distinguish acceptance from this implementation.
 
 ## Startup and access
 

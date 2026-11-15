@@ -54,3 +54,5 @@ Channels such as Discord, WhatsApp, team services, schedules, and batch runs are
 - [Side panel](side-panel.md) owns inspection. [Headless](headless.md) and [server](server.md) own control and transport.
 
 Use the [glossary](../glossary.md) and [roadmap](../roadmap.md).
+
+The accepted technical targets live in the contracts for [the kernel and exact records](../contracts/kernel.md), [component communication](../contracts/component-protocol.md), [declarations and lifecycle](../contracts/components.md), [universal tools and Script](../contracts/tools.md), and [the replaceable loop](../contracts/loop.md). Area pages own today's behavior.

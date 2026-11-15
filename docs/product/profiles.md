@@ -2,7 +2,7 @@
 
 Decision: [0061](../decisions/0061-profiles-and-plain-settings.md). A profile is one complete agent setup without inheritance. User and project defaults affect new chats. Each chat keeps its resolved profile, and edits affect later work.
 
-The direct maintainer product answers of 2026-11-14 and 2026-11-15 in [decision 0083](../decisions/0083-components-removal-and-origin.md) require disk deletion, restoration by download, explicit settings deletion, and component changes from the next request while running replies finish unchanged. General component lifecycle remains unimplemented.
+The direct maintainer product answers of 2026-11-14 and 2026-11-15 in [decision 0083](../decisions/0083-components-removal-and-origin.md) require disk deletion, restoration by download, explicit settings deletion, and component changes from the next request while running replies finish unchanged. [The component contract](../contracts/components.md) owns target manifests, dependency locks, leases, removal, and restoration mechanics. General component lifecycle remains unimplemented.
 
 ## Files
 
