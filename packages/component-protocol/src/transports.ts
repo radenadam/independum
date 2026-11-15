@@ -141,7 +141,8 @@ export function createStreamTransport(options: StreamTransportOptions): Protocol
   };
 }
 
-function encodeFrame(value: unknown): Buffer {
+/** Encodes an exact JSON frame and rejects oversized values before dispatch. */
+export function encodeFrame(value: unknown): Buffer {
   const frame = Buffer.from(`${JSON.stringify(roundTripJson(value))}\n`, "utf8");
   if (frame.length - 1 > maximumFrameBytes) {
     throw new Error("The frame exceeds the byte limit. Use a blob reference.");

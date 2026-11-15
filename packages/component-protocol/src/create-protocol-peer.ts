@@ -20,7 +20,7 @@ import {
   VersionNegotiationError,
   validateValue,
 } from "./schemas.ts";
-import type { ProtocolTransport, TransportEvent } from "./transports.ts";
+import { encodeFrame, type ProtocolTransport, type TransportEvent } from "./transports.ts";
 
 export interface EvidenceRecord {
   invocationId: string | null;
@@ -200,12 +200,23 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     });
   }
   function send(frame: ProtocolFrame, invocationId: string | null): void {
-    if (isStopped) {
-      throw new Error("The protocol peer is stopped.");
+    let outgoing: ProtocolFrame;
+    try {
+      if (isStopped) {
+        throw failure("protocol-failure", "The protocol peer is stopped.");
+      }
+      outgoing = roundTripJson(frame) as unknown as ProtocolFrame;
+      validateValue(protocolSchemas.frame as TSchema, outgoing);
+      encodeFrame(outgoing);
+    } catch (error) {
+      throw rejectDispatch(frame, error);
     }
-    validateValue(protocolSchemas.frame as TSchema, frame);
-    record("frame", "sent", frame, invocationId);
-    options.transport.send(frame);
+    record("frame", "sent", outgoing, invocationId);
+    try {
+      options.transport.send(outgoing);
+    } catch (error) {
+      throw rejectDispatch(frame, error, "uncertain");
+    }
   }
   function checkIdentity(value: InvocationIdentity): void {
     for (const key of ["runId", "componentInstanceId", "configurationRevision"] as const) {
@@ -331,6 +342,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     if (method !== "cancel" && invocation.controller.signal.aborted) {
       throw failure("cancellation", "Capabilities are revoked after cancellation.", invocation);
     }
+    const sequence = invocation.sentSequence + 1;
     send(
       {
         jsonrpc: "2.0",
@@ -339,12 +351,13 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           wireVersion: protocolVersion,
           identity: invocation.request.params.identity,
           contract: invocation.request.params.contract,
-          sequence: ++invocation.sentSequence,
+          sequence,
           data,
         },
       },
       invocation.request.params.identity.invocationId,
     );
+    invocation.sentSequence = sequence;
   }
   function revoke(invocation: Invocation, deadline: number): void {
     invocation.controller.abort();
@@ -507,13 +520,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       isDisposed = true;
     }
   }
-  function errorResponse(
-    id: string | number | null,
-    error: unknown,
-    invocation?: Invocation,
-    sequence = 0,
-    code?: number,
-  ): ResponseFrame {
+  function protocolError(error: unknown, invocation?: Invocation, sequence = 0): ProtocolError {
     const problem =
       error instanceof ProtocolError
         ? error
@@ -555,15 +562,67 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     if (error instanceof ContractValidationError) {
       data.locations = error.locations;
     }
+    return new ProtocolError(problem.message, data);
+  }
+  function errorResponse(
+    id: string | number | null,
+    error: unknown,
+    invocation?: Invocation,
+    sequence = 0,
+    code?: number,
+  ): ResponseFrame {
+    const problem = protocolError(error, invocation, sequence);
     return {
       jsonrpc: "2.0",
       id,
       error: {
-        code: code ?? (data.kind === "invalid-input" ? -32602 : -32000),
+        code: code ?? (problem.failure.kind === "invalid-input" ? -32602 : -32000),
         message: problem.message,
-        data,
+        data: problem.failure,
       },
     };
+  }
+  function rejectDispatch(
+    frame: ProtocolFrame,
+    error: unknown,
+    dispatch: ProtocolFailure["dispatch"] = "absent",
+  ): ProtocolError {
+    let captured: JsonValue = null;
+    let identity: InvocationIdentity | null = null;
+    let contract = { id: "wire", version: protocolVersion };
+    try {
+      captured = roundTripJson(frame);
+    } catch {
+      // Non-JSON values cannot be copied into evidence.
+    }
+    try {
+      const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
+      validateValue(protocolSchemas.contract as TSchema, details?.contract);
+      contract = details?.contract ?? contract;
+      validateValue(protocolSchemas.identity as TSchema, details?.identity);
+      identity = details?.identity ?? null;
+    } catch {
+      // Malformed correlation fields cannot identify a denial.
+    }
+    const problem = protocolError(
+      error,
+      identity === null ? undefined : invocations.get(identity.invocationId),
+    );
+    const isRequest = "method" in frame && "id" in frame;
+    const data: ProtocolFailure = {
+      ...problem.failure,
+      identity,
+      contract,
+      dispatch: isRequest ? dispatch : problem.failure.dispatch,
+      effects: isRequest && dispatch === "absent" ? "absent" : "uncertain",
+    };
+    record(
+      "rejected",
+      "local",
+      { frame: captured, dispatch, failure: data },
+      identity?.invocationId ?? null,
+    );
+    return new ProtocolError(problem.message, data);
   }
   function receiveRequest(request: RequestFrame): void {
     let invocation: Invocation | undefined;
@@ -684,6 +743,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     return invocation;
   }
   function receive(event: TransportEvent): void {
+    let invocation: Invocation | undefined;
     try {
       if (event.type !== "message") {
         if (event.type === "fault") {
@@ -713,10 +773,12 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         "params" in Object(raw)
           ? (raw as RequestFrame).params?.identity
           : ((raw as ResponseFrame)?.result?.identity ??
-            (raw as ResponseFrame)?.error?.data.identity);
-      record("frame", "received", event.value, identity?.invocationId ?? null);
+            (raw as ResponseFrame)?.error?.data?.identity);
+      const invocationId =
+        typeof identity?.invocationId === "string" ? identity.invocationId : null;
+      record("frame", "received", event.value, invocationId);
       if (isStopped) {
-        record("late", "local", event.value, identity?.invocationId ?? null);
+        record("late", "local", event.value, invocationId);
         return;
       }
       try {
@@ -726,10 +788,11 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           reason: error instanceof Error ? error.message : "Invalid frame.",
           value: event.value,
         });
+        const candidate = (raw as ResponseFrame)?.id;
         const id =
-          typeof (raw as ResponseFrame)?.id === "string" ||
-          typeof (raw as ResponseFrame)?.id === "number"
-            ? (raw as ResponseFrame).id
+          (typeof candidate === "string" && candidate.length > 0) ||
+          (typeof candidate === "number" && Number.isSafeInteger(candidate) && candidate >= 0)
+            ? candidate
             : null;
         send(
           errorResponse(
@@ -752,7 +815,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         receiveRequest(raw);
         return;
       }
-      const invocation = correlate(raw);
+      invocation = correlate(raw);
       if (invocation.isSettled) {
         record("late", "local", raw, invocation.request.params.identity.invocationId);
         return;
@@ -776,6 +839,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         invocation.reject?.(new ProtocolError(raw.error.message, raw.error.data));
       } else if (raw.result !== undefined) {
         validateValue(operationOutputs[invocation.request.method], raw.result.output);
+        validateContribution(invocation.request, raw.result.output);
         if (invocation.request.method === "initialize") {
           acceptInitialization(raw.result.output, invocation.request);
         }
@@ -787,7 +851,20 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         invocation.resolve(raw.result.output);
       }
     } catch (error) {
-      stop(error instanceof Error ? error : new Error("Protocol delivery fails."));
+      const problem = protocolError(error, invocation);
+      if (!hasEvidenceFailed) {
+        try {
+          record(
+            "rejected",
+            "local",
+            { failure: problem.failure },
+            invocation?.request.params.identity.invocationId ?? null,
+          );
+        } catch {
+          return;
+        }
+      }
+      stop(problem);
     }
   }
   options.transport.listen(receive);
@@ -811,9 +888,16 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           input,
         },
       };
-      validateValue(operationInputs[method], input);
-      checkRequest(request);
-      const invocation = addInvocation(request, true);
+      let invocation: Invocation;
+      try {
+        validateValue(protocolSchemas.frame as TSchema, request);
+        validateValue(operationInputs[method], input);
+        checkRequest(request);
+        validateContribution(request);
+        invocation = addInvocation(request, true);
+      } catch (error) {
+        throw rejectDispatch(request, error);
+      }
       return new Promise<JsonValue>((resolve, reject) => {
         invocation.resolve = resolve;
         invocation.reject = reject;

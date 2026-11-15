@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { expect, type TestContext, test } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
+import { createMisbehavingComponent } from "./create-misbehaving-component.ts";
 import {
   createProtocolPeer,
   type EvidenceRecord,
@@ -33,20 +34,41 @@ interface Fixture {
   failTerminalEvidence(): void;
 }
 const kinds = ["in-process", "standard-streams"] as const;
+const integerCountSchema: JsonValue = {
+  type: "object",
+  required: ["count"],
+  properties: { count: { type: "integer" } },
+};
 
-function createFixture(context: TestContext, kind: (typeof kinds)[number]): Fixture {
+function createFixture(
+  context: TestContext,
+  kind: (typeof kinds)[number],
+  doesMisbehave = false,
+): Fixture {
   context.signal.throwIfAborted();
   let transport: ProtocolTransport;
   let component: ProtocolPeer | undefined;
+  let componentTransport: ProtocolTransport | undefined;
   const componentEvidence: EvidenceRecord[] = [];
   if (kind === "in-process") {
     const pair = createInProcessTransports();
     transport = pair[0];
-    component = createReferenceComponent(pair[1], (entry) => componentEvidence.push(entry));
+    componentTransport = pair[1];
+    if (doesMisbehave) {
+      createMisbehavingComponent(pair[1]);
+    } else {
+      component = createReferenceComponent(pair[1], (entry) => componentEvidence.push(entry));
+    }
   } else {
     const worker = spawn(
       process.execPath,
-      [fileURLToPath(new URL("./reference-worker.ts", import.meta.url))],
+      [
+        fileURLToPath(
+          doesMisbehave
+            ? new URL("./misbehaving-worker.ts", import.meta.url)
+            : new URL("./reference-worker.ts", import.meta.url),
+        ),
+      ],
       {
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
@@ -114,6 +136,7 @@ function createFixture(context: TestContext, kind: (typeof kinds)[number]): Fixt
   function close(): void {
     broker.close();
     component?.close();
+    componentTransport?.close();
   }
   registerTestCleanup(context, close);
   return {
@@ -296,11 +319,7 @@ test.for(kinds)(
         mode: "transform",
         allowedEffects: ["replace"],
         value: { action: "replace", replacement: { count: "2" } },
-        replacementSchema: {
-          type: "object",
-          required: ["count"],
-          properties: { count: { type: "integer" } },
-        },
+        replacementSchema: integerCountSchema,
       }),
     ).rejects.toMatchObject({
       failure: { kind: "invalid-input", locations: [{ pointer: "/count" }] },
@@ -608,5 +627,382 @@ test.for(kinds)(
       }),
     ).rejects.toMatchObject({ failure: { kind: "denied-authority" } });
     expect(frames(fixture, "narrow.read")).toEqual([]);
+  },
+);
+
+const invalidResults: {
+  name: string;
+  method: "stage.apply" | "tool.execute";
+  input: JsonValue;
+  pointer: string;
+}[] = [
+  ...[
+    {
+      name: "observer replacement",
+      mode: "observe",
+      allowedEffects: [],
+      value: { action: "replace", replacement: {} },
+    },
+    {
+      name: "observer block",
+      mode: "observe",
+      allowedEffects: ["block"],
+      value: { action: "block", reason: { id: "blocked", values: {} } },
+    },
+    {
+      name: "ungranted replacement",
+      mode: "transform",
+      allowedEffects: [],
+      value: { action: "replace", replacement: {} },
+    },
+    {
+      name: "ungranted block",
+      mode: "transform",
+      allowedEffects: [],
+      value: { action: "block", reason: { id: "blocked", values: {} } },
+    },
+    {
+      name: "replacement schema violation",
+      mode: "transform",
+      allowedEffects: ["replace"],
+      value: { action: "replace", replacement: { count: "2" } },
+    },
+    {
+      name: "invalid operation output",
+      mode: "transform",
+      allowedEffects: [],
+      value: { invalid: true },
+    },
+  ].map((entry) => ({
+    name: entry.name,
+    method: "stage.apply" as const,
+    input: roundTripJson({
+      stage: "context",
+      mode: entry.mode,
+      allowedEffects: entry.allowedEffects,
+      value: entry.value,
+      replacementSchema: integerCountSchema,
+    }),
+    pointer:
+      entry.name === "replacement schema violation"
+        ? "/count"
+        : entry.name === "invalid operation output"
+          ? ""
+          : "/action",
+  })),
+  {
+    name: "tool result schema violation",
+    method: "tool.execute",
+    input: {
+      definition: {
+        ...(referenceTool as Record<string, JsonValue>),
+        resultSchema: { type: "integer" },
+      },
+      arguments: { mode: "echo", value: "2" },
+      handles: [],
+    },
+    pointer: "",
+  },
+];
+
+test.for(kinds.flatMap((kind) => invalidResults.map((entry) => ({ kind, ...entry }))))(
+  "$kind rejects raw $name on receipt with contract evidence",
+  async ({ kind, name, method, input, pointer }, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    await expect(
+      fixture.broker.request(method, referenceIdentity(name), input),
+    ).rejects.toMatchObject({
+      failure: {
+        kind: "invalid-input",
+        identity: { invocationId: name },
+        dispatch: "known",
+        effects: "uncertain",
+        locations: expect.arrayContaining([expect.objectContaining({ pointer })]),
+      },
+    });
+    const records = fixture.evidence.filter((entry) => entry.invocationId === name);
+    expect(records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "frame", direction: "received" }),
+        expect.objectContaining({
+          kind: "rejected",
+          value: expect.objectContaining({
+            failure: expect.objectContaining({ kind: "invalid-input" }),
+          }),
+        }),
+      ]),
+    );
+    expect(fixture.broker.isStopped()).toBe(true);
+  },
+);
+
+const malformedFrames: { name: string; value: JsonValue }[] = [
+  {
+    name: "missing error data",
+    value: {
+      jsonrpc: "2.0",
+      id: "bad",
+      error: { code: -32000, message: "Missing protocol data." },
+    },
+  },
+  {
+    name: "null error data",
+    value: {
+      jsonrpc: "2.0",
+      id: "bad",
+      error: { code: -32000, message: "Null protocol data.", data: null },
+    },
+  },
+  {
+    name: "scalar error data",
+    value: {
+      jsonrpc: "2.0",
+      id: "bad",
+      error: { code: -32000, message: "Scalar protocol data.", data: 1 },
+    },
+  },
+  {
+    name: "null request parameters",
+    value: { jsonrpc: "2.0", id: "bad", method: "describe", params: null },
+  },
+  {
+    name: "invalid invocation id",
+    value: { jsonrpc: "2.0", id: "bad", result: { identity: { invocationId: 7 } } },
+  },
+  {
+    name: "negative request id",
+    value: { jsonrpc: "2.0", id: -1, method: "describe", params: null },
+  },
+  { name: "empty request id", value: { jsonrpc: "2.0", id: "", method: "describe", params: null } },
+  { name: "null frame", value: null },
+  { name: "array frame", value: [] },
+];
+
+test.for(kinds.flatMap((kind) => malformedFrames.map((entry) => ({ kind, ...entry }))))(
+  "$kind records $name before rejection and protocol errors",
+  async ({ kind, name, value }, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    const start = fixture.evidence.length;
+    await expect(execute(fixture, name, "malformed-frame", value)).rejects.toThrow();
+    const records = fixture.evidence.slice(start);
+    const received = records.findIndex(
+      (entry) =>
+        entry.kind === "frame" &&
+        entry.direction === "received" &&
+        JSON.stringify(entry.value) === JSON.stringify(value),
+    );
+    const rejected = records.findIndex((entry) => entry.kind === "rejected");
+    const response = records.findIndex(
+      (entry) =>
+        entry.kind === "frame" && entry.direction === "sent" && "error" in Object(entry.value),
+    );
+    expect(received).toBeGreaterThanOrEqual(0);
+    expect(rejected).toBeGreaterThan(received);
+    expect(response).toBeGreaterThan(rejected);
+    expect(records[response]?.value).toMatchObject({
+      error: {
+        code: -32600,
+        data: { kind: "protocol-failure", dispatch: "absent", effects: "absent" },
+      },
+    });
+    expect(fixture.broker.isStopped()).toBe(true);
+  },
+);
+
+test.for(kinds)(
+  "%s records all outgoing predispatch denials without sending frames",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    const attempts = [
+      {
+        id: "changed-run",
+        identity: { ...referenceIdentity("changed-run"), runId: "other" },
+        method: "describe" as const,
+        input: {},
+        capabilities: [],
+      },
+      {
+        id: "changed-instance",
+        identity: { ...referenceIdentity("changed-instance"), componentInstanceId: "other" },
+        method: "describe" as const,
+        input: {},
+        capabilities: [],
+      },
+      {
+        id: "changed-revision",
+        identity: { ...referenceIdentity("changed-revision"), configurationRevision: "other" },
+        method: "describe" as const,
+        input: {},
+        capabilities: [],
+      },
+      {
+        id: "expired",
+        identity: { ...referenceIdentity("expired"), deadline: 0 },
+        method: "describe" as const,
+        input: {},
+        capabilities: [],
+      },
+      {
+        id: "parent",
+        identity: { ...referenceIdentity("parent"), parentInvocationId: "absent" },
+        method: "describe" as const,
+        input: {},
+        capabilities: [],
+      },
+      {
+        id: "capability",
+        identity: referenceIdentity("capability"),
+        method: "describe" as const,
+        input: {},
+        capabilities: ["ungranted"],
+      },
+      {
+        id: "authorization",
+        identity: referenceIdentity("authorization"),
+        method: "state.read" as const,
+        input: { handle: "ungranted", key: "sample" },
+        capabilities: [],
+      },
+      {
+        id: "input",
+        identity: referenceIdentity("input"),
+        method: "describe" as const,
+        input: { unexpected: true },
+        capabilities: [],
+      },
+      {
+        id: "arguments",
+        identity: referenceIdentity("arguments"),
+        method: "tool.execute" as const,
+        input: { definition: referenceTool, arguments: { mode: 2, value: null }, handles: [] },
+        capabilities: [],
+      },
+    ];
+    for (const attempt of attempts) {
+      await expect(
+        fixture.broker.request(
+          attempt.method,
+          attempt.identity,
+          roundTripJson(attempt.input),
+          attempt.capabilities,
+        ),
+      ).rejects.toMatchObject({ failure: { dispatch: "absent", effects: "absent" } });
+      const records = fixture.evidence.filter((entry) => entry.invocationId === attempt.id);
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        kind: "rejected",
+        direction: "local",
+        value: {
+          failure: {
+            identity: attempt.identity,
+            contract: { id: attempt.method },
+            dispatch: "absent",
+            effects: "absent",
+          },
+        },
+      });
+    }
+    expect(fixture.broker.isStopped()).toBe(false);
+  },
+);
+
+test.for(kinds)(
+  "%s records oversized outgoing frames as failed without dispatch",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    await expect(
+      execute(fixture, "oversized", "echo", "x".repeat(1024 * 1024)),
+    ).rejects.toMatchObject({
+      failure: {
+        identity: { invocationId: "oversized" },
+        dispatch: "absent",
+        effects: "absent",
+        locations: [{ reason: expect.stringContaining("byte limit") }],
+      },
+    });
+    const records = fixture.evidence.filter((entry) => entry.invocationId === "oversized");
+    expect(records.map((entry) => [entry.kind, entry.direction])).toEqual([["rejected", "local"]]);
+    expect(records[0]?.value).toMatchObject({
+      dispatch: "absent",
+      failure: { dispatch: "absent", effects: "absent" },
+    });
+    expect(fixture.broker.isStopped()).toBe(false);
+  },
+);
+
+test.for(kinds)(
+  "%s records invalid outgoing values and preserves safe correlation",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    const input = {
+      definition: referenceTool,
+      arguments: { mode: "echo", value: undefined },
+      handles: [],
+    } as unknown as JsonValue;
+    await expect(
+      fixture.broker.request("tool.execute", referenceIdentity("non-json"), input),
+    ).rejects.toMatchObject({
+      failure: {
+        kind: "invalid-input",
+        identity: { invocationId: "non-json" },
+        dispatch: "absent",
+        effects: "absent",
+      },
+    });
+    expect(
+      fixture.evidence.find((entry) => entry.invocationId === "non-json")?.value,
+    ).toMatchObject({ frame: null, dispatch: "absent", failure: { kind: "invalid-input" } });
+    expect(frames(fixture, "non-json")).toHaveLength(0);
+    const identity = { ...referenceIdentity("invalid-identity"), deadline: -1 };
+    await expect(fixture.broker.request("describe", identity, {})).rejects.toMatchObject({
+      failure: { kind: "invalid-input", identity: null },
+    });
+    expect(fixture.evidence.at(-1)?.value).toMatchObject({
+      frame: { params: { identity } },
+      dispatch: "absent",
+      failure: { contract: { id: "describe" }, dispatch: "absent", effects: "absent" },
+    });
+  },
+);
+
+test.for(kinds)(
+  "%s keeps invocation uncertainty when an oversized notification cannot dispatch",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind, true);
+    await initialize(fixture);
+    const outcome = execute(fixture, "notification", "hold").catch((error: unknown) => error);
+    expect(() =>
+      fixture.broker.cancel("notification", "x".repeat(1024 * 1024), Date.now() + 1000),
+    ).toThrow("byte limit");
+    expect(
+      fixture.evidence.find(
+        (entry) => entry.kind === "rejected" && entry.invocationId === "notification",
+      )?.value,
+    ).toMatchObject({
+      dispatch: "absent",
+      frame: { method: "cancel" },
+      failure: { dispatch: "known", effects: "uncertain" },
+    });
+    expect(
+      frames(fixture, "notification").map((frame) =>
+        "method" in frame ? frame.method : "response",
+      ),
+    ).toEqual(["tool.execute"]);
+    fixture.broker.cancel(
+      "notification",
+      "A bounded explicit cancellation follows.",
+      Date.now() + 1000,
+    );
+    expect(frames(fixture, "notification").at(-1)).toMatchObject({
+      method: "cancel",
+      params: { sequence: 2 },
+    });
+    fixture.broker.close();
+    expect(await outcome).toBeInstanceOf(Error);
   },
 );

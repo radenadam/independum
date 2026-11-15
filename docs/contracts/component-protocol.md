@@ -44,7 +44,7 @@ Requests carry `wireVersion`, `identity`, `contract`, `sequence`, `capabilities`
 
 ## Validation and failure
 
-Reject malformed frames, invalid UTF-8, unsupported versions, undeclared operations and capabilities, invalid contribution input, and invalid replacements. Validate exact JSON values without coercion. Structured errors distinguish invalid input, missing dependencies, denied authority, execution failure, cancellation, and protocol failure. They identify component and invocation, the failing contract, precise field locations, and the reason. Owned model-facing failure wording uses declared editable text identities.
+Record received frames before validation. Reject malformed frames, invalid UTF-8, unsupported versions, undeclared operations and capabilities, invalid contribution input, and invalid replacements. Both peers validate contribution contracts, including received stage effects and pinned tool results, without coercion. Outgoing request denials and encoding failures record absent dispatch and effects. Failed notifications preserve invocation uncertainty and do not consume sender sequence numbers. These requirements follow the direct maintainer implementation correction of 2026-11-16 after slice 1 review. Structured errors identify kind, identity, contract, field locations, and reason. Owned model-facing wording uses declared editable text identities.
 
 Nested failure causes retain their original identity, contract, field locations, and delivery facts. A child's absent effects do not establish absence for its parent.
 
@@ -56,7 +56,7 @@ Cancellation requests cessation. Settlement confirms its outcome. On cancellatio
 
 Run the same fixtures over standard streams and the in-process transport. Cover negotiation, JSON round trips, nested correlation, ordering, malformed messages, denied capabilities, progress, terminal outcomes, cancellation races, worker exit, and evidence failure. No TypeScript-only operation may bypass these checks. These fixtures precede dependent implementation.
 
-The [reference component](../../packages/component-protocol/src/reference-component.ts) runs through both transports in [conformance tests](../../packages/component-protocol/src/transport-conformance.test.ts). Standard streams use a real Node child, not a native isolation claim. Process tests run in Vitest's final serial group with the shared 20 second budget and cancellation teardown. The endpoint can request termination only for an explicitly owned stream worker. It supplies no launcher, isolation, lease manager, loader, model service, or external effect service.
+The [conformance tests](../../packages/component-protocol/src/transport-conformance.test.ts) exercise both transports with the reference component and a raw misbehaving component. Standard streams use real Node children. Process tests run in Vitest's final serial group with the shared 20 second budget and cancellation teardown. The endpoint can request termination only for an explicitly owned stream worker. It supplies no launcher, isolation, lease manager, loader, model service, or external effect service.
 
 Screen controls, authoritative files, scripts, and code use the same schemas and operations for the same part. Expose exact source, effective configuration, revision, pending changes, and precise failures. Generic editors and inspection are kernel mechanisms. Component-specific editors and renderers are declared contributions with the same [component lifecycle](components.md).
 
