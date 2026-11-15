@@ -36,7 +36,7 @@ Unknown commands fail. `//text` submits `/text`, and API literal interpretation 
 
 ## Requests and Pi
 
-The direct maintainer product answers of 2026-11-15 place all context engineering, including earlier turns, outside the kernel. [Decisions 0082](../decisions/0082-kernel-without-harness-decisions.md) and [0085](../decisions/0085-independum-owns-the-loop.md) make the kernel the sole exact recorded model-call doorway and Independum the loop owner. The Pi pipeline below remains current implementation until replacement.
+The direct maintainer product answers of 2026-11-15 place all context engineering, including earlier turns, outside the kernel. [The loop contract](../contracts/loop.md) owns target context and compaction policy. [The kernel contract](../contracts/kernel.md) owns exact call evidence, including local transport observation under [decision 0087](../decisions/0087-local-capture-and-component-protocol.md). The Pi pipeline below remains current implementation until replacement.
 
 The owned prompt pipeline includes the base prompt, added facts, project instructions, and skill metadata as separate system sections. Their switches remove their respective copies from future system input. Pi's coding persona, tool overview, rules, documentation, folder, and addendum are independently permitted or omitted when present. Automatic Pi resource discovery stays off.
 

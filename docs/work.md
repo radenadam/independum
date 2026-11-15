@@ -1,15 +1,17 @@
 # Current work
 
-The maintainer settled Independum's foundation on 2026-11-14 and 2026-11-15. It is a harness engineering tool, made easy and transparent. [The product definition](product/README.md) owns this product requirement. [Decisions 0081](decisions/0081-harness-engineering-and-two-halves.md) through [0086](decisions/0086-stay-in-typescript.md) record direct answers, delegated choices, and reversals.
+The maintainer settles Independum's foundation on 2026-11-14 and 2026-11-15. It is a harness engineering tool, made easy and transparent. [The product definition](product/README.md) owns intent. [Decisions 0081](decisions/0081-harness-engineering-and-two-halves.md) through [0087](decisions/0087-local-capture-and-component-protocol.md) retain provenance and reasons.
 
 ## Active step
 
-Turn the foundation into contracts, beginning with the kernel and component protocol. The kernel makes exact recorded model calls and holds no harness decisions. Every other part is a removable component. Define lifecycle, origin, disk removal and download, historical evidence, and application timing before the universal tool contract, Script, and Independum's own replaceable loop. [The roadmap](roadmap.md) orders dependent work. CP-02, CP-03, CP-05, CP-06, CP-15, CP-26 through CP-28, and CP-36 own acceptance.
+Publish executable protocol schemas and transport-equivalence fixtures, the first [roadmap slice](roadmap.md#harness-engineering-checkpoint). Cover the [kernel record](contracts/kernel.md), [component messages](contracts/component-protocol.md), [manifests](contracts/components.md), [tools](contracts/tools.md), and [loop](contracts/loop.md) at their shared boundary. Exercise identical JSON round trips, validation, ordering, cancellation, errors, and evidence through standard streams and trusted in-process transport before dependent implementation. CP-03, CP-15, CP-26, and CP-28 own acceptance. These schemas and fixtures are not built yet.
 
-The question round for this context reconciliation needs no new decision. The maintainer's direct task of 2026-11-15 and settled foundation supply intent. Technical and architectural choices belong to the coordinator under [the working agreement](standard.md#authority). Ask about product meaning and first encounters when necessary. Do not reopen settled answers.
+The question round needs no new decision. The direct task of 2026-11-15 supplies the coordinator's delegated acceptance of the proposal with local transport observation replacing upstream dependency. [Decision 0087](decisions/0087-local-capture-and-component-protocol.md) protects that choice. Ask the maintainer about first encounters when absent-loop explanation and removal presentation approach. Do not reopen settled intent.
 
 ## Last step
 
-Repository healing and the CP-14 and CP-17 contradiction repairs are integrated. Exact argument checks and [private state protection](decisions/0080-private-state-folder.md) ship. The foundation replaces the older chatbot kernel, built-in and add-on kinds, Pi loop ownership, optional call recording, and newcomer checkpoint scope.
+The accepted prose contracts now define the kernel, exact evidence, protocol, component kinds and lifecycle, universal tools, Script, and replaceable loop. The coordinator's implementation choices remain delegated, not direct product answers. This documentation builds none of them and changes no checkpoint status.
 
-Implementation is not acceptance. [The checkpoint](checkpoint.md) keeps evidence honest. Deterministic checks, independent AI review, and AI browser QA authorize ordinary landing within settled intent under [decision 0079](decisions/0079-gates-authorize-landing.md).
+Repository healing and CP-14 and CP-17 contradiction repairs remain integrated. Exact argument checks and private state protection ship. [The checkpoint](checkpoint.md) separates implementation from verification.
+
+For this documentation task, `pnpm format` and static checks pass. `pnpm check` reports 686 passing tests, 64 failures, 17 skips including 13 native cases, and one unavailable shell suite. Failures include denied state-path access and timeouts. One delivery timeout repeats with one worker. These remain missing evidence. This offline worker leaves changes uncommitted. The coordinator owns independent review and capable-host checks before landing under [the workflow](workflow.md).

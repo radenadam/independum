@@ -4,7 +4,7 @@ Decision: [0065](../decisions/0065-script-hooks-and-the-add-on-contract.md). A h
 
 ## Loop target
 
-The direct maintainer product answer of 2026-11-15 makes Independum own the replaceable loop under [decision 0085](../decisions/0085-independum-owns-the-loop.md). It runs requested tools, returns results, and repeats until done. Engineer it through screen controls, file stages, a small script, or a code component. Hook events become stages of that loop. Only the kernel calls models and saves exact input and output. Current Pi callbacks below are implementation, not the completed stage contract. CP-28 tracks replacement and CP-32 requires sample-input tests without model calls.
+The direct maintainer product answer of 2026-11-15 makes Independum own the replaceable loop under [decision 0085](../decisions/0085-independum-owns-the-loop.md). [The loop contract](../contracts/loop.md) owns target orchestration and stage timing. [The component protocol](../contracts/component-protocol.md) owns target communication. Hook events become stages of that loop, engineerable through controls, files, scripts, and code. Only the kernel calls models and saves exact input and output. Current Pi callbacks below remain implementation. CP-28 tracks replacement and CP-32 requires sample-input tests without model calls.
 
 ## Configuration
 

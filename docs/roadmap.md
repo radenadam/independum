@@ -1,15 +1,32 @@
 # Roadmap
 
-[Current work](work.md) owns the active step. [The checkpoint](checkpoint.md) owns acceptance and evidence. This order follows the direct maintainer product answers of 2026-11-15 in [decision 0081](decisions/0081-harness-engineering-and-two-halves.md). Implementation order is coordinator judgment.
+[Current work](work.md) owns the active step. [The checkpoint](checkpoint.md) owns acceptance. This delegated coordinator sequence follows contracts and [decision 0087](decisions/0087-local-capture-and-component-protocol.md) of 2026-11-15.
 
 ## Harness engineering checkpoint
 
-1. Turn the foundation into shared contracts: kernel with no harness decisions, exact call records, component protocol and lifecycle, origin, disk removal, historical evidence, and application timing. Then define the universal tool doorway, source adapters, Script exposure, and Independum's replaceable loop and hook stages. Establish language-neutral conformance before dependent implementation. CP-02, CP-03, CP-05, CP-06, CP-15, CP-26, CP-27, CP-28, CP-36.
-2. Develop the screen architecture through the seven [journeys](design.md#journeys) for someone who knows agents. Compare identical content, current behavior, long cases, themes, and phone layouts. Record accepted reasoning. CP-24.
-3. Implement one full component journey through hook creation, testing without a model, inspection, editing, disk removal, reinstallation, and retained history. Extend the shared lifecycle to every part. Implement the tool sources, Script, loop engineering, and narrow Pi text patch without parallel internal shortcuts. CP-07, CP-08, CP-14, CP-15, CP-26 through CP-28, CP-36.
-4. Complete every meaning of easy: effect to cause, progression across depths, reset and revert, copied-profile replay and comparison, exact preview, sample tests, plain-file sharing, declared effects and dependencies, precise failures, and one vocabulary. CP-29 through CP-35.
-5. Complete remaining acceptance in dependency order: profiles and recovery, resources and compaction, permission rules and native boundaries, exact environment facts, queues and Stop disclosure, forks and attachments, arbitrary initial folders, full headless workflows, and phone continuity. Request an upstream read-only Linux private mask. CP-04, CP-09 through CP-23.
-6. Assess default and substantially engineered setups, kernel alone, replacement loops, long histories, all controls, supported native systems, built phone UI, real phone trust, and allowed real models. CP-01, CP-25. Drop `-dev` only after acceptance.
+Each slice is one PR unless repetitions are named. Keep today's default operational until replacement passes conformance and journey checks. Include inspection and controls in each slice. A merged slice closes no requirement.
+
+1. Publish protocol schemas and transport-equivalence fixtures. CP-03, CP-15, CP-26, CP-28.
+2. Add the journal and read-only evidence API beside current storage. CP-05, CP-06.
+3. Observe correlated HTTP attempts and WebSocket frames inside Independum's process without provider-specific code. Add narrow local Pi observation patches where interception cannot reach. Label uncovered calls incomplete. No upstream dependency or maintainer posting. CP-05, CP-06.
+4. Route current agent streams, summaries, and warming through the kernel facade. CP-03, CP-06.
+5. Load manifests, lock dependencies, and capture run graphs. CP-15, CP-33, CP-34.
+6. Adapt existing hooks. Complete creation, sample testing, and inspection. CP-14, CP-15, CP-32.
+7. Add profile detach and next-request application. CP-02, CP-15.
+8. Add physical removal, leases, and Removed historical cards. CP-02, CP-36.
+9. Add verified installation, restoration, and dependency recovery. CP-02, CP-33.
+10. Migrate Read. Repeat separately for each remaining tool. CP-17, CP-26.
+11. Add script, command line, HTTP, and MCP adapters in separate PRs. CP-26.
+12. Add Script and per-tool exposure controls. CP-27.
+13. Add a selectable chat loop, then tool iteration in another PR. CP-01, CP-03, CP-28.
+14. Migrate durable steering, turn retries, compaction, and warming in separate PRs. CP-06, CP-13, CP-18, CP-28.
+15. Switch the default after parity evidence. Remove obsolete Pi orchestration separately. CP-01, CP-28.
+
+Then redesign screen architecture for people who know agents through the seven [journeys](design.md#journeys), comparing current behavior, identical content, long cases, themes, and phones. Complete every meaning of easy and the narrow Pi text patch. CP-07, CP-08, CP-24, CP-29 through CP-35.
+
+Complete remaining profiles and recovery, resources, permissions, native boundaries, environment facts, queues and Stop disclosure, forks, attachments, arbitrary initial folders, headless workflows, and phone continuity. Request MXC's upstream read-only Linux private mask. CP-04, CP-09 through CP-23.
+
+Assess default and engineered setups, kernel alone, replacement loops, long histories, all controls, supported native systems, built phone UI, real phone trust, and allowed real models. CP-01, CP-25. Drop `-dev` only after acceptance.
 
 ## Known app defects from step 1
 
@@ -36,4 +53,4 @@ Discord, WhatsApp, team services, schedules, and batch runs remain direction onl
 
 ## Open questions
 
-Ask when related work approaches. The foundation has no open product questions. Protocol details are the active engineering work. Park CheckCommand unfinished-line suffixes, folder switching during a chat, code naming for waiting messages, and timing of `packages/core` until needed.
+Ask first-encounter questions about absent-loop explanation and removal presentation during their slices. Park CheckCommand unfinished-line suffixes, mid-chat folder switching, waiting-message code names, and `packages/core` timing.
