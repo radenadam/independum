@@ -1,3 +1,4 @@
+import type { InvocationAction } from "./invocation.ts";
 import type { Operation, Version } from "./schemas.ts";
 
 export interface InitializationSelection {
@@ -37,6 +38,27 @@ export class PeerLifecycle {
 
   get selection(): InitializationSelection | undefined {
     return "selection" in this.#state ? this.#state.selection : undefined;
+  }
+
+  allows(action: InvocationAction | "protocol", invocation?: object, method?: Operation): boolean {
+    const state = this.#state;
+    if (state.phase === "stopped") {
+      return false;
+    }
+    switch (action) {
+      case "dispatch":
+      case "work":
+      case "notify":
+        return (
+          state.phase === "ready" ||
+          (state.phase === "initializing" &&
+            method === "initialize" &&
+            state.invocation === invocation) ||
+          (state.phase === "disposing" && method === "dispose" && state.invocation === invocation)
+        );
+      default:
+        return true;
+    }
   }
 
   assertAdmission(method: Operation, hasPendingWork: boolean): void {

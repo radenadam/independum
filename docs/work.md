@@ -4,7 +4,7 @@ Independum is a harness engineering tool, made easy and transparent. [The produc
 
 ## Active step
 
-Slice 1's peer lifecycle repair awaits independent review and capable-host verification. Slice 2 adds the journal and read-only evidence API. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The app still uses Pi orchestration and current storage.
+Slice 1's continuation admission repair awaits independent review and capable-host verification. Slice 2 adds the journal and read-only evidence API. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The app still uses Pi orchestration and current storage.
 
 The question round needs no new decision. The direct repair task of 2026-11-16 forbids app integration. [The protocol contract](contracts/component-protocol.md) records the correction. First-encounter questions wait for absent-loop explanation and removal presentation.
 
@@ -14,10 +14,10 @@ Slice 1 publishes 1.0 schemas, standard-stream and trusted in-process transports
 
 Implementation and verification remain separate in [the checkpoint](checkpoint.md). Protocol fixtures do not complete CP-03, CP-15, CP-26, or CP-28.
 
-The direct maintainer implementation correction of 2026-11-16 extends invocation transitions to peer lifecycle admission. Pending initialization and disposal reserve their state before callbacks. Only dispatched cancellation can arm worker termination. Evidence failure and negotiated authority belong to the peer machine. Cancellation, settlement, and worker exit stay separate. [The contract](contracts/component-protocol.md) owns these rules.
+The direct maintainer correction of 2026-11-16 requires both machines to admit handlers, effects, nested calls, and sends. Recheck after authorization and recording. Interruption revokes work independently of cancellation. Terminal delivery has explicit admission after lifecycle commitment. [The contract](contracts/component-protocol.md) owns these rules.
 
-All 199 protocol tests pass. They include 10,000 invocation traces and 10,000 lifecycle traces. Each of 256 scheduled traces compares outcomes, both peers' records, and delivery facts across in-process and stream transports. Eight also compare real children. They cover lifecycle claims, cancellation boundaries, sibling isolation, single settlement, and recording before action. Seeds and timings print per batch. Each test stays below 20 seconds.
+All 214 protocol tests pass, including 10,000 invocation traces, 10,000 lifecycle traces, 256 scheduled transport comparisons, and eight real-child comparisons. Fifteen admission tests add 14 generated scenarios with sink throws at every recording point, reentrant stop and close, cancellation, retained contexts, and effect requests. Both transports agree. Negative controls reproduce handler starts after authorization closes the peer or nested evidence fails. Seeds and timings print per batch. Each test stays below 20 seconds.
 
-`pnpm format` and static checks pass on 2026-11-16. Full `pnpm check` reports 885 passed, 64 failed, and 17 skipped. Thirteen native skips remain in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a shell. App runtime failures remain missing evidence. Offline task restrictions prevent independent gates.
+`pnpm format` and static checks pass on 2026-11-16. Full `pnpm check` reports 900 passed, 64 failed, and 17 skipped. Native skips: nine in `create-sandbox.test.ts`, three in `sandbox-runtime.test.ts`, one in `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a shell. Shell-dependent `create-chat-routes.test.ts` and other app failures remain missing evidence. Offline task restrictions prevent independent gates.
 
 Changes remain uncommitted. The coordinator owns independent review and capable-host evidence under [the workflow](workflow.md).

@@ -135,6 +135,16 @@ test("seeded invocation transitions agree with an independent delivery and settl
         effects,
       });
       expect(messages, label).toEqual(isTerminal ? [expected] : []);
+      expect(invocation.allows("work"), label).toBe(
+        !isTerminal && !isCancelled && dispatch !== "absent",
+      );
+      expect(invocation.allows("dispatch"), label).toBe(
+        !isTerminal && !isCancelled && dispatch === "absent",
+      );
+      expect(invocation.allows("reply"), label).toBe(
+        !isTerminal && (isCancelled || dispatch === "known"),
+      );
+      expect(invocation.allows("revoke"), label).toBe(!isTerminal);
     }
     invocation.transition({ type: "interrupted", error: ownFailure });
     expect(messages).toHaveLength(1);
@@ -882,6 +892,14 @@ test("seeded lifecycle transitions reserve admission and ignore stale completion
       expect(lifecycle.selection).toEqual(
         phase === "ready" || phase === "disposing" ? selection : undefined,
       );
+      expect(lifecycle.allows("work", token, "initialize")).toBe(
+        phase === "ready" || (phase === "initializing" && owner === token),
+      );
+      expect(lifecycle.allows("work", token, "dispose")).toBe(
+        phase === "ready" || (phase === "disposing" && owner === token),
+      );
+      expect(lifecycle.allows("work", token, "tool.execute")).toBe(phase === "ready");
+      expect(lifecycle.allows("terminal", token)).toBe(phase !== "stopped");
     }
   }
 });

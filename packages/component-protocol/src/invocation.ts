@@ -14,9 +14,25 @@ interface Dispatched {
 }
 type Delivery = Undispatched | Attempted | Dispatched;
 type Terminal =
-  | { phase: "settled"; delivery: Dispatched; output: JsonValue }
-  | { phase: "cancelled"; delivery: Delivery; error: Error; cancellationDeadline?: number }
-  | { phase: "failed" | "interrupted"; delivery: Delivery; error: Error };
+  | { phase: "settled"; delivery: Dispatched; output: JsonValue; response: "pending" | "sent" }
+  | {
+      phase: "cancelled";
+      delivery: Delivery;
+      error: Error;
+      cancellationDeadline?: number;
+      response: "pending" | "sent";
+    }
+  | { phase: "failed"; delivery: Delivery; error: Error; response: "pending" | "sent" }
+  | { phase: "interrupted"; delivery: Delivery; error: Error };
+export type InvocationAction =
+  | "dispatch"
+  | "work"
+  | "notify"
+  | "cancel"
+  | "reply"
+  | "terminal"
+  | "receive"
+  | "revoke";
 type InvocationState =
   | { phase: "prepared"; delivery: Undispatched }
   | { phase: "dispatch-attempted"; delivery: Attempted }
@@ -26,7 +42,7 @@ type InvocationState =
 type InvocationEvent =
   | { type: "send-attempted" | "sent" }
   | { type: "received"; sequence: number; effects?: "known" | "absent" | "uncertain" | undefined }
-  | { type: "sent-frame"; sequence: number }
+  | { type: "sent-frame"; sequence: number; isTerminal?: boolean }
   | { type: "cancel" | "deadline"; deadline?: number }
   | { type: "completed"; output: JsonValue }
   | { type: "failed" | "send-failed" | "interrupted"; error: Error };
@@ -59,16 +75,18 @@ export class Invocation {
         : { phase: "prepared", delivery: { dispatch: "absent", effects: "absent" } };
   }
 
-  get isSettled(): boolean {
-    return "output" in this.#state || "error" in this.#state;
+  get outcome(): Terminal["phase"] | undefined {
+    return "output" in this.#state || "error" in this.#state ? this.#state.phase : undefined;
   }
 
   get delivery(): Delivery {
     return { ...this.#state.delivery };
   }
 
-  get isCancelled(): boolean {
-    return this.#state.phase === "cancelling" || this.#state.phase === "cancelled";
+  get revocationFailure(): Error | undefined {
+    return this.#state.phase === "cancelling" || this.#state.phase === "cancelled"
+      ? this.cancellationFailure()
+      : undefined;
   }
 
   get cancellationDeadline(): number | undefined {
@@ -83,14 +101,38 @@ export class Invocation {
     return this.#receivedSequence;
   }
 
+  allows(action: InvocationAction): boolean {
+    const state = this.#state;
+    switch (action) {
+      case "dispatch":
+        return state.phase === "prepared";
+      case "work":
+      case "notify":
+        return state.phase === "dispatched" || state.phase === "dispatch-attempted";
+      case "reply":
+        return state.phase === "dispatched" || state.phase === "cancelling";
+      case "terminal":
+        return "response" in state && state.response === "pending";
+      case "cancel":
+        return state.phase !== "interrupted" && state.delivery.dispatch !== "absent";
+      case "receive":
+        return (
+          state.phase === "dispatch-attempted" ||
+          state.phase === "dispatched" ||
+          state.phase === "cancelling"
+        );
+      case "revoke":
+        return (
+          state.phase === "prepared" ||
+          state.phase === "dispatch-attempted" ||
+          state.phase === "dispatched" ||
+          state.phase === "cancelling"
+        );
+    }
+  }
+
   dispatch(send: () => void): void {
-    if (this.isSettled) {
-      return;
-    }
-    if (this.#state.phase === "cancelling") {
-      throw this.cancellationFailure();
-    }
-    if (this.#state.phase !== "prepared") {
+    if (!this.allows("dispatch")) {
       throw new Error("Only a prepared invocation can attempt dispatch.");
     }
     this.transition({ type: "send-attempted" });
@@ -101,6 +143,9 @@ export class Invocation {
   transition(event: InvocationEvent): void {
     if (event.type === "sent-frame") {
       this.#sentSequence = event.sequence;
+      if (event.isTerminal && "response" in this.#state) {
+        this.#state = { ...this.#state, response: "sent" };
+      }
       return;
     }
     const state = this.#state;
@@ -166,26 +211,34 @@ export class Invocation {
         if (state.phase !== "dispatched") {
           return;
         }
-        this.#state = { phase: "settled", delivery: state.delivery, output: event.output };
+        this.#state = {
+          phase: "settled",
+          delivery: state.delivery,
+          output: event.output,
+          response: "pending",
+        };
         clearTimeout(this.timer);
         this.caller?.resolve(event.output);
         return;
       case "failed":
       case "send-failed":
       case "interrupted":
-        this.#state = {
-          phase:
-            event.type === "interrupted"
-              ? "interrupted"
-              : state.phase === "cancelling"
-                ? "cancelled"
-                : "failed",
-          delivery: state.delivery,
-          error: event.error,
-          ...(state.phase === "cancelling" && state.cancellationDeadline !== undefined
-            ? { cancellationDeadline: state.cancellationDeadline }
-            : {}),
-        };
+        this.#state =
+          event.type === "interrupted"
+            ? {
+                phase: "interrupted",
+                delivery: state.delivery,
+                error: event.error,
+              }
+            : {
+                phase: state.phase === "cancelling" ? "cancelled" : "failed",
+                delivery: state.delivery,
+                error: event.error,
+                response: "pending",
+                ...(state.phase === "cancelling" && state.cancellationDeadline !== undefined
+                  ? { cancellationDeadline: state.cancellationDeadline }
+                  : {}),
+              };
         clearTimeout(this.timer);
         this.controller.abort(event.error);
         this.caller?.reject(event.error);
