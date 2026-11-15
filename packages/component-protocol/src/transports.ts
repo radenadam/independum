@@ -129,6 +129,7 @@ export function createStreamTransport(options: StreamTransportOptions): Protocol
       options.input.off("data", receive);
       options.input.off("end", ended);
       options.input.off("error", failed);
+      options.input.destroy();
       options.diagnostics?.off("data", diagnostic);
       options.diagnostics?.off("end", diagnosticEnded);
     },

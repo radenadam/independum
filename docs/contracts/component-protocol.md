@@ -1,14 +1,14 @@
 # Component protocol
 
-This page owns target kernel and component communication. The coordinator accepts this technical design on 2026-11-15 under delegated architectural authority. [Decision 0087](../decisions/0087-local-capture-and-component-protocol.md) records the choice and alternatives. [Decision 0083](../decisions/0083-components-removal-and-origin.md) owns language neutrality. There is no general loader today. The existing one-invocation [hook protocol](../product/hooks.md#script-protocol-and-texts) remains current implementation. This target serves CP-04, CP-14, CP-15, CP-28, CP-30, CP-33, CP-34, and CP-35 in [the checkpoint](../checkpoint.md).
+This contract owns kernel and component communication. The coordinator accepts this design on 2026-11-15 under delegated architectural authority. [Decision 0087](../decisions/0087-local-capture-and-component-protocol.md) records alternatives. [Decision 0083](../decisions/0083-components-removal-and-origin.md) owns language neutrality. No general loader exists. The one-invocation [hook protocol](../product/hooks.md#script-protocol-and-texts) remains current implementation. This target serves CP-04, CP-14, CP-15, CP-28, CP-30, CP-33, CP-34, and CP-35 in [the checkpoint](../checkpoint.md).
 
-Slice 1 publishes [schemas](../../packages/component-protocol/src/schemas.ts), [transports](../../packages/component-protocol/src/transports.ts), and a [protocol endpoint](../../packages/component-protocol/src/create-protocol-peer.ts) in `@independum/component-protocol`. Components can import this SDK without depending on the app. The app imports none of it. The following wire details are delegated worker implementation choices of 2026-11-16 under the direct slice task, rather than new product answers.
+Slice 1 publishes [schemas](../../packages/component-protocol/src/schemas.ts), [transports](../../packages/component-protocol/src/transports.ts), and a [protocol endpoint](../../packages/component-protocol/src/create-protocol-peer.ts) in `@independum/component-protocol`. The SDK has no app dependency or integration. Wire details are delegated worker implementation choices of 2026-11-16 under the direct slice task.
 
 ## Transport and identity
 
-Use bidirectional JSON-RPC 2.0 over UTF-8 newline-delimited standard input and standard output. Each line carries one complete protocol frame. Standard output contains only protocol frames. Standard error carries captured diagnostics. Large binary values use broker-owned blob references with identity, digest, size, and media type. References grant only the declared access and remain subject to evidence retention.
+Use bidirectional JSON-RPC 2.0 over UTF-8 newline-delimited standard input and standard output. Each line carries one frame. Standard output contains only frames. Standard error carries captured diagnostics. Large binary values use broker-owned blob references with identity, digest, size, and media type. References grant only declared access and remain subject to evidence retention.
 
-Frames are limited to 1 MiB excluding the newline. Larger values require references. A reference also names its broker, allowed read or write access, and retention identity. Blob storage is not implemented. Both transports reject lossy JavaScript values, including undefined fields, nonfinite numbers, negative zero, sparse arrays, accessors, custom prototypes, and cycles. Stream faults retain exact bytes as base64 evidence.
+Frames are limited to 1 MiB excluding the newline. Larger values require references. Unencodable terminal responses produce recorded, bounded protocol failures preserving delivery uncertainty. If correlation cannot fit, send an uncorrelated bounded failure. Fatal delivery failures close transport and terminate owned workers. A reference names its broker, allowed access, and retention identity. Blob storage is not implemented. Both transports reject lossy JavaScript values, including undefined fields, nonfinite numbers, negative zero, sparse arrays, accessors, custom prototypes, and cycles. Stream faults retain exact bytes as base64 evidence.
 
 The TypeScript SDK also offers an in-process transport. Both transports enforce identical JSON round trips, validation, message ordering, cancellation, errors, and evidence semantics. In-process execution is explicitly trusted. It cannot promise process isolation or protect the host from arbitrary component code. Protocol capability checks do not turn trusted code into sandboxed code. Isolated execution uses the existing [permission and native boundary](../product/permissions.md).
 
@@ -20,7 +20,7 @@ Components call one another through the broker. The broker validates destination
 
 ## Operations
 
-The wire protocol, each contribution contract, and manifests have separate `{ major, minor }` versions, initially 1.0. Schema identities end in `:1.0` and use JSON Schema 2020-12. `initialize` offers version catalogs and selects the highest shared minor under a shared major. It rejects incompatible majors before activation. Requested capabilities and explicit grants are separate. A contribution uses only its negotiated contract. The schemas cover the operations below.
+Wire, contribution contracts, and manifests have separate `{ major, minor }` versions, initially 1.0. Schema identities end in `:1.0` and use JSON Schema 2020-12. `initialize` selects the highest shared minor under a shared major, rejecting incompatible majors before activation. Requested capabilities and grants are separate. Contributions use only negotiated contracts.
 
 | Operation | Direction and responsibility |
 | --- | --- |
@@ -44,13 +44,15 @@ Requests carry `wireVersion`, `identity`, `contract`, `sequence`, `capabilities`
 
 ## Validation and failure
 
-Record received frames before validation. Reject malformed frames, invalid UTF-8, unsupported versions, undeclared operations and capabilities, invalid contribution input, and invalid replacements. Both peers validate contribution contracts, including received stage effects and pinned tool results, without coercion. Outgoing request denials and encoding failures record absent dispatch and effects. Failed notifications preserve invocation uncertainty and do not consume sender sequence numbers. These requirements follow the direct maintainer implementation correction of 2026-11-16 after slice 1 review. Structured errors identify kind, identity, contract, field locations, and reason. Owned model-facing wording uses declared editable text identities.
+Record received frames before validation. Reject malformed frames, invalid UTF-8, unsupported versions, undeclared operations and capabilities, invalid contribution input, and invalid replacements. Both peers validate contribution contracts, including received stage effects and pinned tool results, without coercion. Outgoing request denials and encoding failures record absent dispatch and effects. Rejected notifications preserve invocation uncertainty and sender sequence. Undeliverable cancellation closes delivery. These requirements follow the direct maintainer implementation correction of 2026-11-16 after slice 1 review. Structured errors identify kind, identity, contract, field locations, and reason. Owned model-facing wording uses declared editable text identities.
 
 Nested failure causes retain their original identity, contract, field locations, and delivery facts. A child's absent effects do not establish absence for its parent.
 
 An error never means an effect is safe to retry. Record whether dispatch or effects are known, absent, or uncertain. Never automatically retry an effect. The loop's explicit model retry policy remains separate from transport delivery and component execution. A worker exit without a terminal response records an interrupted or failed invocation with the known evidence.
 
-Cancellation requests cessation. Settlement confirms its outcome. On cancellation, revoke further capabilities immediately, coordinate nested work, and terminate isolated workers after their cancellation deadline. Preserve completed effects and record any work whose ending is uncertain. Track actual process exit separately from the response. Leases and resources remain held until owned execution ends. Trusted in-process work has no equivalent forced process termination guarantee.
+Cancellation requests cessation. Settlement confirms its outcome. On cancellation, revoke further capabilities immediately and coordinate nested work. A later response settles the caller as cancelled and remains evidence only, including initialization and disposal. Earlier settled outcomes remain unchanged. Terminate isolated workers after their cancellation deadline. Preserve completed effects and uncertain work. Track process exit separately. Leases and resources remain held until execution ends. Trusted in-process work has no equivalent forced termination guarantee.
+
+These rules follow the direct maintainer implementation correction of 2026-11-16 after the second local review. Earlier fixtures missed valid late outputs and terminal encoding failures. Misbehaving fixtures cover both causes and fatal delivery paths over both transports.
 
 ## Conformance and control
 
@@ -60,4 +62,4 @@ The [conformance tests](../../packages/component-protocol/src/transport-conforma
 
 Screen controls, authoritative files, scripts, and code use the same schemas and operations for the same part. Expose exact source, effective configuration, revision, pending changes, and precise failures. Generic editors and inspection are kernel mechanisms. Component-specific editors and renderers are declared contributions with the same [component lifecycle](components.md).
 
-Sample tests substitute recorded services and make no model call. Effects remain forbidden unless explicitly enabled for that test. Tests disclose substituted services and captured configuration. Successful protocol fixtures establish communication conformance, not complete screen or headless authoring, native isolation, or checkpoint acceptance.
+Tests disclose substituted services and configuration, make no model call, and forbid effects unless enabled. Passing fixtures establish communication conformance, not authoring, native isolation, or checkpoint acceptance.

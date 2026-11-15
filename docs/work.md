@@ -4,7 +4,7 @@ The maintainer settles Independum's foundation on 2026-11-14 and 2026-11-15. It 
 
 ## Active step
 
-Slice 1 protocol repairs await independent review and capable-host verification. Slice 2 follows: add the journal and read-only evidence API beside current storage. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The running app still uses Pi orchestration and current storage.
+Slice 1 repairs await independent review and capable-host verification. Slice 2 follows: add the journal and read-only evidence API beside current storage. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The running app still uses Pi orchestration and current storage.
 
 The question round needs no new product decision. The direct repair task of 2026-11-16 preserves slice 1's boundary and forbids app integration. [The protocol contract](contracts/component-protocol.md) records the implementation correction and its provenance. Ask the maintainer about first encounters when absent-loop explanation and removal presentation approach. Do not reopen settled intent.
 
@@ -14,8 +14,8 @@ Slice 1 publishes executable 1.0 boundary schemas, JSON round trips, standard-st
 
 Implementation and verification remain separate in [the checkpoint](checkpoint.md). Protocol fixtures do not complete CP-03, CP-15, CP-26, or CP-28.
 
-Receiving peers now validate contribution results. Malformed frames and outgoing denials retain evidence. Encoding failures record absent frame dispatch without erasing prior invocation uncertainty. Raw misbehaving components exercise both transports. Twenty initial regressions fail before the fixes. The final protocol run passes all 119 tests.
+Cancelled responses now remain evidence only, including lifecycle and nested calls. Unencodable terminal outputs and errors produce bounded failures without consuming another sender sequence. Fatal send and receive failures close delivery and terminate owned workers. Failed cancellation dispatch settles pending work, and deadline callbacks contain send errors. Rejected replies retain invocation delivery uncertainty. Misbehaving fixtures exercise both transports, including real children. Regressions demonstrate the defects before repair. The final protocol run passes all 177 tests.
 
-On 2026-11-16, `pnpm format` and static checks pass. `pnpm check` remains nonpassing. Native setup skips 13 cases in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a default shell. App failures include denied state-path access and delivery timeouts. These are missing evidence, not passes.
+`pnpm format` and checks through TypeScript pass on 2026-11-16. Final `pnpm check` stops at a missing installed `formatly/lib/types.js`. Earlier full runs skip 13 native cases in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a shell. Task restrictions block network and credential fixtures. App delivery failures remain missing evidence.
 
-This offline worker leaves changes uncommitted. The coordinator owns independent review and capable-host evidence before landing under [the workflow](workflow.md).
+This worker leaves changes uncommitted. The coordinator owns independent review and capable-host evidence before landing under [the workflow](workflow.md).

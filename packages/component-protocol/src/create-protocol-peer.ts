@@ -72,6 +72,13 @@ interface Invocation {
   timer?: ReturnType<typeof setTimeout>;
   cancellationTimer?: ReturnType<typeof setTimeout>;
 }
+interface InitializationSelection {
+  wireVersion: Version;
+  manifestVersion: Version;
+  contracts: Record<string, Version>;
+  componentInstanceId: string;
+  grantedCapabilities: string[];
+}
 export class ProtocolError extends Error {
   failure: ProtocolFailure;
   constructor(message: string, failure: ProtocolFailure) {
@@ -151,7 +158,6 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     } catch {
       hasEvidenceFailed = true;
       stop(new Error("Evidence recording fails. Further automatic work is stopped."));
-      options.transport.close();
       throw new Error("Evidence recording fails. Further automatic work is stopped.");
     }
   }
@@ -161,7 +167,10 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     }
     isStopped = true;
     for (const invocation of invocations.values()) {
-      if (!invocation.isSettled && !hasEvidenceFailed) {
+      if (invocation.isSettled) {
+        continue;
+      }
+      if (!hasEvidenceFailed) {
         try {
           record(
             "interrupted",
@@ -181,6 +190,10 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       invocation.controller.abort(error);
       finish(invocation);
       invocation.reject?.(error);
+    }
+    options.transport.close();
+    if (options.role === "broker" && options.transport.canTerminate) {
+      options.transport.terminate();
     }
   }
   function finish(invocation: Invocation): void {
@@ -215,7 +228,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     try {
       options.transport.send(outgoing);
     } catch (error) {
-      throw rejectDispatch(frame, error, "uncertain");
+      const problem = rejectDispatch(frame, error, "uncertain");
+      stop(problem);
+      throw problem;
     }
   }
   function checkIdentity(value: InvocationIdentity): void {
@@ -317,11 +332,15 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         } else if (isCancellation) {
           options.transport.terminate();
         } else if (!invocation.isSettled) {
-          cancel(
-            invocation.request.params.identity.invocationId,
-            "The invocation deadline has expired.",
-            Date.now(),
-          );
+          try {
+            cancel(
+              invocation.request.params.identity.invocationId,
+              "The invocation deadline has expired.",
+              Date.now(),
+            );
+          } catch (error) {
+            stop(protocolError(error, invocation));
+          }
         }
       },
       Math.max(0, Math.min(deadline - Date.now(), 2 ** 31 - 1)),
@@ -387,7 +406,14 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     if (!invocation.isSettled) {
       revoke(invocation, deadline);
     }
-    notify(invocation, "cancel", { reason, deadline });
+    try {
+      notify(invocation, "cancel", { reason, deadline });
+    } catch (error) {
+      if (!invocation.isSettled) {
+        stop(protocolError(error, invocation));
+      }
+      throw error;
+    }
   }
   function initialize(request: RequestFrame): JsonValue {
     if (isInitialized) {
@@ -424,15 +450,12 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       grantedCapabilities,
     });
   }
-  function acceptInitialization(output: JsonValue, request: RequestFrame): void {
+  function validateInitialization(
+    output: JsonValue,
+    request: RequestFrame,
+  ): InitializationSelection {
     validateValue(operationOutputs.initialize, output);
-    const selected = output as unknown as {
-      wireVersion: Version;
-      manifestVersion: Version;
-      contracts: Record<string, Version>;
-      componentInstanceId: string;
-      grantedCapabilities: string[];
-    };
+    const selected = output as unknown as InitializationSelection;
     const offer = request.params.input as unknown as {
       wireVersions: Version[];
       manifestVersions: Version[];
@@ -472,6 +495,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         );
       }
     }
+    return selected;
+  }
+  function acceptInitialization(selected: InitializationSelection): void {
     negotiated = roundTripJson(selected.contracts) as unknown as Record<string, Version>;
     granted = [...selected.grantedCapabilities];
     isInitialized = true;
@@ -482,6 +508,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     }
     const request = invocation.request;
     let problem = error;
+    let selection: InitializationSelection | undefined;
     if (problem === undefined && invocation.controller.signal.aborted) {
       problem = failure("cancellation", "The invocation settles after cancellation.", invocation);
     }
@@ -490,31 +517,78 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         validateValue(operationOutputs[request.method], output);
         validateContribution(request, output);
         if (request.method === "initialize") {
-          acceptInitialization(output as JsonValue, request);
+          selection = validateInitialization(output as JsonValue, request);
         }
       }
     } catch (error) {
       problem = error;
     }
-    const sequence = ++invocation.sentSequence;
-    const response: ResponseFrame =
-      problem === undefined
-        ? {
-            jsonrpc: "2.0",
-            id: request.id,
-            result: {
-              identity: request.params.identity,
-              contract: request.params.contract,
-              sequence,
-              outcome: "completed",
-              output: output as JsonValue,
-              dispatch: "known",
-              effects: "uncertain",
-            },
+    const sequence = invocation.sentSequence + 1;
+    let response: ResponseFrame | undefined;
+    try {
+      response =
+        problem === undefined
+          ? {
+              jsonrpc: "2.0",
+              id: request.id,
+              result: {
+                identity: request.params.identity,
+                contract: request.params.contract,
+                sequence,
+                outcome: "completed",
+                output: output as JsonValue,
+                dispatch: "known",
+                effects: "uncertain",
+              },
+            }
+          : errorResponse(request.id, problem, invocation, sequence);
+      send(response, request.params.identity.invocationId);
+    } catch {
+      if (isStopped) {
+        return;
+      }
+      const encodingProblem = failure(
+        "protocol-failure",
+        "The terminal response cannot be encoded. Use bounded values or references.",
+        invocation,
+      );
+      problem = encodingProblem;
+      if (response === undefined) {
+        record(
+          "rejected",
+          "local",
+          { frame: null, dispatch: "absent", failure: encodingProblem.failure },
+          request.params.identity.invocationId,
+        );
+      }
+      try {
+        send(
+          errorResponse(request.id, encodingProblem, invocation, sequence),
+          request.params.identity.invocationId,
+        );
+      } catch (error) {
+        if (!isStopped) {
+          try {
+            send(
+              errorResponse(
+                null,
+                failure("protocol-failure", "The terminal correlation cannot fit the frame limit."),
+              ),
+              null,
+            );
+          } catch {
+            // Failed delivery already retains its rejection evidence.
           }
-        : errorResponse(request.id, problem, invocation, sequence);
-    send(response, request.params.identity.invocationId);
+        }
+        stop(protocolError(error, invocation));
+        return;
+      }
+    }
+    invocation.sentSequence = sequence;
     finish(invocation);
+    if (selection !== undefined && problem === undefined) {
+      acceptInitialization(selection);
+    }
     if (request.method === "dispose" && problem === undefined) {
       isInitialized = false;
       isDisposed = true;
@@ -609,11 +683,18 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       identity === null ? undefined : invocations.get(identity.invocationId),
     );
     const isRequest = "method" in frame && "id" in frame;
+    const delivery = "params" in frame ? undefined : (frame.result ?? frame.error?.data);
     const data: ProtocolFailure = {
       ...problem.failure,
       identity,
       contract,
-      dispatch: isRequest ? dispatch : problem.failure.dispatch,
+      dispatch: isRequest
+        ? dispatch
+        : delivery?.dispatch === "known" ||
+            delivery?.dispatch === "absent" ||
+            delivery?.dispatch === "uncertain"
+          ? delivery.dispatch
+          : problem.failure.dispatch,
       effects: isRequest && dispatch === "absent" ? "absent" : "uncertain",
     };
     record(
@@ -695,7 +776,6 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
               "A duplicate request cannot create another terminal response.",
             ),
           );
-          options.transport.close();
           return;
         }
         invocation = {
@@ -834,6 +914,14 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           invocation,
         );
       }
+      if (invocation.controller.signal.aborted) {
+        record("late", "local", raw, invocation.request.params.identity.invocationId);
+        finish(invocation);
+        invocation.reject?.(
+          failure("cancellation", "The invocation settles after cancellation.", invocation),
+        );
+        return;
+      }
       if (raw.error !== undefined) {
         finish(invocation);
         invocation.reject?.(new ProtocolError(raw.error.message, raw.error.data));
@@ -841,7 +929,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         validateValue(operationOutputs[invocation.request.method], raw.result.output);
         validateContribution(invocation.request, raw.result.output);
         if (invocation.request.method === "initialize") {
-          acceptInitialization(raw.result.output, invocation.request);
+          acceptInitialization(validateInitialization(raw.result.output, invocation.request));
         }
         if (invocation.request.method === "dispose") {
           isInitialized = false;
@@ -915,7 +1003,6 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       for (const invocation of invocations.values()) {
         clearTimeout(invocation.cancellationTimer);
       }
-      options.transport.close();
     },
     isStopped(): boolean {
       return isStopped;

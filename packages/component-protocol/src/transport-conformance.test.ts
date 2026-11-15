@@ -18,10 +18,18 @@ import {
   referenceTool,
 } from "./reference-component.ts";
 import { registerTestCleanup } from "./register-test-cleanup.ts";
-import { type JsonValue, type ProtocolFrame, type RequestFrame, roundTripJson } from "./schemas.ts";
+import {
+  type JsonValue,
+  maximumFrameBytes,
+  type Operation,
+  type ProtocolFrame,
+  type RequestFrame,
+  roundTripJson,
+} from "./schemas.ts";
 import {
   createInProcessTransports,
   createStreamTransport,
+  encodeFrame,
   type ProtocolTransport,
 } from "./transports.ts";
 
@@ -32,7 +40,9 @@ interface Fixture {
   componentEvidence: EvidenceRecord[];
   failEvidence(): void;
   failTerminalEvidence(): void;
+  failSend(): void;
 }
+type ComponentBehavior = boolean | "peer" | "holding-peer";
 const kinds = ["in-process", "standard-streams"] as const;
 const integerCountSchema: JsonValue = {
   type: "object",
@@ -43,7 +53,7 @@ const integerCountSchema: JsonValue = {
 function createFixture(
   context: TestContext,
   kind: (typeof kinds)[number],
-  doesMisbehave = false,
+  doesMisbehave: ComponentBehavior = false,
 ): Fixture {
   context.signal.throwIfAborted();
   let transport: ProtocolTransport;
@@ -55,7 +65,7 @@ function createFixture(
     transport = pair[0];
     componentTransport = pair[1];
     if (doesMisbehave) {
-      createMisbehavingComponent(pair[1]);
+      createMisbehavingComponent(pair[1], typeof doesMisbehave === "string");
     } else {
       component = createReferenceComponent(pair[1], (entry) => componentEvidence.push(entry));
     }
@@ -68,6 +78,8 @@ function createFixture(
             ? new URL("./misbehaving-worker.ts", import.meta.url)
             : new URL("./reference-worker.ts", import.meta.url),
         ),
+        ...(typeof doesMisbehave === "string" ? ["peer"] : []),
+        ...(doesMisbehave === "holding-peer" ? ["hold"] : []),
       ],
       {
         stdio: ["pipe", "pipe", "pipe"],
@@ -88,8 +100,17 @@ function createFixture(
   const evidence: EvidenceRecord[] = [];
   let doesEvidenceFail = false;
   let doesTerminalEvidenceFail = false;
+  let doesSendFail = false;
   const broker = createProtocolPeer({
-    transport,
+    transport: {
+      ...transport,
+      send(value): void {
+        if (doesSendFail) {
+          throw new Error("The fixture send fails.");
+        }
+        transport.send(value);
+      },
+    },
     role: "broker",
     binding: referenceBinding,
     contracts: referenceContracts,
@@ -150,6 +171,9 @@ function createFixture(
     failTerminalEvidence(): void {
       doesTerminalEvidenceFail = true;
     },
+    failSend(): void {
+      doesSendFail = true;
+    },
   };
 }
 
@@ -159,10 +183,22 @@ async function initialize(fixture: Fixture): Promise<JsonValue> {
 async function initializedFixture(
   context: TestContext,
   kind: (typeof kinds)[number],
+  doesMisbehave: ComponentBehavior = false,
 ): Promise<Fixture> {
-  const fixture = createFixture(context, kind);
+  const fixture = createFixture(context, kind, doesMisbehave);
   await initialize(fixture);
   return fixture;
+}
+async function waitForClosedFixture(fixture: Fixture): Promise<void> {
+  expect(fixture.broker.isStopped()).toBe(true);
+  expect(() => fixture.transport.send({})).toThrow("closed");
+  if (fixture.transport.kind === "standard-streams") {
+    await waitForEvidence(fixture, "exit");
+  } else if (fixture.componentEvidence.length > 0) {
+    await waitFor(() =>
+      expect(fixture.componentEvidence.some((entry) => entry.kind === "end")).toBe(true),
+    );
+  }
 }
 async function waitForProgress(fixture: Fixture, invocationId: string): Promise<void> {
   await waitFor(() =>
@@ -500,7 +536,7 @@ test.for(kinds)(
     const outcome = execute(fixture, "revoked", "race").catch((error: unknown) => error);
     await waitForProgress(fixture, "revoked");
     fixture.broker.cancel("revoked", "The fixture revokes its grant.", Date.now() + 1000);
-    expect(await outcome).toMatchObject({ failure: { kind: "denied-authority" } });
+    expect(await outcome).toMatchObject({ failure: { kind: "cancellation" } });
   },
 );
 
@@ -708,8 +744,7 @@ const invalidResults: {
 test.for(kinds.flatMap((kind) => invalidResults.map((entry) => ({ kind, ...entry }))))(
   "$kind rejects raw $name on receipt with contract evidence",
   async ({ kind, name, method, input, pointer }, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     await expect(
       fixture.broker.request(method, referenceIdentity(name), input),
     ).rejects.toMatchObject({
@@ -782,8 +817,7 @@ const malformedFrames: { name: string; value: JsonValue }[] = [
 test.for(kinds.flatMap((kind) => malformedFrames.map((entry) => ({ kind, ...entry }))))(
   "$kind records $name before rejection and protocol errors",
   async ({ kind, name, value }, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     const start = fixture.evidence.length;
     await expect(execute(fixture, name, "malformed-frame", value)).rejects.toThrow();
     const records = fixture.evidence.slice(start);
@@ -814,8 +848,7 @@ test.for(kinds.flatMap((kind) => malformedFrames.map((entry) => ({ kind, ...entr
 test.for(kinds)(
   "%s records all outgoing predispatch denials without sending frames",
   async (kind, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     const attempts = [
       {
         id: "changed-run",
@@ -912,8 +945,7 @@ test.for(kinds)(
 test.for(kinds)(
   "%s records oversized outgoing frames as failed without dispatch",
   async (kind, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     await expect(
       execute(fixture, "oversized", "echo", "x".repeat(1024 * 1024)),
     ).rejects.toMatchObject({
@@ -937,8 +969,7 @@ test.for(kinds)(
 test.for(kinds)(
   "%s records invalid outgoing values and preserves safe correlation",
   async (kind, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     const input = {
       definition: referenceTool,
       arguments: { mode: "echo", value: undefined },
@@ -971,10 +1002,9 @@ test.for(kinds)(
 );
 
 test.for(kinds)(
-  "%s keeps invocation uncertainty when an oversized notification cannot dispatch",
+  "%s settles when cancellation cannot be encoded and keeps invocation uncertainty",
   async (kind, context) => {
-    const fixture = createFixture(context, kind, true);
-    await initialize(fixture);
+    const fixture = await initializedFixture(context, kind, true);
     const outcome = execute(fixture, "notification", "hold").catch((error: unknown) => error);
     expect(() =>
       fixture.broker.cancel("notification", "x".repeat(1024 * 1024), Date.now() + 1000),
@@ -993,16 +1023,314 @@ test.for(kinds)(
         "method" in frame ? frame.method : "response",
       ),
     ).toEqual(["tool.execute"]);
+    await waitForClosedFixture(fixture);
+    expect(await outcome).toMatchObject({ failure: { dispatch: "known", effects: "uncertain" } });
+  },
+);
+
+const replacementInput: JsonValue = {
+  stage: "context",
+  mode: "transform",
+  allowedEffects: ["replace"],
+  replacementSchema: integerCountSchema,
+  value: { action: "replace", replacement: { count: 2 } },
+};
+const cancellationCases: { method: Operation; input: JsonValue }[] = [
+  { method: "initialize", input: referenceOffer() },
+  { method: "dispose", input: { reason: "The fixture ends." } },
+  {
+    method: "stage.apply",
+    input: replacementInput,
+  },
+  {
+    method: "loop.run",
+    input: { setup: { configurationRevision: "captured-1", components: [] }, acceptedInput: null },
+  },
+  { method: "resource.resolve", input: { resourceId: "fixture", access: [] } },
+  {
+    method: "tool.execute",
+    input: { definition: referenceTool, arguments: { mode: "echo", value: "late" }, handles: [] },
+  },
+  {
+    method: "tool.execute",
+    input: {
+      definition: referenceTool,
+      arguments: { mode: "late-error", value: null },
+      handles: [],
+    },
+  },
+  {
+    method: "stage.apply",
+    input: {
+      ...replacementInput,
+      value: { action: "replace", replacement: { count: "invalid" } },
+    },
+  },
+];
+
+test.for(kinds.flatMap((kind) => cancellationCases.map((entry) => ({ kind, ...entry }))))(
+  "$kind settles cancelled $method as cancellation and retains the late response",
+  async ({ kind, method, input }, context) => {
+    const fixture = createFixture(context, kind, true);
+    if (method !== "initialize") {
+      await initialize(fixture);
+    }
+    const outcome = fixture.broker
+      .request(method, referenceIdentity("cancel-race"), input)
+      .catch((error: unknown) => error);
     fixture.broker.cancel(
-      "notification",
-      "A bounded explicit cancellation follows.",
-      Date.now() + 1000,
+      "cancel-race",
+      "Cancellation wins before response delivery.",
+      Date.now() + 60_000,
     );
-    expect(frames(fixture, "notification").at(-1)).toMatchObject({
-      method: "cancel",
-      params: { sequence: 2 },
+    expect(await outcome).toMatchObject({
+      failure: { kind: "cancellation", dispatch: "known", effects: "uncertain" },
     });
+    expect(
+      fixture.evidence.filter(
+        (entry) => entry.kind === "late" && entry.invocationId === "cancel-race",
+      ),
+    ).toHaveLength(1);
+    if (method === "initialize") {
+      await expect(
+        fixture.broker.request("describe", referenceIdentity("after-cancel"), {}),
+      ).rejects.toThrow("Initialization");
+    } else {
+      await expect(
+        fixture.broker.request("describe", referenceIdentity("after-cancel"), {}),
+      ).resolves.toMatchObject({ id: "reference" });
+    }
+  },
+);
+
+test.for(kinds)(
+  "%s keeps duplicate terminal responses as evidence after settlement",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    expect(
+      await execute(fixture, "terminal-duplicate", "duplicate-terminal", "original"),
+    ).toMatchObject({ structuredData: "original" });
+    await waitFor(() =>
+      expect(
+        fixture.evidence.filter(
+          (entry) => entry.kind === "late" && entry.invocationId === "terminal-duplicate",
+        ),
+      ).toHaveLength(1),
+    );
+    expect(fixture.broker.isStopped()).toBe(false);
+  },
+);
+
+test.for(
+  kinds.flatMap((kind) =>
+    [
+      "oversized-output",
+      "oversized-error",
+      "oversized-causes",
+      "denied",
+      "empty-error",
+      "invalid-failure",
+      "invalid-failure-fields",
+    ].map((mode) => ({ kind, mode })),
+  ),
+)(
+  "$kind bounds $mode terminal failures and keeps delivery usable",
+  async ({ kind, mode }, context) => {
+    const fixture = await initializedFixture(context, kind, "peer");
+    const outcome =
+      mode === "denied"
+        ? fixture.broker.request("resource.resolve", referenceIdentity(mode), {
+            resourceId: "denied",
+            access: [],
+          })
+        : execute(fixture, mode, mode);
+    await expect(outcome).rejects.toMatchObject({
+      failure: {
+        kind: "protocol-failure",
+        identity: { invocationId: mode },
+        dispatch: "known",
+        effects: "uncertain",
+      },
+    });
+    const terminal = frames(fixture, mode).find((frame) => "error" in frame);
+    expect(terminal).toBeDefined();
+    expect(encodeFrame(terminal).length - 1).toBeLessThanOrEqual(maximumFrameBytes);
+    expect(
+      await fixture.broker.request("describe", referenceIdentity("after-large"), {}),
+    ).toMatchObject({ id: "reference" });
+    const evidence = (await fixture.broker.request(
+      "resource.resolve",
+      referenceIdentity("large-evidence"),
+      { resourceId: "evidence", access: [] },
+    )) as { content: JsonValue[] };
+    expect(evidence.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "rejected",
+          invocationId: mode,
+          bytes: expect.any(Number),
+          failure: expect.objectContaining({ dispatch: "known", effects: "uncertain" }),
+        }),
+        expect.objectContaining({
+          kind: "frame",
+          direction: "sent",
+          invocationId: mode,
+          bytes: expect.any(Number),
+        }),
+      ]),
+    );
+    expect(fixture.broker.isStopped()).toBe(false);
+  },
+);
+
+test.for(kinds)(
+  "%s settles notification encoding failures through a terminal error",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, "peer");
+    await expect(execute(fixture, "large-progress", "oversized-progress")).rejects.toMatchObject({
+      failure: { dispatch: "known", effects: "uncertain" },
+    });
+    expect(
+      await fixture.broker.request("describe", referenceIdentity("after-progress"), {}),
+    ).toMatchObject({ id: "reference" });
+    expect(frames(fixture, "large-progress").at(-1)).toMatchObject({
+      error: { data: { sequence: 1 } },
+    });
+  },
+);
+
+test.for(kinds)(
+  "%s closes delivery when even bounded terminal correlation exceeds the frame limit",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, "holding-peer");
+    const identity = referenceIdentity("large-correlation");
+    identity.invocationId = "x".repeat(maximumFrameBytes - 400);
+    await expect(fixture.broker.request("describe", identity, {})).rejects.toThrow();
+    await waitForClosedFixture(fixture);
+  },
+);
+
+test.for(
+  kinds.flatMap((kind) =>
+    ["fail-terminal", "fail-progress", "fail-log"].map((mode) => ({ kind, mode })),
+  ),
+)("$kind settles the caller and closes after component $mode", async ({ kind, mode }, context) => {
+  const fixture = await initializedFixture(context, kind, "peer");
+  await expect(execute(fixture, mode, mode)).rejects.toThrow("worker ends");
+  await waitForClosedFixture(fixture);
+});
+
+test.for(kinds)(
+  "%s treats a response after received cancellation as evidence only",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    await expect(execute(fixture, "remote-cancel", "echo", "late")).rejects.toMatchObject({
+      failure: { kind: "cancellation" },
+    });
+    expect(
+      fixture.evidence.filter(
+        (entry) => entry.kind === "late" && entry.invocationId === "remote-cancel",
+      ),
+    ).toHaveLength(1);
+  },
+);
+
+test.for(kinds)(
+  "%s rejects late nested output after parent cancellation",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    const parent = execute(fixture, "parent-cancel", "hold").catch((error: unknown) => error);
+    const child = fixture.broker
+      .request(
+        "stage.apply",
+        { ...referenceIdentity("child-cancel"), parentInvocationId: "parent-cancel" },
+        replacementInput,
+      )
+      .catch((error: unknown) => error);
+    fixture.broker.cancel(
+      "parent-cancel",
+      "Cancel the owned invocation graph.",
+      Date.now() + 60_000,
+    );
+    expect(await child).toMatchObject({ failure: { kind: "cancellation" } });
+    expect(
+      fixture.evidence.filter(
+        (entry) => entry.kind === "late" && entry.invocationId === "child-cancel",
+      ),
+    ).toHaveLength(1);
     fixture.broker.close();
+    expect(await parent).toBeInstanceOf(Error);
+  },
+);
+
+test.for(
+  kinds.flatMap((kind) => ["request", "response", "cancel"].map((path) => ({ kind, path }))),
+)("$kind closes delivery after a $path send failure", async ({ kind, path }, context) => {
+  const fixture = await initializedFixture(context, kind);
+  if (path === "request") {
+    fixture.failSend();
+    await expect(execute(fixture, "send-failure", "echo")).rejects.toThrow("send fails");
+  } else if (path === "response") {
+    const outcome = execute(fixture, "send-failure", "nested");
+    fixture.failSend();
+    await expect(outcome).rejects.toThrow("send fails");
+  } else {
+    const outcome = execute(fixture, "send-failure", "wait").catch((error: unknown) => error);
+    await waitForProgress(fixture, "send-failure");
+    fixture.failSend();
+    expect(() =>
+      fixture.broker.cancel("send-failure", "Stop delivery.", Date.now() + 60_000),
+    ).toThrow("send fails");
+    expect(fixture.broker.isStopped()).toBe(true);
     expect(await outcome).toBeInstanceOf(Error);
+  }
+  await waitForClosedFixture(fixture);
+});
+
+test.for(kinds)(
+  "%s closes fatal receive rejection so remote invocations cannot wait indefinitely",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    await expect(
+      fixture.broker.request(
+        "stage.apply",
+        referenceIdentity("fatal-result"),
+        invalidResults[0]?.input as JsonValue,
+      ),
+    ).rejects.toThrow();
+    expect(() => fixture.transport.send({})).toThrow("closed");
+  },
+);
+
+test.for(kinds)(
+  "%s closes delivery when a malformed frame cannot receive a bounded error",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    await expect(execute(fixture, "large-malformed", "large-malformed-frame")).rejects.toThrow(
+      "byte limit",
+    );
+    expect(() => fixture.transport.send({})).toThrow("closed");
+    expect(
+      fixture.evidence.some((entry) => entry.kind === "rejected" && entry.direction === "local"),
+    ).toBe(true);
+  },
+);
+
+test.for(kinds)(
+  "%s contains deadline cancellation send failures and settles the caller",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind, true);
+    const outcome = fixture.broker.request(
+      "tool.execute",
+      { ...referenceIdentity("deadline-send"), deadline: Date.now() + 1000 },
+      {
+        definition: referenceTool,
+        arguments: { mode: "hold", value: null },
+        handles: [],
+      },
+    );
+    fixture.failSend();
+    await expect(outcome).rejects.toThrow("send fails");
+    await waitForClosedFixture(fixture);
   },
 );

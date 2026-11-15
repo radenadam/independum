@@ -2,6 +2,7 @@ import {
   createProtocolPeer,
   type EvidenceRecord,
   type InvocationContext,
+  type PeerOptions,
   type ProtocolPeer,
 } from "./create-protocol-peer.ts";
 import {
@@ -28,6 +29,15 @@ export const referenceBinding: Pick<
 export const referenceContracts: Record<string, Version> = Object.fromEntries(
   Object.keys(operationInputs).map((name) => [name, protocolVersion]),
 );
+export const referencePeerOptions: Pick<
+  PeerOptions,
+  "role" | "binding" | "contracts" | "capabilities"
+> = {
+  role: "component",
+  binding: referenceBinding,
+  contracts: referenceContracts,
+  capabilities: ["fixture.read"],
+};
 export const referenceDigest: string = `sha256:${"a".repeat(64)}`;
 export const referenceTool: JsonValue = {
   definitionVersion: { major: 1, minor: 0 },
@@ -152,10 +162,7 @@ export function createReferenceComponent(
   }
   peer = createProtocolPeer({
     transport,
-    role: "component",
-    binding: referenceBinding,
-    contracts: referenceContracts,
-    capabilities: ["fixture.read"],
+    ...referencePeerOptions,
     record(entry): void {
       entries.push(entry);
       record(entry);
