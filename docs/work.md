@@ -4,14 +4,16 @@ The maintainer settles Independum's foundation on 2026-11-14 and 2026-11-15. It 
 
 ## Active step
 
-Publish executable protocol schemas and transport-equivalence fixtures, the first [roadmap slice](roadmap.md#harness-engineering-checkpoint). Cover the [kernel record](contracts/kernel.md), [component messages](contracts/component-protocol.md), [manifests](contracts/components.md), [tools](contracts/tools.md), and [loop](contracts/loop.md) at their shared boundary. Exercise identical JSON round trips, validation, ordering, cancellation, errors, and evidence through standard streams and trusted in-process transport before dependent implementation. CP-03, CP-15, CP-26, and CP-28 own acceptance. These schemas and fixtures are not built yet.
+Slice 2 is next: add the journal and read-only evidence API beside current storage. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The running app still uses Pi orchestration and current storage.
 
-The question round needs no new decision. The direct task of 2026-11-15 supplies the coordinator's delegated acceptance of the proposal with local transport observation replacing upstream dependency. [Decision 0087](decisions/0087-local-capture-and-component-protocol.md) protects that choice. Ask the maintainer about first encounters when absent-loop explanation and removal presentation approach. Do not reopen settled intent.
+The question round needs no new product decision. The direct slice 1 task preserves delegated architectural authority and forbids app integration. [The protocol contract](contracts/component-protocol.md) records the SDK package and wire choices with their provenance. Ask the maintainer about first encounters when absent-loop explanation and removal presentation approach. Do not reopen settled intent.
 
 ## Last step
 
-The accepted prose contracts now define the kernel, exact evidence, protocol, component kinds and lifecycle, universal tools, Script, and replaceable loop. The coordinator's implementation choices remain delegated, not direct product answers. This documentation builds none of them and changes no checkpoint status.
+Slice 1 publishes executable 1.0 boundary schemas, JSON round trips, standard-stream and trusted in-process transports, and reference conformance fixtures in `packages/component-protocol`. The standard-stream reference runs as a real child process in Vitest's final serial group. No running app code imports the SDK. There is no loader, journal, provider observation, migrated tool, or replacement loop.
 
-Repository healing and CP-14 and CP-17 contradiction repairs remain integrated. Exact argument checks and private state protection ship. [The checkpoint](checkpoint.md) separates implementation from verification.
+Implementation and verification remain separate in [the checkpoint](checkpoint.md). Protocol fixtures do not complete CP-03, CP-15, CP-26, or CP-28.
 
-For this documentation task, `pnpm format` and static checks pass. `pnpm check` reports 686 passing tests, 64 failures, 17 skips including 13 native cases, and one unavailable shell suite. Failures include denied state-path access and timeouts. One delivery timeout repeats with one worker. These remain missing evidence. This offline worker leaves changes uncommitted. The coordinator owns independent review and capable-host checks before landing under [the workflow](workflow.md).
+On 2026-11-16, `pnpm format` and static checks pass. All 79 protocol tests pass. `pnpm check` reports 765 passing tests, 64 failures, 17 skips, and one unavailable suite. Native setup skips 13 cases in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a default shell. Existing app failures include denied state-path access and delivery timeouts. The `input-delivery.test.ts` case "failed replies hold steering inputs until an explicit resume" repeats its timeout with one worker. These are missing evidence, not passes.
+
+This offline worker leaves changes uncommitted. The coordinator owns independent review and capable-host evidence before landing under [the workflow](workflow.md).

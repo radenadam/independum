@@ -1,0 +1,18 @@
+{
+  "name": "@independum/component-protocol",
+  "version": "0.1.0-dev",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    "./schemas": "./src/schemas.ts",
+    "./protocol-peer": "./src/create-protocol-peer.ts",
+    "./transports": "./src/transports.ts"
+  },
+  "scripts": {
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "typebox": "1.3.27"
+  }
+}

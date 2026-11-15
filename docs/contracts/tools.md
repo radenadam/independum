@@ -1,6 +1,6 @@
 # Universal tools and Script
 
-This page owns the target universal tool definition, adapters, and Script execution. The coordinator accepts this technical design on 2026-11-15 under delegated architectural authority. [Decision 0084](../decisions/0084-universal-tools-and-script.md) owns the product requirements. [Tools](../product/tools.md) owns the six shipped tools. Only their direct Pi registration exists today. The universal contract, other adapters, and Script are unimplemented. This target serves CP-07, CP-16, CP-17, CP-26, CP-27, CP-29, CP-30, and CP-32 in [the checkpoint](../checkpoint.md).
+This page owns the target universal tool definition, adapters, and Script execution. The coordinator accepts this technical design on 2026-11-15 under delegated architectural authority. [Decision 0084](../decisions/0084-universal-tools-and-script.md) owns the product requirements. [Tools](../product/tools.md) owns the six shipped tools. Only their direct Pi registration exists today. Slice 1 publishes version 1.0 [definition and execution schemas](../../packages/component-protocol/src/schemas.ts) with reference fixtures. Runtime integration, other adapters, and Script remain unimplemented. This target serves CP-07, CP-16, CP-17, CP-26, CP-27, CP-29, CP-30, and CP-32 in [the checkpoint](../checkpoint.md).
 
 ## Definition and execution
 
