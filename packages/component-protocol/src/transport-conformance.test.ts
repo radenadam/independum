@@ -1,5 +1,3 @@
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { expect, type TestContext, test } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
 import { createMisbehavingComponent } from "./create-misbehaving-component.ts";
@@ -9,6 +7,7 @@ import {
   ProtocolError,
   type ProtocolPeer,
 } from "./create-protocol-peer.ts";
+import { createWorkerTransport } from "./create-worker-transport.ts";
 import {
   createReferenceComponent,
   referenceBinding,
@@ -19,6 +18,7 @@ import {
 } from "./reference-component.ts";
 import { registerTestCleanup } from "./register-test-cleanup.ts";
 import {
+  equalJson,
   type JsonValue,
   maximumFrameBytes,
   type Operation,
@@ -26,12 +26,7 @@ import {
   type RequestFrame,
   roundTripJson,
 } from "./schemas.ts";
-import {
-  createInProcessTransports,
-  createStreamTransport,
-  encodeFrame,
-  type ProtocolTransport,
-} from "./transports.ts";
+import { createInProcessTransports, encodeFrame, type ProtocolTransport } from "./transports.ts";
 
 interface Fixture {
   broker: ProtocolPeer;
@@ -70,32 +65,16 @@ function createFixture(
       component = createReferenceComponent(pair[1], (entry) => componentEvidence.push(entry));
     }
   } else {
-    const worker = spawn(
-      process.execPath,
+    transport = createWorkerTransport(
+      context,
+      doesMisbehave
+        ? new URL("./misbehaving-worker.ts", import.meta.url)
+        : new URL("./reference-worker.ts", import.meta.url),
       [
-        fileURLToPath(
-          doesMisbehave
-            ? new URL("./misbehaving-worker.ts", import.meta.url)
-            : new URL("./reference-worker.ts", import.meta.url),
-        ),
         ...(typeof doesMisbehave === "string" ? ["peer"] : []),
         ...(doesMisbehave === "holding-peer" ? ["hold"] : []),
       ],
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      },
     );
-    function terminate(): void {
-      worker.kill();
-    }
-    registerTestCleanup(context, terminate);
-    transport = createStreamTransport({
-      input: worker.stdout,
-      output: worker.stdin,
-      diagnostics: worker.stderr,
-      worker,
-    });
   }
   const evidence: EvidenceRecord[] = [];
   let doesEvidenceFail = false;
@@ -407,6 +386,16 @@ test.for(kinds)(
     const fixture = await initializedFixture(context, kind);
     await execute(fixture, "completed", "echo", "completed effect evidence");
     fixture.broker.cancel("completed", "Cancellation arrives after completion.", Date.now() + 1000);
+    fixture.broker.cancel(
+      "completed",
+      "Another late cancellation stays sequenced.",
+      Date.now() + 1000,
+    );
+    expect(
+      frames(fixture, "completed")
+        .filter((frame) => "method" in frame && frame.method === "cancel")
+        .map((frame) => ("params" in frame ? frame.params.sequence : null)),
+    ).toEqual([2, 3]);
     expect(
       frames(fixture, "completed").filter((frame) => "result" in frame || "error" in frame),
     ).toHaveLength(1);
@@ -823,9 +812,7 @@ test.for(kinds.flatMap((kind) => malformedFrames.map((entry) => ({ kind, ...entr
     const records = fixture.evidence.slice(start);
     const received = records.findIndex(
       (entry) =>
-        entry.kind === "frame" &&
-        entry.direction === "received" &&
-        JSON.stringify(entry.value) === JSON.stringify(value),
+        entry.kind === "frame" && entry.direction === "received" && equalJson(entry.value, value),
     );
     const rejected = records.findIndex((entry) => entry.kind === "rejected");
     const response = records.findIndex(

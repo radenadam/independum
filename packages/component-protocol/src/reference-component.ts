@@ -6,6 +6,7 @@ import {
   type ProtocolPeer,
 } from "./create-protocol-peer.ts";
 import {
+  equalJson,
   type InvocationIdentity,
   type JsonValue,
   type Operation,
@@ -170,7 +171,7 @@ export function createReferenceComponent(
     authorize(request): void {
       if (request.method === "tool.execute") {
         const definition = (request.params.input as { definition: JsonValue }).definition;
-        if (JSON.stringify(definition) !== JSON.stringify(referenceTool)) {
+        if (!equalJson(definition, referenceTool)) {
           throw new Error("The tool definition differs from the captured definition.");
         }
       }

@@ -1,21 +1,23 @@
 # Current work
 
-The maintainer settles Independum's foundation on 2026-11-14 and 2026-11-15. It is a harness engineering tool, made easy and transparent. [The product definition](product/README.md) owns intent. [Decisions 0081](decisions/0081-harness-engineering-and-two-halves.md) through [0087](decisions/0087-local-capture-and-component-protocol.md) retain provenance and reasons.
+Independum is a harness engineering tool, made easy and transparent. [The product definition](product/README.md) owns intent. [Decisions 0081](decisions/0081-harness-engineering-and-two-halves.md) through [0087](decisions/0087-local-capture-and-component-protocol.md) retain provenance and reasons.
 
 ## Active step
 
-Slice 1 repairs await independent review and capable-host verification. Slice 2 follows: add the journal and read-only evidence API beside current storage. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The running app still uses Pi orchestration and current storage.
+Slice 1's state machine repair awaits independent review and capable-host verification. Slice 2 adds the journal and read-only evidence API. CP-05 and CP-06 own acceptance. [The roadmap](roadmap.md#harness-engineering-checkpoint) keeps later slices separate. The app still uses Pi orchestration and current storage.
 
-The question round needs no new product decision. The direct repair task of 2026-11-16 preserves slice 1's boundary and forbids app integration. [The protocol contract](contracts/component-protocol.md) records the implementation correction and its provenance. Ask the maintainer about first encounters when absent-loop explanation and removal presentation approach. Do not reopen settled intent.
+The question round needs no new decision. The direct repair task of 2026-11-16 forbids app integration. [The protocol contract](contracts/component-protocol.md) records the correction. First-encounter questions wait for absent-loop explanation and removal presentation.
 
 ## Last step
 
-Slice 1 publishes executable 1.0 boundary schemas, JSON round trips, standard-stream and trusted in-process transports, and reference conformance fixtures in `packages/component-protocol`. The standard-stream reference runs as a real child process in Vitest's final serial group. No running app code imports the SDK. There is no loader, journal, provider observation, migrated tool, or replacement loop.
+Slice 1 publishes 1.0 schemas, standard-stream and trusted in-process transports, and conformance fixtures in `packages/component-protocol`. Real children run in Vitest's final serial group. No app code imports the SDK. There is no loader, journal, provider observation, migrated tool, or replacement loop.
 
 Implementation and verification remain separate in [the checkpoint](checkpoint.md). Protocol fixtures do not complete CP-03, CP-15, CP-26, or CP-28.
 
-Cancelled responses now remain evidence only, including lifecycle and nested calls. Unencodable terminal outputs and errors produce bounded failures without consuming another sender sequence. Fatal send and receive failures close delivery and terminate owned workers. Failed cancellation dispatch settles pending work, and deadline callbacks contain send errors. Rejected replies retain invocation delivery uncertainty. Misbehaving fixtures exercise both transports, including real children. Regressions demonstrate the defects before repair. The final protocol run passes all 177 tests.
+The direct maintainer correction of 2026-11-16 replaces path-specific repairs with per-invocation transitions, monotonic delivery facts, and individual failures. Cancellation, settlement, and worker exit stay separate. JSON checks reject custom prototypes, inherited serialization callbacks, and proxies before copying. Comparisons ignore object key order.
 
-`pnpm format` and checks through TypeScript pass on 2026-11-16. Final `pnpm check` stops at a missing installed `formatly/lib/types.js`. Earlier full runs skip 13 native cases in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a shell. Task restrictions block network and credential fixtures. App delivery failures remain missing evidence.
+All 196 protocol tests pass. They include 10,000 transition traces, 256 queued transport interleavings, and eight real-child interleavings. Generated tests take about 45 seconds total, each below five seconds. They check single settlement, individual failures, delivery facts, exact authorization, recording before action, and shutdown completion.
 
-This worker leaves changes uncommitted. The coordinator owns independent review and capable-host evidence before landing under [the workflow](workflow.md).
+`pnpm format` and all static checks pass on 2026-11-16. Full `pnpm check` reports 880 passed, 66 failed, and 17 skipped. Thirteen native skips remain in `create-sandbox.test.ts`, `sandbox-runtime.test.ts`, and `script-hook-sandbox.test.ts`. `tools/run-command.test.ts` cannot collect without a shell. App runtime and gate fixture failures remain missing evidence. Offline task restrictions prevent independent gates.
+
+Changes remain uncommitted. The coordinator owns independent review and capable-host evidence under [the workflow](workflow.md).

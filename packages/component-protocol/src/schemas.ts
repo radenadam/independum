@@ -1,3 +1,4 @@
+import { types } from "node:util";
 import Type, { type TSchema } from "typebox";
 import { Value } from "typebox/value";
 
@@ -640,7 +641,48 @@ export function validateValue(schema: TSchema, value: unknown): void {
 /** Copies only values representable by both transports without losing fields or types. */
 export function roundTripJson(value: unknown): JsonValue {
   requireJson(value);
-  return JSON.parse(JSON.stringify(value)) as JsonValue;
+  return copyJson(value as JsonValue);
+}
+
+/** Compares exact JSON values with unordered object fields and ordered array entries. */
+export function equalJson(left: unknown, right: unknown): boolean {
+  requireJson(left);
+  requireJson(right);
+  return compareJson(left as JsonValue, right as JsonValue);
+}
+
+function compareJson(left: JsonValue, right: JsonValue): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+    return false;
+  }
+  if (Array.isArray(left) !== Array.isArray(right)) {
+    return false;
+  }
+  const keys = Object.keys(left);
+  return (
+    keys.length === Object.keys(right).length &&
+    keys.every(
+      (key) =>
+        Object.hasOwn(right, key) &&
+        compareJson(
+          (left as Record<string, JsonValue>)[key] as JsonValue,
+          (right as Record<string, JsonValue>)[key] as JsonValue,
+        ),
+    )
+  );
+}
+
+function copyJson(value: JsonValue): JsonValue {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(copyJson);
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyJson(entry)]));
 }
 
 /** Negotiates the highest shared minor within a shared major without upgrading authority. */
@@ -666,12 +708,16 @@ function requireJson(value: unknown, ancestors = new Set<object>()): void {
   if (typeof value === "number" && Number.isFinite(value) && !Object.is(value, -0)) {
     return;
   }
-  if (typeof value !== "object" || value === null || ancestors.has(value)) {
+  if (typeof value !== "object" || value === null || types.isProxy(value) || ancestors.has(value)) {
     throw new Error("A protocol value must be exact JSON without cycles.");
   }
   const isArray = Array.isArray(value);
-  if (!isArray && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
-    throw new Error("A protocol object must have no custom prototype.");
+  const prototype = Object.getPrototypeOf(value);
+  if (isArray ? prototype !== Array.prototype : ![Object.prototype, null].includes(prototype)) {
+    throw new Error("A protocol value must have no custom prototype.");
+  }
+  if (!Object.hasOwn(value, "toJSON") && "toJSON" in value) {
+    throw new Error("A protocol value must have no serialization callback.");
   }
   ancestors.add(value);
   const keys = Reflect.ownKeys(value).filter((key) => !(isArray && key === "length"));

@@ -10,6 +10,7 @@ import {
   referenceTool,
 } from "./reference-component.ts";
 import {
+  equalJson,
   type JsonValue,
   negotiateVersion,
   type Operation,
@@ -187,6 +188,41 @@ test("json round trips reject cycles and getters without executing them", () => 
     }),
   ).toThrow();
   expect(hasRead).toBe(false);
+});
+
+test("json rejects inherited serialization and custom arrays before copying", () => {
+  let calls = 0;
+  const prototype = Object.create(Array.prototype) as object;
+  Object.defineProperty(prototype, "toJSON", {
+    value: () => {
+      calls++;
+      return [calls];
+    },
+  });
+  const array = [1];
+  Object.setPrototypeOf(array, prototype);
+  for (const value of [array, Object.create({ value: 1 }), new Proxy({ value: 1 }, {})]) {
+    expect(() => roundTripJson(value)).toThrow();
+    expect(() => equalJson(value, value)).toThrow();
+  }
+  expect(calls).toBe(0);
+});
+
+test("json equality ignores nested object order and preserves array order and types", () => {
+  expect(equalJson({ a: [{ b: 2, a: 1 }], b: null }, { b: null, a: [{ a: 1, b: 2 }] })).toBe(true);
+  for (const [left, right] of [
+    [[], {}],
+    [
+      [1, 2],
+      [2, 1],
+    ],
+    [1, "1"],
+    [{ a: null }, {}],
+  ]) {
+    expect(equalJson(left, right)).toBe(false);
+  }
+  const ordinary = JSON.parse('{"toJSON":"ordinary field","__proto__":null}');
+  expect(roundTripJson(ordinary)).toEqual(ordinary);
 });
 
 test("negotiation selects compatible minors and rejects incompatible majors", () => {
