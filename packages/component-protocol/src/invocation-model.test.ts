@@ -1,12 +1,15 @@
+import { spawn } from "node:child_process";
+import { performance } from "node:perf_hooks";
 import { PassThrough } from "node:stream";
 import { setImmediate } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 import { expect, type TestContext, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
+import { createInterleavingComponent } from "./create-interleaving-component.ts";
 import { createProtocolPeer, type EvidenceRecord, ProtocolError } from "./create-protocol-peer.ts";
-import { createWorkerTransport } from "./create-worker-transport.ts";
 import { Invocation } from "./invocation.ts";
+import { PeerLifecycle } from "./peer-lifecycle.ts";
 import {
-  createReferenceComponent,
   referenceBinding,
   referenceContracts,
   referenceIdentity,
@@ -14,7 +17,13 @@ import {
   referenceTool,
 } from "./reference-component.ts";
 import { registerTestCleanup } from "./register-test-cleanup.ts";
-import { equalJson, type JsonValue, type ProtocolFrame, type RequestFrame } from "./schemas.ts";
+import {
+  equalJson,
+  type JsonValue,
+  type ProtocolFrame,
+  type RequestFrame,
+  roundTripJson,
+} from "./schemas.ts";
 import {
   createInProcessTransports,
   createStreamTransport,
@@ -132,45 +141,186 @@ test("seeded invocation transitions agree with an independent delivery and settl
   }
 });
 
-interface ExpectedInvocation {
-  id: string;
-  value: JsonValue;
-  mode: string;
-  dispatch: "known" | "uncertain" | "absent";
-  sequence: number;
-  isCancelled: boolean;
-  outcome?: "success" | "failure" | "cancelled" | "interrupted";
-  actual?: JsonValue | ProtocolError;
-  settlements: number;
-  hasRecordedSettlement?: boolean;
-}
 type FixtureKind = "in-process" | "standard-streams" | "child";
+type CancellationPoint =
+  | "authorize"
+  | "record"
+  | "send"
+  | "queued"
+  | "progress"
+  | "terminal"
+  | "settled";
+interface GeneratedRequest {
+  type: "request";
+  id: string;
+  method: "initialize" | "describe" | "dispose" | "tool.execute";
+  mode?: string;
+  cancelAt?: CancellationPoint;
+}
+type TraceEvent =
+  | GeneratedRequest
+  | {
+      type:
+        | "outgoing"
+        | "incoming"
+        | "incoming-last"
+        | "drain"
+        | "cancel-all"
+        | "expiry"
+        | "stop"
+        | "fault"
+        | "exit"
+        | "evidence-failure"
+        | "send-failure";
+    }
+  | { type: "cancel"; id: string };
+interface ExpectedInvocation {
+  request: GeneratedRequest;
+  admitted: boolean;
+  dispatch: "absent" | "known" | "uncertain";
+  status: "pending" | "cancelled" | "completed" | "failed" | "interrupted";
+  cancelled: boolean;
+  settlements: number;
+  receivedSequence: number;
+  actual?: JsonValue;
+}
+const fixedTime = Date.UTC(2030, 0, 1);
+const cancellationPoints: CancellationPoint[] = [
+  "authorize",
+  "record",
+  "send",
+  "queued",
+  "progress",
+  "terminal",
+  "settled",
+];
+
+function generatedTrace(seed: number): TraceEvent[] {
+  const random = generator(seed);
+  const cancelAt = cancellationPoints[seed % cancellationPoints.length] as CancellationPoint;
+  const events: TraceEvent[] = [
+    {
+      type: "request",
+      id: "initialize",
+      method: "initialize",
+      ...(seed % 8 === 0 ? { cancelAt } : {}),
+    },
+    { type: "request", id: "initialize-twice", method: "initialize" },
+    { type: "request", id: "early", method: "tool.execute" },
+    { type: "drain" },
+    { type: "request", id: "initialize-retry", method: "initialize" },
+    { type: "drain" },
+    { type: "request", id: "before-dispatch", method: "tool.execute", cancelAt: "record" },
+    { type: "request", id: "unrelated", method: "tool.execute", mode: "wait" },
+    { type: "drain" },
+    { type: "expiry" },
+    { type: "request", id: "after-expiry", method: "tool.execute" },
+    { type: "drain" },
+    { type: "request", id: "other", method: "tool.execute", mode: "wait" },
+    { type: "request", id: "busy-dispose", method: "dispose" },
+    { type: "request", id: "cancel-point", method: "tool.execute", cancelAt },
+  ];
+  for (let step = 0; step < 16; step++) {
+    const action = random(8);
+    events.push(
+      action < 3
+        ? {
+            type: (["outgoing", seed % 4 === 0 ? "incoming-last" : "incoming", "drain"] as const)[
+              action
+            ] as "outgoing" | "incoming" | "incoming-last" | "drain",
+          }
+        : action === 3
+          ? { type: "cancel", id: "cancel-point" }
+          : {
+              type: "request",
+              id: `generated-${step}`,
+              method: action === 4 ? "initialize" : action === 5 ? "dispose" : "tool.execute",
+              mode: (["echo", "nested", "failure", "invalid-json"] as const)[random(4)] as string,
+            },
+    );
+  }
+  events.push(
+    { type: "drain" },
+    { type: "cancel", id: "cancel-point" },
+    { type: "cancel-all" },
+    { type: "drain" },
+  );
+  if (seed % 6 === 0) {
+    events.push(
+      {
+        type: "request",
+        id: "dispose",
+        method: "dispose",
+        ...(seed % 12 === 0 ? { cancelAt } : {}),
+      },
+      { type: "request", id: "dispose-twice", method: "dispose" },
+      { type: "request", id: "during-dispose", method: "tool.execute" },
+      { type: "drain" },
+      { type: "request", id: "after-dispose", method: "tool.execute" },
+      { type: "drain" },
+    );
+  } else {
+    events.push(
+      { type: "request", id: "at-stop", method: "tool.execute", mode: "wait" },
+      { type: "drain" },
+      {
+        type: (["stop", "fault", "exit", "send-failure", "evidence-failure"] as const)[
+          (seed % 6) - 1
+        ] as "stop" | "fault" | "exit" | "send-failure" | "evidence-failure",
+      },
+    );
+  }
+  events.push({ type: "stop" }, { type: "stop" });
+  return events;
+}
 
 async function runInterleaving(
   context: TestContext,
   kind: FixtureKind,
   seed: number,
-  cleanups: Set<() => void>,
-): Promise<void> {
+  events: TraceEvent[],
+): Promise<JsonValue> {
   context.signal.throwIfAborted();
-  const random = generator(seed);
-  const pending: TransportEvent[] = [];
-  const evidence: EvidenceRecord[] = [];
+  const outgoing: ProtocolFrame[] = [];
+  const incoming: TransportEvent[] = [];
+  const records: EvidenceRecord[] = [];
+  const remoteRecords: EvidenceRecord[] = [];
+  const deliveries: ProtocolFrame[] = [];
   const expected = new Map<string, ExpectedInvocation>();
-  const sends: ProtocolFrame[] = [];
+  const failures: ProtocolError[] = [];
   const authorized = new Map<string, JsonValue>();
-  const trace: string[] = [];
-  let isStopped = false;
-  let shouldFailEvidence = false;
-  let sendFailure: "before" | "after" | undefined;
-  let shouldCancelDuringRecording = false;
+  const remoteActive = new Set<string>();
+  let phase: "uninitialized" | "initializing" | "ready" | "disposing" | "disposed" | "stopped" =
+    "uninitialized";
+  let lifecycleOwner: string | undefined;
+  let evidenceState: "available" | "failed" = "available";
+  let failureMode: "none" | "evidence" | "before-send" | "after-send" = "none";
   let serializationCalls = 0;
+  let terminationCount = 0;
+  let cancellationDeadline = fixedTime + 60_000;
+  let remotePhase: "uninitialized" | "ready" | "disposed" = "uninitialized";
   let listener: ((event: TransportEvent) => void) | undefined;
-  let component: ReturnType<typeof createReferenceComponent> | undefined;
+  let idle: ((entries: EvidenceRecord[]) => void) | undefined;
+  let component: ReturnType<typeof createInterleavingComponent> | undefined;
   let remote: ProtocolTransport | undefined;
   let transport: ProtocolTransport;
   if (kind === "child") {
-    transport = createWorkerTransport(context, new URL("./reference-worker.ts", import.meta.url));
+    const worker = spawn(
+      process.execPath,
+      [fileURLToPath(new URL("./interleaving-worker.ts", import.meta.url))],
+      { stdio: ["pipe", "pipe", "pipe", "ipc"], windowsHide: true },
+    );
+    registerTestCleanup(context, () => worker.kill());
+    worker.on("message", (message) => idle?.(message as EvidenceRecord[]));
+    if (worker.stdout === null || worker.stdin === null || worker.stderr === null) {
+      throw new Error("The fixture requires worker streams.");
+    }
+    transport = createStreamTransport({
+      input: worker.stdout,
+      output: worker.stdin,
+      diagnostics: worker.stderr,
+      worker,
+    });
   } else {
     if (kind === "in-process") {
       [transport, remote] = createInProcessTransports();
@@ -180,20 +330,56 @@ async function runInterleaving(
       transport = createStreamTransport({ input: left, output: right });
       remote = createStreamTransport({ input: right, output: left });
     }
-    component = createReferenceComponent(remote, (entry) => {
-      if (entry.kind === "frame" && entry.direction === "received") {
-        const frame = entry.value as unknown as ProtocolFrame;
-        if ("method" in frame && "id" in frame) {
-          expect(sends.some((sent) => equalJson(sent, frame))).toBe(true);
-        }
-      }
-    });
+    component = createInterleavingComponent(remote, (entries) => idle?.(entries));
+  }
+  const label = `Seed ${seed}, ${kind}, trace ${JSON.stringify(events)}.`;
+  function isModelStopped(): boolean {
+    return phase === "stopped";
+  }
+  function finishModel(invocation: ExpectedInvocation, status: ExpectedInvocation["status"]): void {
+    invocation.status = status;
+    if (lifecycleOwner === invocation.request.id) {
+      phase =
+        status === "completed"
+          ? invocation.request.method === "initialize"
+            ? "ready"
+            : "disposed"
+          : invocation.request.method === "initialize"
+            ? "uninitialized"
+            : "ready";
+      lifecycleOwner = undefined;
+    }
   }
   function stopModel(): void {
-    isStopped = true;
+    phase = "stopped";
+    lifecycleOwner = undefined;
     for (const invocation of expected.values()) {
-      invocation.outcome ??= "interrupted";
+      if (invocation.status === "pending" || invocation.status === "cancelled") {
+        invocation.status = "interrupted";
+      }
     }
+  }
+  function cancellation(id: string): void {
+    const invocation = expected.get(id);
+    if (invocation?.admitted !== true || isModelStopped()) {
+      return;
+    }
+    const others = [...expected.values()]
+      .filter((other) => other !== invocation)
+      .map((other) => other.actual);
+    if (invocation.status === "pending") {
+      invocation.cancelled = true;
+      if (invocation.dispatch === "absent") {
+        finishModel(invocation, "failed");
+      } else {
+        invocation.status = "cancelled";
+      }
+    }
+    broker.cancel(id, "Generated cancellation.", cancellationDeadline);
+    expect(
+      [...expected.values()].filter((other) => other !== invocation).map((other) => other.actual),
+      label,
+    ).toEqual(others);
   }
   const broker = createProtocolPeer({
     role: "broker",
@@ -204,71 +390,70 @@ async function runInterleaving(
       ...transport,
       listen(callback): void {
         listener = callback;
-        transport.listen((event) => pending.push(event));
+        transport.listen((event) => incoming.push(event));
+      },
+      // The scheduler owns stop delivery, while teardown owns actual worker exit.
+      close(): void {},
+      terminate(): void {
+        terminationCount++;
       },
       send(value): void {
         const frame = value as ProtocolFrame;
         expect(
-          evidence.some(
+          records.some(
             (entry) =>
-              entry.direction === "sent" && entry.kind === "frame" && equalJson(entry.value, frame),
+              entry.kind === "frame" && entry.direction === "sent" && equalJson(entry.value, frame),
           ),
+          label,
         ).toBe(true);
-        const failure = sendFailure;
-        sendFailure = undefined;
-        if (failure !== "before") {
-          sends.push(frame);
-          transport.send(frame);
+        const invocation =
+          "params" in frame ? expected.get(frame.params.identity.invocationId) : undefined;
+        if ("method" in frame && "id" in frame && invocation !== undefined) {
+          invocation.dispatch = "known";
         }
-        if (failure !== undefined) {
-          if ("id" in frame && "method" in frame) {
-            const invocation = expected.get(frame.params.identity.invocationId);
-            if (invocation !== undefined) {
-              invocation.dispatch = "uncertain";
-            }
+        if (failureMode === "before-send" || failureMode === "after-send") {
+          if (invocation !== undefined) {
+            invocation.dispatch = "uncertain";
+          }
+          if (failureMode === "after-send") {
+            outgoing.push(frame);
           }
           stopModel();
-          throw new Error(`Seed ${seed} send fails ${failure} delivery.`);
+          throw new Error("The generated send fails.");
+        }
+        outgoing.push(frame);
+        if ("method" in frame && "id" in frame && invocation?.request.cancelAt === "send") {
+          cancellation(invocation.request.id);
         }
       },
     },
     record(entry): void {
-      if (shouldFailEvidence) {
-        const invocation = expected.get(entry.invocationId ?? "");
-        if (
-          invocation !== undefined &&
-          !sends.some(
-            (frame) => "params" in frame && frame.params.identity.invocationId === invocation.id,
-          )
-        ) {
-          invocation.dispatch = "absent";
-        }
+      if (failureMode === "evidence") {
+        evidenceState = "failed";
         stopModel();
         throw new Error("The generated evidence sink fails.");
       }
-      evidence.push(entry);
-      if (shouldCancelDuringRecording && entry.direction === "sent" && entry.kind === "frame") {
-        const frame = entry.value as unknown as ProtocolFrame;
-        if ("method" in frame && "id" in frame && frame.method === "tool.execute") {
-          const invocation = expected.get(frame.params.identity.invocationId) as ExpectedInvocation;
-          invocation.dispatch = "absent";
-          invocation.outcome = "cancelled";
-          shouldCancelDuringRecording = false;
-          broker.cancel(invocation.id, "Cancellation during evidence commit.", Date.now() + 5000);
-        }
+      expect(evidenceState, label).toBe("available");
+      records.push(entry);
+      const invocation = expected.get(entry.invocationId ?? "");
+      if (invocation === undefined || entry.kind !== "frame") {
+        return;
+      }
+      const frame = entry.value as unknown as ProtocolFrame;
+      const point = invocation.request.cancelAt;
+      if (
+        (point === "record" && entry.direction === "sent" && "method" in frame && "id" in frame) ||
+        (entry.direction === "received" &&
+          ((point === "terminal" && !("method" in frame)) ||
+            (point === "progress" && "method" in frame && frame.method === "progress")))
+      ) {
+        cancellation(invocation.request.id);
       }
     },
     authorize(request): void {
       authorized.set(request.params.identity.invocationId, request.params.input);
-      if (request.method === "state.read") {
-        expect(
-          evidence.some(
-            (entry) =>
-              entry.direction === "received" &&
-              entry.kind === "frame" &&
-              equalJson(entry.value, request),
-          ),
-        ).toBe(true);
+      if (expected.get(request.params.identity.invocationId)?.request.cancelAt === "authorize") {
+        cancellation(request.params.identity.invocationId);
       }
     },
     handlers: {
@@ -281,309 +466,422 @@ async function runInterleaving(
     broker.close();
     component?.close();
     remote?.close();
+    transport.close();
+    if (transport.canTerminate) {
+      transport.terminate();
+    }
   }
-  cleanups.add(cleanup);
-  function deliver(index = 0): void {
-    const event = pending.splice(index, 1)[0];
+  registerTestCleanup(context, () => {
+    vi.useRealTimers();
+    cleanup();
+  });
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  vi.setSystemTime(fixedTime);
+  function request(event: GeneratedRequest): void {
+    const hasPending = [...expected.values()].some(
+      (value) => value.admitted && (value.status === "pending" || value.status === "cancelled"),
+    );
+    const admitted =
+      event.method === "initialize"
+        ? phase === "uninitialized"
+        : phase === "ready" && (event.method !== "dispose" || !hasPending);
+    const invocation: ExpectedInvocation = {
+      request: event,
+      admitted: admitted && event.mode !== "invalid-json",
+      dispatch: "absent",
+      status: "pending",
+      cancelled: false,
+      settlements: 0,
+      receivedSequence: 0,
+    };
+    expected.set(event.id, invocation);
+    if (!invocation.admitted) {
+      invocation.status = "failed";
+    } else if (event.method === "initialize" || event.method === "dispose") {
+      phase = event.method === "initialize" ? "initializing" : "disposing";
+      lifecycleOwner = event.id;
+    }
+    let input: JsonValue =
+      event.method === "initialize"
+        ? referenceOffer()
+        : event.method === "dispose"
+          ? { reason: "The generated fixture ends." }
+          : event.method === "describe"
+            ? {}
+            : {
+                definition: referenceTool,
+                arguments: { mode: event.mode ?? "echo", value: { seed, id: event.id } },
+                handles: [],
+              };
+    if (event.mode === "invalid-json") {
+      const value = [seed];
+      const prototype = Object.create(Array.prototype) as object;
+      Object.defineProperty(prototype, "toJSON", {
+        value: () => {
+          serializationCalls++;
+          return [serializationCalls];
+        },
+      });
+      Object.setPrototypeOf(value, prototype);
+      input = { definition: referenceTool, arguments: { mode: "echo", value }, handles: [] };
+    }
+    const promise = broker.request(
+      event.method,
+      referenceIdentity(event.id),
+      input,
+      event.method === "tool.execute" ? ["fixture.read"] : [],
+    );
+    void promise.then(
+      (output) => {
+        invocation.actual = { output };
+        invocation.settlements++;
+      },
+      (error: unknown) => {
+        expect(error, label).toBeInstanceOf(ProtocolError);
+        const problem = error as ProtocolError;
+        failures.push(problem);
+        invocation.actual = roundTripJson({ message: problem.message, failure: problem.failure });
+        invocation.settlements++;
+      },
+    );
+    if (event.cancelAt === "queued") {
+      cancellation(event.id);
+    }
+    if (event.method === "tool.execute" && event.mode !== "invalid-json") {
+      (input as { arguments: { value: JsonValue } }).arguments.value =
+        "Mutation after acquisition.";
+    }
+  }
+  async function deliverOutgoing(): Promise<void> {
+    const frame = outgoing.shift();
+    if (frame === undefined || isModelStopped()) {
+      return;
+    }
+    const entries = await new Promise<EvidenceRecord[]>((resolve, reject) => {
+      function aborted(): void {
+        reject(context.signal.reason);
+      }
+      context.signal.addEventListener("abort", aborted, { once: true });
+      function receivedEntries(entries: EvidenceRecord[]): void {
+        context.signal.removeEventListener("abort", aborted);
+        resolve(entries);
+      }
+      idle = receivedEntries;
+      deliveries.push(frame);
+      transport.send(frame);
+    });
+    idle = undefined;
+    remoteRecords.push(...entries);
+    for (const entry of entries) {
+      if (entry.kind !== "frame") {
+        continue;
+      }
+      const value = entry.value as unknown as ProtocolFrame;
+      if (entry.direction === "received" && "method" in value && "id" in value) {
+        remoteActive.add(value.params.identity.invocationId);
+      } else if (entry.direction === "sent" && !("method" in value)) {
+        const id = (value.result ?? value.error?.data)?.identity?.invocationId as string;
+        remoteActive.delete(id);
+        if (value.result !== undefined) {
+          if (value.result.contract.id === "initialize") {
+            expect(remotePhase, label).toBe("uninitialized");
+            remotePhase = "ready";
+          } else if (value.result.contract.id === "dispose") {
+            expect(remoteActive.size, label).toBe(0);
+            expect(remotePhase, label).toBe("ready");
+            expect(value.result.output, label).toEqual({ disposed: true, activitiesEnded: true });
+            remotePhase = "disposed";
+          } else {
+            expect(remotePhase, label).toBe("ready");
+          }
+        }
+      }
+    }
+    const sentCount = remoteRecords.filter(
+      (entry) => entry.kind === "frame" && entry.direction === "sent",
+    ).length;
+    await waitFor(() =>
+      expect(
+        incoming.filter((event) => event.type === "message").length + receivedCount,
+        label,
+      ).toBe(sentCount),
+    );
+  }
+  let receivedCount = 0;
+  function deliverIncoming(doesTakeLast = false): void {
+    const event = incoming.splice(doesTakeLast ? incoming.length - 1 : 0, 1)[0];
     if (event === undefined) {
       return;
     }
-    if (shouldFailEvidence) {
-      stopModel();
-    }
-    if (!isStopped) {
-      if (event.type === "end" || event.type === "exit" || event.type === "fault") {
-        stopModel();
-      } else if (event.type === "message") {
-        if (event.value === null) {
+    if (event.type === "message") {
+      receivedCount++;
+      const frame = event.value as ProtocolFrame;
+      const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
+      const invocation = expected.get(details?.identity?.invocationId ?? "");
+      if (
+        !isModelStopped() &&
+        invocation !== undefined &&
+        (invocation.status === "pending" || invocation.status === "cancelled")
+      ) {
+        if (details?.sequence !== invocation.receivedSequence + 1) {
           stopModel();
         } else {
-          const frame = event.value as ProtocolFrame;
-          const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
-          const invocation = expected.get(details?.identity?.invocationId ?? "");
-          if (
-            invocation !== undefined &&
-            invocation.outcome === undefined &&
-            details !== undefined
-          ) {
-            if (details.sequence !== invocation.sequence + 1) {
-              stopModel();
-            } else {
-              invocation.sequence = details.sequence;
-              if (!("method" in frame)) {
-                invocation.outcome = invocation.isCancelled
-                  ? "cancelled"
-                  : "error" in frame
-                    ? "failure"
-                    : "success";
-              }
-            }
-          }
+          invocation.receivedSequence = details.sequence;
         }
       }
-    }
-    const before = evidence.length;
-    listener?.(event);
-    if (event.type === "message" && !shouldFailEvidence) {
-      expect(evidence[before]).toMatchObject({
-        kind: "frame",
-        direction: "received",
-        value: event.value,
-      });
+      listener?.(event);
+      if (
+        !isModelStopped() &&
+        !("method" in frame) &&
+        invocation !== undefined &&
+        (invocation.status === "pending" || invocation.status === "cancelled")
+      ) {
+        if (frame.result !== undefined && invocation.status !== "cancelled") {
+          if (
+            invocation.request.method === "initialize" ||
+            invocation.request.method === "dispose"
+          ) {
+            expect(lifecycleOwner, label).toBe(invocation.request.id);
+            expect(phase, label).toBe(
+              invocation.request.method === "initialize" ? "initializing" : "disposing",
+            );
+          }
+          if (invocation.request.method === "dispose") {
+            expect(
+              [...expected.values()].filter(
+                (other) =>
+                  other !== invocation &&
+                  other.admitted &&
+                  (other.status === "pending" || other.status === "cancelled"),
+              ),
+              label,
+            ).toHaveLength(0);
+          }
+        }
+        finishModel(
+          invocation,
+          invocation.status === "cancelled" || "error" in frame ? "failed" : "completed",
+        );
+        if (invocation.request.cancelAt === "settled") {
+          cancellation(invocation.request.id);
+        }
+      }
+    } else {
+      listener?.(event);
     }
   }
-  let isInitialized = false;
-  const initialization = broker
-    .request("initialize", referenceIdentity("initialize"), referenceOffer())
-    .then(() => {
-      isInitialized = true;
-    });
-  await waitFor(() => {
-    while (pending.length > 0) {
-      deliver();
+  async function drain(): Promise<void> {
+    for (
+      let iteration = 0;
+      iteration < 100 && !isModelStopped() && (outgoing.length > 0 || incoming.length > 0);
+      iteration++
+    ) {
+      await deliverOutgoing();
+      while (incoming.length > 0) {
+        deliverIncoming();
+      }
     }
-    expect(isInitialized).toBe(true);
-  });
-  await initialization;
-  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+    expect(outgoing.length === 0 || isModelStopped(), label).toBe(true);
+  }
   try {
-    function send(special?: "invalid-json" | "cancel-in-record"): void {
-      const id = `seed-${seed}-${expected.size}`;
-      const mode = (["echo", "wait", "failure", "nested"] as const)[random(4)] as string;
-      const value: JsonValue = { b: [seed, expected.size], a: { authorized: true } };
-      const invocation: ExpectedInvocation = {
-        id,
-        value,
-        mode,
-        dispatch: isStopped || special === "invalid-json" ? "absent" : "known",
-        sequence: 0,
-        isCancelled: false,
-        settlements: 0,
-      };
-      expected.set(id, invocation);
-      if (special === "invalid-json") {
-        invocation.outcome = "failure";
-      }
-      const input: {
-        definition: JsonValue;
-        arguments: { mode: string; value: JsonValue };
-        handles: string[];
-      } = {
-        definition: Object.fromEntries(Object.entries(referenceTool as object).reverse()),
-        arguments: { mode, value },
-        handles: [],
-      };
-      if (special === "invalid-json") {
-        const array = [seed];
-        const prototype = Object.create(Array.prototype) as object;
-        Object.defineProperty(prototype, "toJSON", {
-          value: () => {
-            serializationCalls++;
-            return [serializationCalls];
-          },
-        });
-        Object.setPrototypeOf(array, prototype);
-        input.arguments.value = array;
-      }
-      shouldCancelDuringRecording = special === "cancel-in-record";
-      const promise = broker.request(
-        "tool.execute",
-        { ...referenceIdentity(id), deadline: Date.now() + 10_000 },
-        input,
-        ["fixture.read"],
-      );
-      function observe(actual: JsonValue | ProtocolError): void {
-        invocation.actual = actual;
-        invocation.settlements++;
-        invocation.hasRecordedSettlement =
-          (actual instanceof ProtocolError &&
-            (broker.isStopped() || actual.failure.dispatch === "absent")) ||
-          evidence.some(
-            (entry) =>
-              entry.invocationId === id &&
-              entry.direction === "received" &&
-              entry.kind === "frame" &&
-              !("method" in Object(entry.value)),
-          );
-      }
-      void promise.then(observe, (error: unknown) => observe(error as ProtocolError));
-      input.arguments.value = "Mutation after acquisition.";
-    }
-    send();
-    send();
-    send();
-    send("invalid-json");
-    send("cancel-in-record");
-    for (let step = 0; step < 20; step++) {
+    for (const event of events) {
       context.signal.throwIfAborted();
-      const action = random(13);
-      trace.push(String(action));
-      const values = [...expected.values()];
-      const invocation = values[random(values.length)] as ExpectedInvocation;
-      if (action < 4) {
-        deliver(action === 0 ? random(pending.length || 1) : 0);
-      } else if (action === 4 && !isStopped) {
-        if (invocation.dispatch === "absent" && invocation.outcome === "failure") {
-          expect(() =>
-            broker.cancel(invocation.id, "Generated cancellation.", Date.now() + 5000),
-          ).toThrow("unknown");
-        } else {
-          if (invocation.outcome === undefined) {
-            invocation.isCancelled = true;
+      if (event.type === "request") {
+        request(event);
+      } else if (event.type === "outgoing") {
+        await deliverOutgoing();
+      } else if (event.type === "incoming") {
+        deliverIncoming();
+      } else if (event.type === "incoming-last") {
+        deliverIncoming(true);
+      } else if (event.type === "drain") {
+        await drain();
+      } else if (event.type === "cancel") {
+        cancellation(event.id);
+      } else if (event.type === "cancel-all") {
+        for (const invocation of expected.values()) {
+          if (invocation.status === "pending") {
+            cancellation(invocation.request.id);
           }
-          broker.cancel(invocation.id, "Generated cancellation.", Date.now() + 5000);
         }
-      } else if (action === 5) {
-        if (isStopped) {
-          const size = expected.size;
-          send();
-          const rejected = [...expected.values()][size] as ExpectedInvocation;
-          rejected.outcome = "failure";
-        } else {
-          send();
+      } else if (event.type === "expiry") {
+        const before = terminationCount;
+        await vi.advanceTimersByTimeAsync(60_001);
+        cancellationDeadline += 60_001;
+        expect(terminationCount, label).toBe(before);
+        expect(broker.isStopped(), label).toBe(isModelStopped());
+        const other = expected.get("unrelated");
+        if (other?.admitted) {
+          expect(other.actual, label).toBeUndefined();
         }
-      } else if (action === 6 && !isStopped) {
-        pending.push({ type: "message", value: null });
-      } else if (action === 7 && !isStopped) {
-        pending.push({ type: "exit", code: 23, signal: null });
-      } else if (action === 8 && !isStopped) {
-        sendFailure = random(2) === 0 ? "before" : "after";
-        send();
-      } else if (action === 9 && !isStopped) {
+      } else if (event.type === "stop") {
         stopModel();
         broker.close();
-      } else if (action === 10 && !isStopped) {
-        pending.push({ type: "fault", reason: "Generated malformed bytes.", bytes: "/w==" });
-      } else if (action === 11 && !isStopped) {
-        const hasPending = [...expected.values()].some((value) => value.outcome === undefined);
-        for (const value of expected.values()) {
-          if (value.outcome === undefined) {
-            value.isCancelled = true;
-          }
-        }
-        await vi.advanceTimersByTimeAsync(10_001);
-        if (kind === "child" && hasPending) {
-          stopModel();
-        }
-      } else if (action === 12 && !isStopped) {
-        shouldFailEvidence = true;
-        if (pending.length > 0) {
-          deliver();
-        } else {
-          send();
-        }
+      } else if (event.type === "evidence-failure") {
+        failureMode = "evidence";
+        request({ type: "request", id: "evidence-failure", method: "tool.execute" });
+      } else if (event.type === "send-failure") {
+        failureMode = (seed >>> 3) % 2 === 0 ? "before-send" : "after-send";
+        request({ type: "request", id: "send-failure", method: "tool.execute" });
+      } else {
+        stopModel();
+        listener?.(
+          event.type === "exit"
+            ? { type: "exit", code: 23, signal: null }
+            : { type: "fault", reason: "Generated malformed bytes.", bytes: "/w==" },
+        );
       }
       await setImmediate();
-      expect(broker.isStopped(), `Seed ${seed}, trace ${trace.join(",")}.`).toBe(isStopped);
-      if (isStopped) {
-        expect(
-          [...expected.values()].every((value) => value.settlements === 1),
-          `Seed ${seed}, stopped at ${trace.join(",")}.`,
-        ).toBe(true);
-      }
-    }
-    shouldFailEvidence = false;
-    stopModel();
-    broker.close();
-    while (pending.length > 0) {
-      deliver();
-    }
-    await setImmediate();
-    const label = `Seed ${seed}, ${kind}, trace ${trace.join(",")}.`;
-    const failures: ProtocolError[] = [];
-    for (const invocation of expected.values()) {
-      expect(invocation.settlements, label).toBe(1);
-      expect(invocation.hasRecordedSettlement, label).toBe(true);
-      if (invocation.outcome === "success") {
-        expect(invocation.actual, label).toMatchObject({
-          structuredData:
-            invocation.mode === "nested"
-              ? { value: { key: "sample" }, revision: "recorded-1" }
-              : invocation.value,
-        });
-      } else {
-        expect(invocation.actual, label).toBeInstanceOf(ProtocolError);
-        const error = invocation.actual as ProtocolError;
-        failures.push(error);
-        expect(error.failure.identity?.invocationId, label).toBe(invocation.id);
-        expect(error.failure.contract.id, label).toBe("tool.execute");
-        expect(error.failure.dispatch, label).toBe(invocation.dispatch);
-        expect(error.failure.effects, label).toBe(
-          invocation.dispatch === "absent" ? "absent" : "uncertain",
-        );
-        if (invocation.outcome === "cancelled") {
-          expect(error.failure.kind, label).toBe("cancellation");
+      expect(broker.isStopped(), label).toBe(isModelStopped());
+      for (const invocation of expected.values()) {
+        const isTerminal = invocation.status !== "pending" && invocation.status !== "cancelled";
+        expect(invocation.settlements, label).toBe(isTerminal ? 1 : 0);
+        if (invocation.actual !== undefined && "failure" in Object(invocation.actual)) {
+          expect(invocation.actual, label).toMatchObject({
+            failure: {
+              identity: { invocationId: invocation.request.id },
+              contract: { id: invocation.request.method },
+              dispatch: invocation.dispatch,
+              effects: invocation.dispatch === "absent" ? "absent" : "uncertain",
+            },
+          });
+          if (invocation.cancelled && invocation.status === "failed") {
+            expect(invocation.actual, label).toMatchObject({ failure: { kind: "cancellation" } });
+          }
         }
       }
-      const input = authorized.get(invocation.id) as
-        | { arguments: { value: JsonValue } }
-        | undefined;
-      if (input !== undefined) {
-        expect(input.arguments.value, label).toEqual(invocation.value);
-      }
     }
+    expect(serializationCalls, label).toBe(0);
     expect(new Set(failures).size, label).toBe(failures.length);
     expect(new Set(failures.map((error) => error.failure)).size, label).toBe(failures.length);
-    expect(serializationCalls, label).toBe(0);
-    for (const entry of evidence.filter((entry) => entry.kind === "interrupted")) {
-      expect(entry.value, label).toMatchObject({
-        failure: { identity: { invocationId: entry.invocationId } },
-      });
-      expect(
-        evidence.filter(
-          (candidate) =>
-            candidate.kind === "interrupted" && candidate.invocationId === entry.invocationId,
-        ),
-        label,
-      ).toHaveLength(1);
+    for (const [id, input] of authorized) {
+      if (expected.get(id)?.request.method === "tool.execute") {
+        expect(input, label).toMatchObject({ arguments: { value: { seed, id } } });
+      }
     }
+    for (const entries of [records, remoteRecords]) {
+      const sequences = new Map<string | null, number>();
+      for (const entry of entries) {
+        expect(entry.sequence, label).toBe((sequences.get(entry.invocationId) ?? 0) + 1);
+        sequences.set(entry.invocationId, entry.sequence);
+      }
+    }
+    return roundTripJson({
+      outcomes: [...expected.values()].map((invocation) => ({
+        id: invocation.request.id,
+        actual: invocation.actual ?? null,
+      })),
+      records,
+      remoteRecords,
+      deliveries,
+      phase,
+    });
   } finally {
     vi.useRealTimers();
     cleanup();
-    cleanups.delete(cleanup);
   }
 }
 
-async function runSeedBatch(
-  context: TestContext,
-  kind: FixtureKind,
-  seed: number,
-  count: number,
-): Promise<void> {
-  process.stdout.write(`Invocation ${kind} seed: ${seed}. Runs: ${count}.\n`);
-  const cleanups = new Set<() => void>();
-  registerTestCleanup(context, () => {
-    for (const cleanup of cleanups) {
-      cleanup();
+test.for([0, 1, 2, 3, 4, 5, 6, 7])(
+  "generated traces are differential in batch %s",
+  async (batch, context) => {
+    const started = performance.now();
+    const seed = baseSeed + batch * 32;
+    process.stdout.write(
+      `Differential seed: ${seed}. Traces: 32. Transports: in-process, standard-streams.\n`,
+    );
+    for (let run = 0; run < 32; run++) {
+      const events = generatedTrace(seed + run);
+      const left = await runInterleaving(context, "in-process", seed + run, events);
+      const right = await runInterleaving(context, "standard-streams", seed + run, events);
+      expect(right, `Differential seed ${seed + run}.`).toEqual(left);
     }
-    vi.useRealTimers();
-  });
-  for (let run = 0; run < count; run++) {
-    try {
-      await runInterleaving(context, kind, seed + run, cleanups);
-    } catch (error) {
-      process.stderr.write(`Failing invocation seed: ${seed + run}. Transport: ${kind}.\n`);
-      throw error;
-    }
-  }
-}
-
-test.for(
-  (["in-process", "standard-streams"] as const).flatMap((kind) =>
-    [0, 1, 2, 3].map((batch) => ({ kind, batch })),
-  ),
-)(
-  "$kind runs seeded queued transport interleavings in batch $batch",
-  async ({ kind, batch }, context) => {
-    const seed = baseSeed + batch * 32 + (kind === "in-process" ? 0 : 128);
-    await runSeedBatch(context, kind, seed, 32);
+    process.stdout.write(
+      `Differential batch ${batch}: ${(performance.now() - started).toFixed(0)} ms.\n`,
+    );
   },
 );
 
 test.for([0, 1, 2, 3, 4, 5, 6, 7])(
-  "real child runs seeded interleaving %s",
+  "real child matches generated trace %s",
   async (run, context) => {
-    const seed = baseSeed + 256 + run;
-    await runSeedBatch(context, "child", seed, 1);
+    const started = performance.now();
+    const seed = baseSeed + run;
+    const events = generatedTrace(seed);
+    process.stdout.write(`Child differential seed: ${seed}. Traces: 1.\n`);
+    const expected = await runInterleaving(context, "in-process", seed, events);
+    const actual = await runInterleaving(context, "child", seed, events);
+    expect(actual, `Child differential seed ${seed}.`).toEqual(expected);
+    process.stdout.write(
+      `Child differential ${run}: ${(performance.now() - started).toFixed(0)} ms.\n`,
+    );
   },
 );
+test("seeded lifecycle transitions reserve admission and ignore stale completion", (context) => {
+  process.stdout.write(`Peer lifecycle seed: ${baseSeed}. Traces: 10000.\n`);
+  const random = generator(baseSeed);
+  const selection = {
+    wireVersion: { major: 1, minor: 0 },
+    manifestVersion: { major: 1, minor: 0 },
+    contracts: referenceContracts,
+    componentInstanceId: "reference",
+    grantedCapabilities: ["fixture.read"],
+  };
+  for (let run = 0; run < 10_000; run++) {
+    context.signal.throwIfAborted();
+    const lifecycle = new PeerLifecycle();
+    let phase: string = "uninitialized";
+    let owner: object | undefined;
+    let canRecord = true;
+    const tokens = [{}, {}, {}];
+    for (let step = 0; step < 24; step++) {
+      const action = random(7);
+      const token = tokens[random(tokens.length)] as object;
+      const hasPending = random(2) === 0;
+      if (action < 3) {
+        const method = (["initialize", "dispose", "describe"] as const)[action] as
+          | "initialize"
+          | "dispose"
+          | "describe";
+        const admitted =
+          method === "initialize"
+            ? phase === "uninitialized"
+            : phase === "ready" && (method !== "dispose" || !hasPending);
+        if (admitted) {
+          lifecycle.admit(method, token, hasPending);
+          if (method !== "describe") {
+            phase = method === "initialize" ? "initializing" : "disposing";
+            owner = token;
+          }
+        } else {
+          expect(() => lifecycle.admit(method, token, hasPending)).toThrow();
+        }
+      } else if (action === 3 || action === 4) {
+        const type = action === 3 ? "completed" : "failed";
+        lifecycle.transition({ type, invocation: token, selection });
+        if (token === owner && (phase === "initializing" || phase === "disposing")) {
+          phase =
+            phase === "initializing"
+              ? type === "completed"
+                ? "ready"
+                : "uninitialized"
+              : type === "completed"
+                ? "disposed"
+                : "ready";
+          owner = undefined;
+        }
+      } else {
+        lifecycle.transition({ type: action === 5 ? "stop" : "evidence-failed" });
+        phase = "stopped";
+        if (action === 6) {
+          canRecord = false;
+        }
+      }
+      expect(lifecycle.phase, `Seed ${baseSeed}, run ${run}, step ${step}.`).toBe(phase);
+      expect(lifecycle.canRecord).toBe(canRecord);
+      expect(lifecycle.selection).toEqual(
+        phase === "ready" || phase === "disposing" ? selection : undefined,
+      );
+    }
+  }
+});

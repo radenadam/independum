@@ -15,18 +15,19 @@ interface Dispatched {
 type Delivery = Undispatched | Attempted | Dispatched;
 type Terminal =
   | { phase: "settled"; delivery: Dispatched; output: JsonValue }
-  | { phase: "cancelled" | "failed" | "interrupted"; delivery: Delivery; error: Error };
+  | { phase: "cancelled"; delivery: Delivery; error: Error; cancellationDeadline?: number }
+  | { phase: "failed" | "interrupted"; delivery: Delivery; error: Error };
 type InvocationState =
   | { phase: "prepared"; delivery: Undispatched }
   | { phase: "dispatch-attempted"; delivery: Attempted }
   | { phase: "dispatched"; delivery: Dispatched }
-  | { phase: "cancelling"; delivery: Delivery }
+  | { phase: "cancelling"; delivery: Delivery; cancellationDeadline?: number }
   | Terminal;
 type InvocationEvent =
   | { type: "send-attempted" | "sent" }
   | { type: "received"; sequence: number; effects?: "known" | "absent" | "uncertain" | undefined }
   | { type: "sent-frame"; sequence: number }
-  | { type: "cancel" | "deadline" }
+  | { type: "cancel" | "deadline"; deadline?: number }
   | { type: "completed"; output: JsonValue }
   | { type: "failed" | "send-failed" | "interrupted"; error: Error };
 
@@ -64,6 +65,14 @@ export class Invocation {
 
   get delivery(): Delivery {
     return { ...this.#state.delivery };
+  }
+
+  get isCancelled(): boolean {
+    return this.#state.phase === "cancelling" || this.#state.phase === "cancelled";
+  }
+
+  get cancellationDeadline(): number | undefined {
+    return "cancellationDeadline" in this.#state ? this.#state.cancellationDeadline : undefined;
   }
 
   get sentSequence(): number {
@@ -120,6 +129,7 @@ export class Invocation {
           };
         } else if (state.phase === "cancelling" && state.delivery.dispatch === "uncertain") {
           this.#state = {
+            ...state,
             phase: "cancelling",
             delivery: { dispatch: "known", effects: "uncertain" },
           };
@@ -133,11 +143,20 @@ export class Invocation {
         }
         return;
       case "cancel":
-      case "deadline":
-        this.#state = { phase: "cancelling", delivery: state.delivery };
+      case "deadline": {
+        const cancellationDeadline =
+          event.deadline === undefined
+            ? this.cancellationDeadline
+            : Math.min(event.deadline, this.cancellationDeadline ?? event.deadline);
+        this.#state = {
+          phase: "cancelling",
+          delivery: state.delivery,
+          ...(cancellationDeadline === undefined ? {} : { cancellationDeadline }),
+        };
         clearTimeout(this.timer);
         this.controller.abort();
         return;
+      }
       case "completed":
         // Revoked work can settle only through a cancellation failure.
         if (state.phase === "cancelling") {
@@ -163,6 +182,9 @@ export class Invocation {
                 : "failed",
           delivery: state.delivery,
           error: event.error,
+          ...(state.phase === "cancelling" && state.cancellationDeadline !== undefined
+            ? { cancellationDeadline: state.cancellationDeadline }
+            : {}),
         };
         clearTimeout(this.timer);
         this.controller.abort(event.error);

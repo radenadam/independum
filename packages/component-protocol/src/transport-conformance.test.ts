@@ -1321,3 +1321,95 @@ test.for(kinds)(
     await waitForClosedFixture(fixture);
   },
 );
+test.for(kinds)(
+  "%s reserves receiving lifecycle transitions before terminal delivery",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind);
+    const responses: ProtocolFrame[] = [];
+    fixture.transport.listen((event) => {
+      if (event.type === "message") {
+        responses.push(event.value as ProtocolFrame);
+      }
+    });
+    function send(
+      method: Operation,
+      id: string,
+      input: JsonValue,
+      capabilities: string[] = [],
+    ): RequestFrame {
+      const frame: RequestFrame = {
+        jsonrpc: "2.0",
+        id,
+        method,
+        params: {
+          wireVersion: { major: 1, minor: 0 },
+          identity: referenceIdentity(id),
+          contract: { id: method, version: { major: 1, minor: 0 } },
+          sequence: 1,
+          capabilities,
+          input,
+        },
+      };
+      fixture.transport.send(frame);
+      return frame;
+    }
+    async function terminal(id: string): Promise<ProtocolFrame> {
+      return waitFor(() => {
+        const frame = responses.find((candidate) => "id" in candidate && candidate.id === id);
+        expect(frame).toBeDefined();
+        return frame as ProtocolFrame;
+      });
+    }
+    send("initialize", "first", referenceOffer());
+    send("initialize", "second", {
+      ...(referenceOffer() as Record<string, JsonValue>),
+      grantedCapabilities: [],
+    });
+    expect(await terminal("first")).toMatchObject({
+      result: { output: { grantedCapabilities: ["fixture.read"] } },
+    });
+    expect(await terminal("second")).toMatchObject({
+      error: { data: { kind: "protocol-failure" } },
+    });
+    const pending = send(
+      "tool.execute",
+      "pending",
+      { definition: referenceTool, arguments: { mode: "wait", value: null }, handles: [] },
+      ["fixture.read"],
+    );
+    send("dispose", "busy", { reason: "Work is pending." });
+    expect(await terminal("busy")).toMatchObject({
+      error: { message: "Disposal waits until owned invocations settle." },
+    });
+    fixture.transport.send({
+      jsonrpc: "2.0",
+      method: "cancel",
+      params: {
+        wireVersion: pending.params.wireVersion,
+        identity: pending.params.identity,
+        contract: pending.params.contract,
+        sequence: 2,
+        data: { reason: "Settle pending work.", deadline: Date.now() + 60_000 },
+      },
+    });
+    expect(await terminal("pending")).toMatchObject({ error: { data: { kind: "cancellation" } } });
+    send("dispose", "dispose", { reason: "End the instance." });
+    send("dispose", "twice", { reason: "Dispose twice." });
+    send("tool.execute", "after", {
+      definition: referenceTool,
+      arguments: { mode: "echo", value: null },
+      handles: [],
+    });
+    expect(await terminal("dispose")).toMatchObject({
+      result: { output: { disposed: true, activitiesEnded: true } },
+    });
+    for (const id of ["twice", "after"]) {
+      expect(await terminal(id)).toMatchObject({ error: { data: { kind: "protocol-failure" } } });
+    }
+    expect(
+      responses.filter(
+        (frame) => "method" in frame && frame.params.identity.invocationId === "after",
+      ),
+    ).toHaveLength(0);
+  },
+);

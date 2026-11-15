@@ -52,13 +52,15 @@ An error never means an effect is safe to retry. Record whether dispatch or effe
 
 Cancellation requests cessation. Settlement confirms its outcome. On cancellation, revoke further capabilities immediately and coordinate nested work. A later response settles the caller as cancelled and remains evidence only, including initialization and disposal. Earlier settled outcomes remain unchanged. Terminate isolated workers after their cancellation deadline. Preserve completed effects and uncertain work. Track process exit separately. Leases and resources remain held until execution ends. Trusted in-process work has no equivalent forced termination guarantee.
 
-The direct maintainer implementation correction of 2026-11-16 after three reviews requires invocation state machines. Prepared work has absent dispatch and effects. Sending makes both uncertain until dispatch is established. Cancelling revokes authority pending settlement. Settled, cancelled, failed, and interrupted states are terminal. Shutdown preserves each invocation's identity and delivery facts. Known dispatch forbids absent effects.
+Direct maintainer implementation corrections of 2026-11-16 require invocation and peer machines. Prepared dispatch and effects are absent, sending uncertain, and established dispatch known with nonabsent effects. Cancellation revokes authority. Settlement is terminal and preserves individual delivery facts. Only dispatched cancellation arms worker termination.
+
+Peer states: uninitialized, initializing, ready, disposing, disposed, stopped. Reserve admission before callbacks. Reject concurrent initialization and unsettled disposal. Disposal blocks new work immediately. Commit lifecycle claims before delivery. Failed or cancelled transitions restore their prior state. Evidence failure stops recording.
 
 ## Conformance and control
 
 Run the same fixtures over standard streams and the in-process transport. Cover negotiation, JSON round trips, nested correlation, ordering, malformed messages, denied capabilities, progress, terminal outcomes, cancellation races, worker exit, and evidence failure. No TypeScript-only operation may bypass these checks. These fixtures precede dependent implementation.
 
-The [conformance tests](../../packages/component-protocol/src/transport-conformance.test.ts) exercise both transports with reference and misbehaving components. [Seeded model tests](../../packages/component-protocol/src/invocation-model.test.ts) cover transition and delivery interleavings. Streams use real Node children. Process tests run in Vitest's final serial group with the shared 20 second budget and cancellation teardown. The endpoint terminates only explicitly owned workers. It supplies no launcher, isolation, lease manager, loader, model service, or effect service.
+The [fixtures](../../packages/component-protocol/src/transport-conformance.test.ts) and [seeded differential tests](../../packages/component-protocol/src/invocation-model.test.ts) compare transports, including real children. Process tests run serially with a 20 second budget and cancellation teardown. Termination requires an owned worker.
 
 Screen controls, authoritative files, scripts, and code use the same schemas and operations for the same part. Expose exact source, effective configuration, revision, pending changes, and precise failures. Generic editors and inspection are kernel mechanisms. Component-specific editors and renderers are declared contributions with the same [component lifecycle](components.md).
 

@@ -29,21 +29,21 @@ export function createInProcessTransports(): [ProtocolTransport, ProtocolTranspo
   return [0, 1].map((index) => {
     const own = channels[index === 0 ? 0 : 1];
     const other = channels[index === 0 ? 1 : 0];
-    let isClosed = false;
+    let state: "open" | "closed" = "open";
     return {
       kind: "in-process" as const,
       canTerminate: false,
       listen: own.listen,
       send(value: unknown): void {
-        if (isClosed) {
+        if (state === "closed") {
           throw new Error("The transport is closed.");
         }
         const bytes = encodeFrame(value);
         queueMicrotask(() => decodeFrame(bytes.subarray(0, -1), other.emit));
       },
       close(): void {
-        if (!isClosed) {
-          isClosed = true;
+        if (state === "open") {
+          state = "closed";
           queueMicrotask(() => other.emit({ type: "end" }));
         }
       },
@@ -58,7 +58,7 @@ export function createInProcessTransports(): [ProtocolTransport, ProtocolTranspo
 export function createStreamTransport(options: StreamTransportOptions): ProtocolTransport {
   const channel = createChannel();
   let pending = Buffer.alloc(0);
-  let isClosed = false;
+  let state: "open" | "closed" = "open";
   const diagnosticDecoder = new TextDecoder("utf-8");
   function receive(chunk: Buffer): void {
     pending = Buffer.concat([pending, chunk]);
@@ -115,16 +115,16 @@ export function createStreamTransport(options: StreamTransportOptions): Protocol
     canTerminate: options.worker !== undefined,
     listen: channel.listen,
     send(value: unknown): void {
-      if (isClosed) {
+      if (state === "closed") {
         throw new Error("The transport is closed.");
       }
       options.output.write(encodeFrame(value));
     },
     close(): void {
-      if (isClosed) {
+      if (state === "closed") {
         return;
       }
-      isClosed = true;
+      state = "closed";
       options.output.end();
       options.input.off("data", receive);
       options.input.off("end", ended);
