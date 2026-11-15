@@ -14,7 +14,7 @@ function legacy(): { directory: string; moves: [string, string][] } {
   for (const name of ["retained.json", "phones.json", "startup.lock"]) {
     writeFileSync(join(runtime, name), "temporary fixture", { mode: 0o600 });
   }
-  for (const name of ["auth.json", "models.json"]) {
+  for (const name of ["auth.json", "models.json", "models-store.json"]) {
     writeFileSync(join(directory, name), "temporary fixture", { mode: 0o600 });
   }
   const attachments = join(home, ".independum-attachments");
@@ -26,7 +26,7 @@ function legacy(): { directory: string; moves: [string, string][] } {
     directory,
     moves: [
       [runtime, join(directory, "private")],
-      ...["auth.json", "models.json"].map((name): [string, string] => [
+      ...["auth.json", "models.json", "models-store.json"].map((name): [string, string] => [
         join(directory, name),
         join(directory, "private", name),
       ]),
@@ -60,7 +60,7 @@ test("startup renames legacy state without replacing identities and restart leav
   expect(moves.map(([, destination]) => lstatSync(destination).ino)).toEqual(identities);
 });
 
-test.each([0, 1, 2, 3])("migration refuses collision %s before moving any source", (index) => {
+test.each([0, 1, 2, 3, 4])("migration refuses collision %s before moving any source", (index) => {
   const { directory, moves } = legacy();
   const [source, destination] = moves[index] as [string, string];
   mkdirSync(dirname(destination), { recursive: true });
@@ -73,8 +73,9 @@ test.each([0, 1, 2, 3])("migration refuses collision %s before moving any source
   const identities = moves.map(([path]) => lstatSync(path).ino);
   const destinationIdentity = lstatSync(destination).ino;
   // A runtime and private collision precedes its nested file collisions.
-  const [firstSource, firstDestination] =
-    index === 1 || index === 2 ? (moves[0] as [string, string]) : [source, destination];
+  const [firstSource, firstDestination] = [1, 2, 3].includes(index)
+    ? (moves[0] as [string, string])
+    : [source, destination];
   expect(() => privateRuntime(directory)).toThrow(
     `Cannot migrate state because both "${firstSource}" and "${firstDestination}" exist. Review the files before migration.`,
   );
@@ -82,7 +83,7 @@ test.each([0, 1, 2, 3])("migration refuses collision %s before moving any source
   expect(lstatSync(destination).ino).toBe(destinationIdentity);
 });
 
-test.each(["auth.json", "models.json"])(
+test.each(["auth.json", "models.json", "models-store.json"])(
   "migration refuses duplicate %s inside the old runtime",
   (name) => {
     const { directory } = legacy();
@@ -95,7 +96,7 @@ test.each(["auth.json", "models.json"])(
   },
 );
 
-test.each(["auth.json", "models.json"])(
+test.each(["auth.json", "models.json", "models-store.json"])(
   "migration refuses old and new %s after partial migration",
   (name) => {
     const { directory, moves } = legacy();
