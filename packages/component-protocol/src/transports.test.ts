@@ -72,3 +72,35 @@ test("standard streams reject oversized and unterminated frames instead of accep
     expect(fixture.events.map((event) => event.type)).toEqual(["fault", "fault", "end"]),
   );
 });
+
+test.for([false, true])(
+  "stream listeners preserve buffered order during re-entry with pending delivery %s",
+  async (doesBuffer, context) => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const transport = createStreamTransport({ input, output });
+    registerTestCleanup(context, () => {
+      transport.close();
+      input.destroy();
+      output.destroy();
+    });
+    const values: unknown[] = [];
+    function receive(event: TransportEvent): void {
+      if (event.type !== "message") {
+        return;
+      }
+      values.push(event.value);
+      if (values.length === 1) {
+        input.emit("data", Buffer.from('{"value":3}\n'));
+      }
+    }
+    if (!doesBuffer) {
+      transport.listen(receive);
+    }
+    input.emit("data", Buffer.from('{"value":1}\n{"value":2}\n'));
+    if (doesBuffer) {
+      transport.listen(receive);
+    }
+    await waitFor(() => expect(values).toEqual([{ value: 1 }, { value: 2 }, { value: 3 }]));
+  },
+);

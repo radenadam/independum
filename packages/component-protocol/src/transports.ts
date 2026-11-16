@@ -84,8 +84,9 @@ export function createStreamTransport(options: StreamTransportOptions): Protocol
     pending = Buffer.concat([pending, chunk]);
     let newline = pending.indexOf(10);
     while (newline !== -1) {
-      decodeFrame(pending.subarray(0, newline), channel.emit);
+      const bytes = pending.subarray(0, newline);
       pending = pending.subarray(newline + 1);
+      decodeFrame(bytes, channel.emit);
       newline = pending.indexOf(10);
     }
     if (pending.length > maximumFrameBytes) {
@@ -220,19 +221,30 @@ function createChannel(): {
 } {
   let listener: ((event: TransportEvent) => void) | undefined;
   const pending: TransportEvent[] = [];
+  let isEmitting = false;
+  function drain(): void {
+    if (isEmitting || listener === undefined) {
+      return;
+    }
+    isEmitting = true;
+    try {
+      let event = pending.shift();
+      while (event !== undefined) {
+        listener(event);
+        event = pending.shift();
+      }
+    } finally {
+      isEmitting = false;
+    }
+  }
   return {
     listen(callback): void {
       listener = callback;
-      for (const event of pending.splice(0)) {
-        callback(event);
-      }
+      drain();
     },
     emit(event): void {
-      if (listener === undefined) {
-        pending.push(event);
-      } else {
-        listener(event);
-      }
+      pending.push(event);
+      drain();
     },
   };
 }

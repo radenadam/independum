@@ -1,11 +1,9 @@
-import { PassThrough } from "node:stream";
-import { setImmediate } from "node:timers/promises";
 import { expect, type TestContext, test } from "vitest";
+import { createPeerFixture } from "./create-peer-fixture.ts";
 import {
   createProtocolPeer,
   type EvidenceRecord,
   type InvocationContext,
-  type ProtocolPeer,
 } from "./create-protocol-peer.ts";
 import {
   referenceBinding,
@@ -16,19 +14,14 @@ import {
 } from "./reference-component.ts";
 import { registerTestCleanup } from "./register-test-cleanup.ts";
 import { type JsonValue, type ProtocolFrame, type RequestFrame, roundTripJson } from "./schemas.ts";
-import {
-  createInProcessTransports,
-  createStreamTransport,
-  type ProtocolTransport,
-  type TransportEvent,
-} from "./transports.ts";
+import type { ProtocolTransport, TransportEvent } from "./transports.ts";
 
 type Role = "broker" | "component";
-type BoundaryAction = "throw" | "close" | "stop" | "cancel";
+type BoundaryAction = "throw" | "close" | "stop" | "cancel" | "send" | "dispose" | "nested";
 type BoundaryEvent =
   | { type: "record"; index: number; action: BoundaryAction }
   | { type: "authorize"; role: Role; action: Exclude<BoundaryAction, "throw"> }
-  | { type: "before-handler"; action: "close" | "stop" };
+  | { type: "before-handler"; action: Exclude<BoundaryAction, "throw"> };
 type Scenario =
   | "initialize"
   | "dispose"
@@ -70,19 +63,8 @@ async function runBoundaryTrace(
   boundary?: BoundaryEvent,
 ): Promise<{ records: EvidenceRecord[]; result: JsonValue; didInject: boolean }> {
   context.signal.throwIfAborted();
-  let pair: [ProtocolTransport, ProtocolTransport];
-  if (kind === "in-process") {
-    pair = createInProcessTransports();
-  } else {
-    const left = new PassThrough();
-    const right = new PassThrough();
-    pair = [
-      createStreamTransport({ input: left, output: right }),
-      createStreamTransport({ input: right, output: left }),
-    ];
-  }
-  const peers = {} as Record<Role, ProtocolPeer>;
-  const listeners = {} as Record<Role, (event: TransportEvent) => void>;
+  const fixture = createPeerFixture(kind);
+  const { peers, listeners, delivered } = fixture;
   const stopped = new Set<Role>();
   const revoked = new Set<string>();
   const settled = new Set<string>();
@@ -90,9 +72,8 @@ async function runBoundaryTrace(
   const records: EvidenceRecord[] = [];
   const starts: string[] = [];
   const violations: string[] = [];
+  const sentSequences = new Map<string, number>();
   const outcomes: JsonValue[] = [];
-  const pending: { role: Role; frame: ProtocolFrame }[] = [];
-  const delivered: ProtocolFrame[] = [];
   let retained: { request: RequestFrame; context: InvocationContext } | undefined;
   let recordIndex = 0;
   let didInject = false;
@@ -121,11 +102,18 @@ async function runBoundaryTrace(
   function interrupt(role: Role, action: BoundaryAction, id: string): void {
     didInject = true;
     if (action === "cancel") {
-      revoked.add(`${role}:${id}`);
       peers[role].cancel(id, "Generated boundary cancellation.", Date.UTC(2040, 0, 1));
+    } else if (action === "send" || action === "dispose" || action === "nested") {
+      observe(
+        fixture.request(
+          role,
+          { ...referenceIdentity("injected"), parentInvocationId: action === "nested" ? id : null },
+          action === "dispose",
+        ),
+      );
     } else {
-      stopped.add(role);
       if (action === "throw") {
+        stopped.add(role);
         throw new Error("The generated evidence sink fails.");
       }
       if (action === "close") {
@@ -154,25 +142,26 @@ async function runBoundaryTrace(
       ["fixture.read"],
     );
   }
-  for (const [index, role] of roles.entries()) {
-    const transport = pair[index] as ProtocolTransport;
+  for (const role of roles) {
     peers[role] = createProtocolPeer({
       role,
       binding: referenceBinding,
       contracts: referenceContracts,
       capabilities: ["fixture.read"],
-      transport: {
-        ...transport,
-        listen(listener): void {
-          listeners[role] = listener;
-          transport.listen(listener);
-        },
+      transport: fixture.transport(role, {
         // The scheduler owns lifecycle events and teardown owns physical channels.
-        close(): void {},
-        send(value): void {
-          const frame = value as ProtocolFrame;
-          const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
-          const id = details?.identity?.invocationId ?? "uncorrelated";
+        close(): void {
+          stopped.add(role);
+        },
+        send(frame, id): void {
+          if (id !== "uncorrelated") {
+            const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
+            const key = `${role}:${id}`;
+            if (details?.sequence !== (sentSequences.get(key) ?? 0) + 1) {
+              violations.push(`${key}:sequence`);
+            }
+            sentSequences.set(key, details?.sequence ?? 0);
+          }
           const isControl = !("method" in frame) || frame.method === "cancel";
           start(role, "method" in frame ? "send" : "terminal-send", id, isControl);
           if (!("method" in frame)) {
@@ -182,10 +171,15 @@ async function runBoundaryTrace(
             stopped.add(role);
             throw new Error("The generated transport send fails.");
           }
-          pending.push({ role, frame });
         },
-      },
+      }),
       record(entry): void {
+        if (entry.kind === "frame" && entry.direction === "sent") {
+          const frame = entry.value as unknown as ProtocolFrame;
+          if ("method" in frame && frame.method === "cancel") {
+            revoked.add(`${role}:${frame.params.identity.invocationId}`);
+          }
+        }
         if (entry.kind === "frame") {
           const frame = entry.value as unknown as ProtocolFrame;
           if (
@@ -301,33 +295,13 @@ async function runBoundaryTrace(
     });
   }
   function cleanup(): void {
-    peers.broker.close();
-    peers.component.close();
-    for (const transport of pair) {
-      transport.close();
-    }
+    fixture.close();
   }
   registerTestCleanup(context, cleanup);
-  async function drain(): Promise<void> {
-    for (let step = 0; step < 100; step++) {
-      context.signal.throwIfAborted();
-      const delivery = pending.shift();
-      if (delivery !== undefined) {
-        delivered.push(delivery.frame);
-        const index = delivery.role === "broker" ? 0 : 1;
-        pair[index].send(delivery.frame);
-      }
-      await setImmediate();
-      if (pending.length === 0) {
-        return;
-      }
-    }
-    throw new Error("The generated boundary trace does not quiesce.");
-  }
   try {
     isTesting = scenario === "initialize";
     observe(peers.broker.request("initialize", referenceIdentity("initialize"), referenceOffer()));
-    await drain();
+    await fixture.drain(context);
     outcomes.length = 0;
     starts.length = 0;
     isTesting = true;
@@ -352,7 +326,7 @@ async function runBoundaryTrace(
       }
     }
     doesSendFail = scenario === "send-failure";
-    await drain();
+    await fixture.drain(context);
     if (scenario === "reject") {
       observe(
         peers.broker.request(
@@ -431,7 +405,7 @@ async function runBoundaryTrace(
       }
       listeners.broker(event);
     }
-    await drain();
+    await fixture.drain(context);
     expect(violations, label).toEqual([]);
     return {
       records: [...records],
@@ -449,7 +423,9 @@ async function runBoundaryTrace(
   }
 }
 
-test.for(scenarios.flatMap((scenario) => [0, 1, 2, 3].map((batch) => ({ scenario, batch }))))(
+test.for(
+  scenarios.flatMap((scenario) => Array.from({ length: 12 }, (_, batch) => ({ scenario, batch }))),
+)(
   "generated $scenario boundaries preserve action admission over both transports in batch $batch",
   async ({ scenario, batch }, context) => {
     process.stdout.write(
@@ -460,25 +436,29 @@ test.for(scenarios.flatMap((scenario) => [0, 1, 2, 3].map((batch) => ({ scenario
     expect(baselineStream.result).toEqual(baseline.result);
     const boundaries: BoundaryEvent[] = [
       ...baseline.records.flatMap((_, index): BoundaryEvent[] =>
-        ["throw", "close", "stop"].map((action) => ({
+        ["throw", "close", "stop", "cancel", "send", "dispose", "nested"].map((action) => ({
           type: "record",
           index,
           action: action as BoundaryAction,
         })),
       ),
       ...roles.flatMap((role): BoundaryEvent[] =>
-        ["close", "stop", "cancel"].map((action) => ({
+        ["close", "stop", "cancel", "send", "dispose", "nested"].map((action) => ({
           type: "authorize",
           role,
-          action: action as "close" | "stop" | "cancel",
+          action: action as Exclude<BoundaryAction, "throw">,
         })),
       ),
-      { type: "before-handler", action: "close" },
-      { type: "before-handler", action: "stop" },
+      ...["close", "stop", "cancel", "send", "dispose", "nested"].map(
+        (action): BoundaryEvent => ({
+          type: "before-handler",
+          action: action as Exclude<BoundaryAction, "throw">,
+        }),
+      ),
     ];
     const offset = seed % boundaries.length;
-    const first = Math.floor((boundaries.length * batch) / 4);
-    const end = Math.floor((boundaries.length * (batch + 1)) / 4);
+    const first = Math.floor((boundaries.length * batch) / 12);
+    const end = Math.floor((boundaries.length * (batch + 1)) / 12);
     process.stdout.write(
       `Admission boundaries: ${boundaries.length}. Trace range: [${first}, ${end}). Recording points: ${baseline.records.length}.\n`,
     );
@@ -493,7 +473,7 @@ test.for(scenarios.flatMap((scenario) => [0, 1, 2, 3].map((batch) => ({ scenario
   },
 );
 
-test("nested evidence failure during authorization blocks the outer handler", async (context) => {
+test("queued nested evidence failure stops work after the admitting step", async (context) => {
   const baseline = await runBoundaryTrace(context, "in-process", "complete");
   const index = baseline.records.findIndex(
     (entry) => entry.direction === "sent" && entry.invocationId === "outer.authorization",

@@ -89,7 +89,7 @@ test.for(transitionRanges)(
             "send-failed",
             "interrupted",
           ] as const
-        )[random(9)] as Exclude<Parameters<Invocation["transition"]>[0]["type"], "sent-frame">;
+        )[random(9)] as Exclude<Parameters<Invocation["transition"]>[0]["type"], "terminal-sent">;
         trace.push(type);
         const reportedEffects = (["known", "uncertain", "absent"] as const)[random(3)] as
           | "known"
@@ -176,7 +176,7 @@ type TraceEvent =
         | "incoming-last"
         | "drain"
         | "cancel-all"
-        | "expiry"
+        | "before-deadline"
         | "stop"
         | "fault"
         | "exit"
@@ -225,7 +225,7 @@ function generatedTrace(seed: number): TraceEvent[] {
     { type: "request", id: "before-dispatch", method: "tool.execute", cancelAt: "record" },
     { type: "request", id: "unrelated", method: "tool.execute", mode: "wait" },
     { type: "drain" },
-    { type: "expiry" },
+    { type: "before-deadline" },
     { type: "request", id: "after-expiry", method: "tool.execute" },
     { type: "drain" },
     { type: "request", id: "other", method: "tool.execute", mode: "wait" },
@@ -304,6 +304,7 @@ async function runInterleaving(
   const failures: ProtocolError[] = [];
   const authorized = new Map<string, JsonValue>();
   const remoteActive = new Set<string>();
+  const pendingCancellations: string[] = [];
   let phase: "uninitialized" | "initializing" | "ready" | "disposing" | "disposed" | "stopped" =
     "uninitialized";
   let lifecycleOwner: string | undefined;
@@ -311,7 +312,7 @@ async function runInterleaving(
   let failureMode: "none" | "evidence" | "before-send" | "after-send" = "none";
   let serializationCalls = 0;
   let terminationCount = 0;
-  let cancellationDeadline = fixedTime + 60_000;
+  let cancellationDeadline = fixedTime + 120_000;
   let remotePhase: "uninitialized" | "ready" | "disposed" = "uninitialized";
   let listener: ((event: TransportEvent) => void) | undefined;
   let idle: ((entries: EvidenceRecord[]) => void) | undefined;
@@ -373,7 +374,7 @@ async function runInterleaving(
       }
     }
   }
-  function cancellation(id: string): void {
+  function cancellation(id: string, doesCallPeer = true): void {
     const invocation = expected.get(id);
     if (invocation?.admitted !== true || isModelStopped()) {
       return;
@@ -389,11 +390,22 @@ async function runInterleaving(
         invocation.status = "cancelled";
       }
     }
-    broker.cancel(id, "Generated cancellation.", cancellationDeadline);
+    if (doesCallPeer) {
+      broker.cancel(id, "Generated cancellation.", cancellationDeadline);
+    }
     expect(
       [...expected.values()].filter((other) => other !== invocation).map((other) => other.actual),
       label,
     ).toEqual(others);
+  }
+  function reentrantCancellation(id: string): void {
+    broker.cancel(id, "Generated cancellation.", cancellationDeadline);
+    pendingCancellations.push(id);
+  }
+  function commitCancellations(): void {
+    for (const id of pendingCancellations.splice(0)) {
+      cancellation(id, false);
+    }
   }
   const broker = createProtocolPeer({
     role: "broker",
@@ -437,7 +449,7 @@ async function runInterleaving(
         }
         outgoing.push(frame);
         if ("method" in frame && "id" in frame && invocation?.request.cancelAt === "send") {
-          cancellation(invocation.request.id);
+          reentrantCancellation(invocation.request.id);
         }
       },
     },
@@ -461,13 +473,13 @@ async function runInterleaving(
           ((point === "terminal" && !("method" in frame)) ||
             (point === "progress" && "method" in frame && frame.method === "progress")))
       ) {
-        cancellation(invocation.request.id);
+        reentrantCancellation(invocation.request.id);
       }
     },
     authorize(request): void {
       authorized.set(request.params.identity.invocationId, request.params.input);
       if (expected.get(request.params.identity.invocationId)?.request.cancelAt === "authorize") {
-        cancellation(request.params.identity.invocationId);
+        reentrantCancellation(request.params.identity.invocationId);
       }
     },
     handlers: {
@@ -545,6 +557,7 @@ async function runInterleaving(
       input,
       event.method === "tool.execute" ? ["fixture.read"] : [],
     );
+    commitCancellations();
     void promise.then(
       (output) => {
         invocation.actual = { output };
@@ -680,6 +693,7 @@ async function runInterleaving(
           cancellation(invocation.request.id);
         }
       }
+      commitCancellations();
     } else {
       listener?.(event);
     }
@@ -718,7 +732,7 @@ async function runInterleaving(
             cancellation(invocation.request.id);
           }
         }
-      } else if (event.type === "expiry") {
+      } else if (event.type === "before-deadline") {
         const before = terminationCount;
         await vi.advanceTimersByTimeAsync(60_001);
         cancellationDeadline += 60_001;
@@ -775,9 +789,16 @@ async function runInterleaving(
     }
     for (const entries of [records, remoteRecords]) {
       const sequences = new Map<string | null, number>();
+      const wireSequences = new Map<string, number>();
       for (const entry of entries) {
         expect(entry.sequence, label).toBe((sequences.get(entry.invocationId) ?? 0) + 1);
         sequences.set(entry.invocationId, entry.sequence);
+        if (entry.kind === "frame" && entry.direction === "sent" && entry.invocationId !== null) {
+          const frame = entry.value as unknown as ProtocolFrame;
+          const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
+          expect(details?.sequence, label).toBe((wireSequences.get(entry.invocationId) ?? 0) + 1);
+          wireSequences.set(entry.invocationId, details?.sequence ?? 0);
+        }
       }
     }
     return roundTripJson({

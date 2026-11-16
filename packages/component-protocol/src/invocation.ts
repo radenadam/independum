@@ -42,7 +42,7 @@ type InvocationState =
 type InvocationEvent =
   | { type: "send-attempted" | "sent" }
   | { type: "received"; sequence: number; effects?: "known" | "absent" | "uncertain" | undefined }
-  | { type: "sent-frame"; sequence: number; isTerminal?: boolean }
+  | { type: "terminal-sent" }
   | { type: "cancel" | "deadline"; deadline?: number }
   | { type: "completed"; output: JsonValue }
   | { type: "failed" | "send-failed" | "interrupted"; error: Error };
@@ -93,8 +93,12 @@ export class Invocation {
     return "cancellationDeadline" in this.#state ? this.#state.cancellationDeadline : undefined;
   }
 
-  get sentSequence(): number {
-    return this.#sentSequence;
+  reserveSequence(): number {
+    return ++this.#sentSequence;
+  }
+
+  get nextSequence(): number {
+    return this.#sentSequence + 1;
   }
 
   get receivedSequence(): number {
@@ -131,19 +135,9 @@ export class Invocation {
     }
   }
 
-  dispatch(send: () => void): void {
-    if (!this.allows("dispatch")) {
-      throw new Error("Only a prepared invocation can attempt dispatch.");
-    }
-    this.transition({ type: "send-attempted" });
-    send();
-    this.transition({ type: "sent" });
-  }
-
   transition(event: InvocationEvent): void {
-    if (event.type === "sent-frame") {
-      this.#sentSequence = event.sequence;
-      if (event.isTerminal && "response" in this.#state) {
+    if (event.type === "terminal-sent") {
+      if ("response" in this.#state) {
         this.#state = { ...this.#state, response: "sent" };
       }
       return;
@@ -166,7 +160,7 @@ export class Invocation {
         if (event.type === "received") {
           this.#receivedSequence = event.sequence;
         }
-        // A correlated reply is evidence of delivery even during a reentrant send.
+        // Dispatch facts advance independently of settlement.
         if (state.phase === "dispatch-attempted") {
           this.#state = {
             phase: "dispatched",

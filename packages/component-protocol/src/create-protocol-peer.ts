@@ -117,6 +117,8 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     received: new Map<string | number, Invocation>(),
   };
   const evidenceSequences = new Map<string | null, number>();
+  const steps: { run(): void; failed(error: unknown): void }[] = [];
+  let isStepping = false;
   let nextRequest = 0;
   const lifecycle = new PeerLifecycle();
   const lifecycleOperations = new Set<Operation>(["initialize", "describe", "dispose"]);
@@ -127,6 +129,45 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     "state.write",
     "effect.request",
   ]);
+
+  function enqueue(run: () => void, failed: (error: unknown) => void): void {
+    steps.push({ run, failed });
+    if (isStepping) {
+      return;
+    }
+    isStepping = true;
+    try {
+      let step = steps.shift();
+      while (step !== undefined) {
+        try {
+          step.run();
+        } catch (error) {
+          step.failed(error);
+        }
+        step = steps.shift();
+      }
+    } finally {
+      isStepping = false;
+    }
+  }
+  function stopFailedStep(error: unknown): void {
+    stop(error instanceof Error ? error : new Error("Protocol execution fails."));
+  }
+  function perform(run: () => void, failed = stopFailedStep): void {
+    let problem: unknown;
+    let didFail = false;
+    const wasStepping = isStepping;
+    enqueue(run, (error) => {
+      failed(error);
+      if (!wasStepping) {
+        didFail = true;
+        problem = error;
+      }
+    });
+    if (didFail) {
+      throw problem;
+    }
+  }
 
   function mayProceed(action: InvocationAction | "protocol", invocation?: Invocation): boolean {
     if (!lifecycle.allows(action, invocation, invocation?.request.method)) {
@@ -270,10 +311,24 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     try {
       assertProceed(action, invocation);
       outgoing = roundTripJson(frame) as unknown as ProtocolFrame;
+      if (invocation !== undefined && !("method" in outgoing && "id" in outgoing)) {
+        const details =
+          "params" in outgoing ? outgoing.params : (outgoing.result ?? outgoing.error?.data);
+        if (details !== undefined) {
+          details.sequence = invocation.nextSequence;
+        }
+      }
       validateValue(protocolSchemas.frame as TSchema, outgoing);
       encodeFrame(outgoing);
     } catch (error) {
       throw rejectDispatch(frame, error, "absent", invocation);
+    }
+    if (invocation !== undefined && !("method" in outgoing && "id" in outgoing)) {
+      const details =
+        "params" in outgoing ? outgoing.params : (outgoing.result ?? outgoing.error?.data);
+      if (details !== undefined) {
+        details.sequence = invocation.reserveSequence();
+      }
     }
     record("frame", "sent", outgoing, invocationId);
     assertProceed(action, invocation);
@@ -282,7 +337,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     const isRequest = "method" in outgoing && "id" in outgoing;
     try {
       if (isRequest && invocation !== undefined) {
-        invocation.dispatch(() => options.transport.send(outgoing));
+        invocation.transition({ type: "send-attempted" });
+        options.transport.send(outgoing);
+        invocation.transition({ type: "sent" });
         armTermination(invocation);
       } else {
         options.transport.send(outgoing);
@@ -406,24 +463,25 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
   ): void {
     const field = isCancellation ? "cancellationTimer" : "timer";
     invocation[field] = setTimeout(
-      () => {
-        if (Date.now() < deadline) {
-          scheduleDeadline(invocation, deadline, isCancellation);
-        } else if (isCancellation) {
-          stop(failure("cancellation", "The cancellation deadline has expired.", invocation));
-        } else if (mayProceed("revoke", invocation)) {
-          try {
-            cancel(
-              invocation.request.params.identity.invocationId,
-              "The invocation deadline has expired.",
-              Date.now(),
-              "deadline",
-            );
-          } catch (error) {
-            stop(protocolError(error, invocation));
+      () =>
+        enqueue(() => {
+          if (Date.now() < deadline) {
+            scheduleDeadline(invocation, deadline, isCancellation);
+          } else if (isCancellation) {
+            stop(failure("cancellation", "The cancellation deadline has expired.", invocation));
+          } else if (mayProceed("revoke", invocation)) {
+            try {
+              cancel(
+                invocation.request.params.identity.invocationId,
+                "The invocation deadline has expired.",
+                Date.now(),
+                "deadline",
+              );
+            } catch (error) {
+              stop(protocolError(error, invocation));
+            }
           }
-        }
-      },
+        }, stopFailedStep),
       Math.max(0, Math.min(deadline - Date.now(), 2 ** 31 - 1)),
     );
   }
@@ -434,7 +492,6 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     beforeDispatch?: () => void,
   ): void {
     assertProceed(method === "cancel" ? "cancel" : "notify", invocation);
-    const sequence = invocation.sentSequence + 1;
     send(
       {
         jsonrpc: "2.0",
@@ -443,14 +500,13 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           wireVersion: protocolVersion,
           identity: invocation.request.params.identity,
           contract: invocation.request.params.contract,
-          sequence,
+          sequence: 1,
           data,
         },
       },
       invocation.request.params.identity.invocationId,
       beforeDispatch,
     );
-    invocation.transition({ type: "sent-frame", sequence });
   }
   function revoke(
     invocation: Invocation,
@@ -631,7 +687,6 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     } catch (error) {
       problem = error;
     }
-    const sequence = invocation.sentSequence + 1;
     function finish(): void {
       problem = invocation.revocationFailure ?? problem;
       settle(
@@ -652,14 +707,14 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
               result: {
                 identity: request.params.identity,
                 contract: request.params.contract,
-                sequence,
+                sequence: 1,
                 outcome: "completed",
                 output: output as JsonValue,
                 dispatch: "known",
                 effects: "uncertain",
               },
             }
-          : errorResponse(request.id, problem, invocation, sequence);
+          : errorResponse(request.id, problem, invocation);
       send(response, request.params.identity.invocationId, finish);
     } catch {
       if (!mayProceed("reply", invocation) && !mayProceed("terminal", invocation)) {
@@ -681,7 +736,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       }
       try {
         send(
-          errorResponse(request.id, encodingProblem, invocation, sequence),
+          errorResponse(request.id, encodingProblem, invocation),
           request.params.identity.invocationId,
           finish,
         );
@@ -703,7 +758,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         return;
       }
     }
-    invocation.transition({ type: "sent-frame", sequence, isTerminal: true });
+    invocation.transition({ type: "terminal-sent" });
   }
   function protocolError(error: unknown, invocation?: Invocation, sequence = 0): ProtocolError {
     const problem =
@@ -867,10 +922,16 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       const context: InvocationContext = {
         signal: active.controller.signal,
         progress(value): void {
-          notify(active, "progress", { value });
+          perform(
+            () => notify(active, "progress", { value }),
+            (error) => reply(active, undefined, error),
+          );
         },
         log(level, message): void {
-          notify(active, "log", { level, message });
+          perform(
+            () => notify(active, "log", { level, message }),
+            (error) => reply(active, undefined, error),
+          );
         },
         assertCapability(handle): void {
           if (
@@ -899,12 +960,10 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         request.method === "initialize" ? initialize(request) : handler?.(request, context);
       void Promise.resolve(output)
         .then(
-          (value) => reply(active, value),
-          (error) => reply(active, undefined, error),
+          (value) => enqueue(() => reply(active, value), stopFailedStep),
+          (error) => enqueue(() => reply(active, undefined, error), stopFailedStep),
         )
-        .catch((error: unknown) =>
-          stop(error instanceof Error ? error : new Error("Protocol execution fails.")),
-        );
+        .catch((error: unknown) => enqueue(() => stopFailedStep(error), stopFailedStep));
     } catch (error) {
       if (!mayProceed("protocol")) {
         return;
@@ -1106,61 +1165,67 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       stop(problem);
     }
   }
-  options.transport.listen(receive);
+  options.transport.listen((event) => enqueue(() => receive(event), stopFailedStep));
   return {
-    async request(method, identity, input, capabilities = []): Promise<JsonValue> {
-      let request: RequestFrame = {
-        jsonrpc: "2.0",
-        id: `${options.role}:${++nextRequest}`,
-        method,
-        params: {
-          wireVersion: protocolVersion,
-          identity,
-          sequence: 1,
-          contract: {
-            id: method,
-            version: lifecycleOperations.has(method)
-              ? protocolVersion
-              : (lifecycle.selection?.contracts[method] ?? protocolVersion),
-          },
-          capabilities,
-          input,
-        },
-      };
+    request(method, identity, input, capabilities = []): Promise<JsonValue> {
       return new Promise<JsonValue>((resolve, reject) => {
-        let invocation: Invocation | undefined;
-        try {
-          validateValue(protocolSchemas.frame as TSchema, request);
-          request = roundTripJson(request) as unknown as RequestFrame;
-          invocation = prepareInvocation(request, { resolve, reject });
-          validateValue(operationInputs[method], request.params.input);
-          checkRequest(request);
-          validateContribution(request);
-          addInvocation(invocation);
-          assertProceed("dispatch", invocation);
-          options.authorize(roundTripJson(request) as unknown as RequestFrame);
-        } catch (error) {
-          const problem = rejectDispatch(request, error, "absent", invocation);
-          if (invocation === undefined) {
-            reject(problem);
-          } else {
-            settle(invocation, { type: "failed", error: problem });
+        enqueue(() => {
+          let request: RequestFrame = {
+            jsonrpc: "2.0",
+            id: `${options.role}:${++nextRequest}`,
+            method,
+            params: {
+              wireVersion: protocolVersion,
+              identity,
+              sequence: 1,
+              contract: {
+                id: method,
+                version: lifecycleOperations.has(method)
+                  ? protocolVersion
+                  : (lifecycle.selection?.contracts[method] ?? protocolVersion),
+              },
+              capabilities,
+              input,
+            },
+          };
+          let invocation: Invocation | undefined;
+          try {
+            validateValue(protocolSchemas.frame as TSchema, request);
+            request = roundTripJson(request) as unknown as RequestFrame;
+            invocation = prepareInvocation(request, { resolve, reject });
+            validateValue(operationInputs[method], request.params.input);
+            checkRequest(request);
+            validateContribution(request);
+            addInvocation(invocation);
+            assertProceed("dispatch", invocation);
+            options.authorize(roundTripJson(request) as unknown as RequestFrame);
+          } catch (error) {
+            const problem = rejectDispatch(request, error, "absent", invocation);
+            if (invocation === undefined) {
+              reject(problem);
+            } else {
+              settle(invocation, { type: "failed", error: problem });
+            }
+            return;
           }
-          return;
-        }
-        try {
-          send(invocation.request, invocation.request.params.identity.invocationId);
-        } catch (error) {
-          settle(invocation, { type: "send-failed", error: protocolError(error, invocation) });
-        }
+          try {
+            send(invocation.request, invocation.request.params.identity.invocationId);
+          } catch (error) {
+            settle(invocation, { type: "send-failed", error: protocolError(error, invocation) });
+          }
+        }, reject);
       });
     },
-    cancel,
+    cancel(invocationId, reason, deadline): void {
+      perform(() => cancel(invocationId, reason, deadline));
+    },
     close(): void {
-      stop(new Error("The protocol peer is closed."));
-      for (const invocation of invocations.values()) {
-        clearTimeout(invocation.cancellationTimer);
-      }
+      perform(() => {
+        stop(new Error("The protocol peer is closed."));
+        for (const invocation of invocations.values()) {
+          clearTimeout(invocation.cancellationTimer);
+        }
+      });
     },
     isStopped(): boolean {
       return lifecycle.isStopped();
