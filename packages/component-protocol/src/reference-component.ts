@@ -1,3 +1,4 @@
+import { createCollidingStateReader } from "./create-colliding-state-reader.ts";
 import {
   createProtocolPeer,
   type EvidenceRecord,
@@ -99,6 +100,11 @@ export function createReferenceComponent(
   record: (entry: EvidenceRecord) => void,
 ): ProtocolPeer {
   const entries: EvidenceRecord[] = [];
+  function capture(entry: EvidenceRecord): void {
+    entries.push(entry);
+    record(entry);
+  }
+  const collision = createCollidingStateReader(transport, capture);
   let peer: ProtocolPeer;
   async function execute(request: RequestFrame, context: InvocationContext): Promise<JsonValue> {
     const input = request.params.input as { arguments: { mode: string; value: JsonValue } };
@@ -106,6 +112,12 @@ export function createReferenceComponent(
     context.log("info", "The reference invocation starts.");
     context.progress({ step: 1 });
     let result = value;
+    if (mode === "id-collision" || mode === "id-collision-duplicate") {
+      result = await collision.read(request);
+      if (mode === "id-collision-duplicate") {
+        result = await collision.read(request, "again");
+      }
+    }
     if (mode === "ordering") {
       transport.send({
         jsonrpc: "2.0",
@@ -162,12 +174,9 @@ export function createReferenceComponent(
     };
   }
   peer = createProtocolPeer({
-    transport,
+    transport: collision.transport,
     ...referencePeerOptions,
-    record(entry): void {
-      entries.push(entry);
-      record(entry);
-    },
+    record: capture,
     authorize(request): void {
       if (request.method === "tool.execute") {
         const definition = (request.params.input as { definition: JsonValue }).definition;

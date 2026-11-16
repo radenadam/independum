@@ -449,9 +449,9 @@ async function runBoundaryTrace(
   }
 }
 
-test.for(scenarios)(
-  "generated %s boundaries preserve action admission over both transports",
-  async (scenario, context) => {
+test.for(scenarios.flatMap((scenario) => [0, 1, 2, 3].map((batch) => ({ scenario, batch }))))(
+  "generated $scenario boundaries preserve action admission over both transports in batch $batch",
+  async ({ scenario, batch }, context) => {
     process.stdout.write(
       `Admission seed: ${seed}. Scenario: ${scenario}. Transports: in-process, standard-streams.\n`,
     );
@@ -477,10 +477,12 @@ test.for(scenarios)(
       { type: "before-handler", action: "stop" },
     ];
     const offset = seed % boundaries.length;
+    const first = Math.floor((boundaries.length * batch) / 4);
+    const end = Math.floor((boundaries.length * (batch + 1)) / 4);
     process.stdout.write(
-      `Admission boundaries: ${boundaries.length}. Recording points: ${baseline.records.length}.\n`,
+      `Admission boundaries: ${boundaries.length}. Trace range: [${first}, ${end}). Recording points: ${baseline.records.length}.\n`,
     );
-    for (let step = 0; step < boundaries.length; step++) {
+    for (let step = first; step < end; step++) {
       const boundary = boundaries[(step + offset) % boundaries.length] as BoundaryEvent;
       const left = await runBoundaryTrace(context, "in-process", scenario, boundary);
       const right = await runBoundaryTrace(context, "standard-streams", scenario, boundary);

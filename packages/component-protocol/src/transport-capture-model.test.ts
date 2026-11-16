@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, type TestContext, test } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
 import { createProtocolPeer, type EvidenceRecord } from "./create-protocol-peer.ts";
+import { createSeededGenerator } from "./create-seeded-generator.ts";
 import {
   referenceBinding,
   referenceContracts,
@@ -63,13 +64,7 @@ function frame(id: string, method: "initialize" | "describe" = "describe"): Capt
 }
 
 function generatedCaptureTrace(seed: number): CaptureEvent[] {
-  let value = seed;
-  function random(limit: number): number {
-    value ^= value << 13;
-    value ^= value >>> 17;
-    value ^= value << 5;
-    return (value >>> 0) % limit;
-  }
+  const random = createSeededGenerator(seed);
   function diagnostic(bytes: Buffer): CaptureEvent {
     return { type: "diagnostic", bytes: bytes.toString("base64") };
   }
@@ -320,13 +315,15 @@ async function runCaptureTrace(
   }
 }
 
-test.for([0, 1, 2, 3])(
+test.for(Array.from({ length: 32 }, (_, batch) => batch))(
   "generated output events preserve every byte around stop exit and stream completion in batch %s",
   async (batch, context) => {
     const started = performance.now();
-    const seed = baseSeed + batch * 24;
-    process.stdout.write(`Capture seed: ${seed}. Traces: 24.\n`);
-    for (let run = 0; run < 24; run++) {
+    const seed = baseSeed + batch * 3;
+    process.stdout.write(
+      `Capture seed: ${baseSeed}. Trace range: [${batch * 3}, ${(batch + 1) * 3}).\n`,
+    );
+    for (let run = 0; run < 3; run++) {
       await runCaptureTrace(context, "scheduled", seed + run);
     }
     process.stdout.write(`Capture batch: ${(performance.now() - started).toFixed(0)} ms.\n`);

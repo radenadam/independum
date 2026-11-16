@@ -14,7 +14,7 @@ The direct maintainer correction of 2026-11-16 separates delivery closure from c
 
 The TypeScript SDK offers a trusted in-process transport with identical JSON round trips, validation, ordering, cancellation, errors, and evidence semantics. Capability checks cannot isolate arbitrary trusted code. Isolated execution uses the existing [permission and native boundary](../product/permissions.md).
 
-JSON-RPC request ids correlate responses. Every invocation also carries run id, invocation id, parent invocation id, component-instance id, configuration revision, and a deadline or explicit absence. The broker assigns and validates this identity against the captured run graph. Components cannot impersonate another instance or acquire a newer configuration midway through a reply.
+JSON-RPC ids belong to senders. Opposite directions may reuse ids. Correlate responses by direction and id, then validate invocation identity. Detect same-direction duplicates. Source: direct maintainer repair instruction, 2026-11-16. Broker-assigned invocations carry run, invocation, parent, component-instance, configuration revision, and explicit deadline or absence. Reject impersonation and configuration changes.
 
 Identifiers are nonempty opaque strings. JSON-RPC ids also accept nonnegative safe integers. Deadlines are epoch milliseconds or null. The endpoint binds one captured run, instance, and revision. Schemas define payload fields and nullable slots. Kernel evidence tags present values or absence reasons, with six completeness checks. Pinned schemas validate JSON arguments and replacements.
 
@@ -60,7 +60,7 @@ Peer states: uninitialized, initializing, ready, disposing, disposed, stopped. R
 
 ## Conformance and control
 
-Run the same fixtures over standard streams and the in-process transport. Cover negotiation, JSON round trips, nested correlation, ordering, malformed messages, denied capabilities, progress, terminal outcomes, cancellation races, worker exit, and evidence failure. No TypeScript-only operation may bypass these checks. These fixtures precede dependent implementation.
+Run the same fixtures over standard streams and the in-process transport. Cover negotiation, JSON round trips, nested id collisions, ordering, malformed messages, denied capabilities, progress, terminal outcomes, cancellation races, worker exit, and evidence failure. No TypeScript-only operation may bypass these checks. These fixtures precede dependent implementation.
 
 [Fixtures](../../packages/component-protocol/src/transport-conformance.test.ts), [generated traces](../../packages/component-protocol/src/invocation-model.test.ts), and [admission boundaries](../../packages/component-protocol/src/admission-model.test.ts) compare transports, including real children. Process tests run serially within 20 seconds with cancellation teardown. Termination requires an owned worker.
 

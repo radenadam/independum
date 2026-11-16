@@ -7,6 +7,7 @@ import { expect, type TestContext, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
 import { createInterleavingComponent } from "./create-interleaving-component.ts";
 import { createProtocolPeer, type EvidenceRecord, ProtocolError } from "./create-protocol-peer.ts";
+import { createSeededGenerator } from "./create-seeded-generator.ts";
 import { Invocation } from "./invocation.ts";
 import { PeerLifecycle } from "./peer-lifecycle.ts";
 import {
@@ -32,16 +33,10 @@ import {
 } from "./transports.ts";
 
 const baseSeed = 0x51a7e202;
-
-function generator(seed: number): (limit: number) => number {
-  let value = seed;
-  return (limit) => {
-    value ^= value << 13;
-    value ^= value >>> 17;
-    value ^= value << 5;
-    return (value >>> 0) % limit;
-  };
-}
+const transitionRanges = Array.from({ length: 20 }, (_, batch) => ({
+  first: batch * 500,
+  end: (batch + 1) * 500,
+}));
 
 function requestFrame(id: string): RequestFrame {
   return {
@@ -59,97 +54,102 @@ function requestFrame(id: string): RequestFrame {
   };
 }
 
-test("seeded invocation transitions agree with an independent delivery and settlement model", (context) => {
-  process.stdout.write(`Invocation transition seed: ${baseSeed}. Runs: 10000.\n`);
-  const random = generator(baseSeed);
-  for (let run = 0; run < 10_000; run++) {
-    context.signal.throwIfAborted();
-    const messages: unknown[] = [];
-    const ownFailure = new Error(`Invocation ${run} fails.`);
-    const cancellation = new Error(`Invocation ${run} cancels.`);
-    const invocation = new Invocation(requestFrame(String(run)), () => cancellation, {
-      resolve: (value) => messages.push(value),
-      reject: (error) => messages.push(error),
-    });
-    let dispatch = "absent";
-    let effects = "absent";
-    let isCancelled = false;
-    let isTerminal = false;
-    let expected: unknown;
-    const trace: string[] = [];
-    for (let step = 0; step < 24; step++) {
-      const type = (
-        [
-          "send-attempted",
-          "sent",
-          "received",
-          "cancel",
-          "deadline",
-          "completed",
-          "failed",
-          "send-failed",
-          "interrupted",
-        ] as const
-      )[random(9)] as Exclude<Parameters<Invocation["transition"]>[0]["type"], "sent-frame">;
-      trace.push(type);
-      const reportedEffects = (["known", "uncertain", "absent"] as const)[random(3)] as
-        | "known"
-        | "uncertain"
-        | "absent";
-      if (!isTerminal) {
-        if (type === "send-attempted" && dispatch === "absent" && !isCancelled) {
-          dispatch = "uncertain";
-          effects = "uncertain";
-        } else if ((type === "sent" || type === "received") && dispatch === "uncertain") {
-          dispatch = "known";
-        } else if (type === "cancel" || type === "deadline") {
-          isCancelled = true;
-        } else if (
-          ["completed", "failed", "send-failed", "interrupted"].includes(type) &&
-          (type !== "completed" || isCancelled || dispatch === "known")
-        ) {
-          isTerminal = true;
-          expected = type === "completed" ? (isCancelled ? cancellation : "result") : ownFailure;
-        }
-        if (
-          type === "received" &&
-          dispatch === "known" &&
-          !isCancelled &&
-          reportedEffects === "known"
-        ) {
-          effects = "known";
-        }
-      }
-      const event =
-        type === "received"
-          ? { type, sequence: step + 1, effects: reportedEffects }
-          : type === "completed"
-            ? { type, output: "result" }
-            : type === "failed" || type === "send-failed" || type === "interrupted"
-              ? { type, error: ownFailure }
-              : { type };
-      invocation.transition(event);
-      const label = `Seed ${baseSeed}, run ${run}, trace ${trace.join(",")}.`;
-      expect(invocation.delivery, label).toEqual({
-        dispatch,
-        effects,
+test.for(transitionRanges)(
+  "seeded invocation transitions agree with the delivery and settlement model in range $first to $end",
+  ({ first, end }, context) => {
+    process.stdout.write(
+      `Invocation transition seed: ${baseSeed}. Trace range: [${first}, ${end}).\n`,
+    );
+    const random = createSeededGenerator(baseSeed, first * 24 * 2);
+    for (let run = first; run < end; run++) {
+      context.signal.throwIfAborted();
+      const messages: unknown[] = [];
+      const ownFailure = new Error(`Invocation ${run} fails.`);
+      const cancellation = new Error(`Invocation ${run} cancels.`);
+      const invocation = new Invocation(requestFrame(String(run)), () => cancellation, {
+        resolve: (value) => messages.push(value),
+        reject: (error) => messages.push(error),
       });
-      expect(messages, label).toEqual(isTerminal ? [expected] : []);
-      expect(invocation.allows("work"), label).toBe(
-        !isTerminal && !isCancelled && dispatch !== "absent",
-      );
-      expect(invocation.allows("dispatch"), label).toBe(
-        !isTerminal && !isCancelled && dispatch === "absent",
-      );
-      expect(invocation.allows("reply"), label).toBe(
-        !isTerminal && (isCancelled || dispatch === "known"),
-      );
-      expect(invocation.allows("revoke"), label).toBe(!isTerminal);
+      let dispatch = "absent";
+      let effects = "absent";
+      let isCancelled = false;
+      let isTerminal = false;
+      let expected: unknown;
+      const trace: string[] = [];
+      for (let step = 0; step < 24; step++) {
+        const type = (
+          [
+            "send-attempted",
+            "sent",
+            "received",
+            "cancel",
+            "deadline",
+            "completed",
+            "failed",
+            "send-failed",
+            "interrupted",
+          ] as const
+        )[random(9)] as Exclude<Parameters<Invocation["transition"]>[0]["type"], "sent-frame">;
+        trace.push(type);
+        const reportedEffects = (["known", "uncertain", "absent"] as const)[random(3)] as
+          | "known"
+          | "uncertain"
+          | "absent";
+        if (!isTerminal) {
+          if (type === "send-attempted" && dispatch === "absent" && !isCancelled) {
+            dispatch = "uncertain";
+            effects = "uncertain";
+          } else if ((type === "sent" || type === "received") && dispatch === "uncertain") {
+            dispatch = "known";
+          } else if (type === "cancel" || type === "deadline") {
+            isCancelled = true;
+          } else if (
+            ["completed", "failed", "send-failed", "interrupted"].includes(type) &&
+            (type !== "completed" || isCancelled || dispatch === "known")
+          ) {
+            isTerminal = true;
+            expected = type === "completed" ? (isCancelled ? cancellation : "result") : ownFailure;
+          }
+          if (
+            type === "received" &&
+            dispatch === "known" &&
+            !isCancelled &&
+            reportedEffects === "known"
+          ) {
+            effects = "known";
+          }
+        }
+        const event =
+          type === "received"
+            ? { type, sequence: step + 1, effects: reportedEffects }
+            : type === "completed"
+              ? { type, output: "result" }
+              : type === "failed" || type === "send-failed" || type === "interrupted"
+                ? { type, error: ownFailure }
+                : { type };
+        invocation.transition(event);
+        const label = `Seed ${baseSeed}, run ${run}, trace ${trace.join(",")}.`;
+        expect(invocation.delivery, label).toEqual({
+          dispatch,
+          effects,
+        });
+        expect(messages, label).toEqual(isTerminal ? [expected] : []);
+        expect(invocation.allows("work"), label).toBe(
+          !isTerminal && !isCancelled && dispatch !== "absent",
+        );
+        expect(invocation.allows("dispatch"), label).toBe(
+          !isTerminal && !isCancelled && dispatch === "absent",
+        );
+        expect(invocation.allows("reply"), label).toBe(
+          !isTerminal && (isCancelled || dispatch === "known"),
+        );
+        expect(invocation.allows("revoke"), label).toBe(!isTerminal);
+      }
+      invocation.transition({ type: "interrupted", error: ownFailure });
+      expect(messages).toHaveLength(1);
     }
-    invocation.transition({ type: "interrupted", error: ownFailure });
-    expect(messages).toHaveLength(1);
-  }
-});
+  },
+);
 
 type FixtureKind = "in-process" | "standard-streams" | "child";
 type CancellationPoint =
@@ -206,7 +206,7 @@ const cancellationPoints: CancellationPoint[] = [
 ];
 
 function generatedTrace(seed: number): TraceEvent[] {
-  const random = generator(seed);
+  const random = createSeededGenerator(seed);
   const cancelAt = cancellationPoints[seed % cancellationPoints.length] as CancellationPoint;
   const events: TraceEvent[] = [
     {
@@ -219,6 +219,8 @@ function generatedTrace(seed: number): TraceEvent[] {
     { type: "request", id: "early", method: "tool.execute" },
     { type: "drain" },
     { type: "request", id: "initialize-retry", method: "initialize" },
+    { type: "drain" },
+    { type: "request", id: "id-collision", method: "tool.execute", mode: "id-collision" },
     { type: "drain" },
     { type: "request", id: "before-dispatch", method: "tool.execute", cancelAt: "record" },
     { type: "request", id: "unrelated", method: "tool.execute", mode: "wait" },
@@ -245,7 +247,9 @@ function generatedTrace(seed: number): TraceEvent[] {
               type: "request",
               id: `generated-${step}`,
               method: action === 4 ? "initialize" : action === 5 ? "dispose" : "tool.execute",
-              mode: (["echo", "nested", "failure", "invalid-json"] as const)[random(4)] as string,
+              mode: (["echo", "nested", "failure", "invalid-json", "id-collision"] as const)[
+                random(5)
+              ] as string,
             },
     );
   }
@@ -792,15 +796,15 @@ async function runInterleaving(
   }
 }
 
-test.for([0, 1, 2, 3, 4, 5, 6, 7])(
+test.for(Array.from({ length: 64 }, (_, batch) => batch))(
   "generated traces are differential in batch %s",
   async (batch, context) => {
     const started = performance.now();
-    const seed = baseSeed + batch * 32;
+    const seed = baseSeed + batch * 4;
     process.stdout.write(
-      `Differential seed: ${seed}. Traces: 32. Transports: in-process, standard-streams.\n`,
+      `Differential seed: ${baseSeed}. Trace range: [${batch * 4}, ${(batch + 1) * 4}). Transports: in-process, standard-streams.\n`,
     );
-    for (let run = 0; run < 32; run++) {
+    for (let run = 0; run < 4; run++) {
       const events = generatedTrace(seed + run);
       const left = await runInterleaving(context, "in-process", seed + run, events);
       const right = await runInterleaving(context, "standard-streams", seed + run, events);
@@ -827,79 +831,82 @@ test.for([0, 1, 2, 3, 4, 5, 6, 7])(
     );
   },
 );
-test("seeded lifecycle transitions reserve admission and ignore stale completion", (context) => {
-  process.stdout.write(`Peer lifecycle seed: ${baseSeed}. Traces: 10000.\n`);
-  const random = generator(baseSeed);
-  const selection = {
-    wireVersion: { major: 1, minor: 0 },
-    manifestVersion: { major: 1, minor: 0 },
-    contracts: referenceContracts,
-    componentInstanceId: "reference",
-    grantedCapabilities: ["fixture.read"],
-  };
-  for (let run = 0; run < 10_000; run++) {
-    context.signal.throwIfAborted();
-    const lifecycle = new PeerLifecycle();
-    let phase: string = "uninitialized";
-    let owner: object | undefined;
-    let canRecord = true;
-    const tokens = [{}, {}, {}];
-    for (let step = 0; step < 24; step++) {
-      const action = random(7);
-      const token = tokens[random(tokens.length)] as object;
-      const hasPending = random(2) === 0;
-      if (action < 3) {
-        const method = (["initialize", "dispose", "describe"] as const)[action] as
-          | "initialize"
-          | "dispose"
-          | "describe";
-        const admitted =
-          method === "initialize"
-            ? phase === "uninitialized"
-            : phase === "ready" && (method !== "dispose" || !hasPending);
-        if (admitted) {
-          lifecycle.admit(method, token, hasPending);
-          if (method !== "describe") {
-            phase = method === "initialize" ? "initializing" : "disposing";
-            owner = token;
+test.for(transitionRanges)(
+  "seeded lifecycle transitions reserve admission and ignore stale completion in range $first to $end",
+  ({ first, end }, context) => {
+    process.stdout.write(`Peer lifecycle seed: ${baseSeed}. Trace range: [${first}, ${end}).\n`);
+    const random = createSeededGenerator(baseSeed, first * 24 * 3);
+    const selection = {
+      wireVersion: { major: 1, minor: 0 },
+      manifestVersion: { major: 1, minor: 0 },
+      contracts: referenceContracts,
+      componentInstanceId: "reference",
+      grantedCapabilities: ["fixture.read"],
+    };
+    for (let run = first; run < end; run++) {
+      context.signal.throwIfAborted();
+      const lifecycle = new PeerLifecycle();
+      let phase: string = "uninitialized";
+      let owner: object | undefined;
+      let canRecord = true;
+      const tokens = [{}, {}, {}];
+      for (let step = 0; step < 24; step++) {
+        const action = random(7);
+        const token = tokens[random(tokens.length)] as object;
+        const hasPending = random(2) === 0;
+        if (action < 3) {
+          const method = (["initialize", "dispose", "describe"] as const)[action] as
+            | "initialize"
+            | "dispose"
+            | "describe";
+          const admitted =
+            method === "initialize"
+              ? phase === "uninitialized"
+              : phase === "ready" && (method !== "dispose" || !hasPending);
+          if (admitted) {
+            lifecycle.admit(method, token, hasPending);
+            if (method !== "describe") {
+              phase = method === "initialize" ? "initializing" : "disposing";
+              owner = token;
+            }
+          } else {
+            expect(() => lifecycle.admit(method, token, hasPending)).toThrow();
+          }
+        } else if (action === 3 || action === 4) {
+          const type = action === 3 ? "completed" : "failed";
+          lifecycle.transition({ type, invocation: token, selection });
+          if (token === owner && (phase === "initializing" || phase === "disposing")) {
+            phase =
+              phase === "initializing"
+                ? type === "completed"
+                  ? "ready"
+                  : "uninitialized"
+                : type === "completed"
+                  ? "disposed"
+                  : "ready";
+            owner = undefined;
           }
         } else {
-          expect(() => lifecycle.admit(method, token, hasPending)).toThrow();
+          lifecycle.transition({ type: action === 5 ? "stop" : "evidence-failed" });
+          phase = "stopped";
+          if (action === 6) {
+            canRecord = false;
+          }
         }
-      } else if (action === 3 || action === 4) {
-        const type = action === 3 ? "completed" : "failed";
-        lifecycle.transition({ type, invocation: token, selection });
-        if (token === owner && (phase === "initializing" || phase === "disposing")) {
-          phase =
-            phase === "initializing"
-              ? type === "completed"
-                ? "ready"
-                : "uninitialized"
-              : type === "completed"
-                ? "disposed"
-                : "ready";
-          owner = undefined;
-        }
-      } else {
-        lifecycle.transition({ type: action === 5 ? "stop" : "evidence-failed" });
-        phase = "stopped";
-        if (action === 6) {
-          canRecord = false;
-        }
+        expect(lifecycle.phase, `Seed ${baseSeed}, run ${run}, step ${step}.`).toBe(phase);
+        expect(lifecycle.canRecord).toBe(canRecord);
+        expect(lifecycle.selection).toEqual(
+          phase === "ready" || phase === "disposing" ? selection : undefined,
+        );
+        expect(lifecycle.allows("work", token, "initialize")).toBe(
+          phase === "ready" || (phase === "initializing" && owner === token),
+        );
+        expect(lifecycle.allows("work", token, "dispose")).toBe(
+          phase === "ready" || (phase === "disposing" && owner === token),
+        );
+        expect(lifecycle.allows("work", token, "tool.execute")).toBe(phase === "ready");
+        expect(lifecycle.allows("terminal", token)).toBe(phase !== "stopped");
       }
-      expect(lifecycle.phase, `Seed ${baseSeed}, run ${run}, step ${step}.`).toBe(phase);
-      expect(lifecycle.canRecord).toBe(canRecord);
-      expect(lifecycle.selection).toEqual(
-        phase === "ready" || phase === "disposing" ? selection : undefined,
-      );
-      expect(lifecycle.allows("work", token, "initialize")).toBe(
-        phase === "ready" || (phase === "initializing" && owner === token),
-      );
-      expect(lifecycle.allows("work", token, "dispose")).toBe(
-        phase === "ready" || (phase === "disposing" && owner === token),
-      );
-      expect(lifecycle.allows("work", token, "tool.execute")).toBe(phase === "ready");
-      expect(lifecycle.allows("terminal", token)).toBe(phase !== "stopped");
     }
-  }
-});
+  },
+);

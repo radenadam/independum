@@ -220,6 +220,15 @@ function frames(fixture: Fixture, invocationId: string): ProtocolFrame[] {
     .filter((entry) => entry.kind === "frame" && entry.invocationId === invocationId)
     .map((entry) => entry.value as unknown as ProtocolFrame);
 }
+function captureResponses(fixture: Fixture): ProtocolFrame[] {
+  const responses: ProtocolFrame[] = [];
+  fixture.transport.listen((event) => {
+    if (event.type === "message") {
+      responses.push(event.value as ProtocolFrame);
+    }
+  });
+  return responses;
+}
 
 test.for(kinds)(
   "%s negotiates before activating contributions and describes without executing",
@@ -303,6 +312,129 @@ test.for(kinds)(
     if (kind === "standard-streams") {
       expect((await waitForEvidence(fixture, "diagnostic")).value).toContain("ready");
     }
+  },
+);
+
+test.for(kinds)(
+  "%s correlates nested raw requests that reuse opposite-direction ids",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind);
+    const outputs = await Promise.all([
+      execute(fixture, "collision-left", "id-collision"),
+      execute(fixture, "collision-right", "id-collision"),
+    ]);
+    for (const output of outputs) {
+      expect(output).toMatchObject({
+        structuredData: { value: { key: "sample" }, revision: "recorded-1" },
+      });
+    }
+    for (const id of ["collision-left", "collision-right"]) {
+      const outer = frames(fixture, id);
+      const nested = frames(fixture, `${id}.read`);
+      const wireId = (outer[0] as RequestFrame).id;
+      expect(nested).toHaveLength(2);
+      expect(nested[0]).toMatchObject({
+        id: wireId,
+        method: "state.read",
+        params: { identity: { invocationId: `${id}.read`, parentInvocationId: id } },
+      });
+      expect(nested[1]).toMatchObject({
+        id: wireId,
+        result: { identity: { invocationId: `${id}.read` }, contract: { id: "state.read" } },
+      });
+      expect(outer.at(-1)).toMatchObject({
+        id: wireId,
+        result: { identity: { invocationId: id }, contract: { id: "tool.execute" } },
+      });
+    }
+    expect(fixture.broker.isStopped()).toBe(false);
+    expect(await execute(fixture, "after-collision", "echo", "ready")).toMatchObject({
+      structuredData: "ready",
+    });
+  },
+);
+
+test.for(kinds)(
+  "%s lets the component reuse an incoming id for its own sdk request",
+  async (kind, context) => {
+    const fixture = createFixture(context, kind);
+    const responses = captureResponses(fixture);
+    fixture.transport.send({
+      jsonrpc: "2.0",
+      id: "initialize",
+      method: "initialize",
+      params: {
+        wireVersion: { major: 1, minor: 0 },
+        identity: referenceIdentity("initialize"),
+        contract: { id: "initialize", version: { major: 1, minor: 0 } },
+        sequence: 1,
+        capabilities: [],
+        input: referenceOffer(),
+      },
+    });
+    await waitFor(() => expect(responses.some((frame) => "result" in frame)).toBe(true));
+    const outer: RequestFrame = {
+      jsonrpc: "2.0",
+      id: "component:1",
+      method: "tool.execute",
+      params: {
+        wireVersion: { major: 1, minor: 0 },
+        sequence: 1,
+        identity: referenceIdentity("incoming-collision"),
+        contract: { id: "tool.execute", version: { major: 1, minor: 0 } },
+        capabilities: ["fixture.read"],
+        input: {
+          definition: referenceTool,
+          arguments: { mode: "nested", value: null },
+          handles: [],
+        },
+      },
+    };
+    fixture.transport.send(outer);
+    const nested = await waitFor(() => {
+      const frame = responses.find((frame) => "method" in frame && frame.method === "state.read");
+      expect(frame).toBeDefined();
+      return frame as RequestFrame;
+    });
+    expect(nested.id).toBe(outer.id);
+    fixture.transport.send({
+      jsonrpc: "2.0",
+      id: nested.id,
+      result: {
+        identity: nested.params.identity,
+        contract: nested.params.contract,
+        sequence: 1,
+        outcome: "completed",
+        dispatch: "known",
+        effects: "known",
+        output: { value: "directional response", revision: "recorded-1" },
+      },
+    });
+    await waitFor(() =>
+      expect(
+        responses.find(
+          (frame) =>
+            !("method" in frame) && frame.result?.identity.invocationId === "incoming-collision",
+        ),
+      ).toMatchObject({
+        id: outer.id,
+        result: { output: { structuredData: { value: "directional response" } } },
+      }),
+    );
+  },
+);
+
+test.for(kinds)(
+  "%s rejects repeated incoming ids with distinct invocation identities after a collision",
+  async (kind, context) => {
+    const fixture = await initializedFixture(context, kind);
+    await expect(execute(fixture, "duplicate-id", "id-collision-duplicate")).rejects.toThrow(
+      "A duplicate request cannot create another terminal response.",
+    );
+    expect(frames(fixture, "duplicate-id.read")).toHaveLength(2);
+    expect(frames(fixture, "duplicate-id.again")).toHaveLength(1);
+    expect(fixture.broker.isStopped()).toBe(true);
+    await waitForClosedFixture(fixture);
   },
 );
 
@@ -1325,12 +1457,7 @@ test.for(kinds)(
   "%s reserves receiving lifecycle transitions before terminal delivery",
   async (kind, context) => {
     const fixture = createFixture(context, kind);
-    const responses: ProtocolFrame[] = [];
-    fixture.transport.listen((event) => {
-      if (event.type === "message") {
-        responses.push(event.value as ProtocolFrame);
-      }
-    });
+    const responses = captureResponses(fixture);
     function send(
       method: Operation,
       id: string,

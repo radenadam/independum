@@ -112,7 +112,10 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     handlers: { ...providedOptions.handlers },
   };
   const invocations = new Map<string, Invocation>();
-  const requests = new Map<string | number, Invocation>();
+  const requests = {
+    sent: new Map<string | number, Invocation>(),
+    received: new Map<string | number, Invocation>(),
+  };
   const evidenceSequences = new Map<string | null, number>();
   let nextRequest = 0;
   const lifecycle = new PeerLifecycle();
@@ -366,9 +369,16 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
   }
   function addInvocation(invocation: Invocation, doesAdmit = true): Invocation {
     const request = invocation.request;
+    const direction = invocation.caller === undefined ? "received" : "sent";
     assertProceed("protocol");
-    if (invocations.has(request.params.identity.invocationId) || requests.has(request.id)) {
-      throw failure("protocol-failure", "Request and invocation identities cannot be reused.");
+    if (
+      invocations.has(request.params.identity.invocationId) ||
+      requests[direction].has(request.id)
+    ) {
+      throw failure(
+        "protocol-failure",
+        "Invocation identities and same-direction request ids cannot be reused.",
+      );
     }
     if (doesAdmit) {
       try {
@@ -382,7 +392,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       }
     }
     invocations.set(request.params.identity.invocationId, invocation);
-    requests.set(request.id, invocation);
+    requests[direction].set(request.id, invocation);
     const deadline = request.params.identity.deadline;
     if (deadline !== null) {
       scheduleDeadline(invocation, deadline, false);
@@ -906,7 +916,10 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         request.params.identity.invocationId,
       );
       if (invocation === undefined) {
-        if (invocations.has(request.params.identity.invocationId) || requests.has(request.id)) {
+        if (
+          invocations.has(request.params.identity.invocationId) ||
+          requests.received.has(request.id)
+        ) {
           stop(
             failure(
               "protocol-failure",
@@ -923,9 +936,11 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
   function correlate(frame: ResponseFrame | NotificationFrame): Invocation {
     const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
     const invocation =
-      details?.identity === null || details?.identity === undefined
-        ? undefined
-        : invocations.get(details.identity.invocationId);
+      "id" in frame
+        ? frame.id === null
+          ? undefined
+          : requests.sent.get(frame.id)
+        : invocations.get(frame.params.identity.invocationId);
     if (invocation === undefined || details === undefined) {
       throw failure("protocol-failure", "The message has no correlated invocation.");
     }
