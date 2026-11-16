@@ -394,7 +394,9 @@ function requirePath(value: string): void {
     throw new Error("Credential paths cannot be gate context or evidence.");
   }
   if (!isAbsolute(value) || !existsSync(value) || statSync(value).size === 0) {
-    throw new Error("Evidence and context paths must be absolute, readable, and nonempty.");
+    throw new Error(
+      `Evidence and context paths must be absolute, readable, and nonempty: ${JSON.stringify(value)}.`,
+    );
   }
 }
 

@@ -63,6 +63,7 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   expect(fixture.prompts[0]).toContain("browser-checks.json");
   expect(fixture.prompts[0]).toContain("use no other id in coverage");
   expect(fixture.prompts[0]).toContain("cite the revision.json of every task scenario");
+  expect(fixture.prompts[0]).toContain("An empty browser.jsonl means the browser logged no errors");
   expect(fixture.prompts[0]).toContain("browser-regressions.json");
   expect(fixture.prompts[0]).toContain(
     "its Linux and macOS runners execute the native sandbox tests",
