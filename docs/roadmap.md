@@ -1,26 +1,25 @@
 # Roadmap
 
-[Current work](work.md) owns the active step. [The checkpoint](checkpoint.md) owns acceptance. This delegated coordinator sequence follows contracts and [decision 0087](decisions/0087-local-capture-and-component-protocol.md) of 2026-11-15.
+[Current work](work.md) owns the active step and [the checkpoint](checkpoint.md) owns acceptance. This delegated sequence follows [decision 0087](decisions/0087-local-capture-and-component-protocol.md).
 
 ## Harness engineering checkpoint
 
-Each slice is one PR unless repetitions are named. Keep today's default operational until replacement passes conformance and journey checks. Include inspection and controls in each slice. A merged slice closes no requirement.
+Each slice is one PR unless repeated. Preserve today's default until conformance and journey checks pass. Include inspection and controls. A merged slice closes no requirement.
 
-1. Publish protocol schemas and transport-equivalence fixtures. CP-03, CP-15, CP-26, CP-28.
-2. Add the journal and read-only evidence API beside current storage. CP-05, CP-06.
-3. Observe correlated HTTP attempts and WebSocket frames inside Independum's process without provider-specific code. Add narrow local Pi observation patches where interception cannot reach. Label uncovered calls incomplete. No upstream dependency or maintainer posting. CP-05, CP-06.
-4. Route current agent streams, summaries, and warming through the kernel facade. CP-03, CP-06.
-5. Load manifests, lock dependencies, and capture run graphs. CP-15, CP-33, CP-34.
-6. Adapt existing hooks. Complete creation, sample testing, and inspection. CP-14, CP-15, CP-32.
-7. Add profile detach and next-request application. CP-02, CP-15.
-8. Add physical removal, leases, and Removed historical cards. CP-02, CP-36.
-9. Add verified installation, restoration, and dependency recovery. CP-02, CP-33.
-10. Migrate Read. Repeat separately for each remaining tool. CP-17, CP-26.
-11. Add script, command line, HTTP, and MCP adapters in separate PRs. CP-26.
-12. Add Script and per-tool exposure controls. CP-27.
-13. Add a selectable chat loop, then tool iteration in another PR. CP-01, CP-03, CP-28.
-14. Migrate durable steering, turn retries, compaction, and warming in separate PRs. CP-06, CP-13, CP-18, CP-28.
-15. Switch the default after parity evidence. Remove obsolete Pi orchestration separately. CP-01, CP-28.
+- Slice 2: Add the journal and read-only evidence API beside current storage. CP-05, CP-06.
+- Slice 3: Observe correlated HTTP attempts and WebSocket frames inside Independum's process without provider-specific code. Add narrow local Pi observation patches where interception cannot reach. Label uncovered calls incomplete. No upstream dependency or maintainer posting. CP-05, CP-06.
+- Slice 4: Route current agent streams, summaries, and warming through the kernel facade. CP-03, CP-06.
+- Slice 5: Load manifests, lock dependencies, and capture run graphs. CP-15, CP-33, CP-34.
+- Slice 6: Adapt existing hooks. Complete creation, sample testing, and inspection. CP-14, CP-15, CP-32.
+- Slice 7: Add profile detach and next-request application. CP-02, CP-15.
+- Slice 8: Add physical removal, leases, and Removed historical cards. CP-02, CP-36.
+- Slice 9: Add verified installation, restoration, and dependency recovery. CP-02, CP-33.
+- Slice 10: Migrate Read. Repeat separately for each remaining tool. CP-17, CP-26.
+- Slice 11: Add script, command line, HTTP, and MCP adapters in separate PRs. CP-26.
+- Slice 12: Add Script and per-tool exposure controls. CP-27.
+- Slice 13: Add a selectable chat loop, then tool iteration in another PR. CP-01, CP-03, CP-28.
+- Slice 14: Migrate durable steering, turn retries, compaction, and warming in separate PRs. CP-06, CP-13, CP-18, CP-28.
+- Slice 15: Switch the default after parity evidence. Remove obsolete Pi orchestration separately. CP-01, CP-28.
 
 Then redesign screen architecture for people who know agents through the seven [journeys](design.md#journeys), comparing current behavior, identical content, long cases, themes, and phones. Complete every meaning of easy and the narrow Pi text patch. CP-07, CP-08, CP-24, CP-29 through CP-35.
 
@@ -30,7 +29,7 @@ Assess default and engineered setups, kernel alone, replacement loops, long hist
 
 ## Known app defects from step 1
 
-The maintainer supplied these findings directly on 2026-11-15. This list records defects for repair, not verified fixes.
+Direct maintainer findings of 2026-11-15 remain unverified defects.
 
 - A one-line new file reads "New, 1 lines" in `packages/web/src/describe-tool-call.ts`.
 - A failed Write card omits the model's arguments.
