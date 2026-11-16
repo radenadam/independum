@@ -5,6 +5,7 @@ import {
   ContractValidationError,
   type ErrorKind,
   type InvocationIdentity,
+  type JsonSnapshot,
   type JsonValue,
   type NotificationFrame,
   negotiateVersion,
@@ -18,6 +19,7 @@ import {
   type RequestFrame,
   type ResponseFrame,
   roundTripJson,
+  snapshotJson,
   type Version,
   VersionNegotiationError,
   validateValue,
@@ -71,6 +73,49 @@ export class ProtocolError extends Error {
     this.failure = failure;
   }
 }
+/** A thrown failure whose details are not exact JSON, so no terminal response can carry them. */
+class UnencodableFailure extends Error {}
+/** A received request's outcome, copied when its handler returns, throws, or settles. */
+type Outcome = { output: JsonSnapshot } | { error: unknown };
+/** The arguments of an outgoing request, copied when the request is called. */
+interface CapturedRequest {
+  method: JsonSnapshot;
+  identity: JsonSnapshot;
+  capabilities: JsonSnapshot;
+  input: JsonSnapshot;
+}
+
+function captureError(error: unknown): Error {
+  if (error instanceof UnencodableFailure) {
+    return error;
+  }
+  if (error instanceof ProtocolError) {
+    const details = snapshotJson(error.failure);
+    return details.failure === undefined
+      ? new ProtocolError(error.message, details.value as unknown as ProtocolFailure)
+      : new UnencodableFailure(error.message);
+  }
+  if (error instanceof ContractValidationError) {
+    const locations = snapshotJson(error.locations);
+    return locations.failure === undefined
+      ? new ContractValidationError(
+          locations.value as unknown as ContractValidationError["locations"],
+        )
+      : new UnencodableFailure(error.message);
+  }
+  if (error instanceof VersionNegotiationError) {
+    return new VersionNegotiationError(error.message);
+  }
+  return new Error(error instanceof Error ? error.message : "Component execution fails.");
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
+}
 
 function validateContribution(request: RequestFrame, output?: unknown): void {
   const input = request.params.input as Record<string, JsonValue>;
@@ -111,6 +156,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     capabilities: roundTripJson(providedOptions.capabilities) as string[],
     handlers: { ...providedOptions.handlers },
   };
+  const canTerminate = providedOptions.transport.canTerminate;
   const invocations = new Map<string, Invocation>();
   const requests = {
     sent: new Map<string | number, Invocation>(),
@@ -259,7 +305,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       clearTimeout(invocation.cancellationTimer);
     }
     options.transport.close();
-    if (options.role === "broker" && options.transport.canTerminate) {
+    if (options.role === "broker" && canTerminate) {
       options.transport.terminate();
     }
   }
@@ -295,6 +341,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     frame: ProtocolFrame,
     invocationId: string | null,
     beforeDispatch?: () => void,
+    captureFailure?: ContractValidationError,
   ): void {
     const invocation = invocationId === null ? undefined : invocations.get(invocationId);
     const action =
@@ -310,6 +357,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     let outgoing: ProtocolFrame;
     try {
       assertProceed(action, invocation);
+      if (captureFailure !== undefined) {
+        throw captureFailure;
+      }
       outgoing = roundTripJson(frame) as unknown as ProtocolFrame;
       if (invocation !== undefined && !("method" in outgoing && "id" in outgoing)) {
         const details =
@@ -321,7 +371,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       validateValue(protocolSchemas.frame as TSchema, outgoing);
       encodeFrame(outgoing);
     } catch (error) {
-      throw rejectDispatch(frame, error, "absent", invocation);
+      throw rejectDispatch(frame, error, "absent", invocation, captureFailure === undefined);
     }
     if (invocation !== undefined && !("method" in outgoing && "id" in outgoing)) {
       const details =
@@ -488,7 +538,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
   function notify(
     invocation: Invocation,
     method: NotificationFrame["method"],
-    data: JsonValue,
+    data: JsonSnapshot,
     beforeDispatch?: () => void,
   ): void {
     assertProceed(method === "cancel" ? "cancel" : "notify", invocation);
@@ -501,11 +551,12 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           identity: invocation.request.params.identity,
           contract: invocation.request.params.contract,
           sequence: 1,
-          data,
+          data: data.value,
         },
       },
       invocation.request.params.identity.invocationId,
       beforeDispatch,
+      data.failure,
     );
   }
   function revoke(
@@ -532,7 +583,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       mayProceed("cancel", invocation) &&
       invocation.delivery.dispatch === "known" &&
       invocation.cancellationDeadline !== undefined &&
-      options.transport.canTerminate &&
+      canTerminate &&
       options.role === "broker"
     ) {
       clearTimeout(invocation.cancellationTimer);
@@ -565,7 +616,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       return;
     }
     try {
-      notify(invocation, "cancel", { reason, deadline }, () => revoke(invocation, deadline, event));
+      notify(invocation, "cancel", { value: { reason, deadline } }, () =>
+        revoke(invocation, deadline, event),
+      );
     } catch (error) {
       if (mayProceed("revoke", invocation)) {
         revoke(invocation, deadline, event);
@@ -669,12 +722,15 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       });
     }
   }
-  function reply(invocation: Invocation, output: JsonValue | undefined, error?: unknown): void {
+  function reply(invocation: Invocation, outcome: Outcome): void {
     if (!mayProceed("reply", invocation)) {
       return;
     }
     const request = invocation.request;
-    let problem = invocation.revocationFailure ?? error;
+    const output = "output" in outcome ? outcome.output.value : undefined;
+    let problem =
+      invocation.revocationFailure ??
+      ("output" in outcome ? outcome.output.failure : outcome.error);
     let selection: InitializationSelection | undefined;
     try {
       if (problem === undefined) {
@@ -699,6 +755,9 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     }
     let response: ResponseFrame | undefined;
     try {
+      if (problem instanceof UnencodableFailure) {
+        throw problem;
+      }
       response =
         problem === undefined
           ? {
@@ -844,14 +903,13 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     error: unknown,
     dispatch: ProtocolFailure["dispatch"] = "absent",
     active?: Invocation,
+    isCaptured = true,
   ): ProtocolError {
     let captured: JsonValue = null;
     let identity: InvocationIdentity | null = null;
     let contract = { id: "wire", version: protocolVersion };
-    try {
+    if (isCaptured) {
       captured = roundTripJson(frame);
-    } catch {
-      // Non-JSON values cannot be copied into evidence.
     }
     try {
       const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
@@ -903,8 +961,62 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     }
     return new ProtocolError(problem.message, data);
   }
+  function createContext(active: Invocation): InvocationContext {
+    return {
+      signal: active.controller.signal,
+      progress(value): void {
+        const data = snapshotJson({ value });
+        perform(
+          () => notify(active, "progress", data),
+          (error) => reply(active, { error }),
+        );
+      },
+      log(level, message): void {
+        const data = snapshotJson({ level, message });
+        perform(
+          () => notify(active, "log", data),
+          (error) => reply(active, { error }),
+        );
+      },
+      assertCapability(handle): void {
+        if (
+          !mayProceed("work", active) ||
+          !active.request.params.capabilities.includes(handle) ||
+          !lifecycle.selection?.grantedCapabilities.includes(handle)
+        ) {
+          throw failure(
+            "denied-authority",
+            "The invocation capability is absent or revoked.",
+            active,
+          );
+        }
+      },
+    };
+  }
+  /**
+   * Replies in a later step, so the terminal follows every operation called before the outcome.
+   */
+  function deliver(
+    invocation: Invocation,
+    outcome: Outcome | { pending: PromiseLike<unknown> },
+  ): void {
+    void Promise.resolve("pending" in outcome ? outcome.pending : undefined)
+      .then(
+        (value) => {
+          const settled = "pending" in outcome ? { output: snapshotJson(value) } : outcome;
+          enqueue(() => reply(invocation, settled), stopFailedStep);
+        },
+        (error: unknown) => {
+          const settled = { error: captureError(error) };
+          enqueue(() => reply(invocation, settled), stopFailedStep);
+        },
+      )
+      .catch((error: unknown) => enqueue(() => stopFailedStep(error), stopFailedStep));
+  }
   function receiveRequest(request: RequestFrame): void {
+    const handler = options.handlers[request.method];
     let invocation: Invocation | undefined;
+    let context: InvocationContext | undefined;
     try {
       if ((options.role === "broker") !== services.has(request.method)) {
         throw failure("denied-authority", "The operation is not allowed in this direction.");
@@ -918,52 +1030,17 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       invocation = addInvocation(prepareInvocation(request));
       assertProceed("work", invocation);
       options.authorize(roundTripJson(request) as unknown as RequestFrame);
-      const active = invocation;
-      const context: InvocationContext = {
-        signal: active.controller.signal,
-        progress(value): void {
-          perform(
-            () => notify(active, "progress", { value }),
-            (error) => reply(active, undefined, error),
+      assertProceed("work", invocation);
+      if (request.method !== "initialize") {
+        if (handler === undefined) {
+          throw failure(
+            "missing-dependency",
+            "The declared operation has no available implementation.",
+            invocation,
           );
-        },
-        log(level, message): void {
-          perform(
-            () => notify(active, "log", { level, message }),
-            (error) => reply(active, undefined, error),
-          );
-        },
-        assertCapability(handle): void {
-          if (
-            !mayProceed("work", active) ||
-            !active.request.params.capabilities.includes(handle) ||
-            !lifecycle.selection?.grantedCapabilities.includes(handle)
-          ) {
-            throw failure(
-              "denied-authority",
-              "The invocation capability is absent or revoked.",
-              active,
-            );
-          }
-        },
-      };
-      const handler = options.handlers[request.method];
-      assertProceed("work", active);
-      if (request.method !== "initialize" && handler === undefined) {
-        throw failure(
-          "missing-dependency",
-          "The declared operation has no available implementation.",
-          invocation,
-        );
+        }
+        context = createContext(invocation);
       }
-      const output =
-        request.method === "initialize" ? initialize(request) : handler?.(request, context);
-      void Promise.resolve(output)
-        .then(
-          (value) => enqueue(() => reply(active, value), stopFailedStep),
-          (error) => enqueue(() => reply(active, undefined, error), stopFailedStep),
-        )
-        .catch((error: unknown) => enqueue(() => stopFailedStep(error), stopFailedStep));
     } catch (error) {
       if (!mayProceed("protocol")) {
         return;
@@ -989,8 +1066,20 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
         }
         invocation = addInvocation(prepareInvocation(request), false);
       }
-      reply(invocation, undefined, error);
+      deliver(invocation, { error: captureError(error) });
+      return;
     }
+    let outcome: Outcome | { pending: PromiseLike<unknown> };
+    try {
+      const result =
+        handler === undefined || context === undefined
+          ? initialize(request)
+          : handler(roundTripJson(request) as unknown as RequestFrame, context);
+      outcome = isPromiseLike(result) ? { pending: result } : { output: snapshotJson(result) };
+    } catch (error) {
+      outcome = { error: captureError(error) };
+    }
+    deliver(invocation, outcome);
   }
   function correlate(frame: ResponseFrame | NotificationFrame): Invocation {
     const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
@@ -1165,59 +1254,95 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
       stop(problem);
     }
   }
-  options.transport.listen((event) => enqueue(() => receive(event), stopFailedStep));
+  function sendRequest(captured: CapturedRequest, caller: NonNullable<Invocation["caller"]>): void {
+    const captureFailure =
+      captured.method.failure ??
+      captured.identity.failure ??
+      captured.capabilities.failure ??
+      captured.input.failure;
+    const method = captured.method.value as Operation;
+    let request: RequestFrame = {
+      jsonrpc: "2.0",
+      id: `${options.role}:${++nextRequest}`,
+      method,
+      params: {
+        wireVersion: protocolVersion,
+        identity: captured.identity.value as unknown as InvocationIdentity,
+        sequence: 1,
+        contract: {
+          id: method,
+          version: lifecycleOperations.has(method)
+            ? protocolVersion
+            : (lifecycle.selection?.contracts[method] ?? protocolVersion),
+        },
+        capabilities: captured.capabilities.value as string[],
+        input: captured.input.value,
+      },
+    };
+    let invocation: Invocation | undefined;
+    try {
+      if (captureFailure !== undefined) {
+        throw captureFailure;
+      }
+      validateValue(protocolSchemas.frame as TSchema, request);
+      request = roundTripJson(request) as unknown as RequestFrame;
+      invocation = prepareInvocation(request, caller);
+      validateValue(operationInputs[method], request.params.input);
+      checkRequest(request);
+      validateContribution(request);
+      addInvocation(invocation);
+      assertProceed("dispatch", invocation);
+      options.authorize(roundTripJson(request) as unknown as RequestFrame);
+    } catch (error) {
+      const problem = rejectDispatch(
+        request,
+        error,
+        "absent",
+        invocation,
+        captureFailure === undefined,
+      );
+      if (invocation === undefined) {
+        caller.reject(problem);
+      } else {
+        settle(invocation, { type: "failed", error: problem });
+      }
+      return;
+    }
+    try {
+      send(invocation.request, invocation.request.params.identity.invocationId);
+    } catch (error) {
+      settle(invocation, { type: "send-failed", error: protocolError(error, invocation) });
+    }
+  }
+  options.transport.listen((event) => {
+    const captured = snapshotJson(event);
+    const received: TransportEvent =
+      captured.failure === undefined
+        ? (captured.value as unknown as TransportEvent)
+        : { type: "fault", reason: "The transport event is not exact JSON.", bytes: "" };
+    enqueue(() => receive(received), stopFailedStep);
+  });
   return {
     request(method, identity, input, capabilities = []): Promise<JsonValue> {
+      const captured: CapturedRequest = {
+        method: snapshotJson(method),
+        identity: snapshotJson(identity),
+        capabilities: snapshotJson(capabilities),
+        input: snapshotJson(input),
+      };
       return new Promise<JsonValue>((resolve, reject) => {
-        enqueue(() => {
-          let request: RequestFrame = {
-            jsonrpc: "2.0",
-            id: `${options.role}:${++nextRequest}`,
-            method,
-            params: {
-              wireVersion: protocolVersion,
-              identity,
-              sequence: 1,
-              contract: {
-                id: method,
-                version: lifecycleOperations.has(method)
-                  ? protocolVersion
-                  : (lifecycle.selection?.contracts[method] ?? protocolVersion),
-              },
-              capabilities,
-              input,
-            },
-          };
-          let invocation: Invocation | undefined;
-          try {
-            validateValue(protocolSchemas.frame as TSchema, request);
-            request = roundTripJson(request) as unknown as RequestFrame;
-            invocation = prepareInvocation(request, { resolve, reject });
-            validateValue(operationInputs[method], request.params.input);
-            checkRequest(request);
-            validateContribution(request);
-            addInvocation(invocation);
-            assertProceed("dispatch", invocation);
-            options.authorize(roundTripJson(request) as unknown as RequestFrame);
-          } catch (error) {
-            const problem = rejectDispatch(request, error, "absent", invocation);
-            if (invocation === undefined) {
-              reject(problem);
-            } else {
-              settle(invocation, { type: "failed", error: problem });
-            }
-            return;
-          }
-          try {
-            send(invocation.request, invocation.request.params.identity.invocationId);
-          } catch (error) {
-            settle(invocation, { type: "send-failed", error: protocolError(error, invocation) });
-          }
-        }, reject);
+        enqueue(() => sendRequest(captured, { resolve, reject }), reject);
       });
     },
     cancel(invocationId, reason, deadline): void {
-      perform(() => cancel(invocationId, reason, deadline));
+      const captured = snapshotJson({ invocationId, reason, deadline });
+      perform(() => {
+        if (captured.failure !== undefined) {
+          throw captured.failure;
+        }
+        const data = captured.value as { invocationId: string; reason: string; deadline: number };
+        cancel(data.invocationId, data.reason, data.deadline);
+      });
     },
     close(): void {
       perform(() => {

@@ -20,13 +20,15 @@ peer = createProtocolPeer({
   },
   authorize(): void {},
   handlers: {
-    "tool.execute"(request): JsonValue {
-      return {
-        content: [],
-        structuredData: request.params.identity.invocationId,
-        historicalDetails: null,
-        isError: false,
-      };
+    "tool.execute"(request, context): JsonValue {
+      const input = request.params.input as { arguments: { mode: string; value: JsonValue } };
+      const { mode, value } = input.arguments;
+      if (mode === "throw") {
+        context.progress({ value });
+        context.log("info", "The worker fails after notifications.");
+        throw new Error("The worker fails synchronously.");
+      }
+      return { content: [], structuredData: value, historicalDetails: null, isError: false };
     },
   },
 });

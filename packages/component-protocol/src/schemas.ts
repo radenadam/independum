@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import Type, { type TSchema } from "typebox";
+import { Compile, type Validator } from "typebox/compile";
 import { Value } from "typebox/value";
 
 export type JsonValue =
@@ -93,6 +94,10 @@ export class ContractValidationError extends Error {
   }
 }
 export class VersionNegotiationError extends Error {}
+/** An exact JSON copy taken at call time, or the contract failure of a value that is not exact JSON. */
+export type JsonSnapshot =
+  | { value: JsonValue; failure?: undefined }
+  | { value: null; failure: ContractValidationError };
 export interface EditableTextV1 {
   id: string;
   default: string;
@@ -620,17 +625,25 @@ for (const name of Object.keys(operationInputs) as Operation[]) {
   operationInputs[name] = publishSchema(operationInputs[name], `${name}:input`);
   operationOutputs[name] = publishSchema(operationOutputs[name], `${name}:output`);
 }
+const publishedValidators = new Map<TSchema, Validator>(
+  [
+    ...Object.values(protocolSchemas),
+    ...Object.values(operationInputs),
+    ...Object.values(operationOutputs),
+  ].map((schema) => [schema, Compile(schema)]),
+);
 
 /** Checks a JSON value against an executable contract without conversion. */
 export function validateValue(schema: TSchema, value: unknown): void {
   try {
     requireJson(value);
   } catch (error) {
-    throw new ContractValidationError([
-      { pointer: "", reason: error instanceof Error ? error.message : "The value is not JSON." },
-    ]);
+    throw jsonFailure(error);
   }
-  const errors = Value.Errors(schema, value);
+  const validator = publishedValidators.get(schema);
+  const isValid = validator === undefined ? Value.Check(schema, value) : validator.Check(value);
+  // Listing errors walks every union branch, so it runs only after the check fails.
+  const errors = isValid ? [] : Value.Errors(schema, value);
   if (errors.length > 0) {
     throw new ContractValidationError(
       errors.map((error) => ({ pointer: error.instancePath, reason: error.message })),
@@ -642,6 +655,22 @@ export function validateValue(schema: TSchema, value: unknown): void {
 export function roundTripJson(value: unknown): JsonValue {
   requireJson(value);
   return copyJson(value as JsonValue);
+}
+
+/** Copies a value when an operation is called, or keeps why the value is not exact JSON. */
+export function snapshotJson(value: unknown): JsonSnapshot {
+  try {
+    requireJson(value);
+  } catch (error) {
+    return { value: null, failure: jsonFailure(error) };
+  }
+  return { value: copyJson(value as JsonValue) };
+}
+
+function jsonFailure(error: unknown): ContractValidationError {
+  return new ContractValidationError([
+    { pointer: "", reason: error instanceof Error ? error.message : "The value is not JSON." },
+  ]);
 }
 
 /** Compares exact JSON values with unordered object fields and ordered array entries. */

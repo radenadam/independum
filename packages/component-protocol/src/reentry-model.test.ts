@@ -6,6 +6,7 @@ import {
   createProtocolPeer,
   type EvidenceRecord,
   type InvocationContext,
+  type ProtocolPeer,
 } from "./create-protocol-peer.ts";
 import { createWorkerTransport } from "./create-worker-transport.ts";
 import {
@@ -17,16 +18,33 @@ import {
   referenceTool,
 } from "./reference-component.ts";
 import { registerTestCleanup } from "./register-test-cleanup.ts";
-import { type JsonValue, type ProtocolFrame, roundTripJson } from "./schemas.ts";
+import {
+  type JsonValue,
+  type ProtocolFrame,
+  type RequestFrame,
+  type ResponseFrame,
+  roundTripJson,
+} from "./schemas.ts";
 import type { ProtocolTransport } from "./transports.ts";
 
 type Role = "broker" | "component";
-type Action = "cancel" | "send" | "stop" | "close" | "dispose" | "nested";
-type Scenario = "complete" | "reject" | "cancel" | "waiting" | "dispose" | "stop";
+type Action = "cancel" | "send" | "stop" | "close" | "dispose" | "nested" | "repeat";
+type Scenario = "complete" | "reject" | "cancel" | "waiting" | "dispose" | "stop" | "throw";
+type HandlerKind = "sync" | "async";
 interface CallbackPoint {
   role: Role;
   name: string;
   id: string;
+}
+interface Injection {
+  point: number;
+  actions: Action[];
+  isDeferred: boolean;
+}
+interface NotificationCall {
+  method: "progress" | "log";
+  data: JsonValue;
+  isBeforeOutcome: boolean;
 }
 const actions: Action[][] = [
   ["cancel"],
@@ -35,8 +53,9 @@ const actions: Action[][] = [
   ["close"],
   ["dispose"],
   ["nested"],
-  ["send", "cancel", "nested", "dispose", "stop", "close"],
-  ["nested", "dispose", "send", "cancel", "close", "stop"],
+  ["repeat"],
+  ["send", "cancel", "nested", "repeat", "dispose", "stop", "close"],
+  ["nested", "repeat", "dispose", "send", "cancel", "close", "stop"],
 ];
 const scenarios: Scenario[] = ["complete", "reject", "cancel", "waiting", "dispose", "stop"];
 const seed = 0x51a7e205;
@@ -45,7 +64,8 @@ async function runReentryTrace(
   context: TestContext,
   kind: ProtocolTransport["kind"],
   scenario: Scenario,
-  injection?: { point: number; actions: Action[]; isDeferred: boolean },
+  injection?: Injection,
+  handlerKind: HandlerKind = "sync",
 ): Promise<{ points: CallbackPoint[]; result: JsonValue }> {
   context.signal.throwIfAborted();
   const fixture = createPeerFixture(kind);
@@ -53,6 +73,9 @@ async function runReentryTrace(
   const contexts = new Map<string, InvocationContext>();
   const points: CallbackPoint[] = [];
   const records: { role: Role; entry: EvidenceRecord }[] = [];
+  const requests: RequestFrame[] = [];
+  const notifications = new Map<string, NotificationCall[]>();
+  const handlerOutcomes = new Map<string, { output?: JsonValue; message?: string }>();
   const outcomes: { name: string; value: JsonValue }[] = [];
   const operations: string[] = [];
   const roles: Role[] = ["broker", "component"];
@@ -69,6 +92,29 @@ async function runReentryTrace(
         }),
     );
   }
+  function notify(
+    role: Role,
+    id: string,
+    invocation: InvocationContext,
+    method: "progress" | "log",
+    value: JsonValue,
+  ): void {
+    const key = `${role}:${id}`;
+    const data = method === "progress" ? { value } : { level: "info", message: value };
+    notifications.set(key, [
+      ...(notifications.get(key) ?? []),
+      { method, data: roundTripJson(data), isBeforeOutcome: !handlerOutcomes.has(key) },
+    ]);
+    try {
+      if (method === "progress") {
+        invocation.progress(value);
+      } else {
+        invocation.log("info", value as string);
+      }
+    } finally {
+      fixture.mutate(value);
+    }
+  }
   function inject(point: CallbackPoint, action: Action, invocation?: InvocationContext): void {
     const peer = peers[point.role];
     const id = `injected-${++nextOperation}`;
@@ -80,8 +126,16 @@ async function runReentryTrace(
     } else if (action === "close") {
       peer.close();
     } else if (action === "send" && invocation !== undefined) {
-      invocation.progress("Reentrant progress.");
-      invocation.log("info", "Reentrant diagnostic.");
+      notify(point.role, point.id, invocation, "progress", { text: "Reentrant progress.", id });
+      notify(point.role, point.id, invocation, "log", `Reentrant diagnostic ${id}.`);
+    } else if (action === "repeat") {
+      const second = `injected-${++nextOperation}`;
+      const [first, last] = fixture.repeat(point.role, [
+        referenceIdentity(id),
+        referenceIdentity(second),
+      ]);
+      observe(id, first as Promise<JsonValue>);
+      observe(second, last as Promise<JsonValue>);
     } else {
       const identity = {
         ...referenceIdentity(id),
@@ -117,6 +171,42 @@ async function runReentryTrace(
       apply();
     }
   }
+  function respond(
+    role: Role,
+    id: string,
+    invocation: InvocationContext,
+    output: JsonValue,
+    failure?: string,
+  ): JsonValue | Promise<JsonValue> {
+    const key = `${role}:${id}`;
+    function settle(): JsonValue {
+      let message = failure;
+      if (scenario === "throw") {
+        notify(role, id, invocation, "progress", { step: id });
+        notify(role, id, invocation, "log", `The ${id} handler fails after notifications.`);
+        message = `The ${id} handler fails.`;
+      }
+      if (message !== undefined) {
+        const error = new Error(message);
+        handlerOutcomes.set(key, { message });
+        if (handlerKind === "sync") {
+          queueMicrotask(() => {
+            error.message = "The thrown failure changes after the throw.";
+          });
+        }
+        throw error;
+      }
+      handlerOutcomes.set(key, { output: roundTripJson(output) });
+      if (handlerKind === "sync") {
+        queueMicrotask(() => fixture.mutate(output));
+      }
+      return output;
+    }
+    async function settleAsynchronously(): Promise<JsonValue> {
+      return settle();
+    }
+    return handlerKind === "sync" ? settle() : settleAsynchronously();
+  }
   for (const role of roles) {
     peers[role] = createProtocolPeer({
       ...referencePeerOptions,
@@ -135,18 +225,20 @@ async function runReentryTrace(
         callback(role, `record:${entry.kind}:${entry.direction}`, entry.invocationId ?? "outer");
       },
       authorize(request): void {
+        requests.push(request);
         callback(role, "authorize", request.params.identity.invocationId);
       },
       handlers: {
-        dispose(request): JsonValue {
-          callback(role, "handler:dispose", request.params.identity.invocationId);
-          return { disposed: true, activitiesEnded: true };
+        dispose(request, invocation): JsonValue | Promise<JsonValue> {
+          const id = request.params.identity.invocationId;
+          callback(role, "handler:dispose", id);
+          return respond(role, id, invocation, { disposed: true, activitiesEnded: true });
         },
-        "state.read"(request, invocation): JsonValue {
+        "state.read"(request, invocation): JsonValue | Promise<JsonValue> {
           const id = request.params.identity.invocationId;
           contexts.set(`${role}:${id}`, invocation);
           callback(role, "handler:state.read", id);
-          return { value: "fixture", revision: "captured-1" };
+          return respond(role, id, invocation, { value: "fixture", revision: "captured-1" });
         },
         "tool.execute"(request, invocation): JsonValue | Promise<JsonValue> {
           const id = request.params.identity.invocationId;
@@ -155,9 +247,6 @@ async function runReentryTrace(
             once: true,
           });
           callback(role, "handler:tool.execute", id);
-          if (scenario === "reject" && id === "outer") {
-            throw new Error("The generated handler fails.");
-          }
           const output = {
             content: [],
             structuredData: id,
@@ -166,10 +255,23 @@ async function runReentryTrace(
           };
           if (scenario === "waiting" && id === "outer") {
             return new Promise<JsonValue>((resolve) => {
-              invocation.signal.addEventListener("abort", () => resolve(output), { once: true });
+              invocation.signal.addEventListener(
+                "abort",
+                () => {
+                  handlerOutcomes.set(`${role}:${id}`, { output: roundTripJson(output) });
+                  resolve(output);
+                },
+                { once: true },
+              );
             });
           }
-          return output;
+          return respond(
+            role,
+            id,
+            invocation,
+            output,
+            scenario === "reject" && id === "outer" ? "The generated handler fails." : undefined,
+          );
         },
       },
     });
@@ -182,15 +284,20 @@ async function runReentryTrace(
   try {
     observe(
       "initialize",
-      peers.broker.request("initialize", referenceIdentity("initialize"), referenceOffer()),
+      fixture.call("broker", "initialize", referenceIdentity("initialize"), referenceOffer(), []),
     );
     await fixture.drain(context);
     observe(
       "outer",
-      peers.broker.request(
+      fixture.call(
+        "broker",
         "tool.execute",
         referenceIdentity("outer"),
-        { definition: referenceTool, arguments: { mode: "echo", value: "outer" }, handles: [] },
+        {
+          definition: roundTripJson(referenceTool),
+          arguments: { mode: "echo", value: "outer" },
+          handles: [],
+        },
         ["fixture.read"],
       ),
     );
@@ -205,7 +312,8 @@ async function runReentryTrace(
     await fixture.drain(context);
     observe(
       "read",
-      peers.component.request(
+      fixture.call(
+        "component",
         "state.read",
         referenceIdentity("read"),
         { handle: "fixture.read", key: "sample" },
@@ -216,9 +324,13 @@ async function runReentryTrace(
     if (scenario === "dispose") {
       observe(
         "dispose",
-        peers.broker.request("dispose", referenceIdentity("dispose"), {
-          reason: "Generated disposal.",
-        }),
+        fixture.call(
+          "broker",
+          "dispose",
+          referenceIdentity("dispose"),
+          { reason: "Generated disposal." },
+          [],
+        ),
       );
     }
     if (scenario === "stop") {
@@ -226,22 +338,78 @@ async function runReentryTrace(
       peers.component.close();
     }
     await fixture.drain(context);
-    expect(didInject).toBe(injection !== undefined);
+    const label = `${scenario}:${handlerKind}:${kind}:${JSON.stringify(injection)}`;
+    expect(didInject, label).toBe(injection !== undefined);
     const sequences = new Map<string, number>();
     const evidence = new Map<string, number>();
     for (const { role, entry } of records) {
       const key = `${role}:${entry.invocationId}`;
-      expect(entry.sequence).toBe((evidence.get(key) ?? 0) + 1);
+      expect(entry.sequence, label).toBe((evidence.get(key) ?? 0) + 1);
       evidence.set(key, entry.sequence);
-      if (entry.kind !== "frame" || entry.direction !== "sent" || entry.invocationId === null) {
+      if (entry.kind !== "frame") {
         continue;
       }
       const frame = entry.value as unknown as ProtocolFrame;
+      if ("method" in frame && "id" in frame) {
+        requests.push(frame);
+      }
+      if (entry.direction !== "sent" || entry.invocationId === null) {
+        continue;
+      }
       const details = "params" in frame ? frame.params : (frame.result ?? frame.error?.data);
-      expect(details?.sequence, `${key}:${JSON.stringify(injection)}`).toBe(
-        (sequences.get(key) ?? 0) + 1,
-      );
+      expect(details?.sequence, label).toBe((sequences.get(key) ?? 0) + 1);
       sequences.set(key, details?.sequence ?? 0);
+    }
+    for (const request of requests) {
+      const { identity, input, capabilities } = request.params;
+      expect(fixture.calls.get(identity.invocationId), label).toEqual({
+        identity,
+        input,
+        capabilities,
+      });
+    }
+    for (const key of new Set([...notifications.keys(), ...handlerOutcomes.keys()])) {
+      const sent = records
+        .filter(
+          ({ role, entry }) =>
+            `${role}:${entry.invocationId}` === key &&
+            entry.kind === "frame" &&
+            entry.direction === "sent",
+        )
+        .map(({ entry }) => entry.value as unknown as ProtocolFrame);
+      const terminalIndex = sent.findIndex((frame) => !("method" in frame));
+      const notified = sent.flatMap((frame) =>
+        "params" in frame && !("id" in frame) && frame.method !== "cancel"
+          ? [{ method: frame.method, data: frame.params.data }]
+          : [],
+      );
+      const called = notifications.get(key) ?? [];
+      expect(notified, `${label}:${key}`).toEqual(
+        called.slice(0, notified.length).map(({ method, data }) => ({ method, data })),
+      );
+      expect(
+        sent
+          .slice(terminalIndex === -1 ? sent.length : terminalIndex + 1)
+          .filter((frame) => "method" in frame && frame.method !== "cancel"),
+        `${label}:${key}`,
+      ).toEqual([]);
+      const terminal = sent[terminalIndex] as ResponseFrame | undefined;
+      const outcome = handlerOutcomes.get(key);
+      if (terminal === undefined || outcome === undefined) {
+        continue;
+      }
+      const isOwnOutcome =
+        terminal.result !== undefined || terminal.error?.data.kind === "execution-failure";
+      if (terminal.result !== undefined) {
+        expect(terminal.result.output, `${label}:${key}`).toEqual(outcome.output);
+      } else if (isOwnOutcome) {
+        expect(terminal.error?.message, `${label}:${key}`).toBe(outcome.message);
+      }
+      if (isOwnOutcome) {
+        expect(notified.length, `${label}:${key}`).toBeGreaterThanOrEqual(
+          called.filter((call) => call.isBeforeOutcome).length,
+        );
+      }
     }
     return {
       points,
@@ -257,6 +425,17 @@ async function runReentryTrace(
   }
 }
 
+function callbackRange(
+  points: CallbackPoint[],
+  batch: number,
+  batches: number,
+): { first: number; end: number } {
+  return {
+    first: Math.floor((points.length * batch) / batches),
+    end: Math.floor((points.length * (batch + 1)) / batches),
+  };
+}
+
 test.for(
   scenarios.flatMap((scenario) =>
     actions.flatMap((operations, alphabet) =>
@@ -267,8 +446,7 @@ test.for(
   "generated $scenario callbacks preserve post-step equivalence for alphabet $alphabet in batch $batch",
   async ({ scenario, operations, alphabet, batch }, context) => {
     const baseline = await runReentryTrace(context, "in-process", scenario);
-    const first = Math.floor((baseline.points.length * batch) / 2);
-    const end = Math.floor((baseline.points.length * (batch + 1)) / 2);
+    const { first, end } = callbackRange(baseline.points, batch, 2);
     process.stdout.write(
       `Re-entry seed: ${seed}. Scenario: ${scenario}. Alphabet: ${alphabet}. Callback range: [${first}, ${end}).\n`,
     );
@@ -289,6 +467,47 @@ test.for(
       expect(immediate.result, label).toEqual(deferred.result);
       expect(stream.result, label).toEqual(immediate.result);
       expect(deferredStream.result, label).toEqual(immediate.result);
+    }
+  },
+);
+
+test.for(
+  actions.flatMap((operations, alphabet) =>
+    [0, 1, 2, 3, 4, 5].map((batch) => ({ operations, alphabet, batch })),
+  ),
+)(
+  "generated synchronous throws after notifications match asynchronous throws for alphabet $alphabet in batch $batch",
+  async ({ operations, alphabet, batch }, context) => {
+    const baseline = await runReentryTrace(context, "in-process", "throw");
+    const { first, end } = callbackRange(baseline.points, batch, 6);
+    process.stdout.write(
+      `Re-entry seed: ${seed}. Scenario: throw. Alphabet: ${alphabet}. Callback range: [${first}, ${end}). Handlers: sync, async.\n`,
+    );
+    for (let point = first; point < end; point++) {
+      const callback = baseline.points[point] as CallbackPoint;
+      for (const isDeferred of [false, true]) {
+        const label = `throw:${JSON.stringify(callback)}:${operations.join(",")}:${isDeferred}`;
+        const injection = { point, actions: operations, isDeferred };
+        const sync = await runReentryTrace(context, "in-process", "throw", injection);
+        const asynchronous = await runReentryTrace(
+          context,
+          "in-process",
+          "throw",
+          injection,
+          "async",
+        );
+        const stream = await runReentryTrace(context, "standard-streams", "throw", injection);
+        const asynchronousStream = await runReentryTrace(
+          context,
+          "standard-streams",
+          "throw",
+          injection,
+          "async",
+        );
+        expect(asynchronous.result, label).toEqual(sync.result);
+        expect(stream.result, label).toEqual(sync.result);
+        expect(asynchronousStream.result, label).toEqual(sync.result);
+      }
     }
   },
 );
@@ -333,4 +552,73 @@ test("real child terminal evidence cancellation preserves other work and correla
   expect(
     frames.map((frame) => ("params" in frame ? frame.params.sequence : frame.result?.sequence)),
   ).toEqual([1, 2]);
+});
+
+test("real child receives call-time arguments and notifications before a synchronous throw", async (context) => {
+  const records: EvidenceRecord[] = [];
+  const repeated: Promise<JsonValue>[] = [];
+  const transport = createWorkerTransport(context, new URL("./reentry-worker.ts", import.meta.url));
+  let broker: ProtocolPeer | undefined;
+  function execute(id: string, mode: string, value: JsonValue): Promise<JsonValue> {
+    return (broker as ProtocolPeer).request("tool.execute", referenceIdentity(id), {
+      definition: referenceTool,
+      arguments: { mode, value },
+      handles: [],
+    });
+  }
+  broker = createProtocolPeer({
+    transport,
+    role: "broker",
+    binding: referenceBinding,
+    contracts: referenceContracts,
+    capabilities: ["fixture.read"],
+    record(entry): void {
+      records.push(entry);
+      const frame = entry.value as unknown as ProtocolFrame;
+      if (entry.invocationId === "trigger" && entry.direction === "received" && "id" in frame) {
+        const input = {
+          definition: referenceTool,
+          arguments: { mode: "echo", value: "first" },
+          handles: [],
+        };
+        repeated.push(
+          (broker as ProtocolPeer).request("tool.execute", referenceIdentity("first"), input),
+        );
+        input.arguments.value = "second";
+        repeated.push(
+          (broker as ProtocolPeer).request("tool.execute", referenceIdentity("second"), input),
+        );
+        input.arguments.value = "mutated";
+      }
+    },
+    authorize(): void {},
+    handlers: {},
+  });
+  registerTestCleanup(context, () => broker?.close());
+  await broker.request("initialize", referenceIdentity("initialize"), referenceOffer());
+  await execute("trigger", "echo", "trigger");
+  expect(await Promise.all(repeated)).toMatchObject([
+    { structuredData: "first" },
+    { structuredData: "second" },
+  ]);
+  await expect(execute("throw", "throw", "notified")).rejects.toThrow(
+    "The worker fails synchronously.",
+  );
+  const frames = records
+    .filter(
+      (entry) =>
+        entry.kind === "frame" && entry.direction === "received" && entry.invocationId === "throw",
+    )
+    .map((entry) => entry.value as unknown as ProtocolFrame);
+  expect(
+    frames.map((frame) =>
+      "params" in frame
+        ? [frame.method, frame.params.sequence, "data" in frame.params ? frame.params.data : null]
+        : ["terminal", frame.error?.data.sequence, frame.error?.message],
+    ),
+  ).toEqual([
+    ["progress", 1, { value: { value: "notified" } }],
+    ["log", 2, { level: "info", message: "The worker fails after notifications." }],
+    ["terminal", 3, "The worker fails synchronously."],
+  ]);
 });

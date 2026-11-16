@@ -1,4 +1,5 @@
 import type { TSchema } from "typebox";
+import { Value } from "typebox/value";
 import { expect, test } from "vitest";
 import {
   referenceContracts,
@@ -315,4 +316,91 @@ test.each([
     dispatch: "known",
     effects: "uncertain",
   });
+});
+
+function variants(value: JsonValue, depth = 2): JsonValue[] {
+  if (value === null || typeof value !== "object" || depth === 0) {
+    return [value];
+  }
+  const replacements: JsonValue[] = [null, "text", 1, -1, 1.5, true, [], {}];
+  const results: JsonValue[] = [value, ...replacements];
+  const entries = Object.entries(value);
+  for (const [key, entry] of entries) {
+    for (const replacement of [...variants(entry, depth - 1).slice(1), ...replacements]) {
+      results.push(
+        Array.isArray(value)
+          ? value.map((current, index) => (String(index) === key ? replacement : current))
+          : { ...value, [key]: replacement },
+      );
+    }
+    if (!Array.isArray(value)) {
+      results.push(Object.fromEntries(entries.filter(([other]) => other !== key)));
+    }
+  }
+  results.push(Array.isArray(value) ? [...value, "extra"] : { ...value, extra: true });
+  return results;
+}
+
+test("published validators agree with the typebox interpreter on generated variants", () => {
+  const samples = operationSamples();
+  const identity = roundTripJson(referenceIdentity("variant"));
+  const contract = { id: "tool.execute", version: { major: 1, minor: 0 } };
+  const failure: JsonValue = {
+    kind: "execution-failure",
+    identity,
+    contract,
+    sequence: 1,
+    locations: [],
+    text: null,
+    dispatch: "known",
+    effects: "uncertain",
+  };
+  const frames: JsonValue[] = [
+    {
+      jsonrpc: "2.0",
+      id: "broker:1",
+      method: "tool.execute",
+      params: {
+        wireVersion: { major: 1, minor: 0 },
+        identity,
+        contract,
+        sequence: 1,
+        capabilities: ["fixture.read"],
+        input: samples.inputs["tool.execute"],
+      },
+    },
+    {
+      jsonrpc: "2.0",
+      method: "progress",
+      params: { wireVersion: { major: 1, minor: 0 }, identity, contract, sequence: 2, data: {} },
+    },
+    {
+      jsonrpc: "2.0",
+      id: "broker:1",
+      result: { identity, contract, sequence: 3, outcome: "completed", output: null },
+    },
+    { jsonrpc: "2.0", id: null, error: { code: -32000, message: "Failure.", data: failure } },
+  ];
+  const cases: [TSchema, JsonValue][] = [
+    ...referenceOperations.flatMap((operation): [TSchema, JsonValue][] => [
+      [operationInputs[operation], samples.inputs[operation]],
+      [operationOutputs[operation], samples.outputs[operation]],
+    ]),
+    ...frames.map((frame): [TSchema, JsonValue] => [protocolSchemas.frame as TSchema, frame]),
+    [protocolSchemas.failure as TSchema, failure],
+  ];
+  let checked = 0;
+  for (const [schema, sample] of cases) {
+    for (const variant of variants(roundTripJson(sample))) {
+      let isValid = true;
+      try {
+        validateValue(schema, variant);
+      } catch {
+        isValid = false;
+      }
+      expect(isValid, JSON.stringify(variant)).toBe(Value.Check(schema, variant));
+      checked++;
+    }
+  }
+  expect(checked).toBeGreaterThan(1000);
 });
