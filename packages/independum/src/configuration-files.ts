@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, lstatSync, readFileSync } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 import { ConfigurationError } from "./configuration-schema.ts";
+import { removePath, replaceFile } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 
 /** A file replacement within one managed configuration root. */
@@ -110,7 +111,7 @@ export async function withConfigurationLock<Value>(
       await recoverConfiguration(root);
       return await action();
     } finally {
-      await rm(lock, { recursive: true, force: true });
+      await removePath(lock, { recursive: true, force: true });
     }
   });
 }
@@ -229,15 +230,15 @@ async function recoverConfiguration(root: string): Promise<void> {
     }
     await mkdir(dirname(path), { recursive: true });
     if (entry.isDeletion) {
-      await rm(path, { force: true });
+      await removePath(path, { force: true });
     } else {
-      await rename(join(root, entry.staged), path);
+      await replaceFile(join(root, entry.staged), path);
     }
   }
-  await rm(journal);
+  await removePath(journal);
   for (const entry of replacements) {
-    await rm(join(root, entry.staged), { force: true });
-    await rm(join(root, entry.backup), { force: true });
+    await removePath(join(root, entry.staged), { force: true });
+    await removePath(join(root, entry.backup), { force: true });
   }
 }
 

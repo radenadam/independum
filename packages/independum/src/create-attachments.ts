@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Api, ImageContent, Model } from "@earendil-works/pi-ai";
 import {
@@ -11,6 +11,7 @@ import type { AttachmentPreview, AttachmentSettings, AttachmentSummary } from ".
 import { attachmentTexts } from "./attachment-texts.ts";
 import { checkConfigurationPath } from "./configuration-files.ts";
 import { InputError } from "./create-pending-inputs.ts";
+import { removePathSync } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 import type { ModelTexts } from "./model-texts.ts";
 import { decodeBytes } from "./tools/text-file.ts";
@@ -214,7 +215,7 @@ export function createAttachments(directory: string): Attachments {
         });
         return summaryOf(manifest, decoded?.text);
       } catch (error) {
-        rmSync(path, { recursive: true, force: true });
+        removePathSync(path, { recursive: true, force: true });
         throw error instanceof InputError
           ? error
           : new InputError("The attachment could not be saved.", "attachmentSaveFailed", 500);
@@ -439,7 +440,7 @@ export function createAttachments(directory: string): Attachments {
       }
     },
     remove(id) {
-      rmSync(pathOf(id), { recursive: true, force: true });
+      removePathSync(pathOf(id), { recursive: true, force: true });
     },
   };
   return attachments;

@@ -1,6 +1,14 @@
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
+import { rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { expect, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
 import { systemPromptText } from "./agent-texts.ts";
@@ -17,6 +25,7 @@ import {
   validateProfileId,
 } from "./configuration-schema.ts";
 import { createProfileStore, projectIdOf } from "./create-profile-store.ts";
+import { holdFile } from "./hold-file.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
@@ -437,6 +446,54 @@ test("concurrent and stale profile saves require their original revision", async
   } finally {
     store.close();
   }
+});
+
+test("a profile save replaces profile.json once a reader that held it open lets go", async (context) => {
+  const { store, projectId } = await setup();
+  const resource = store.profile(defaultReference, projectId);
+  const descriptor = openSync(join(resource.path, "profile.json"), "r");
+  let isOpen = true;
+  function release(): void {
+    if (isOpen) {
+      isOpen = false;
+      closeSync(descriptor);
+    }
+  }
+  context.onTestFinished(() => {
+    release();
+    store.close();
+  });
+  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  vi.mocked(rename).mockImplementationOnce(async (source, target) => {
+    try {
+      await actual.rename(source, target);
+    } finally {
+      release();
+    }
+  });
+  await store.putProfile(defaultReference, projectId, bundle("Held"), resource.revision);
+  expect(store.profile(defaultReference, projectId).document?.profile.name).toBe("Held");
+});
+
+test("deleting a configuration file finishes once a scan that held it lets go", async (context) => {
+  const { directory } = createTestProject(folder);
+  const path = join(directory, "chat-settings", "held.json");
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, "{}\n");
+  const release = holdFile(path);
+  context.onTestFinished(release);
+  const actual = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  vi.mocked(rm).mockImplementationOnce(async (target, options) => {
+    try {
+      await actual.rm(target, options);
+    } finally {
+      release();
+    }
+  });
+  await withConfigurationLock(directory, () =>
+    writeConfigurationFiles(directory, [{ path, content: null }]),
+  );
+  expect(existsSync(path)).toBe(false);
 });
 
 test("empty system prompts and unknown baselines survive while built-in text removes an edit", async () => {

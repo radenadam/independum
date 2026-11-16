@@ -7,12 +7,11 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  renameSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { removePathSync, replaceFileSync } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 import { migrateStateDirectory } from "./migrate-state-directory.ts";
 import { readServerUrl } from "./read-server-url.ts";
@@ -57,7 +56,7 @@ export function openPrivateRuntimeFile(path: string): number {
     return descriptor;
   } catch (error) {
     closeSync(descriptor);
-    unlinkSync(path);
+    removePathSync(path);
     throw error;
   }
 }
@@ -68,7 +67,7 @@ export function publishServer(directory: string, connection: ServerConnection): 
   writePrivateRuntimeFile(path, `${JSON.stringify(connection)}\n`);
   return () => {
     if (readServer(directory)?.serverId === connection.serverId) {
-      unlinkSync(path);
+      removePathSync(path);
     }
   };
 }
@@ -107,9 +106,9 @@ export function writePrivateRuntimeFile(path: string, content: string): void {
     } finally {
       closeSync(descriptor);
     }
-    renameSync(staging, path);
+    replaceFileSync(staging, path);
   } catch (error) {
-    unlinkSync(staging);
+    removePathSync(staging);
     throw error;
   }
 }
@@ -163,7 +162,7 @@ export function readServer(directory: string): ServerConnection | undefined {
 /** Removes a stale record after an authenticated connection attempt fails to find a listener. */
 export function removeServer(directory: string, serverId: string): void {
   if (readServer(directory)?.serverId === serverId) {
-    unlinkSync(join(privateRuntime(directory, true), "server.json"));
+    removePathSync(join(privateRuntime(directory, true), "server.json"));
   }
 }
 

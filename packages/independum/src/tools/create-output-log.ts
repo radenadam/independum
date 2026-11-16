@@ -1,6 +1,7 @@
-import { createWriteStream, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { OutputLimits } from "../api-types.ts";
+import { removePathSync } from "../file-changes.ts";
 import { defineText, type ModelText, type ModelTexts } from "../model-texts.ts";
 
 /** The output of a tool as the model gets it. */
@@ -291,7 +292,7 @@ export function createOutputLog(path: string, options: OutputLogOptions): Output
       }
       await new Promise<void>((resolve) => file.end(resolve));
       if (!whole.isCut() && !isKept) {
-        rmSync(path, { force: true });
+        removePathSync(path, { force: true });
       }
       return whole.limited([], describeCut);
     },

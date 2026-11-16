@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { rmSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { getCurrentSystemMessage } from "@earendil-works/pi-ai";
 import { clampThinkingLevel, getSupportedThinkingLevels } from "@earendil-works/pi-ai/compat";
@@ -93,6 +92,7 @@ import { createSavedChats } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
 import { createScriptHooks, type ScriptHooks } from "./create-script-hooks.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
+import { removePathSync } from "./file-changes.ts";
 import type { OperationResult } from "./headless-types.ts";
 import { type HookEvent, type HookSummary, hookModelTexts } from "./hook-contract.ts";
 import { listRequests } from "./list-requests.ts";
@@ -3702,12 +3702,12 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
       } else {
         await savedChats.pin(saved.id, false);
       }
-      rmSync(join(outputFolder, saved.id), { recursive: true, force: true });
+      removePathSync(join(outputFolder, saved.id), { recursive: true, force: true });
       savedRequests.remove(saved.id);
       await profiles.removeChoices(saved.id);
       pendingInputs.get(saved.id)?.delete();
       if (!pendingInputs.has(saved.id)) {
-        rmSync(join(directory, "pending-inputs", `${saved.id}.json`), { force: true });
+        removePathSync(join(directory, "pending-inputs", `${saved.id}.json`), { force: true });
       }
       pendingInputs.delete(saved.id);
       emitProjects();
