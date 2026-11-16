@@ -1,12 +1,4 @@
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { expect, test, vi } from "vitest";
@@ -451,14 +443,7 @@ test("concurrent and stale profile saves require their original revision", async
 test("a profile save replaces profile.json once a reader that held it open lets go", async (context) => {
   const { store, projectId } = await setup();
   const resource = store.profile(defaultReference, projectId);
-  const descriptor = openSync(join(resource.path, "profile.json"), "r");
-  let isOpen = true;
-  function release(): void {
-    if (isOpen) {
-      isOpen = false;
-      closeSync(descriptor);
-    }
-  }
+  const release = holdFile(join(resource.path, "profile.json"));
   context.onTestFinished(() => {
     release();
     store.close();
