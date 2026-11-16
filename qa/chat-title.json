@@ -127,11 +127,58 @@
       "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; window.qaTitles = { written: 'Summarize the attached notes and list every open\u2026', writtenLine: 'Summarize the attached notes and list every open question they raise about the release plan.', attached: 'todo.txt, plan.md' }; window.qaRow = title => [...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.trim() === title); window.qaClean = () => !/<independum|attachment 1|attachments.[0-9a-f-]{36}|Group them by owner|Mark each one/.test(document.querySelector('nav[aria-label=\"Projects and chats\"]').innerText + document.querySelector('main header').innerText + [...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent).join('')); return { visibilityChecksUseHitTests: true }; })()"
     },
     {
+      "hoverOn": "window.qaRow(window.qaTitles.written)"
+    },
+    {
+      "clickOn": "window.qaRow(window.qaTitles.written)?.nextElementSibling?.querySelector('button[aria-label=\"Chat actions\"]')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.trim() === 'Archive')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ writtenChatLeavesSidebar: !window.qaRow(window.qaTitles.written) })",
+        "message": "The expected checks do not become true: writtenChatLeavesSidebar.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Settings'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('dialog[aria-label=Settings] nav button')].find(button => button.textContent.trim() === 'Archived chats')"
+    },
+    {
+      "shot": "title-archived-desktop-light",
+      "waitFor": {
+        "condition": "({ archivedShowsShortTitle: !![...document.querySelectorAll('dialog[aria-label=Settings] li')].find(entry => entry.innerText.includes(window.qaTitles.written)) && ![...document.querySelectorAll('dialog[aria-label=Settings] li')].find(entry => entry.innerText.includes(window.qaTitles.written)).innerText.includes('question they raise') })",
+        "message": "The expected checks do not become true: archivedShowsShortTitle.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...[...document.querySelectorAll('dialog[aria-label=Settings] li')].find(entry => entry.innerText.includes(window.qaTitles.written)).querySelectorAll('button')].find(button => button.textContent.trim() === 'Unarchive')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ unarchivedLeavesList: ![...document.querySelectorAll('dialog[aria-label=Settings] li')].find(entry => entry.innerText.includes(window.qaTitles.written)) })",
+        "message": "The expected checks do not become true: unarchivedLeavesList.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "document.querySelector('dialog[aria-label=Settings] button[aria-label=Close]')"
+    },
+    {
+      "shot": "title-unarchived-desktop-light",
+      "waitFor": {
+        "condition": "({ sidebarShowsShortTitleAgain: !!window.qaRow(window.qaTitles.written), noHarnessText: window.qaClean() })",
+        "message": "The expected checks do not become true: sidebarShowsShortTitleAgain, noHarnessText.",
+        "timeoutMs": 25000
+      }
+    },
+    {
       "size": [360, 800],
       "scheme": "light"
     },
     {
-      "shot": "title-phone-light",
+      "shot": "title-drawer-phone-light",
       "waitFor": {
         "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false, writtenRowVisible: window.qaVisible(window.qaRow(window.qaTitles.written)), attachedRowVisible: window.qaVisible(window.qaRow(window.qaTitles.attached)), noHarnessText: window.qaClean(), phoneFits: document.documentElement.scrollWidth <= 360 })",
         "message": "The expected checks do not become true: drawerOpens, writtenRowVisible, attachedRowVisible, noHarnessText, phoneFits.",
@@ -140,10 +187,30 @@
     },
     {
       "scheme": "dark",
-      "shot": "title-phone-dark",
+      "shot": "title-drawer-phone-dark",
       "waitFor": {
         "condition": "({ writtenRowVisible: window.qaVisible(window.qaRow(window.qaTitles.written)), attachedRowVisible: window.qaVisible(window.qaRow(window.qaTitles.attached)), phoneFits: document.documentElement.scrollWidth <= 360 })",
         "message": "The expected checks do not become true: writtenRowVisible, attachedRowVisible, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "window.qaRow(window.qaTitles.written)"
+    },
+    {
+      "shot": "title-header-phone-dark",
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true, headerShowsShortTitle: document.querySelector('main header').innerText.trim() === window.qaTitles.written && window.qaVisible(document.querySelector('main header p > span')), touchEnabled: matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0, phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: drawerCloses, headerShowsShortTitle, touchEnabled, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "title-header-phone-light",
+      "waitFor": {
+        "condition": "({ drawerCloses: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true, headerShowsShortTitle: document.querySelector('main header').innerText.trim() === window.qaTitles.written && window.qaVisible(document.querySelector('main header p > span')), touchEnabled: matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0, phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: drawerCloses, headerShowsShortTitle, touchEnabled, phoneFits.",
         "timeoutMs": 25000
       }
     }

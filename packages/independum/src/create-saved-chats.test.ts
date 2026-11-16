@@ -3,7 +3,13 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
+import {
+  createPendingInputs,
+  inputFingerprint,
+  listPendingChats,
+} from "./create-pending-inputs.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
+import { createTestInput } from "./create-test-input.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 vi.mock("node:fs/promises", { spy: true });
@@ -69,4 +75,23 @@ test("a saved chat takes its title line from what the user wrote in its first pr
       [legacy, "Written before input entries."],
     ]),
   );
+});
+
+test("a held first message keeps its title line once delivery saves the chat", async () => {
+  const sessions = join(folder, "delivered");
+  const manager = SessionManager.create(folder, sessions);
+  const id = manager.getSessionId();
+  const text = "\n  Plan the release.  \nThen list the owners.";
+  const input = createTestInput(text);
+  const pending = createPendingInputs(join(folder, "pending-inputs"), id, [], folder);
+  pending.accept(input, inputFingerprint(input));
+  pending.pause("The delivery failed.");
+  const held = listPendingChats(join(folder, "pending-inputs"), new Set());
+  manager.appendCustomEntry("independum-input", { version: 1, text, attachments: [] });
+  manager.appendMessage({ role: "user", content: text, timestamp: Date.now() });
+  pending.delete();
+  const chats = await createSavedChats(sessions, join(folder, "delivered-pins.json"));
+  const delivered = await chats.list();
+  expect(held.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
+  expect(delivered.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
 });

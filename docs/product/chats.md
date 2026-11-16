@@ -49,7 +49,7 @@ The notification uses the chat title and the first line of the last assistant me
 - [Server chat state and operations](../../packages/independum/src/create-chat.ts) and [saved chat operations](../../packages/independum/src/create-saved-chats.ts).
 - [Sidebar lists](../../packages/web/src/sidebar-chats.tsx), [row actions](../../packages/web/src/chat-row.tsx), and [working screen](../../packages/web/src/working-screen.tsx).
 - [Draft storage](../../packages/web/src/chat-draft.ts), [notification choice](../../packages/web/src/notification-choice.ts), and [reply notices](../../packages/web/src/use-reply-notice.ts).
-- `pnpm qa chat-title` checks titles from a long multi-line prompt and from attachments alone.
+- `pnpm qa chat-title` checks titles from a long multi-line prompt and from attachments alone, through archiving and in the phone header.
 
 ## Known differences from the decisions
 

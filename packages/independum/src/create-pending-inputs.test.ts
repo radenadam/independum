@@ -3,33 +3,20 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, test } from "vitest";
-import type { PendingInput } from "./api-types.ts";
 import {
   createPendingInputs,
   inputFingerprint,
   listPendingChats,
 } from "./create-pending-inputs.ts";
+import { createTestInput } from "./create-test-input.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 const directory = createTestFolder("pending-inputs");
 
-function input(
-  text = "A prompt",
-): Omit<PendingInput, "sequence" | "createdAt" | "state" | "reason"> {
-  return {
-    id: randomUUID(),
-    text,
-    delivery: "queue",
-    model: { providerId: "faux", modelId: "first", thinkingLevel: "off" },
-    hasBrowserApprovals: false,
-    command: null,
-  };
-}
-
 test("acceptance is durable and returned snapshots cannot change saved inputs", () => {
   const chatId = randomUUID();
   const pending = createPendingInputs(directory, chatId, [], directory);
-  const submitted = input();
+  const submitted = createTestInput();
   const fingerprint = inputFingerprint(submitted);
   pending.accept(submitted, fingerprint);
   pending.state().items.splice(0);
@@ -49,8 +36,8 @@ test("acceptance is durable and returned snapshots cannot change saved inputs", 
 
 test("removal before handoff wins and removal after handoff conflicts", () => {
   const pending = createPendingInputs(directory, randomUUID(), [], directory);
-  const first = input();
-  const second = input();
+  const first = createTestInput();
+  const second = createTestInput();
   pending.accept(first, inputFingerprint(first));
   pending.accept(second, inputFingerprint(second));
   expect(pending.remove(first.id)).toBe(true);
@@ -63,8 +50,8 @@ test("removal before handoff wins and removal after handoff conflicts", () => {
 
 test("recovery matches input markers instead of duplicate text or timestamps", () => {
   const manager = SessionManager.inMemory(directory);
-  const first = input();
-  const second = input();
+  const first = createTestInput();
+  const second = createTestInput();
   const pending = createPendingInputs(directory, manager.getSessionId(), [], directory);
   for (const submitted of [first, second]) {
     pending.accept(submitted, inputFingerprint(submitted));
@@ -107,7 +94,7 @@ test("a failed atomic replacement acknowledges no input and leaves no staging fi
   const path = join(directory, `${id}.json`);
   const pending = createPendingInputs(directory, id, [], directory);
   mkdirSync(path);
-  const submitted = input();
+  const submitted = createTestInput();
   expect(() => pending.accept(submitted, inputFingerprint(submitted))).toThrow(
     "could not be saved",
   );
@@ -120,7 +107,7 @@ test("accepted unsent chats retain their folder, name, and archive choice", () =
   const target = join(directory, randomUUID());
   const id = randomUUID();
   const pending = createPendingInputs(target, id, [], directory);
-  const submitted = input();
+  const submitted = createTestInput();
   pending.accept(submitted, inputFingerprint(submitted));
   pending.rename("Held work");
   pending.archive(true);
@@ -145,7 +132,7 @@ test("an unsent chat without a name takes its title from its first prompt", () =
   const pending = createPendingInputs(target, id, [], directory);
   const attachmentId = randomUUID();
   const submitted = {
-    ...input(""),
+    ...createTestInput(""),
     attachmentIds: [attachmentId],
     attachments: [
       {

@@ -16,7 +16,9 @@ import { waitFor } from "../../../scripts/wait-for.ts";
 import type { ChatEvent, ChatsEvent } from "./api-types.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
+import { createPendingInputs, inputFingerprint } from "./create-pending-inputs.ts";
 import { createSavedChats, type SavedChat, type SavedChats } from "./create-saved-chats.ts";
+import { createTestInput } from "./create-test-input.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
@@ -269,6 +271,39 @@ test("a long title line gets a short title beside the whole line, unlike a given
     title: named.name,
     fullTitle: named.name,
   });
+});
+
+test("markdown export heads a chat with its short title, never with its raw first message", async () => {
+  const line =
+    "Summarize the attached notes and list every open question they raise about the release plan.";
+  const prompted = savedChat();
+  prompted.firstMessage = `${line}\nGroup them by owner.\n<independum source="attachment 1">`;
+  prompted.promptTitle = line;
+  const chat = await createChat({ models, directory, folder: launchFolder });
+  const markdown = await chat.exportMarkdown(prompted.id);
+  expect(markdown?.split("\n")[0]).toBe("# Summarize the attached notes and list every open\u2026");
+  expect(markdown).not.toContain("Group them by owner.");
+});
+
+test("a held first message titles its unsent chat by the same rule", async () => {
+  const id = SessionManager.inMemory(launchFolder).getSessionId();
+  const pending = createPendingInputs(join(directory, "pending-inputs"), id, [], launchFolder);
+  const input = createTestInput(
+    "\n  Summarize the attached notes and list every open question they raise about the release plan.\nGroup them by owner.",
+  );
+  pending.accept(input, inputFingerprint(input));
+  pending.pause("Held for the test.");
+  try {
+    const chat = await createChat({ models, directory, folder: launchFolder });
+    const chats = (await chat.getProjects()).flatMap((project) => project.chats);
+    expect(chats.find((summary) => summary.id === id)).toMatchObject({
+      title: "Summarize the attached notes and list every open\u2026",
+      fullTitle:
+        "Summarize the attached notes and list every open question they raise about the release plan.",
+    });
+  } finally {
+    pending.delete();
+  }
 });
 
 test("a failed saved open can be retried", async () => {
