@@ -8,6 +8,10 @@ const nativeSandboxTests = [
 ];
 
 const serverProcessTests = [
+  "packages/component-protocol/src/reentry-model.test.ts",
+  "packages/component-protocol/src/transport-capture-model.test.ts",
+  "packages/component-protocol/src/invocation-model.test.ts",
+  "packages/component-protocol/src/transport-conformance.test.ts",
   "packages/independum/src/qa/start-preview.test.ts",
   "scripts/run-gate.test.ts",
 ];
