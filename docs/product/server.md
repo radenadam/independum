@@ -4,7 +4,7 @@ The server owns lifecycle and transport. Pi owns providers, logins, models, and 
 
 ## Startup and access
 
-[CLI](../../packages/independum/src/cli.ts) and [startup](../../packages/independum/src/start-app-server.ts) listen locally at `127.0.0.1:4870`. Preview uses an isolated home and configurable port. Development and preview serve Vite middleware. Headless serves the built UI from `dist` or reports its absence. Development, preview, and QA build that UI first.
+[CLI](../../packages/independum/src/cli.ts) and [startup](../../packages/independum/src/start-app-server.ts) listen locally at `127.0.0.1:4870`. Preview uses an isolated home and configurable port. Development and preview serve Vite middleware. They listen before Vite is ready and close a connection that arrives in between, as if they did not listen yet, so a browser reconnecting after a restart tries again instead of waiting forever. Headless serves the built UI from `dist` or reports its absence. Development, preview, and QA build that UI first.
 
 [The launcher](../../packages/independum/src/dev.ts) watches source modification times and debounces restart by 100 milliseconds. One token survives a development launch's restarts. A normal launch generates a token. The CLI removes it from the tool environment. Browser links carry it in a fragment, which the browser saves locally and removes from history. [Headless](headless.md#storage-and-api) owns account-only discovery.
 
@@ -44,7 +44,7 @@ Sessions save with the first message. Archived sessions move separately. Pins ar
 
 ## Streams
 
-[Streams](../../packages/independum/src/stream-events.ts) use fetch-based server-sent events so authorization headers are available. They have no replay cursor. Per-chat streams begin with state and shared streams with projects and replying chats. Reconnection restores streaming prefixes and tool progress. Disconnecting a client does not stop its chat. The browser retries after 1.5 seconds and treats 401 as expired authority.
+[Streams](../../packages/independum/src/stream-events.ts) use fetch-based server-sent events so authorization headers are available. They have no replay cursor. Per-chat streams begin with state and shared streams with projects and replying chats. Reconnection restores streaming prefixes and tool progress. Disconnecting a client does not stop its chat. The browser retries after 1.5 seconds and treats 401 as expired authority. When the shared stream connects again after a drop, such as after a restart without a page reload, every view that loads data by itself loads it again, so a request that failed while the server was away recovers. These views are the context and agent of Session and the profile editor, the slash command catalog that follows the context, Session profile lists, archived chats, logins, and draft attachment previews. [The reconnection signal](../../packages/web/src/chat-api.ts) comes from the shared stream, and `pnpm qa session-restart` opens Session while the server is away and checks that it recovers.
 
 ## What reaches the model
 

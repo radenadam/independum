@@ -5,6 +5,7 @@ import { BoxedList } from "./boxed-list.tsx";
 import { archiveChat, fetchArchivedChats } from "./chat-api.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
 import { TextButton } from "./text-button.tsx";
+import { useReconnections } from "./use-reconnections.ts";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -21,7 +22,9 @@ export function ArchivedSection(): ReactElement {
     });
   }, []);
 
-  useEffect(load, [load]);
+  const reconnections = useReconnections();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reconnection refreshes the archived chats.
+  useEffect(load, [load, reconnections]);
 
   // The list loads again after each change, so it matches the files even when a change fails.
   function change(work: Promise<void>, failure: string): void {

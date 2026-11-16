@@ -1,10 +1,11 @@
 import type { ChatState } from "independum/api-types";
 import { useEffect, useState } from "react";
+import { useReconnections } from "./use-reconnections.ts";
 
 /**
  * Returns data about the open chat that loads from the server once the chat is known, and loads
- * again when another chat opens, another model takes over, a reply starts or ends, or its settings
- * or compaction change.
+ * again when another chat opens, another model takes over, a reply starts or ends, its settings or
+ * compaction change, or the UI reaches the server again after it was away.
  */
 export function useChatData<Data>(
   load: (id: string) => Promise<Data>,
@@ -18,9 +19,10 @@ export function useChatData<Data>(
   const chatId = chat?.id;
   const modelId = chat?.model?.id;
   const providerId = chat?.model?.providerId;
+  const reconnections = useReconnections();
 
   // A request goes out with every reply, so its data loads again when a reply starts or ends.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Reply state and context version trigger a reload.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reply state, context version, and reconnection trigger a reload.
   useEffect(() => {
     if (chatId === undefined) {
       return;
@@ -46,7 +48,7 @@ export function useChatData<Data>(
     return () => {
       isCurrent = false;
     };
-  }, [chatId, chat?.isReplying, modelId, providerId, chat?.contextVersion, load]);
+  }, [chatId, chat?.isReplying, modelId, providerId, chat?.contextVersion, load, reconnections]);
 
   return {
     data: loaded?.chatId === chatId ? loaded?.data : undefined,

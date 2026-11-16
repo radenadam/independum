@@ -6,7 +6,11 @@ import { renderHook } from "./render-hook.ts";
 import { useAgentSettings } from "./use-agent-settings.ts";
 
 vi.mock("react", async () => (await import("./render-hook.ts")).mockReact());
-vi.mock("./chat-api.ts", () => ({ changeSettings: vi.fn(), fetchAgent: vi.fn() }));
+vi.mock("./chat-api.ts", () => ({
+  changeSettings: vi.fn(),
+  fetchAgent: vi.fn(),
+  followReconnections: () => () => undefined,
+}));
 
 afterEach(() => vi.resetAllMocks());
 

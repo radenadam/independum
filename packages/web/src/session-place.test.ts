@@ -4,7 +4,10 @@ import { findElement, renderHook } from "./render-hook.ts";
 import { SessionPlace } from "./session-place.tsx";
 
 vi.mock("react", async () => (await import("./render-hook.ts")).mockReact());
-vi.mock("./chat-api.ts", () => ({ fetchAgent: () => new Promise(() => undefined) }));
+vi.mock("./chat-api.ts", () => ({
+  fetchAgent: () => new Promise(() => undefined),
+  followReconnections: () => () => undefined,
+}));
 
 afterEach(() => vi.unstubAllGlobals());
 

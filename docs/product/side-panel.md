@@ -20,7 +20,7 @@ The context shows the last captured request, or an estimate of the next one befo
 
 Context controls opens the [resource catalog, source editors, and Pi switches](context.md). Captured resources remain separate from pending discovery.
 
-A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Changing chats clears the detail path and loads the agent and context by the new chat id. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
+A detail replaces the overview below 720 pixels of panel width. Back restores its scroll position. At 720 pixels or more, the detail sits beside the overview, with separate scrolling and a resizable divider. Closing it restores the full overview. Details open at the top. Changing chats clears the detail path and loads the agent and context by the new chat id. They load again when the browser [reconnects](server.md#streams) after the server was away. Entry details show the sent text and an As Pi saved it disclosure with complete saved entry data.
 
 ## Session figure
 

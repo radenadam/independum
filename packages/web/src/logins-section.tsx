@@ -8,6 +8,7 @@ import { MenuList } from "./menu-list.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { TextButton } from "./text-button.tsx";
 import { TextField } from "./text-field.tsx";
+import { useReconnections } from "./use-reconnections.ts";
 
 /** Properties of the logins section. */
 interface LoginsSectionProps {
@@ -29,7 +30,9 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
     fetchProviders().then(setProviders, () => setProviders([]));
   }, []);
 
-  useEffect(load, [load]);
+  const reconnections = useReconnections();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reconnection refreshes the logins.
+  useEffect(load, [load, reconnections]);
 
   function change(): void {
     load();

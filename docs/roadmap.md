@@ -40,7 +40,6 @@ The maintainer supplied these findings directly on 2026-11-15. This list records
 - File-write approval uses command wording such as "the programs it starts".
 - A first message with an attachment puts its attachment note and path in the chat title.
 - A text attachment with its path included has an empty Original box.
-- Session retains "Failed to fetch" after server restart without page reload.
 - Unconfirmed: renaming the leading chat immediately after archiving the open chat may return 404.
 
 ## Shipping half
