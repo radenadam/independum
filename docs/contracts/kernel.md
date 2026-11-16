@@ -1,6 +1,6 @@
 # Kernel and model-call records
 
-This page owns the target kernel boundary and exact evidence contract. The coordinator accepts this technical design on 2026-11-15 under delegated architectural authority, with local transport capture in [decision 0087](../decisions/0087-local-capture-and-component-protocol.md). [Decision 0082](../decisions/0082-kernel-without-harness-decisions.md) owns the product requirement. [Server](../product/server.md) owns today's implementation. These contracts are not shipped. They serve CP-03, CP-05, CP-06, CP-29, CP-31, and CP-32 in [the checkpoint](../checkpoint.md).
+This page owns the target kernel boundary and exact evidence contract. The coordinator accepts this technical design on 2026-11-15 under delegated architectural authority, with local transport capture in [decision 0087](../decisions/0087-local-capture-and-component-protocol.md). [Decision 0082](../decisions/0082-kernel-without-harness-decisions.md) owns the product requirement. [Server](../product/server.md) owns today's implementation. The kernel and durable recording remain unimplemented. They serve CP-03, CP-05, CP-06, CP-29, CP-31, and CP-32 in [the checkpoint](../checkpoint.md).
 
 ## Boundary
 
@@ -14,7 +14,7 @@ Pi retains provider compatibility, authentication, catalog, model resolution, an
 
 ## Record
 
-Every logical call retains these fields or explicit absence with a reason. Record schemas and their versions become executable in the first [roadmap slice](../roadmap.md#harness-engineering-checkpoint).
+Every logical call retains these fields or explicit absence with a reason. Slice 1 publishes version 1.0 [boundary schemas](../../packages/component-protocol/src/schemas.ts). They do not implement journal storage or model recording.
 
 | Part | Required evidence |
 | --- | --- |
@@ -50,4 +50,4 @@ Exact recorded input supports inspection and replay. Replay creates a new linked
 
 Today [request storage](../../packages/independum/src/create-saved-requests.ts) overwrites one payload and ignores write failure. [Chat integration](../../packages/independum/src/create-chat.ts) still uses Pi orchestration. [Summaries](../../packages/independum/src/summarize-context.ts) capture separately and warming is counted. These do not implement this record.
 
-Required evidence includes concurrent-call correlation, all transport attempts, continuation chains, immutable stream copies, failures before stream start, cancellation, recording failure, crash recovery, and explicit incomplete coverage. The journal and read-only evidence API land before transport observation and routing. No documentation slice changes checkpoint implementation or verification status.
+Required evidence includes concurrent-call correlation, all transport attempts, continuation chains, immutable stream copies, failures before stream start, cancellation, recording failure, crash recovery, and explicit incomplete coverage. The journal and read-only evidence API land before transport observation and routing. Published schemas and communication fixtures do not verify durable model capture.

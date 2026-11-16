@@ -26,6 +26,8 @@ Every manifest declares:
 
 Read and validate manifests without executing their entry points. Installation source identifies where bytes came from. A signer establishes only the verified signing identity. Neither replaces the permission decision. Diagnostic failures name the manifest, field location, component, and unmet requirement.
 
+Slice 1 publishes the version 1.0 [manifest and captured setup schemas](../../packages/component-protocol/src/schemas.ts). Protocol fixtures use inert sample declarations. Graph resolution, loading, installation, and removal remain unimplemented.
+
 ## Dependencies and captured setup
 
 Resolve each profile's graph to exact versions and artifact digests in a profile lock. Reject cycles, missing required dependencies, incompatible contracts, and conflicting contributions before new work. A lock records the resolved graph rather than silently choosing different bytes for the same version. Source packages declare the complete executable closure. A transitive executable change creates a new revision. Existing hook entry fingerprints alone do not establish that closure.
@@ -56,4 +58,4 @@ An unpublished user component needs an external saved copy to be restorable. An 
 
 [Replies](../product/replies.md#removed-components) owns historical card meaning. Mark Removed in affected card headers and omit actions needing the missing component. Inspect captured values without running component code. A current editor or reinstalled version never substitutes for the historical object. Exact evidence and provenance remain available through generic kernel inspection and headless access.
 
-Conformance covers manifest validation, dependency cycles and collisions, pinned closures, concurrent profile edits, request leases, cancellation and actual exit, Windows file deletion failures, shared dependency ownership, settings retention, missing restoration sources, unsafe archives, digest verification, atomic install recovery, and inspection after removal and reinstall. [The roadmap](../roadmap.md) separates loading, detach, physical removal, and restoration into landable slices. None is implementation evidence today.
+Conformance covers manifest validation, dependency cycles and collisions, pinned closures, concurrent profile edits, request leases, cancellation and actual exit, Windows file deletion failures, shared dependency ownership, settings retention, missing restoration sources, unsafe archives, digest verification, atomic install recovery, and inspection after removal and reinstall. [The roadmap](../roadmap.md) separates loading, detach, physical removal, and restoration into landable slices. Protocol fixtures alone do not verify these lifecycle journeys.

@@ -32,6 +32,13 @@ const rootEntries = new Set([
 // The tools and people that read these files expect these exact names.
 const fixedNames = new Set(["AGENTS.md", "CLAUDE.md", "LICENSE", "README.md"]);
 
+const packageEntries = new Set([
+  // Components import the language-neutral SDK without depending on the running app.
+  "component-protocol",
+  "independum",
+  "web",
+]);
+
 const allowedExtensions = new Set([
   "css",
   "html",
@@ -71,6 +78,11 @@ runCheck((files) => {
   for (const file of files) {
     const segments = file.split("/");
     const [rootEntry] = segments;
+    if (rootEntry === "packages" && !packageEntries.has(segments[1] ?? "")) {
+      problems.add(
+        `${segments[1]}: Register the package and its reason in scripts/check-layout.ts.`,
+      );
+    }
     if (rootEntry !== undefined && !rootEntries.has(rootEntry)) {
       problems.add(`${rootEntry}: Unexpected top-level entry. List it in scripts/check-layout.ts.`);
     }

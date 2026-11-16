@@ -6,6 +6,8 @@ This page owns target loop responsibilities and migration from Pi orchestration.
 
 A loop is a removable [component](components.md), invoked through `loop.run`. A small selectable chat loop adds earlier turns. The default loop adds full tool iteration. Screen controls, authoritative file stages, scripts, and code engineer the same loop operations and schemas. Replacing a loop never changes the sole recorded [kernel model doorway](kernel.md).
 
+Slice 1 publishes version 1.0 [loop and stage message schemas](../../packages/component-protocol/src/schemas.ts) and reference transport fixtures. Stage messages carry the pinned replacement schema and allowed effects. These are communication evidence, not a running replacement loop or migrated hooks.
+
 The default loop takes these orchestration responsibilities from `Agent` and `AgentSession`:
 
 - Assemble context, including earlier turns, resources, base prompt, facts, tool declarations, and model texts. Select projection and stage chains with exact provenance.
@@ -63,4 +65,4 @@ Continue writing Pi's JSONL session format only through `SessionManager` APIs. T
 
 Keep the current default operational until replacement passes relevant conformance and journey checks. Add a selectable chat loop, then tool iteration. Migrate steering, turn retries, compaction, and warming in separate slices. Switch the default after parity evidence, then remove the obsolete Pi orchestration bridge separately. [The roadmap](../roadmap.md) owns that sequence.
 
-Parity includes sequential and parallel tools, truncated responses, both retry classes, no repeated effects, stop during every activity, durable delivery across restart, summary failure, exact warming records, Pi compatibility transformations, kernel-only behavior, and replacement by another loop. Exact previews need the same Pi preparation seam as sending. Sample stages use recorded services and no model calls. First-encounter questions about absent-loop explanation wait for implementation. No current requirement status changes from publishing this contract.
+Parity includes sequential and parallel tools, truncated responses, both retry classes, no repeated effects, stop during every activity, durable delivery across restart, summary failure, exact warming records, Pi compatibility transformations, kernel-only behavior, and replacement by another loop. Exact previews need the same Pi preparation seam as sending. Sample stages use recorded services and no model calls. First-encounter questions about absent-loop explanation wait for implementation. Communication fixtures alone do not verify loop replacement.
