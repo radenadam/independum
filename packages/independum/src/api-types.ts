@@ -802,6 +802,8 @@ export interface ContextSummary {
 export interface ChatSummary {
   id: string;
   title: string;
+  // A shortened title comes from this whole line, which its tooltip shows.
+  fullTitle: string;
   modified: number;
   isPinned: boolean;
 }

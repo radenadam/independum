@@ -125,9 +125,43 @@ test("accepted unsent chats retain their folder, name, and archive choice", () =
   pending.rename("Held work");
   pending.archive(true);
   expect(listPendingChats(target, new Set())).toEqual([
-    { id, folder: directory, name: "Held work", modified: expect.any(Number), isArchived: true },
+    {
+      id,
+      folder: directory,
+      name: "Held work",
+      promptTitle: "A prompt",
+      modified: expect.any(Number),
+      isArchived: true,
+    },
   ]);
   expect(listPendingChats(target, new Set([id]))).toEqual([]);
   pending.delete();
   expect(listPendingChats(target, new Set())).toEqual([]);
+});
+
+test("an unsent chat without a name takes its title from its first prompt", () => {
+  const target = join(directory, randomUUID());
+  const id = randomUUID();
+  const pending = createPendingInputs(target, id, [], directory);
+  const attachmentId = randomUUID();
+  const submitted = {
+    ...input(""),
+    attachmentIds: [attachmentId],
+    attachments: [
+      {
+        id: attachmentId,
+        name: "notes.txt",
+        mimeType: "text/plain",
+        bytes: 5,
+        kind: "text" as const,
+        encoding: "utf-8" as const,
+        textBytes: 5,
+      },
+    ],
+  };
+  pending.accept(submitted, inputFingerprint(submitted));
+  expect(listPendingChats(target, new Set())).toMatchObject([
+    { id, name: null, promptTitle: "notes.txt" },
+  ]);
+  pending.delete();
 });

@@ -1,0 +1,151 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; window.qaTitles = { written: 'Summarize the attached notes and list every open\u2026', writtenLine: 'Summarize the attached notes and list every open question they raise about the release plan.', attached: 'todo.txt, plan.md' }; window.qaRow = title => [...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.trim() === title); window.qaClean = () => !/<independum|attachment 1|attachments.[0-9a-f-]{36}|Group them by owner|Mark each one/.test(document.querySelector('nav[aria-label=\"Projects and chats\"]').innerText + document.querySelector('main header').innerText + [...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent).join('')); return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' && document.querySelector('main').innerText.includes('What should we work on?') })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { const picker = document.querySelector('input[aria-label=\"Attachment files\"]'); const transfer = new DataTransfer(); transfer.items.add(new File(['First note.'], 'notes.txt', { type: 'text/plain' })); picker.files = transfer.files; picker.dispatchEvent(new Event('change', { bubbles: true })); return { pickerAcceptsFiles: true }; })()"
+    },
+    {
+      "waitFor": {
+        "condition": "({ attachmentsPrepared: ['notes.txt'].every(name => [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].some(button => button.textContent.includes(name) && button.textContent.includes('Text included'))) && !document.querySelector('fieldset[aria-label=\"Message box\"]').innerText.includes('Uploading'), sendReady: (() => { const probe = document.createElement('span'); probe.style.color = 'var(--signal)'; document.body.append(probe); const signal = getComputedStyle(probe).color; probe.remove(); return getComputedStyle(document.querySelector('button[aria-label=Send]')).backgroundColor === signal; })() })",
+        "message": "The expected checks do not become true: attachmentsPrepared, sendReady.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('textarea[aria-label=Message]')"
+    },
+    {
+      "text": "Summarize the attached notes and list every open question they raise about the release plan.\nGroup them by owner and add a due date for each one.\nMark each one that blocks the release."
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: document.querySelector('main').innerText.includes('Preview reply complete.') && !document.querySelector('main button[aria-label=Stop]') })",
+        "message": "The expected checks do not become true: replyComplete.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "window.qaRow(window.qaTitles.written)"
+    },
+    {
+      "shot": "title-written-desktop-light",
+      "waitFor": {
+        "condition": "({ headerShowsWritten: document.querySelector('main header').innerText.trim() === window.qaTitles.written, sidebarShowsWritten: !!window.qaRow(window.qaTitles.written), noHarnessText: window.qaClean(), rowTooltipShowsWholeLine: document.querySelector('[role=tooltip]')?.textContent === window.qaTitles.writtenLine, attachmentStaysOnMessage: [...document.querySelectorAll('main button')].some(button => button.textContent.startsWith('notes.txt')), messageKeepsEveryLine: document.querySelector('main').innerText.includes('Group them by owner') && document.querySelector('main').innerText.includes('Mark each one that blocks the release.') })",
+        "message": "The expected checks do not become true: headerShowsWritten, sidebarShowsWritten, noHarnessText, rowTooltipShowsWholeLine, attachmentStaysOnMessage, messageKeepsEveryLine.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "hoverOn": "document.querySelector('main header p > span')"
+    },
+    {
+      "scheme": "dark",
+      "shot": "title-written-desktop-dark",
+      "waitFor": {
+        "condition": "({ headerShowsWritten: document.querySelector('main header').innerText.trim() === window.qaTitles.written, sidebarShowsWritten: !!window.qaRow(window.qaTitles.written), noHarnessText: window.qaClean(), headerTooltipShowsWholeLine: document.querySelector('[role=tooltip]')?.textContent === window.qaTitles.writtenLine })",
+        "message": "The expected checks do not become true: headerShowsWritten, sidebarShowsWritten, noHarnessText, headerTooltipShowsWholeLine.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('nav button')].find(button => button.textContent.startsWith('New chat'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ newChatOpens: document.querySelector('main header').innerText.trim() === 'New chat' && document.querySelector('main').innerText.includes('What should we work on?') })",
+        "message": "The expected checks do not become true: newChatOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { const picker = document.querySelector('input[aria-label=\"Attachment files\"]'); const transfer = new DataTransfer(); transfer.items.add(new File(['Check the plan.'], 'todo.txt', { type: 'text/plain' })); transfer.items.add(new File(['# Plan'], 'plan.md', { type: 'text/markdown' })); picker.files = transfer.files; picker.dispatchEvent(new Event('change', { bubbles: true })); return { pickerAcceptsFiles: true }; })()"
+    },
+    {
+      "waitFor": {
+        "condition": "({ attachmentsPrepared: ['todo.txt','plan.md'].every(name => [...document.querySelectorAll('fieldset[aria-label=\"Message box\"] button')].some(button => button.textContent.includes(name) && button.textContent.includes('Text included'))) && !document.querySelector('fieldset[aria-label=\"Message box\"]').innerText.includes('Uploading'), sendReady: (() => { const probe = document.createElement('span'); probe.style.color = 'var(--signal)'; document.body.append(probe); const signal = getComputedStyle(probe).color; probe.remove(); return getComputedStyle(document.querySelector('button[aria-label=Send]')).backgroundColor === signal; })() })",
+        "message": "The expected checks do not become true: attachmentsPrepared, sendReady.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "document.querySelector('button[aria-label=Send]')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ replyComplete: document.querySelector('main').innerText.includes('Preview reply complete.') && !document.querySelector('main button[aria-label=Stop]') })",
+        "message": "The expected checks do not become true: replyComplete.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "title-attachments-desktop-dark",
+      "waitFor": {
+        "condition": "({ headerNamesAttachments: document.querySelector('main header').innerText.trim() === window.qaTitles.attached, sidebarNamesAttachments: !!window.qaRow(window.qaTitles.attached), noHarnessText: window.qaClean() })",
+        "message": "The expected checks do not become true: headerNamesAttachments, sidebarNamesAttachments, noHarnessText.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "title-attachments-desktop-light"
+    },
+    {
+      "reload": true,
+      "waitFor": {
+        "condition": "({ reloadedHeaderNamesAttachments: document.querySelector('main header')?.innerText.trim() === 'todo.txt, plan.md' })",
+        "message": "The expected checks do not become true: reloadedHeaderNamesAttachments.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; window.qaTitles = { written: 'Summarize the attached notes and list every open\u2026', writtenLine: 'Summarize the attached notes and list every open question they raise about the release plan.', attached: 'todo.txt, plan.md' }; window.qaRow = title => [...document.querySelectorAll('nav[aria-label=\"Projects and chats\"] button')].find(button => button.textContent.trim() === title); window.qaClean = () => !/<independum|attachment 1|attachments.[0-9a-f-]{36}|Group them by owner|Mark each one/.test(document.querySelector('nav[aria-label=\"Projects and chats\"]').innerText + document.querySelector('main header').innerText + [...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent).join('')); return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "size": [360, 800],
+      "scheme": "light"
+    },
+    {
+      "shot": "title-phone-light",
+      "waitFor": {
+        "condition": "({ drawerOpens: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === false, writtenRowVisible: window.qaVisible(window.qaRow(window.qaTitles.written)), attachedRowVisible: window.qaVisible(window.qaRow(window.qaTitles.attached)), noHarnessText: window.qaClean(), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: drawerOpens, writtenRowVisible, attachedRowVisible, noHarnessText, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "title-phone-dark",
+      "waitFor": {
+        "condition": "({ writtenRowVisible: window.qaVisible(window.qaRow(window.qaTitles.written)), attachedRowVisible: window.qaVisible(window.qaRow(window.qaTitles.attached)), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: writtenRowVisible, attachedRowVisible, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

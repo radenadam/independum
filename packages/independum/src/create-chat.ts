@@ -89,7 +89,7 @@ import {
   type ResolvedProfile,
 } from "./create-profile-store.ts";
 import { type SandboxLaunch, sandboxRuntime } from "./create-sandbox.ts";
-import { createSavedChats } from "./create-saved-chats.ts";
+import { createSavedChats, type SavedChat } from "./create-saved-chats.ts";
 import { createSavedRequests } from "./create-saved-requests.ts";
 import { createScriptHooks, type ScriptHooks } from "./create-script-hooks.ts";
 import { executeScriptHook } from "./execute-script-hook.ts";
@@ -118,6 +118,7 @@ import { projectContextMessages } from "./project-context-messages.ts";
 import { piControls } from "./read-context-settings.ts";
 import { builtInSettings } from "./read-settings-change.ts";
 import { resolveContext, saveContextResource } from "./resolve-context.ts";
+import { shortenTitle } from "./shorten-title.ts";
 import { subscribeTo } from "./subscribe-to.ts";
 import { compactionEnvelope, summarizeContext } from "./summarize-context.ts";
 import { describeNextRequest, type KnownTexts, summarizeRequest } from "./summarize-request.ts";
@@ -896,7 +897,7 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
     );
   }
 
-  async function pendingSessions(isArchived: boolean): Promise<SessionInfo[]> {
+  async function pendingSessions(isArchived: boolean): Promise<SavedChat[]> {
     const saved = [...(await savedChats.list()), ...(await savedChats.listArchived())];
     return listPendingChats(
       join(directory, "pending-inputs"),
@@ -909,31 +910,33 @@ export async function createChat({ models, directory, folder }: ChatOptions): Pr
         path: "",
         created: new Date(chat.modified),
         modified: new Date(chat.modified),
-        name: chat.name,
+        ...(chat.name === null ? {} : { name: chat.name }),
         firstMessage: "",
+        promptTitle: chat.promptTitle,
         allMessagesText: "",
         messageCount: 0,
       }));
   }
 
-  async function listSaved(): Promise<SessionInfo[]> {
+  async function listSaved(): Promise<SavedChat[]> {
     return [...(await savedChats.list()), ...(await pendingSessions(false))].sort(
       (first, second) => second.modified.getTime() - first.modified.getTime(),
     );
   }
 
-  async function listArchived(): Promise<SessionInfo[]> {
+  async function listArchived(): Promise<SavedChat[]> {
     return [...(await savedChats.listArchived()), ...(await pendingSessions(true))];
   }
 
-  async function findSaved(id: string): Promise<SessionInfo | undefined> {
+  async function findSaved(id: string): Promise<SavedChat | undefined> {
     return (await listSaved()).find((saved) => saved.id === id);
   }
 
-  function summaryOf(saved: SessionInfo): ChatSummary {
+  function summaryOf(saved: SavedChat): ChatSummary {
     return {
       id: saved.id,
-      title: saved.name ?? saved.firstMessage,
+      title: saved.name ?? shortenTitle(saved.promptTitle),
+      fullTitle: saved.name ?? saved.promptTitle,
       modified: saved.modified.getTime(),
       isPinned: savedChats.isPinned(saved.id),
     };

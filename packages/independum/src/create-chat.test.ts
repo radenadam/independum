@@ -7,7 +7,6 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   type ModelRuntime,
-  type SessionInfo,
   SessionManager,
   SettingsManager,
   type ToolDefinition,
@@ -17,7 +16,7 @@ import { waitFor } from "../../../scripts/wait-for.ts";
 import type { ChatEvent, ChatsEvent } from "./api-types.ts";
 import { type Chat, createChat, type OpenChat } from "./create-chat.ts";
 import { createChatRoutes } from "./create-chat-routes.ts";
-import { createSavedChats, type SavedChats } from "./create-saved-chats.ts";
+import { createSavedChats, type SavedChat, type SavedChats } from "./create-saved-chats.ts";
 import { followEventStream } from "./follow-event-stream.ts";
 import { createShellTool } from "./tools/create-shell-tool.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
@@ -57,7 +56,7 @@ const models = {
   hasConfiguredAuth: () => true,
 } as unknown as ModelRuntime;
 let sessions: SessionDouble[];
-let saved: SessionInfo[];
+let saved: SavedChat[];
 let managers: Map<string, SessionManager>;
 let savedChats: SavedChats;
 let calls: Map<string, Promise<unknown>[]>;
@@ -113,14 +112,15 @@ function createSession(manager: SessionManager, settingsManager: SettingsManager
   };
 }
 
-function savedChat(manager: SessionManager = SessionManager.inMemory(launchFolder)): SessionInfo {
-  const info: SessionInfo = {
+function savedChat(manager: SessionManager = SessionManager.inMemory(launchFolder)): SavedChat {
+  const info: SavedChat = {
     id: manager.getSessionId(),
     path: join(directory, `${manager.getSessionId()}.jsonl`),
     cwd: launchFolder,
     created: new Date(),
     modified: new Date(),
     firstMessage: "A saved chat",
+    promptTitle: "A saved chat",
     allMessagesText: "A saved chat",
     messageCount: 1,
   };
@@ -250,6 +250,25 @@ test("concurrent opens share one saved session and keep its reply tracked", asyn
   expect(chat.getReplyingIds()).toEqual([info.id]);
   expect(createAgentSession).toHaveBeenCalledTimes(1);
   expect(active.session.dispose).not.toHaveBeenCalled();
+});
+
+test("a long title line gets a short title beside the whole line, unlike a given name", async () => {
+  const line =
+    "Summarize the attached notes and list every open question they raise about the release plan.";
+  const prompted = savedChat();
+  prompted.promptTitle = line;
+  const named = savedChat();
+  named.name = `Named: ${line}`;
+  const chat = await createChat({ models, directory, folder: launchFolder });
+  const chats = (await chat.getProjects()).flatMap((project) => project.chats);
+  expect(chats.find((summary) => summary.id === prompted.id)).toMatchObject({
+    title: "Summarize the attached notes and list every open\u2026",
+    fullTitle: line,
+  });
+  expect(chats.find((summary) => summary.id === named.id)).toMatchObject({
+    title: named.name,
+    fullTitle: named.name,
+  });
 });
 
 test("a failed saved open can be retried", async () => {
