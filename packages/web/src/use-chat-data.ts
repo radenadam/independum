@@ -1,6 +1,6 @@
 import type { ChatState } from "independum/api-types";
-import { useEffect, useState } from "react";
-import { useReconnections } from "./use-reconnections.ts";
+import { useCallback } from "react";
+import { useServerData } from "./use-server-data.ts";
 
 /**
  * Returns data about the open chat that loads from the server once the chat is known, and loads
@@ -11,47 +11,22 @@ export function useChatData<Data>(
   load: (id: string) => Promise<Data>,
   chat: ChatState | undefined,
 ): { data: Data | undefined; failure: string | undefined } {
-  const [loaded, setLoaded] = useState<{
-    chatId: string | null;
-    data: Data | undefined;
-    failure: string | undefined;
-  }>();
   const chatId = chat?.id;
-  const modelId = chat?.model?.id;
-  const providerId = chat?.model?.providerId;
-  const reconnections = useReconnections();
-
+  const loadChat = useCallback(
+    (): Promise<Data> =>
+      chatId === undefined ? Promise.reject(new Error("No chat is open.")) : load(chatId),
+    [load, chatId],
+  );
   // A request goes out with every reply, so its data loads again when a reply starts or ends.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Reply state, context version, and reconnection trigger a reload.
-  useEffect(() => {
-    if (chatId === undefined) {
-      return;
-    }
-    let isCurrent = true;
-    setLoaded({ chatId, data: undefined, failure: undefined });
-    load(chatId).then(
-      (loaded) => {
-        if (isCurrent) {
-          setLoaded({ chatId, data: loaded, failure: undefined });
-        }
-      },
-      (error: unknown) => {
-        if (isCurrent) {
-          setLoaded({
-            chatId,
-            data: undefined,
-            failure: error instanceof Error ? error.message : "The chat data could not be loaded.",
-          });
-        }
-      },
-    );
-    return () => {
-      isCurrent = false;
-    };
-  }, [chatId, chat?.isReplying, modelId, providerId, chat?.contextVersion, load, reconnections]);
-
-  return {
-    data: loaded?.chatId === chatId ? loaded?.data : undefined,
-    failure: loaded?.chatId === chatId ? loaded?.failure : undefined,
-  };
+  const { data, failure } = useServerData(
+    chatId === undefined ? undefined : loadChat,
+    JSON.stringify([
+      chat?.isReplying,
+      chat?.model?.providerId,
+      chat?.model?.id,
+      chat?.contextVersion,
+    ]),
+    chatId,
+  );
+  return { data, failure };
 }

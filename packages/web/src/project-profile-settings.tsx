@@ -1,9 +1,9 @@
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { CodeWell } from "./code-well.tsx";
 import { PlaceNote } from "./place-frame.tsx";
-import { saveProfileDefault } from "./profile-api.ts";
+import { fetchProfiles, saveProfileDefault } from "./profile-api.ts";
 import { ProfileSelector } from "./profile-selector.tsx";
-import { useProfileList } from "./use-profile-list.ts";
+import { useServerData } from "./use-server-data.ts";
 
 interface ProjectProfileSettingsProps {
   projectId: string;
@@ -11,7 +11,11 @@ interface ProjectProfileSettingsProps {
 
 /** Edits the default for new chats in the exact project folder. */
 export function ProjectProfileSettings({ projectId }: ProjectProfileSettingsProps): ReactElement {
-  const { list, failure: loadFailure, reload } = useProfileList(projectId);
+  const {
+    data: list,
+    failure: loadFailure,
+    reload,
+  } = useServerData(useCallback(() => fetchProfiles(projectId), [projectId]));
   const [failure, setFailure] = useState<string>();
   const shownFailure = failure ?? loadFailure;
   return (

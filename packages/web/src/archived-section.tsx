@@ -1,39 +1,32 @@
 import type { ArchivedChatSummary } from "independum/api-types";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 import styles from "./archived-section.module.css";
 import { BoxedList } from "./boxed-list.tsx";
 import { archiveChat, fetchArchivedChats } from "./chat-api.ts";
 import { DeleteChatDialog } from "./delete-chat-dialog.tsx";
 import { TextButton } from "./text-button.tsx";
-import { useReconnections } from "./use-reconnections.ts";
+import { useServerData } from "./use-server-data.ts";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 /** Draws the archived chats, with a way to bring each back to the sidebar or delete it for good. */
 export function ArchivedSection(): ReactElement {
-  const [chats, setChats] = useState<ArchivedChatSummary[] | undefined>();
+  const { data: chats, failure: loadFailure, reload } = useServerData(fetchArchivedChats);
   const [notice, setNotice] = useState<string | undefined>();
   const [chatToDelete, setChatToDelete] = useState<ArchivedChatSummary | undefined>();
-
-  const load = useCallback((): void => {
-    fetchArchivedChats().then(setChats, () => {
-      setChats([]);
-      setNotice("The archived chats could not be loaded.");
-    });
-  }, []);
-
-  const reconnections = useReconnections();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Reconnection refreshes the archived chats.
-  useEffect(load, [load, reconnections]);
+  const failureNote =
+    loadFailure === undefined ? null : (
+      <p className={styles.notice}>The archived chats could not be loaded.</p>
+    );
 
   // The list loads again after each change, so it matches the files even when a change fails.
   function change(work: Promise<void>, failure: string): void {
     setNotice(undefined);
-    work.catch(() => setNotice(failure)).finally(load);
+    work.catch(() => setNotice(failure)).finally(reload);
   }
 
   if (chats === undefined) {
-    return <p className={styles.note}>Loading the archived chats.</p>;
+    return failureNote ?? <p className={styles.note}>Loading the archived chats.</p>;
   }
 
   return (
@@ -43,6 +36,7 @@ export function ArchivedSection(): ReactElement {
         ~/.independum/sessions/archived. Unarchive a chat to list it in its project again.
       </p>
       {notice === undefined ? null : <p className={styles.notice}>{notice}</p>}
+      {failureNote}
       {chats.length === 0 ? (
         <p className={styles.note}>
           No chats are archived. Archive one from its menu in the sidebar.
@@ -79,7 +73,7 @@ export function ArchivedSection(): ReactElement {
           onClose={() => setChatToDelete(undefined)}
           onDone={(failure) => {
             setNotice(failure);
-            load();
+            reload();
           }}
         />
       )}

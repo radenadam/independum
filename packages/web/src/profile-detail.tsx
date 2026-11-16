@@ -1,15 +1,15 @@
 import type { ChatState, ModelSummary, ProfileResource } from "independum/api-types";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { CodeWell } from "./code-well.tsx";
 import { ConfigurationIssues } from "./configuration-issues.tsx";
 import { PlaceNote } from "./place-frame.tsx";
 import { PlaceSection } from "./place-section.tsx";
-import { switchProfile } from "./profile-api.ts";
+import { fetchProfiles, switchProfile } from "./profile-api.ts";
 import { ProfileEditor } from "./profile-editor.tsx";
 import { ProfileSelector } from "./profile-selector.tsx";
 import { TextButton } from "./text-button.tsx";
 import type { AgentSettings } from "./use-agent-settings.ts";
-import { useProfileList } from "./use-profile-list.ts";
+import { useServerData } from "./use-server-data.ts";
 
 interface ProfileDetailProps {
   chat: ChatState;
@@ -22,8 +22,11 @@ export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): R
   const configuration = settings.agent?.configuration;
   const projectId = configuration?.profile.projectId;
   // Configuration events refresh the profile files.
-  const loaded = useProfileList(projectId, chat.contextVersion);
-  const profiles = loaded.list?.profiles ?? [];
+  const loaded = useServerData(
+    useCallback(() => fetchProfiles(projectId), [projectId]),
+    chat.contextVersion,
+  );
+  const profiles = loaded.data?.profiles ?? [];
   const [candidate, setCandidate] = useState<ProfileResource>();
   const [failure, setFailure] = useState<string>();
   const shownFailure = failure ?? loaded.failure;
