@@ -98,6 +98,7 @@ export const referenceManifest: JsonValue = {
 export function createReferenceComponent(
   transport: ProtocolTransport,
   record: (entry: EvidenceRecord) => void,
+  exit?: () => void,
 ): ProtocolPeer {
   const entries: EvidenceRecord[] = [];
   function capture(entry: EvidenceRecord): void {
@@ -136,7 +137,11 @@ export function createReferenceComponent(
       return { invalid: true };
     }
     if (mode === "exit") {
-      transport.close();
+      if (exit === undefined) {
+        transport.close();
+      } else {
+        exit();
+      }
       return new Promise<JsonValue>(() => {});
     }
     if (mode === "failure") {
