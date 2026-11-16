@@ -30,6 +30,7 @@ export interface EvidenceRecord {
   direction: "sent" | "received" | "local";
   kind: "frame" | "rejected" | "late" | "diagnostic" | "end" | "exit" | "interrupted";
   value: JsonValue;
+  bytes?: string;
 }
 export interface InvocationContext {
   signal: AbortSignal;
@@ -161,6 +162,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     direction: EvidenceRecord["direction"],
     value: unknown,
     invocationId: string | null = null,
+    bytes?: string,
   ): void {
     if (!lifecycle.canRecord) {
       throw new Error("Evidence recording fails. Further automatic work is stopped.");
@@ -168,7 +170,14 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     const sequence = (evidenceSequences.get(invocationId) ?? 0) + 1;
     evidenceSequences.set(invocationId, sequence);
     try {
-      options.record({ kind, direction, value: roundTripJson(value), invocationId, sequence });
+      options.record({
+        kind,
+        direction,
+        value: roundTripJson(value),
+        invocationId,
+        sequence,
+        ...(bytes === undefined ? {} : { bytes }),
+      });
     } catch {
       stop(new Error("Evidence recording fails. Further automatic work is stopped."), true);
       throw new Error("Evidence recording fails. Further automatic work is stopped.");
@@ -955,7 +964,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
     try {
       if (event.type !== "message") {
         if (event.type === "fault") {
-          record("rejected", "received", event);
+          record("rejected", "received", event, null, event.rawBytes);
           if (mayProceed("protocol")) {
             send(
               errorResponse(null, failure("protocol-failure", event.reason), undefined, 0, -32700),
@@ -964,7 +973,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
           }
           stop(failure("protocol-failure", event.reason));
         } else if (event.type === "diagnostic") {
-          record("diagnostic", "received", event.text);
+          record("diagnostic", "received", event.text, null, event.rawBytes);
         } else {
           record(event.type, "received", event);
           if (event.type === "exit") {
@@ -984,7 +993,7 @@ export function createProtocolPeer(providedOptions: PeerOptions): ProtocolPeer {
             (raw as ResponseFrame)?.error?.data?.identity);
       const invocationId =
         typeof identity?.invocationId === "string" ? identity.invocationId : null;
-      record("frame", "received", event.value, invocationId);
+      record("frame", "received", event.value, invocationId, event.rawBytes);
       if (!mayProceed("protocol")) {
         record("late", "local", event.value, invocationId);
         return;

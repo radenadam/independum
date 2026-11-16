@@ -34,9 +34,17 @@ test("standard streams decode split utf-8 frames in order and keep diagnostics s
   fixture.diagnostics.write("Fixture diagnostics.\n");
   await waitFor(() =>
     expect(fixture.events).toEqual([
-      { type: "message", value: { value: "\u2603" } },
-      { type: "message", value: { value: 2 } },
-      { type: "diagnostic", text: "Fixture diagnostics.\n" },
+      {
+        type: "message",
+        value: { value: "\u2603" },
+        rawBytes: bytes.subarray(0, 16).toString("base64"),
+      },
+      { type: "message", value: { value: 2 }, rawBytes: bytes.subarray(16).toString("base64") },
+      {
+        type: "diagnostic",
+        text: "Fixture diagnostics.\n",
+        rawBytes: Buffer.from("Fixture diagnostics.\n").toString("base64"),
+      },
     ]),
   );
 });
