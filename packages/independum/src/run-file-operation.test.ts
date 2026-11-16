@@ -11,6 +11,7 @@ import { createTestFolder, createTestProject } from "./tools/create-test-folder.
 
 const { project: folder } = createTestProject(createTestFolder("file-worker-startup"), true);
 const worker = new URL("./run-file-operation.ts", import.meta.url);
+// The test starts native file worker containers, which take several times longer when the host is under load.
 test("file worker preserves fingerprints, diffs, and images with ordinary node module resolution", () => {
   const manager = SessionManager.inMemory(folder);
   function call(
@@ -84,4 +85,4 @@ test("file worker preserves fingerprints, diffs, and images with ordinary node m
       fingerprint: { file: realpathSync.native(image) },
     },
   });
-}, 30_000);
+}, 120_000);

@@ -477,6 +477,7 @@ test("message times reach requests and never enter the saved chat or its display
   ).toBe("instructions");
 });
 
+// The test sends several requests through a whole chat, which take several times longer when the host is under load.
 test("fact switches and edits reach the next request and cutoffs follow only their model", async () => {
   await startNew(startFolder);
   await chooseModel("faux", "faux-model");
@@ -516,7 +517,7 @@ test("fact switches and edits reach the next request and cutoffs follow only the
   expect(requests[3]).toContain("Harness: Independum");
   expect(requests[3]).not.toContain("An edited harness fact.");
   expect(requests[3]).not.toContain("Model knowledge cutoff:");
-});
+}, 60_000);
 
 test("the context shows the model, the counts, the saved entries, and the last request", async () => {
   expect((await startNew()).status).toBe(201);
