@@ -63,6 +63,15 @@ test("gate results reject missing coverage stale evidence and incomplete passes"
         requirement,
       );
     }
+    const credential = join(dirname(path), ".env.qa");
+    expect(() =>
+      readGateResult(
+        { ...result, coverage: [{ ...result.coverage[0], evidence: [credential] }] },
+        task,
+        "review",
+        revision,
+      ),
+    ).toThrow(JSON.stringify(credential));
     const empty = join(dirname(path), "browser.jsonl");
     writeFileSync(empty, "");
     expect(() =>

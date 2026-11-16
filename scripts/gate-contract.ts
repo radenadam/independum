@@ -391,7 +391,9 @@ function requirePath(value: string): void {
     ["auth.json", "models.json", ".env"].includes(basename(value)) ||
     basename(value).startsWith(".env.")
   ) {
-    throw new Error("Credential paths cannot be gate context or evidence.");
+    throw new Error(
+      `Credential paths cannot be gate context or evidence: ${JSON.stringify(value)}.`,
+    );
   }
   if (!isAbsolute(value) || !existsSync(value) || statSync(value).size === 0) {
     throw new Error(
