@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import type { GateTask } from "./gate-contract.ts";
+import { inspectExactFile, inspectLinkFreePath, readExactFile } from "./read-exact-file.ts";
 import type { Revision } from "./read-revision.ts";
 
 export interface GateBrowserCheck {
@@ -107,9 +109,11 @@ export function readGateBrowserChecks(
     ) {
       throw new Error("Every task scenario must pass with its own browser output and log.");
     }
-    const capture = JSON.parse(
-      readFileSync(join(check.directory, "revision.json"), "utf8"),
-    ) as Revision & { scenario: string; driver: string };
+    const names = readScenarioFiles(check.directory);
+    const capture = JSON.parse(readScenarioFile(check.directory, "revision.json")) as Revision & {
+      scenario: string;
+      driver: string;
+    };
     if (
       capture.scenario !== check.scenario ||
       capture.driver !== "playwright-core" ||
@@ -119,10 +123,10 @@ export function readGateBrowserChecks(
     ) {
       throw new Error("Scenario browser evidence belongs to another revision or driver.");
     }
-    const screenshots = readdirSync(check.directory).filter((name) => name.endsWith(".png"));
+    const screenshots = names.filter((name) => name.endsWith(".png"));
     if (
       existsSync(join(check.directory, "failure.txt")) ||
-      readFileSync(join(check.directory, "browser.jsonl"), "utf8").trim() !== "" ||
+      readScenarioFile(check.directory, "browser.jsonl").trim() !== "" ||
       screenshots.length === 0 ||
       ["values.jsonl", "scenario.json", ...screenshots].some(
         (name) => statSync(join(check.directory, name)).size === 0,
@@ -131,4 +135,23 @@ export function readGateBrowserChecks(
       throw new Error("Scenario QA needs screenshots, values, and clean browser diagnostics.");
     }
   }
+}
+
+// The qa command writes each scenario output folder into the system temporary folder, so every
+// component below that folder must be a real folder or file.
+/** Lists a scenario output folder after requiring no link on its path and a regular file with one link per entry. */
+export function readScenarioFiles(directory: string): string[] {
+  if (!inspectLinkFreePath(tmpdir(), directory)?.isDirectory()) {
+    throw new Error(`The gate refuses ${JSON.stringify(directory)}, because it is not a folder.`);
+  }
+  const names = readdirSync(directory);
+  for (const name of names) {
+    inspectExactFile(tmpdir(), join(directory, name));
+  }
+  return names;
+}
+
+function readScenarioFile(directory: string, name: string): string {
+  const path = join(directory, name);
+  return readExactFile(path, inspectExactFile(tmpdir(), path)).toString("utf8");
 }

@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -194,6 +195,8 @@ async function prepareReceipt(folder: string, base: string): Promise<void> {
   const receiptPath = join(directory, "receipt.json");
   const regressionReport = join(directory, "browser-regressions-tests.json");
   await writeFile(regressionReport, JSON.stringify(createTestBrowserReport(folder)));
+  const diff = join(directory, "change.diff");
+  await writeFile(diff, "+export const value = 1;\n");
   await writeFile(join(directory, "latest.json"), JSON.stringify({ receiptPath }));
   await writeFile(join(directory, "task.json"), JSON.stringify(task));
   await writeFile(
@@ -210,6 +213,17 @@ async function prepareReceipt(folder: string, base: string): Promise<void> {
         command: ["exec", "vitest", "run", ...browserRegressionTests.map((test) => test.file)],
         log: regressionReport,
         report: regressionReport,
+      },
+      change: {
+        revision,
+        diff,
+        changedFiles: diff,
+        untrackedFiles: [],
+        hashes: {
+          [diff]: createHash("sha256")
+            .update(await readFile(diff))
+            .digest("hex"),
+        },
       },
       testAvailability: [],
     }),

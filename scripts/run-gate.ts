@@ -5,6 +5,12 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
+  type GateChange,
+  readChangedFiles,
+  readGateChange,
+  writeGateChange,
+} from "./gate-change.ts";
+import {
   type GateResult,
   gateReportSchema,
   gateTaskFingerprint,
@@ -19,6 +25,7 @@ import {
   type GateBrowserRegressions,
   readGateBrowserChecks,
   readGateBrowserRegressions,
+  readScenarioFiles,
 } from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
 import {
@@ -29,7 +36,10 @@ import {
 } from "./read-test-availability.ts";
 
 /** Runs deterministic checks and fresh local agent roles against one source revision. */
-export async function runGate(arguments_: string[]): Promise<void> {
+export async function runGate(
+  arguments_: string[],
+  folder: string = resolve(import.meta.dirname, ".."),
+): Promise<void> {
   const { values, positionals } = parseArgs({
     args: arguments_,
     allowPositionals: true,
@@ -59,19 +69,8 @@ export async function runGate(arguments_: string[]): Promise<void> {
     );
   }
   const model = readGateModel(values.model);
-  const folder = resolve(import.meta.dirname, "..");
   const task = readGateTask(JSON.parse(await readFile(values.task, "utf8")), folder);
-  const changed = new Set([
-    ...execFileSync("git", ["diff", "--name-only", task.base], { cwd: folder, encoding: "utf8" })
-      .trim()
-      .split("\n"),
-    ...execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
-      cwd: folder,
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n"),
-  ]);
+  const changed = new Set(readChangedFiles(folder, task.base).map((file) => file.path));
   for (const learning of task.learning) {
     if (!changed.has(relative(folder, learning.owner).replaceAll("\\", "/"))) {
       throw new Error("Each learning entry must update its authoritative owner in this change.");
@@ -99,6 +98,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     browserChecks: GateBrowserCheck[];
     testAvailability: TestAvailability[];
     browserRegressions?: GateBrowserRegressions;
+    change?: GateChange;
     error?: string;
   } = {
     revision,
@@ -116,6 +116,9 @@ export async function runGate(arguments_: string[]): Promise<void> {
   const errors: string[] = [];
   const browserChecksPath = join(directory, "browser-checks.json");
   try {
+    const change = writeGateChange(folder, revision, directory);
+    receipt.change = change;
+    requireRevision();
     if (role === "gate") {
       try {
         await packageCommand(["check"], join(directory, "check.log"), {
@@ -206,6 +209,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
         `Worktree: ${folder}. Evidence destination: ${directory}. Do not edit source or use git mutations.`,
         "Read AGENTS.md and its startup path. The manifest identifies accepted behavior, not proof of success.",
         "Never read any auth.json, models.json, .env, or .env.* file. Use installed CLI authentication without inspecting it.",
+        `The exact change of this revision against base ${revision.base} is already written into evidence bound to the revision below, so reading it needs no shell. ${change.diff} holds the full patch of git diff ${revision.base} for tracked files in the worktree. ${change.changedFiles} lists every changed path with its Git status, where ?? marks an untracked file outside ignored paths. Exact copies of the untracked files: ${change.untrackedFiles.join(", ") || "none"}. The copy of an untracked symbolic link, marked isSymbolicLink, holds only its target path text, as Git records it. Treat these files as the exact change and read worktree files for surrounding context.`,
         role === "review"
           ? "This standalone command requests source review only."
           : `Current coordinator browser evidence: ${browserChecksPath}. Inspect it for the task's runtime acceptance.`,
@@ -260,7 +264,9 @@ export async function runGate(arguments_: string[]): Promise<void> {
               "--permission-mode",
               "dontAsk",
               "--allowedTools",
-              "Read,Glob,Grep,Bash(git diff *),Bash(git show *),Bash(git status *)",
+              // Shell rules stay out, because Windows print mode does not reliably allow the git
+              // commands they name. Roles read the change that the gate writes instead.
+              "Read,Glob,Grep",
               "--no-session-persistence",
             ],
             prompt,
@@ -340,6 +346,7 @@ export async function runGate(arguments_: string[]): Promise<void> {
     if (JSON.stringify(readRevision(folder, task.base)) !== JSON.stringify(revision)) {
       throw new Error("Source or context changes invalidate gate evidence.");
     }
+    readGateChange(receipt.change, revision);
   }
 
   async function browserScenarios(): Promise<void> {
@@ -383,6 +390,11 @@ export async function runGate(arguments_: string[]): Promise<void> {
             check.verdict = "fail";
           }
           const output = (await readFile(log, "utf8")).match(/^QA output: (.+)$/m)?.[1]?.trim();
+          if (output !== undefined) {
+            // The qa role reads every file of this folder, so a link or a multiply linked file
+            // stops the gate before any role starts.
+            readScenarioFiles(output);
+          }
           check.directory = output ?? "";
           if (check.verdict === "pass") {
             try {

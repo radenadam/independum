@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { basename, isAbsolute, relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
+import { readGateChange } from "./gate-change.ts";
+import { inspectExactFile } from "./read-exact-file.ts";
 import { readGateBrowserChecks, readGateBrowserRegressions } from "./read-gate-browser-checks.ts";
 import { readPushUpdates } from "./read-push-revision.ts";
-import type { Revision } from "./read-revision.ts";
+import { isCredentialPath, type Revision } from "./read-revision.ts";
 import { readTestAvailability, requireGateTestAvailability } from "./read-test-availability.ts";
 
 export interface GateTask {
@@ -220,7 +222,7 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     }
   }
   for (const path of [...task.reading, ...task.sharedFiles, ...task.scenarios]) {
-    requirePath(path);
+    requireTaskFile(path, folder);
   }
   for (const path of task.writableFiles) {
     if (
@@ -245,8 +247,8 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     ) {
       throw new Error("Learning needs a date, kind, and provenance.");
     }
-    requirePath(entry.owner);
-    requirePath(entry.protection);
+    requireTaskFile(entry.owner, folder);
+    requireTaskFile(entry.protection, folder);
     if (!task.writableFiles.includes(entry.owner)) {
       throw new Error("The learning owner must be in the change scope.");
     }
@@ -367,6 +369,7 @@ export function readGateReceipt(
   }
   readGateBrowserChecks(value.browserChecks, task, revision);
   readGateBrowserRegressions(value.browserRegressions, revision);
+  readGateChange(value.change, revision);
   requireGateTestAvailability(
     readTestAvailability({ completed: true, tests: value.testAvailability }),
     value.platform,
@@ -387,10 +390,7 @@ export function gateTaskFingerprint(task: GateTask): string {
 }
 
 function requirePath(value: string): void {
-  if (
-    ["auth.json", "models.json", ".env"].includes(basename(value)) ||
-    basename(value).startsWith(".env.")
-  ) {
+  if (isCredentialPath(value)) {
     throw new Error(
       `Credential paths cannot be gate context or evidence: ${JSON.stringify(value)}.`,
     );
@@ -400,6 +400,13 @@ function requirePath(value: string): void {
       `Evidence and context paths must be absolute, readable, and nonempty: ${JSON.stringify(value)}.`,
     );
   }
+}
+
+// Roles read every file that the task names, so each one must be the named file itself in the
+// worktree and reach no other file through a link on any component of its path.
+function requireTaskFile(value: string, folder: string): void {
+  requirePath(value);
+  inspectExactFile(folder, value);
 }
 
 function requireText(value: unknown): asserts value is string {

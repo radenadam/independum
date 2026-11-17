@@ -1,6 +1,6 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test } from "vitest";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import {
@@ -91,23 +91,49 @@ test("browser receipts reject stale revisions diagnostics failures and missing a
   });
 });
 
+test("scenario output behind a folder link or outside the temporary folder is refused", async () => {
+  await withBrowserEvidence(async (check) => {
+    const task = { scenarios: [check.scenario] };
+    const real = join(check.directory, "real", "output");
+    await mkdir(real, { recursive: true });
+    await writeScenarioOutput(real, check.scenario);
+    // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
+    await symlink(dirname(real), join(check.directory, "linked"), "junction");
+    const linked = join(check.directory, "linked", "output");
+    expect(() =>
+      readGateBrowserChecks([{ ...check, directory: real }], task, revision),
+    ).not.toThrow();
+    expect(() => readGateBrowserChecks([{ ...check, directory: linked }], task, revision)).toThrow(
+      `${JSON.stringify(linked)}, because a folder on its path is a link`,
+    );
+    const outside = dirname(tmpdir());
+    expect(() => readGateBrowserChecks([{ ...check, directory: outside }], task, revision)).toThrow(
+      "not a normalized absolute path inside",
+    );
+  });
+});
+
 async function withBrowserEvidence(run: (check: GateBrowserCheck) => Promise<void>): Promise<void> {
   const directory = await mkdtemp(join(tmpdir(), "independum-browser-check-"));
   try {
     const scenario = join(directory, "input.json");
     const log = join(directory, "scenario.log");
-    for (const [name, value] of Object.entries({
-      "revision.json": JSON.stringify({ ...revision, scenario, driver: "playwright-core" }),
-      "scenario.json": "{}",
-      "values.jsonl": '{"step":1,"value":{"observed":true}}\n',
-      "browser.jsonl": "",
-      "observed.png": "fixture screenshot",
-      "scenario.log": `QA output: ${directory}\n`,
-    })) {
-      await writeFile(join(directory, name), value);
-    }
+    await writeScenarioOutput(directory, scenario);
+    await writeFile(log, `QA output: ${directory}\n`);
     await run({ scenario, verdict: "pass", directory, log });
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function writeScenarioOutput(directory: string, scenario: string): Promise<void> {
+  for (const [name, value] of Object.entries({
+    "revision.json": JSON.stringify({ ...revision, scenario, driver: "playwright-core" }),
+    "scenario.json": "{}",
+    "values.jsonl": '{"step":1,"value":{"observed":true}}\n',
+    "browser.jsonl": "",
+    "observed.png": "fixture screenshot",
+  })) {
+    await writeFile(join(directory, name), value);
   }
 }
