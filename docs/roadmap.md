@@ -31,7 +31,7 @@ Assess default and engineered setups, kernel alone, replacement loops, long hist
 
 ## Known app defects from step 1
 
-Direct maintainer findings of 2026-11-15 remain unverified defects.
+These defects, found during step 1, remain unverified.
 
 - A one-line new file reads "New, 1 lines" in `packages/web/src/describe-tool-call.ts`.
 - A failed Write card omits the model's arguments.

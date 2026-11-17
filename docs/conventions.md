@@ -41,7 +41,7 @@ Tests use Vitest `test` without `describe`. The file is the group. Names are low
 
 Bind test timers, loops, and processes to test cancellation and register teardown that runs on failure and timeout. A timed-out test body can outlive its `finally`, so body cleanup alone does not protect later tests or temporary folders. This rule follows the direct maintainer correction of 2026-11-15.
 
-Split generated runs that exceed about two seconds alone into fixed seed and trace ranges. Preserve total coverage and report the seed and range for reproduction. This rule follows the direct maintainer repair instruction of 2026-11-16. A passing isolated run does not explain a timeout under load.
+Split generated runs that exceed about two seconds alone into fixed seed and trace ranges. Preserve total coverage and report the seed and range for reproduction. The coordinator inferred this rule from slice 1 gate runs on 2026-11-16. A passing isolated run does not explain a timeout under load.
 
 ## Writing and Markdown
 
