@@ -1,8 +1,9 @@
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { CodeWell } from "./code-well.tsx";
 import { PlaceNote } from "./place-frame.tsx";
-import { fetchProfiles, type ProfileList, saveProfileDefault } from "./profile-api.ts";
+import { fetchProfiles, saveProfileDefault } from "./profile-api.ts";
 import { ProfileSelector } from "./profile-selector.tsx";
+import { useServerData } from "./use-server-data.ts";
 
 interface ProjectProfileSettingsProps {
   projectId: string;
@@ -10,14 +11,20 @@ interface ProjectProfileSettingsProps {
 
 /** Edits the default for new chats in the exact project folder. */
 export function ProjectProfileSettings({ projectId }: ProjectProfileSettingsProps): ReactElement {
-  const [list, setList] = useState<ProfileList>();
+  const {
+    data: list,
+    failure: loadFailure,
+    reload,
+  } = useServerData(
+    useCallback(() => fetchProfiles(projectId), [projectId]),
+    0,
+    projectId,
+  );
   const [failure, setFailure] = useState<string>();
-  useEffect(() => {
-    fetchProfiles(projectId).then(setList, (error: unknown) => setFailure(String(error)));
-  }, [projectId]);
+  const shownFailure = failure ?? loadFailure;
   return (
     <>
-      {failure === undefined ? null : <PlaceNote>{failure}</PlaceNote>}
+      {shownFailure === undefined ? null : <PlaceNote>{shownFailure}</PlaceNote>}
       {list === undefined ? (
         <PlaceNote>Loading project settings.</PlaceNote>
       ) : (
@@ -29,9 +36,13 @@ export function ProjectProfileSettings({ projectId }: ProjectProfileSettingsProp
             current={list.project.document?.profile ?? null}
             hasUserDefault
             onChoose={(reference) => {
-              saveProfileDefault(list.project, reference, projectId)
-                .then(() => fetchProfiles(projectId))
-                .then(setList, (error: unknown) => setFailure(String(error)));
+              saveProfileDefault(list.project, reference, projectId).then(
+                () => {
+                  setFailure(undefined);
+                  reload();
+                },
+                (error: unknown) => setFailure(String(error)),
+              );
             }}
           />
           <CodeWell code={list.project.path} copyLabel="Copy project settings path" />

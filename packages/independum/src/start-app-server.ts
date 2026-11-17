@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { createServer as createHttpServer } from "node:http";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type RequestListener,
+  type ServerResponse,
+} from "node:http";
 import { join } from "node:path";
 import type { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { getRequestListener } from "@hono/node-server";
@@ -43,6 +48,17 @@ export async function startAppServer(options: {
   let isStopping = false;
   let activeMutations = 0;
   const httpServer = createHttpServer();
+  let handleRequest: RequestListener | undefined;
+  // The development UI needs the listening server, so the server listens before it can answer. A
+  // request in between, such as a browser that reconnects after a restart, finds its connection
+  // closed as if the server did not listen yet, so it tries again instead of waiting forever.
+  httpServer.on("request", (request, response) => {
+    if (handleRequest === undefined) {
+      request.socket.destroy();
+    } else {
+      handleRequest(request, response);
+    }
+  });
   await new Promise<void>((resolve, reject) => {
     httpServer.once("error", reject);
     httpServer.listen(port, "127.0.0.1", resolve);
@@ -106,13 +122,14 @@ export async function startAppServer(options: {
           server: { middlewareMode: true, hmr: { server: httpServer } },
         })
       : undefined;
-    httpServer.on("request", (request, response) => {
+    function serveApp(request: IncomingMessage, response: ServerResponse): void {
       if (request.url?.startsWith("/api/") || vite === undefined) {
         handleApi(request, response);
       } else {
         vite.middlewares(request, response);
       }
-    });
+    }
+    handleRequest = serveApp;
     const previous = readServer(directory);
     if (previous !== undefined) {
       removeServer(directory, previous.serverId);

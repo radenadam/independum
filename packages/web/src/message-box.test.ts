@@ -22,6 +22,7 @@ vi.mock("./chat-api.ts", () => ({
     expires: Date.now() + 300000,
   })),
   fetchResources: () => Promise.reject(new Error("The catalog is unavailable.")),
+  followReconnections: () => () => undefined,
 }));
 
 afterEach(() => vi.unstubAllGlobals());

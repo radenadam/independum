@@ -1,10 +1,12 @@
 import type { ChatState } from "independum/api-types";
 import { expect, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
+import { reconnectAfterDrop } from "./answer-with-streams.ts";
 import { renderHook } from "./render-hook.ts";
 import { useChatData } from "./use-chat-data.ts";
 
 vi.mock("react", async () => (await import("./render-hook.ts")).mockReact());
+vi.mock("./request-api.ts", () => ({ requestApi: vi.fn() }));
 
 test("a chat change clears old data and exposes a failed load", async () => {
   let chat = { id: "a", isReplying: false, model: null } as ChatState;
@@ -18,6 +20,7 @@ test("a chat change clears old data and exposes a failed load", async () => {
   await waitFor(() =>
     expect(view.render()).toEqual({ data: undefined, failure: "The context could not be loaded." }),
   );
+  view.unmount();
 });
 
 test("a late result from another chat cannot replace the current data", async () => {
@@ -49,7 +52,7 @@ test("settings and compaction refresh data without accepting an older request", 
   view.render();
   await waitFor(() => expect(view.render().data).toBe("Original context"));
   chat = { ...chat, contextVersion: 1 };
-  expect(view.render().data).toBeUndefined();
+  expect(view.render().data).toBe("Original context");
   chat = { ...chat, contextVersion: 2 };
   view.render();
   await waitFor(() => expect(view.render().data).toBe("Compacted context"));
@@ -57,4 +60,20 @@ test("settings and compaction refresh data without accepting an older request", 
   await Promise.resolve();
   expect(view.render().data).toBe("Compacted context");
   expect(load).toHaveBeenCalledTimes(3);
+});
+
+test("data that failed while the server was away loads again once the shared stream returns", async () => {
+  const chat = { id: "a", isReplying: false, model: null } as ChatState;
+  const load = vi
+    .fn<() => Promise<string>>()
+    .mockRejectedValueOnce(new TypeError("The server could not be reached."))
+    .mockResolvedValueOnce("Context after the restart");
+  const view = renderHook(() => useChatData(load, chat));
+  view.render();
+  await waitFor(() => expect(view.render().failure).toBe("The server could not be reached."));
+  await reconnectAfterDrop();
+  await waitFor(() =>
+    expect(view.render()).toEqual({ data: "Context after the restart", failure: undefined }),
+  );
+  view.unmount();
 });

@@ -1,5 +1,5 @@
 import type { ChatState, ModelSummary, ProfileResource } from "independum/api-types";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 import { CodeWell } from "./code-well.tsx";
 import { ConfigurationIssues } from "./configuration-issues.tsx";
 import { PlaceNote } from "./place-frame.tsx";
@@ -9,6 +9,7 @@ import { ProfileEditor } from "./profile-editor.tsx";
 import { ProfileSelector } from "./profile-selector.tsx";
 import { TextButton } from "./text-button.tsx";
 import type { AgentSettings } from "./use-agent-settings.ts";
+import { useServerData } from "./use-server-data.ts";
 
 interface ProfileDetailProps {
   chat: ChatState;
@@ -20,28 +21,16 @@ interface ProfileDetailProps {
 export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): ReactElement {
   const configuration = settings.agent?.configuration;
   const projectId = configuration?.profile.projectId;
-  const [profiles, setProfiles] = useState<ProfileResource[]>([]);
+  // Configuration events refresh the profile files.
+  const loaded = useServerData(
+    useCallback(() => fetchProfiles(projectId), [projectId]),
+    chat.contextVersion,
+    projectId,
+  );
+  const profiles = loaded.data?.profiles ?? [];
   const [candidate, setCandidate] = useState<ProfileResource>();
   const [failure, setFailure] = useState<string>();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: Configuration events refresh the profile files.
-  useEffect(() => {
-    let isCurrent = true;
-    fetchProfiles(projectId).then(
-      (list) => {
-        if (isCurrent) {
-          setProfiles(list.profiles);
-        }
-      },
-      (error: unknown) => {
-        if (isCurrent) {
-          setFailure(String(error));
-        }
-      },
-    );
-    return () => {
-      isCurrent = false;
-    };
-  }, [projectId, chat.contextVersion]);
+  const shownFailure = failure ?? loaded.failure;
   if (configuration === undefined) {
     return <PlaceNote>Loading the selected profile.</PlaceNote>;
   }
@@ -78,7 +67,7 @@ export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): R
           issues={configuration.issues}
           note="New work waits for repair. The last applied setup stays visible."
         />
-        {failure === undefined ? null : <PlaceNote>{failure}</PlaceNote>}
+        {shownFailure === undefined ? null : <PlaceNote>{shownFailure}</PlaceNote>}
         {candidate === undefined ? null : (
           <>
             <PlaceNote>
@@ -102,12 +91,11 @@ export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): R
         <CodeWell code={configuration.choices.path} copyLabel="Copy chat settings path" />
       </PlaceSection>
       <ProfileEditor
+        key={`${profile.projectId}:${profile.reference.scope}:${profile.reference.id}`}
         profile={profile}
         chat={chat}
         models={models}
-        onChanged={() => {
-          fetchProfiles(projectId).then((list) => setProfiles(list.profiles));
-        }}
+        onChanged={loaded.reload}
       />
     </>
   );

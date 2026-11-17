@@ -12,6 +12,10 @@
   color: var(--muted);
 }
 
+.failure {
+  color: var(--signal);
+}
+
 .connected {
   font-size: 12px;
   font-weight: 500;

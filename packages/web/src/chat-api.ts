@@ -27,6 +27,10 @@ export type ChatConnection = "following" | "reconnecting" | "expiredLink";
 // A dropped stream, such as after a restart in development, is retried after this delay.
 export const chatReconnectDelay = 1500;
 
+// The shared stream drops whenever the server stops, so its return tells each view that loads data
+// by itself to load it again, because a request may have failed while the server was away.
+const reconnectionListeners = new Set<() => void>();
+
 /** Returns the models of every provider with a login. */
 export async function fetchModels(): Promise<ModelSummary[]> {
   const response = await requestApi("/api/models");
@@ -104,7 +108,32 @@ export function followChats(
   onEvent: (event: ChatsEvent) => void,
   onConnection: (connection: ChatConnection) => void,
 ): () => void {
-  return followEvents("/api/chats/events", onEvent, onConnection, () => undefined);
+  let hasDropped = false;
+  return followEvents(
+    "/api/chats/events",
+    onEvent,
+    (connection) => {
+      if (connection === "reconnecting") {
+        hasDropped = true;
+      } else if (connection === "following" && hasDropped) {
+        hasDropped = false;
+        for (const listener of reconnectionListeners) {
+          listener();
+        }
+      }
+      onConnection(connection);
+    },
+    () => undefined,
+  );
+}
+
+/**
+ * Calls back each time the shared stream reaches the server again after it dropped, until the
+ * returned stop runs.
+ */
+export function followReconnections(listener: () => void): () => void {
+  reconnectionListeners.add(listener);
+  return () => reconnectionListeners.delete(listener);
 }
 
 function followEvents<Event>(
