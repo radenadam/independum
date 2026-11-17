@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { linkSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -31,6 +31,31 @@ test("gate tasks require the question round and dated learning protection", asyn
       readGateTask({ ...task, learning: [{ speaker: "maintainer" }] }, tmpdir()),
     ).toThrow();
     expect(() => readGateTask({ ...task, requirements: ["CP-99"] }, tmpdir())).toThrow();
+  });
+});
+
+test("task files refuse folder links and files with other hard links", async () => {
+  await withEvidence((path) => {
+    const outside = join(dirname(path), "outside");
+    mkdirSync(outside);
+    writeFileSync(join(outside, "settings.txt"), "Outside content.\n");
+    const hardLink = join(dirname(path), "notes.md");
+    linkSync(join(outside, "settings.txt"), hardLink);
+    // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
+    const folderLink = join(dirname(path), "linked");
+    symlinkSync(outside, folderLink, "junction");
+    const task = taskFor(path);
+    for (const linked of [hardLink, folderLink]) {
+      expect(() => readGateTask({ ...task, reading: [linked] }, tmpdir())).toThrow(
+        JSON.stringify(linked),
+      );
+      expect(() => readGateTask({ ...task, sharedFiles: [linked] }, tmpdir())).toThrow(
+        JSON.stringify(linked),
+      );
+    }
+    expect(() => readGateTask({ ...task, reading: [hardLink] }, tmpdir())).toThrow(
+      "other hard links",
+    );
   });
 });
 

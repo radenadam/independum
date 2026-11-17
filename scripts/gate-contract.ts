@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, relative } from "node:path";
 import { readGateChange } from "./gate-change.ts";
+import { inspectExactFile } from "./read-exact-file.ts";
 import { readGateBrowserChecks, readGateBrowserRegressions } from "./read-gate-browser-checks.ts";
 import { readPushUpdates } from "./read-push-revision.ts";
 import { isCredentialPath, type Revision } from "./read-revision.ts";
@@ -221,7 +222,7 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     }
   }
   for (const path of [...task.reading, ...task.sharedFiles, ...task.scenarios]) {
-    requirePath(path);
+    requireTaskFile(path);
   }
   for (const path of task.writableFiles) {
     if (
@@ -246,8 +247,8 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     ) {
       throw new Error("Learning needs a date, kind, and provenance.");
     }
-    requirePath(entry.owner);
-    requirePath(entry.protection);
+    requireTaskFile(entry.owner);
+    requireTaskFile(entry.protection);
     if (!task.writableFiles.includes(entry.owner)) {
       throw new Error("The learning owner must be in the change scope.");
     }
@@ -399,6 +400,13 @@ function requirePath(value: string): void {
       `Evidence and context paths must be absolute, readable, and nonempty: ${JSON.stringify(value)}.`,
     );
   }
+}
+
+// Roles read every file that the task names, so each one must be the named file itself and not
+// reach another file through a link.
+function requireTaskFile(value: string): void {
+  requirePath(value);
+  inspectExactFile(value);
 }
 
 function requireText(value: unknown): asserts value is string {

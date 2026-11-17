@@ -1,7 +1,17 @@
 import { ChildProcess, execFileSync, spawn } from "node:child_process";
-import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  link,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
@@ -16,6 +26,8 @@ vi.mock("node:child_process", async (original) => ({
   spawn: vi.fn(),
 }));
 
+const fileSwap = vi.hoisted(() => ({ path: "", replacement: "" }));
+
 vi.mock("node:fs", async (original) => {
   const filesystem = await original<typeof import("node:fs")>();
   return {
@@ -25,17 +37,28 @@ vi.mock("node:fs", async (original) => {
         filesystem.writeFileSync(...arguments_);
       }
     }),
+    // A test moves another file over this path after the gate inspects it and before the gate
+    // opens it.
+    openSync: (...arguments_: Parameters<typeof filesystem.openSync>) => {
+      if (String(arguments_[0]) === fileSwap.path) {
+        fileSwap.path = "";
+        filesystem.renameSync(fileSwap.replacement, String(arguments_[0]));
+      }
+      return filesystem.openSync(...arguments_);
+    },
   };
 });
 
 const folder = resolve(import.meta.dirname, "..");
 const directories: string[] = [];
+const secret = "FIXTURE_SECRET=outside-the-repository";
 
 beforeEach(() => {
   vi.mocked(spawn).mockClear();
 });
 
 afterEach(async () => {
+  fileSwap.path = "";
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
   process.exitCode = 0;
@@ -322,17 +345,86 @@ test.each(["deleted", "renamed"])(
       execFileSync("git", arguments_, { cwd: fixture.folder, stdio: "ignore" });
     }
     await runGate(fixture.arguments, fixture.folder);
-    const output = fixture.arguments[fixture.arguments.indexOf("--output") + 1] ?? "";
-    const evidence = (await readdir(output)).filter((name) => name.startsWith("gate-"));
-    expect(evidence).toHaveLength(1);
-    const directory = join(output, evidence[0] ?? "");
-    const receipt = JSON.parse(await readFile(join(directory, "receipt.json"), "utf8"));
-    expect(receipt.verdict).not.toBe("pass");
-    expect(receipt.error).toContain("Credential files cannot participate in gate evidence.");
-    expect(fixture.prompts).toHaveLength(0);
+    const directory = await expectRefusal(
+      fixture,
+      "Credential files cannot participate in gate evidence.",
+    );
     await expect(access(join(directory, "change.diff"))).rejects.toThrow();
   },
 );
+
+test.skipIf(process.platform === "win32")(
+  "an untracked symbolic link to a credential records only its target path",
+  {
+    meta: {
+      skipReason: "Creating a file symbolic link needs Developer Mode or administrator rights.",
+      ciPlatforms: ["linux", "darwin"],
+    },
+  },
+  async () => {
+    const credential = await createOutsideFile(".env.fixture");
+    const fixture = await prepareChangedGate((worktree) =>
+      symlink(credential, join(worktree, "notes.txt")),
+    );
+    await runGate(fixture.arguments, fixture.folder);
+    const revision = await expectRecordedLink(fixture, "notes.txt", credential);
+    await writeFile(credential, "FIXTURE_SECRET=changed\n");
+    expect(readRevision(fixture.folder, "HEAD")).toEqual(revision);
+  },
+);
+
+test("an untracked folder link never puts the files behind it into gate evidence", async () => {
+  const target = dirname(await createOutsideFile("settings.txt"));
+  // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
+  const fixture = await prepareChangedGate((worktree) =>
+    symlink(target, join(worktree, "linked"), "junction"),
+  );
+  await runGate(fixture.arguments, fixture.folder);
+  if (process.platform === "win32") {
+    // Git for Windows reads a junction as a folder and lists the files behind it.
+    await expectRefusal(fixture, '"linked/settings.txt", because a folder on its path is a link');
+  } else {
+    await expectRecordedLink(fixture, "linked", target);
+  }
+});
+
+test("an untracked hard link to a credential is refused before any role starts", async () => {
+  const credential = await createOutsideFile(".env.fixture");
+  const fixture = await prepareChangedGate((worktree) =>
+    link(credential, join(worktree, "notes.txt")),
+  );
+  await runGate(fixture.arguments, fixture.folder);
+  const directory = await expectRefusal(
+    fixture,
+    '"notes.txt", because it has other hard links whose names cannot be checked',
+  );
+  await expect(access(join(directory, "change.diff"))).rejects.toThrow();
+});
+
+test("an untracked file replaced between inspection and copying is refused", async () => {
+  const fixture = await prepareChangedGate((worktree) =>
+    writeFile(join(worktree, "notes.txt"), "Harmless notes.\n"),
+  );
+  const notes = join(fixture.folder, "notes.txt");
+  fileSwap.replacement = await createOutsideFile(".env.fixture");
+  fileSwap.path = notes;
+  await runGate(fixture.arguments, fixture.folder);
+  expect(await readFile(notes, "utf8")).toBe(`${secret}\n`);
+  await expectRefusal(fixture, '"notes.txt", because it changes between inspection and reading');
+});
+
+test("a multiply linked scenario file stops the gate before any role starts", async () => {
+  const fixture = await prepareGate("pass", "codex", {
+    hasChangeFixture: true,
+    linkedScenarioFile: await createOutsideFile(".env.fixture"),
+  });
+  await runGate(fixture.arguments, fixture.folder);
+  await expectRefusal(
+    fixture,
+    'values.jsonl", because it has other hard links whose names cannot be checked',
+  );
+  expect(fixture.scenarios).toHaveLength(1);
+});
 
 test("learning owners must be among the changed files including untracked files", async () => {
   const unchanged = await prepareGate("pass", "codex", {
@@ -381,6 +473,8 @@ async function prepareGate(
     hasChangeFixture?: boolean;
     changeDuringReview?: (directory: string, folder: string) => Promise<void>;
     learningOwner?: string;
+    changeWorktree?: (folder: string) => Promise<void>;
+    linkedScenarioFile?: string;
   } = {},
 ): Promise<{
   arguments: string[];
@@ -401,6 +495,7 @@ async function prepareGate(
   const root = await mkdtemp(join(tmpdir(), "independum-run-gate-"));
   directories.push(root);
   const gateFolder = options.hasChangeFixture ? await prepareChange(root) : folder;
+  await options.changeWorktree?.(gateFolder);
   const owner =
     options.learningOwner === undefined ? undefined : join(gateFolder, options.learningOwner);
   const task: GateTask = {
@@ -566,7 +661,11 @@ async function prepareGate(
             "observed.png": "fixture screenshot",
           })) {
             const path = join(output, file);
-            await writeFile(path, text);
+            if (file === "values.jsonl" && options.linkedScenarioFile !== undefined) {
+              await link(options.linkedScenarioFile, path);
+            } else {
+              await writeFile(path, text);
+            }
             if (text !== "") {
               captures.push(path);
             }
@@ -600,6 +699,67 @@ async function prepareGate(
     directory: () => directory,
     receipt: async () => JSON.parse(await readFile(join(directory, "receipt.json"), "utf8")),
   };
+}
+
+/** Prepares a passing change fixture with one more worktree change. */
+function prepareChangedGate(
+  changeWorktree: (folder: string) => Promise<void>,
+): ReturnType<typeof prepareGate> {
+  return prepareGate("pass", "codex", { hasChangeFixture: true, changeWorktree });
+}
+
+/** Requires a passing gate that records an untracked link as its target path and never its content. */
+async function expectRecordedLink(
+  fixture: Awaited<ReturnType<typeof prepareGate>>,
+  path: string,
+  target: string,
+): Promise<GateResult["revision"]> {
+  const receipt = await fixture.receipt();
+  expect(receipt.verdict).toBe("pass");
+  const copy = join(fixture.directory(), "untracked", path);
+  expect(await readFile(copy, "utf8")).toBe(target);
+  expect(
+    JSON.parse(await readFile(join(fixture.directory(), "changed-files.json"), "utf8")).files,
+  ).toContainEqual({ status: "??", path, isSymbolicLink: true, copy });
+  expect(await readEvidenceText(fixture.directory())).not.toContain(secret);
+  expect(fixture.prompts.join("\n")).not.toContain(secret);
+  return receipt.revision;
+}
+
+/** Creates a synthetic file outside every fixture repository that holds the secret. */
+async function createOutsideFile(name: string): Promise<string> {
+  const outside = await mkdtemp(join(tmpdir(), "independum-run-gate-outside-"));
+  directories.push(outside);
+  const path = join(outside, name);
+  await writeFile(path, `${secret}\n`);
+  return path;
+}
+
+/** Requires a gate that stops before any role with this error and keeps the secret out of evidence. */
+async function expectRefusal(
+  fixture: Awaited<ReturnType<typeof prepareGate>>,
+  message: string,
+): Promise<string> {
+  const output = fixture.arguments[fixture.arguments.indexOf("--output") + 1] ?? "";
+  const evidence = (await readdir(output)).filter((name) => name.startsWith("gate-"));
+  expect(evidence).toHaveLength(1);
+  const directory = join(output, evidence[0] ?? "");
+  const receipt = JSON.parse(await readFile(join(directory, "receipt.json"), "utf8"));
+  expect(receipt.verdict).not.toBe("pass");
+  expect(receipt.error).toContain(message);
+  expect(fixture.prompts).toHaveLength(0);
+  expect(await readEvidenceText(directory)).not.toContain(secret);
+  return directory;
+}
+
+async function readEvidenceText(directory: string): Promise<string> {
+  const texts: string[] = [];
+  for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
+    if (entry.isFile()) {
+      texts.push(await readFile(join(entry.parentPath, entry.name), "utf8"));
+    }
+  }
+  return texts.join("\n");
 }
 
 async function prepareChange(root: string): Promise<string> {

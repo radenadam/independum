@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { basename, join } from "node:path";
 
 export interface Revision {
@@ -27,7 +27,12 @@ export function readRevision(
       ).split("\0"),
     ),
   ]
-    .filter((file) => file !== "" && (contents === "commit" || existsSync(join(folder, file))))
+    .filter(
+      (file) =>
+        file !== "" &&
+        (contents === "commit" ||
+          lstatSync(join(folder, file), { throwIfNoEntry: false }) !== undefined),
+    )
     .toSorted();
   const source = createHash("sha256");
   const context = createHash("sha256");
@@ -51,7 +56,12 @@ export function readRevision(
   for (const file of files) {
     let content: Buffer;
     if (blobs === undefined) {
-      content = readFileSync(join(folder, file));
+      const path = join(folder, file);
+      // Git records a symbolic link as its target path, so the fingerprint never reads through one
+      // and agrees with the committed blob.
+      content = lstatSync(path).isSymbolicLink()
+        ? readlinkSync(path, { encoding: "buffer" })
+        : readFileSync(path);
     } else {
       const end = blobs.indexOf(10, offset);
       const size = blobs

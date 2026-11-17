@@ -4,5 +4,5 @@
     "module": "nodenext",
     "types": ["node"]
   },
-  "include": ["scripts"]
+  "include": ["scripts", "packages/independum/src/test-metadata.d.ts"]
 }

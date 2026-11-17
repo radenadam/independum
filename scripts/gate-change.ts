@@ -1,7 +1,16 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  type BigIntStats,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import { readExactFile, requireExactFile } from "./read-exact-file.ts";
 import { isCredentialPath, type Revision } from "./read-revision.ts";
 
 /** Written evidence of one revision's exact change, with the SHA-256 of each file by absolute path. */
@@ -18,6 +27,7 @@ interface ChangedFile {
   status: string;
   path: string;
   previousPath?: string;
+  isSymbolicLink?: boolean;
   copy?: string;
 }
 
@@ -57,18 +67,38 @@ export function writeGateChange(folder: string, revision: Revision, directory: s
   if (listed.some((file) => [file.path, file.previousPath ?? ""].some(isCredentialPath))) {
     throw new Error("Credential files cannot participate in gate evidence.");
   }
+  // Git writes every changed path except a deleted one into the diff, so each is inspected before
+  // the diff is written.
+  const folders = new Set<string>();
+  const inspected = new Map(
+    listed
+      .filter((file) => file.status !== "D")
+      .map((file) => [file.path, inspectChangedPath(folder, file.path, folders)]),
+  );
   const diff = join(directory, "change.diff");
   writeFileSync(
     diff,
     git(folder, ["diff", "--no-color", "--no-ext-diff", "--no-textconv", revision.base, "--"]),
   );
-  const files = listed.map((file) => {
+  const files = listed.map((file): ChangedFile => {
     if (file.status !== "??") {
       return file;
     }
+    const source = join(folder, file.path);
+    const information = inspected.get(file.path);
+    if (information === undefined) {
+      throw new Error(
+        `The gate refuses ${JSON.stringify(file.path)}, because it changes between inspection and reading.`,
+      );
+    }
     const copy = join(directory, "untracked", file.path);
     mkdirSync(dirname(copy), { recursive: true });
-    copyFileSync(join(folder, file.path), copy);
+    if (information.isSymbolicLink()) {
+      // Git records a symbolic link as its target path, and the target can name any file.
+      writeFileSync(copy, readlinkSync(source, { encoding: "buffer" }));
+      return { ...file, isSymbolicLink: true, copy };
+    }
+    writeFileSync(copy, readExactFile(source, information, file.path));
     return { ...file, copy };
   });
   const changedFiles = join(directory, "changed-files.json");
@@ -106,6 +136,37 @@ export function readGateChange(value: unknown, revision: Revision): void {
   ) {
     throw new Error("The written change no longer matches the reviewed revision.");
   }
+}
+
+// Git for Windows reads a junction as a folder and lists or diffs the files behind it, so every
+// folder on a changed path must be a real folder. Git elsewhere reports a folder link as one link.
+/** Inspects a changed worktree path without following links, or returns nothing for an absent path. */
+function inspectChangedPath(
+  folder: string,
+  path: string,
+  folders: Set<string>,
+): BigIntStats | undefined {
+  let ancestor = "";
+  for (const part of path.split("/").slice(0, -1)) {
+    ancestor = ancestor === "" ? part : `${ancestor}/${part}`;
+    if (!folders.has(ancestor)) {
+      const information = lstatSync(join(folder, ancestor), { throwIfNoEntry: false });
+      if (information?.isSymbolicLink()) {
+        throw new Error(
+          `The gate refuses ${JSON.stringify(path)}, because a folder on its path is a link.`,
+        );
+      }
+      if (!information?.isDirectory()) {
+        return undefined;
+      }
+      folders.add(ancestor);
+    }
+  }
+  const information = lstatSync(join(folder, path), { bigint: true, throwIfNoEntry: false });
+  if (information !== undefined && !information.isSymbolicLink()) {
+    requireExactFile(information, path);
+  }
+  return information;
 }
 
 function hashFile(path: string): string {

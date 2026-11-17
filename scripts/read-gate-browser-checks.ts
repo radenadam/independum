@@ -1,6 +1,7 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import type { GateTask } from "./gate-contract.ts";
+import { inspectExactFile, readExactFile } from "./read-exact-file.ts";
 import type { Revision } from "./read-revision.ts";
 
 export interface GateBrowserCheck {
@@ -107,8 +108,9 @@ export function readGateBrowserChecks(
     ) {
       throw new Error("Every task scenario must pass with its own browser output and log.");
     }
+    const names = readScenarioFiles(check.directory);
     const capture = JSON.parse(
-      readFileSync(join(check.directory, "revision.json"), "utf8"),
+      readExactFile(join(check.directory, "revision.json")).toString("utf8"),
     ) as Revision & { scenario: string; driver: string };
     if (
       capture.scenario !== check.scenario ||
@@ -119,10 +121,10 @@ export function readGateBrowserChecks(
     ) {
       throw new Error("Scenario browser evidence belongs to another revision or driver.");
     }
-    const screenshots = readdirSync(check.directory).filter((name) => name.endsWith(".png"));
+    const screenshots = names.filter((name) => name.endsWith(".png"));
     if (
       existsSync(join(check.directory, "failure.txt")) ||
-      readFileSync(join(check.directory, "browser.jsonl"), "utf8").trim() !== "" ||
+      readExactFile(join(check.directory, "browser.jsonl")).toString("utf8").trim() !== "" ||
       screenshots.length === 0 ||
       ["values.jsonl", "scenario.json", ...screenshots].some(
         (name) => statSync(join(check.directory, name)).size === 0,
@@ -131,4 +133,16 @@ export function readGateBrowserChecks(
       throw new Error("Scenario QA needs screenshots, values, and clean browser diagnostics.");
     }
   }
+}
+
+/** Lists a scenario output folder after requiring every entry to be a regular file with one link. */
+export function readScenarioFiles(directory: string): string[] {
+  if (!lstatSync(directory).isDirectory()) {
+    throw new Error(`The gate refuses ${JSON.stringify(directory)}, because it is not a folder.`);
+  }
+  const names = readdirSync(directory);
+  for (const name of names) {
+    inspectExactFile(join(directory, name));
+  }
+  return names;
 }

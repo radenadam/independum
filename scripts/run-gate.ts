@@ -25,6 +25,7 @@ import {
   type GateBrowserRegressions,
   readGateBrowserChecks,
   readGateBrowserRegressions,
+  readScenarioFiles,
 } from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
 import {
@@ -208,7 +209,7 @@ export async function runGate(
         `Worktree: ${folder}. Evidence destination: ${directory}. Do not edit source or use git mutations.`,
         "Read AGENTS.md and its startup path. The manifest identifies accepted behavior, not proof of success.",
         "Never read any auth.json, models.json, .env, or .env.* file. Use installed CLI authentication without inspecting it.",
-        `The exact change of this revision against base ${revision.base} is already written into evidence bound to the revision below, so reading it needs no shell. ${change.diff} holds the full patch of git diff ${revision.base} for tracked files in the worktree. ${change.changedFiles} lists every changed path with its Git status, where ?? marks an untracked file outside ignored paths. Exact copies of the untracked files: ${change.untrackedFiles.join(", ") || "none"}. Treat these files as the exact change and read worktree files for surrounding context.`,
+        `The exact change of this revision against base ${revision.base} is already written into evidence bound to the revision below, so reading it needs no shell. ${change.diff} holds the full patch of git diff ${revision.base} for tracked files in the worktree. ${change.changedFiles} lists every changed path with its Git status, where ?? marks an untracked file outside ignored paths. Exact copies of the untracked files: ${change.untrackedFiles.join(", ") || "none"}. The copy of an untracked symbolic link, marked isSymbolicLink, holds only its target path text, as Git records it. Treat these files as the exact change and read worktree files for surrounding context.`,
         role === "review"
           ? "This standalone command requests source review only."
           : `Current coordinator browser evidence: ${browserChecksPath}. Inspect it for the task's runtime acceptance.`,
@@ -389,6 +390,11 @@ export async function runGate(
             check.verdict = "fail";
           }
           const output = (await readFile(log, "utf8")).match(/^QA output: (.+)$/m)?.[1]?.trim();
+          if (output !== undefined) {
+            // The qa role reads every file of this folder, so a link or a multiply linked file
+            // stops the gate before any role starts.
+            readScenarioFiles(output);
+          }
           check.directory = output ?? "";
           if (check.verdict === "pass") {
             try {
