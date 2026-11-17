@@ -61,7 +61,7 @@ export function SidebarChats({
   }
 
   const shown = projects.flatMap((project) => {
-    const chats = project.chats.filter((chat) => chat.title.toLowerCase().includes(search));
+    const chats = project.chats.filter((chat) => chat.fullTitle.toLowerCase().includes(search));
     if (search !== "" && chats.length === 0) {
       return [];
     }

@@ -7,7 +7,7 @@ import { type Typing, useTypedLength } from "./use-typed-length.ts";
 /** Properties of a one line title. */
 interface OneLineTitleProps {
   text: string;
-  tooltip?: string;
+  tooltip?: string | undefined;
   isTyped?: boolean;
   isWaving?: boolean;
   align?: "start" | "end";

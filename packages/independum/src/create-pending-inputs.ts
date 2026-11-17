@@ -5,6 +5,7 @@ import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { PendingInput, PendingInputsState } from "./api-types.ts";
 import { removePathSync, replaceFileSync } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
+import { titleOfPrompt } from "./title-of-prompt.ts";
 
 /** An input mutation that cannot apply to the current durable state. */
 export class InputError extends Error {
@@ -283,7 +284,14 @@ export function createPendingInputs(
 export function listPendingChats(
   directory: string,
   savedIds: Set<string>,
-): { id: string; folder: string; name: string; modified: number; isArchived: boolean }[] {
+): {
+  id: string;
+  folder: string;
+  name: string | null;
+  promptTitle: string;
+  modified: number;
+  isArchived: boolean;
+}[] {
   return pendingNames(directory)
     .filter((name) => !savedIds.has(name.slice(0, -5)))
     .flatMap((name) => {
@@ -312,7 +320,8 @@ export function listPendingChats(
             {
               id: file.chatId,
               folder: file.folder,
-              name: file.name ?? first.text,
+              name: file.name,
+              promptTitle: titleOfPrompt(first.text, first.attachments ?? []),
               modified: first.createdAt,
               isArchived: file.isArchived,
             },

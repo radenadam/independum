@@ -1,9 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { SessionInfo } from "@earendil-works/pi-coding-agent";
+import { type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
+import {
+  createPendingInputs,
+  inputFingerprint,
+  listPendingChats,
+} from "./create-pending-inputs.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
+import { createTestInput } from "./create-test-input.ts";
 import { holdFile } from "./hold-file.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
@@ -37,6 +43,58 @@ test("overlapping pins survive a restart after an older save finishes late", asy
   const restarted = await createSavedChats(folder, path);
   expect(restarted.isPinned("first")).toBe(false);
   expect(restarted.isPinned("second")).toBe(true);
+});
+
+test("a saved chat takes its title line from what the user wrote in its first prompt", async () => {
+  const sessions = join(folder, "sessions");
+  const note =
+    '<independum source="attachment 1">\nName: "notes.txt"\nPath: "/state/attachments/id/content"\n</independum>';
+  function save(input: object | undefined, content: string): string {
+    const manager = SessionManager.create(folder, sessions);
+    if (input !== undefined) {
+      manager.appendCustomEntry("independum-input", input);
+    }
+    manager.appendMessage({ role: "user", content, timestamp: Date.now() });
+    return manager.getSessionId();
+  }
+  const text = "\n  Summarize this.  \nThen list the open questions.";
+  const written = save(
+    { version: 1, text, attachments: [{ name: "notes.txt" }] },
+    `${text}\n\n${note}`,
+  );
+  const attached = save(
+    { version: 1, text: " ", attachments: [{ name: "notes.txt" }, { name: "pixel.png" }] },
+    note,
+  );
+  const legacy = save(undefined, "Written before input entries.\nWith a second line.");
+  const chats = await createSavedChats(sessions, join(folder, "titled-pins.json"));
+  const titles = new Map((await chats.list()).map((chat) => [chat.id, chat.promptTitle]));
+  expect(titles).toEqual(
+    new Map([
+      [written, "Summarize this."],
+      [attached, "notes.txt, pixel.png"],
+      [legacy, "Written before input entries."],
+    ]),
+  );
+});
+
+test("a held first message keeps its title line once delivery saves the chat", async () => {
+  const sessions = join(folder, "delivered");
+  const manager = SessionManager.create(folder, sessions);
+  const id = manager.getSessionId();
+  const text = "\n  Plan the release.  \nThen list the owners.";
+  const input = createTestInput(text);
+  const pending = createPendingInputs(join(folder, "pending-inputs"), id, [], folder);
+  pending.accept(input, inputFingerprint(input));
+  pending.pause("The delivery failed.");
+  const held = listPendingChats(join(folder, "pending-inputs"), new Set());
+  manager.appendCustomEntry("independum-input", { version: 1, text, attachments: [] });
+  manager.appendMessage({ role: "user", content: text, timestamp: Date.now() });
+  pending.delete();
+  const chats = await createSavedChats(sessions, join(folder, "delivered-pins.json"));
+  const delivered = await chats.list();
+  expect(held.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
+  expect(delivered.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
 });
 
 test("archiving moves a chat once a scan that held its file lets go", async (context) => {

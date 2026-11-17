@@ -21,6 +21,8 @@ Each slice is one PR unless repeated. Preserve today's default until conformance
 - Slice 14: Migrate durable steering, turn retries, compaction, and warming in separate PRs. CP-06, CP-13, CP-18, CP-28.
 - Slice 15: Switch the default after parity evidence. Remove obsolete Pi orchestration separately. CP-01, CP-28.
 
+After slice 5, also add a title generator component: a stage after the first reply that makes one recorded kernel call with an editable instruction, switchable per profile. Whether the default profile enables it belongs to the shipping half.
+
 Then redesign screen architecture for people who know agents through the seven [journeys](design.md#journeys), comparing current behavior, identical content, long cases, themes, and phones. Complete every meaning of easy and the narrow Pi text patch. CP-07, CP-08, CP-24, CP-29 through CP-35.
 
 Complete remaining profiles and recovery, resources, permissions, native boundaries, environment facts, queues and Stop disclosure, forks, attachments, arbitrary initial folders, headless workflows, and phone continuity. Request MXC's upstream read-only Linux private mask. CP-04, CP-09 through CP-23.
@@ -37,9 +39,9 @@ Direct maintainer findings of 2026-11-15 remain unverified defects.
 - On phones, Jump to the latest message covers a line of a long card.
 - On desktop, the running hook row spans the whole chat width.
 - File-write approval uses command wording such as "the programs it starts".
-- A first message with an attachment puts its attachment note and path in the chat title.
 - A text attachment with its path included has an empty Original box.
 - Session retains "Failed to fetch" after server restart without page reload.
+- The health and providers check at page start shows "Not running." and only a reload recovers it.
 - Unconfirmed: renaming the leading chat immediately after archiving the open chat may return 404.
 
 ## Shipping half

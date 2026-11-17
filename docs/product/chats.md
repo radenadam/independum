@@ -8,7 +8,13 @@ Each browser chooses its own open chat through the `chat` query parameter. Reloa
 
 A client without a chat id asks for the newest saved chat in the launch folder, or an empty one there. Unknown or archived ids fall back to that first chat. New chat resolves the current folder's profile. When it matches the source profile, it carries the source model and effort. A different profile uses its defaults. Archive and delete replacements have no source and use defaults. [Decision 0078](../decisions/0078-same-profile-new-chat-choices.md) reconciles this rule. [Profiles](profiles.md) owns precedence. An empty chat chooses among known projects. Arbitrary folder selection and creation are CP-22 gaps under decision 0077. The launch folder is the current default project. Other projects come from saved chats, ordered by their newest chat.
 
-A new chat enters the sidebar after Pi saves its first message. Its title is its saved name or its first message. A saved chat whose model no longer has a login waits for a new model choice. Opening another chat leaves replies and background commands running. Opening a chat during its reply restores its saved messages and the streaming parts so far, then follows new events. Stop holds pending delivery before aborting the reply of the open chat. Queueing and steering do not change another chat. Restart and reply failure leave remaining inputs held until Resume. Accepted work in an otherwise empty chat remains discoverable before Pi creates its saved file.
+A new chat enters the sidebar after Pi saves its first message. A saved chat whose model no longer has a login waits for a new model choice. Opening another chat leaves replies and background commands running. Opening a chat during its reply restores its saved messages and the streaming parts so far, then follows new events. Stop holds pending delivery before aborting the reply of the open chat. Queueing and steering do not change another chat. Restart and reply failure leave remaining inputs held until Resume. Accepted work in an otherwise empty chat remains discoverable before Pi creates its saved file.
+
+## Titles
+
+A title is short and comes from what the user typed, because a long first prompt makes a bad title, as the maintainer answered directly on 2026-11-16. A name the user gives stays as it is. Otherwise the title line is the first non-empty line that the user wrote in the first message, from its `independum-input` entry, never attachment notes or paths. Without text, it is the attachment names joined by commas, such as `notes.txt, plan.md`. Chats from before input entries use the first non-empty line of Pi's first message.
+
+[The rule](../../packages/independum/src/shorten-title.ts) cuts a line over 50 characters at the last word that fits, or at 50 inside one longer word, and adds an ellipsis. Tooltips and search use the whole line, never the whole message. Every view takes titles from [saved chat listing](../../packages/independum/src/create-saved-chats.ts). The [roadmap](../roadmap.md) plans generated titles.
 
 ## Sidebar and management
 
@@ -43,6 +49,7 @@ The notification uses the chat title and the first line of the last assistant me
 - [Server chat state and operations](../../packages/independum/src/create-chat.ts) and [saved chat operations](../../packages/independum/src/create-saved-chats.ts).
 - [Sidebar lists](../../packages/web/src/sidebar-chats.tsx), [row actions](../../packages/web/src/chat-row.tsx), and [working screen](../../packages/web/src/working-screen.tsx).
 - [Draft storage](../../packages/web/src/chat-draft.ts), [notification choice](../../packages/web/src/notification-choice.ts), and [reply notices](../../packages/web/src/use-reply-notice.ts).
+- `pnpm qa chat-title` checks titles from a long multi-line prompt and from attachments alone, through archiving and in the phone header.
 
 ## Known differences from the decisions
 
