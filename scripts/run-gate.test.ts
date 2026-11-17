@@ -1,5 +1,5 @@
 import { ChildProcess, execFileSync, spawn } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
@@ -265,24 +265,74 @@ test.each(["codex", "claude"])(
   },
 );
 
-test.each([
+const changeEdits: [string, string, string][] = [
   ["diff", "change.diff", "The written change no longer matches"],
   ["untracked copy", join("untracked", "src", "added.ts"), "The written change no longer matches"],
   ["worktree", "", "Source or context changes invalidate"],
-])("%s edits after the gate writes the change prevent a pass", async (_, file, message) => {
-  const fixture = await prepareGate("pass", "codex", {
-    hasChangeFixture: true,
-    changeDuringReview: async (directory, folder) => {
-      const path = file === "" ? join(folder, "tracked.ts") : join(directory, file);
-      await writeFile(path, "export const value = 3;\n");
-    },
-  });
-  await runGate(fixture.arguments, fixture.folder);
-  const receipt = await fixture.receipt();
-  expect(receipt.verdict).toBe("incomplete");
-  expect(receipt.error).toContain(message);
-  expect(fixture.prompts).toHaveLength(1);
-});
+];
+
+test.each(
+  ["codex", "claude"].flatMap((engine) =>
+    changeEdits.map(([edit, file, message]): [string, string, string, string] => [
+      edit,
+      engine,
+      file,
+      message,
+    ]),
+  ),
+)(
+  "%s edits after the gate writes the change prevent a pass with %s roles",
+  async (_, engine, file, message) => {
+    const fixture = await prepareGate("pass", engine, {
+      hasChangeFixture: true,
+      changeDuringReview: async (directory, folder) => {
+        const path = file === "" ? join(folder, "tracked.ts") : join(directory, file);
+        await writeFile(path, "export const value = 3;\n");
+      },
+    });
+    await runGate(fixture.arguments, fixture.folder);
+    const receipt = await fixture.receipt();
+    expect(receipt.verdict).toBe("incomplete");
+    expect(receipt.error).toContain(message);
+    expect(fixture.prompts).toHaveLength(1);
+  },
+);
+
+test.each(["deleted", "renamed"])(
+  "a %s credential file keeps the change out of gate evidence",
+  async (change) => {
+    const fixture = await prepareGate("pass", "codex", { hasChangeFixture: true });
+    const credential = join(fixture.folder, ".env.fixture");
+    await writeFile(credential, "FIXTURE=1\n");
+    for (const arguments_ of [
+      ["add", ".env.fixture"],
+      [
+        "-c",
+        "user.name=Fixture",
+        "-c",
+        "user.email=fixture@example.com",
+        "commit",
+        "--quiet",
+        "--message=Fixture credential.",
+      ],
+      change === "deleted"
+        ? ["rm", "--quiet", ".env.fixture"]
+        : ["mv", ".env.fixture", "settings.txt"],
+    ]) {
+      execFileSync("git", arguments_, { cwd: fixture.folder, stdio: "ignore" });
+    }
+    await runGate(fixture.arguments, fixture.folder);
+    const output = fixture.arguments[fixture.arguments.indexOf("--output") + 1] ?? "";
+    const evidence = (await readdir(output)).filter((name) => name.startsWith("gate-"));
+    expect(evidence).toHaveLength(1);
+    const directory = join(output, evidence[0] ?? "");
+    const receipt = JSON.parse(await readFile(join(directory, "receipt.json"), "utf8"));
+    expect(receipt.verdict).not.toBe("pass");
+    expect(receipt.error).toContain("Credential files cannot participate in gate evidence.");
+    expect(fixture.prompts).toHaveLength(0);
+    await expect(access(join(directory, "change.diff"))).rejects.toThrow();
+  },
+);
 
 test("learning owners must be among the changed files including untracked files", async () => {
   const unchanged = await prepareGate("pass", "codex", {
