@@ -1,5 +1,6 @@
-import { lstatSync, mkdirSync, renameSync } from "node:fs";
+import { lstatSync, mkdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { movePathSync } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 
 /** Relocates legacy state by rename after checking every destination without reading contents. */
@@ -51,12 +52,12 @@ export function migrateStateDirectory(
   }
   mkdirSync(directory, { recursive: true });
   if (hasRuntime) {
-    renameSync(runtime, privateFolder);
+    movePathSync(runtime, privateFolder);
   }
   preparePrivate(privateFolder);
   for (const [source, destination] of moves.slice(1)) {
     if (exists(source)) {
-      renameSync(source, destination);
+      movePathSync(source, destination);
     }
   }
   return privateFolder;

@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
+import { type SessionInfo, SessionManager } from "@earendil-works/pi-coding-agent";
 import { expect, test, vi } from "vitest";
 import {
   createPendingInputs,
@@ -10,6 +10,7 @@ import {
 } from "./create-pending-inputs.ts";
 import { createSavedChats } from "./create-saved-chats.ts";
 import { createTestInput } from "./create-test-input.ts";
+import { holdFile } from "./hold-file.ts";
 import { createTestFolder } from "./tools/create-test-folder.ts";
 
 vi.mock("node:fs/promises", { spy: true });
@@ -94,4 +95,25 @@ test("a held first message keeps its title line once delivery saves the chat", a
   const delivered = await chats.list();
   expect(held.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
   expect(delivered.map((chat) => [chat.id, chat.promptTitle])).toEqual([[id, "Plan the release."]]);
+});
+
+test("archiving moves a chat once a scan that held its file lets go", async (context) => {
+  const sessions = join(folder, "held-sessions");
+  mkdirSync(sessions, { recursive: true });
+  const path = join(sessions, "held.jsonl");
+  writeFileSync(path, "{}\n");
+  const chats = await createSavedChats(sessions, join(folder, "held-pins.json"));
+  const release = holdFile(path);
+  context.onTestFinished(release);
+  const original = await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises");
+  vi.mocked(rename).mockImplementationOnce(async (source, target) => {
+    try {
+      await original.rename(source, target);
+    } finally {
+      release();
+    }
+  });
+  await chats.archive({ id: "held", path } as SessionInfo);
+  expect(existsSync(path)).toBe(false);
+  expect(readFileSync(join(sessions, "archived", "held.jsonl"), "utf8")).toBe("{}\n");
 });

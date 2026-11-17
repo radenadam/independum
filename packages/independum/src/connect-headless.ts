@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { closeSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { commandEnvironment } from "./command-environment.ts";
+import { removePathSync } from "./file-changes.ts";
 import { HeadlessError } from "./headless-types.ts";
 import {
   openPrivateRuntimeFile,
@@ -179,7 +180,7 @@ export async function connectHeadless(
             "code" in error &&
             error.code === "ESRCH"
           ) {
-            unlinkSync(lockPath);
+            removePathSync(lockPath);
           }
         }
       }
@@ -223,7 +224,7 @@ export async function connectHeadless(
       }
     } finally {
       closeSync(descriptor);
-      unlinkSync(lockPath);
+      removePathSync(lockPath);
     }
   }
   throw new HeadlessError("The server did not start on port 4870.", "startupFailed", 5);

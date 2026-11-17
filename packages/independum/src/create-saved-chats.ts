@@ -1,4 +1,4 @@
-import { type FileHandle, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { type FileHandle, mkdir, open, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   parseSessionEntries,
@@ -6,6 +6,7 @@ import {
   SessionManager,
   withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
+import { movePath, removePath } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 import { titleOfPrompt } from "./title-of-prompt.ts";
 
@@ -77,14 +78,14 @@ export async function createSavedChats(
     pin: setPinned,
     async archive(saved) {
       await mkdir(archiveDirectory, { recursive: true });
-      await rename(saved.path, join(archiveDirectory, basename(saved.path)));
+      await movePath(saved.path, join(archiveDirectory, basename(saved.path)));
       await setPinned(saved.id, false);
     },
     async unarchive(saved) {
-      await rename(saved.path, join(sessionDirectory, basename(saved.path)));
+      await movePath(saved.path, join(sessionDirectory, basename(saved.path)));
     },
     async remove(saved) {
-      await rm(saved.path);
+      await removePath(saved.path);
       await setPinned(saved.id, false);
     },
   };

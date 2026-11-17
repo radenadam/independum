@@ -1,6 +1,7 @@
+import { writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { expect, test } from "vitest";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import {
@@ -62,6 +63,25 @@ test("gate results reject missing coverage stale evidence and incomplete passes"
         requirement,
       );
     }
+    const credential = join(dirname(path), ".env.qa");
+    expect(() =>
+      readGateResult(
+        { ...result, coverage: [{ ...result.coverage[0], evidence: [credential] }] },
+        task,
+        "review",
+        revision,
+      ),
+    ).toThrow(JSON.stringify(credential));
+    const empty = join(dirname(path), "browser.jsonl");
+    writeFileSync(empty, "");
+    expect(() =>
+      readGateResult(
+        { ...result, coverage: [{ ...result.coverage[0], evidence: [empty] }] },
+        task,
+        "review",
+        revision,
+      ),
+    ).toThrow(JSON.stringify(empty));
     expect(
       readGateResult(
         { ...result, verdict: "incomplete", coverage: [], missingChecks: ["Unavailable."] },

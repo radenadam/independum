@@ -27,6 +27,7 @@ These rules apply to every change. [Workflow](workflow.md) owns process, [design
 - Use `for...of`, never `forEach`. Relative imports include extensions. Node built-ins use `node:`. Build paths with `node:path`.
 - Use no `console`. Command output goes through `process.stdout.write` and `process.stderr.write`. Error messages are sentences with a capital first letter and final period.
 - Package scripts work unchanged on Windows, macOS, and Linux. No `rm`, `cp`, inline environment variables, or `&`.
+- Replace, move, and delete state files through `file-changes.ts`, which retries Windows sharing errors as [server storage](product/server.md#storage) describes. `scripts/find-code-problems.ts` rejects direct renames and deletes in `packages/independum/src` outside tests, the preview harness, and the test folder helper.
 - Dependencies must be maintained, portable, and have no lighter alternative already present. Use releases at least one day old. Never relax the minimum age policy in `pnpm-workspace.yaml`.
 - UI styles live in adjacent CSS modules. Inline styles only pass runtime custom properties. [Design](design.md) owns tokens, motion, composition, and focus constraints.
 
