@@ -15,6 +15,7 @@ import { parseFrontmatter, withFileMutationQueue } from "@earendil-works/pi-codi
 import type { ContextResource, ContextRevision, ContextSettings } from "./api-types.ts";
 import { instructionText, skillCatalogText, skillText } from "./context-texts.ts";
 import { escapeContextMetadata } from "./escape-context-metadata.ts";
+import { fileIdentity } from "./file-identity.ts";
 import type { ModelTexts } from "./model-texts.ts";
 import { builtInSlashCommands } from "./read-context-settings.ts";
 
@@ -167,7 +168,7 @@ export function resolveContext(options: ContextScope): ContextRevision {
         if (!information.isFile()) {
           throw new Error("The resource is not a regular file.");
         }
-        const identity = `${kind}:${information.dev}:${information.ino}`;
+        const identity = `${kind}:${fileIdentity(information)}`;
         const existing = identities.get(identity);
         if (existing !== undefined && existing.state === "enabled" && isEnabled) {
           resource.state = "duplicate";
@@ -184,11 +185,7 @@ export function resolveContext(options: ContextScope): ContextRevision {
           let bytes: Buffer;
           try {
             const opened = fstatSync(descriptor, { bigint: true });
-            if (
-              opened.dev !== information.dev ||
-              opened.ino !== information.ino ||
-              !isAllowed(physical, scope)
-            ) {
+            if (fileIdentity(opened) !== fileIdentity(information) || !isAllowed(physical, scope)) {
               throw new Error("The resource identity changed before its contents could be read.");
             }
             bytes = readFileSync(descriptor);

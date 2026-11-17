@@ -1,7 +1,8 @@
-import { mkdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { validateProfileBundle } from "./configuration-schema.ts";
+import { fileIdentity } from "./file-identity.ts";
 import {
   builtInPermissions,
   canonicalPermissionPath,
@@ -11,6 +12,7 @@ import {
   hasSavedPermissionApproval,
   type PathAccess,
   type PermissionPolicy,
+  type PermissionResource,
   type PermissionRule,
   permissionResourceIdentity,
   validatePermissionPolicy,
@@ -26,6 +28,25 @@ const inside = {
   scope: "file",
   access: "write",
 } as const;
+
+function approvedPolicy(
+  approvedProject: string,
+  resource: PermissionResource,
+  identity = permissionResourceIdentity(resource),
+): PermissionPolicy {
+  return {
+    ...builtInPermissions,
+    savedApprovals: [
+      {
+        id: resource.kind,
+        project: approvedProject,
+        resource,
+        identity,
+        approvedAt: new Date().toISOString(),
+      },
+    ],
+  };
+}
 
 test("project defaults allow reads everywhere and ask for outside writes and network", () => {
   expect(evaluatePermission(builtInPermissions, project, inside, []).decision).toBe("allow");
@@ -85,18 +106,7 @@ test("saved approvals match either project spelling and retain their identity li
   const path = join(directory, "outside.txt");
   writeFileSync(path, "sentinel");
   const resource: PathAccess = { kind: "path", path, scope: "file", access: "read" };
-  const policy = {
-    ...builtInPermissions,
-    savedApprovals: [
-      {
-        id: "alias",
-        project,
-        resource,
-        identity: permissionResourceIdentity(resource),
-        approvedAt: new Date().toISOString(),
-      },
-    ],
-  };
+  const policy = approvedPolicy(project, resource);
   for (const root of [project, canonicalPermissionPath(project, project)]) {
     expect(hasSavedPermissionApproval(policy, root, resource)).toBe(true);
     expect(
@@ -115,18 +125,7 @@ test("saved path approvals ignore parameter order but never widen access or foll
   const target = join(folder, "approved.txt");
   writeFileSync(target, "Original.");
   const resource: PathAccess = { kind: "path", path: target, scope: "file", access: "read" };
-  const policy: PermissionPolicy = {
-    ...builtInPermissions,
-    savedApprovals: [
-      {
-        id: "file",
-        project,
-        resource,
-        identity: permissionResourceIdentity(resource),
-        approvedAt: new Date().toISOString(),
-      },
-    ],
-  };
+  const policy = approvedPolicy(project, resource);
   expect(
     hasSavedPermissionApproval(policy, project, {
       access: "read",
@@ -138,9 +137,57 @@ test("saved path approvals ignore parameter order but never widen access or foll
   expect(hasSavedPermissionApproval(policy, project, { ...resource, access: "write" })).toBe(false);
   expect(hasSavedPermissionApproval(policy, project, { ...resource, scope: "tree" })).toBe(false);
   expect(hasSavedPermissionApproval(policy, join(folder, "other-project"), resource)).toBe(false);
-  renameSync(target, join(folder, "original.txt"));
+  // A rounded file index lets a replacement match only for some pairs of indexes, so the
+  // replacement repeats many times in a row.
+  for (let round = 0; round < 200; round += 1) {
+    const current = approvedPolicy(project, resource);
+    renameSync(target, join(folder, `original-${round}.txt`));
+    writeFileSync(target, "Replacement.");
+    expect(hasSavedPermissionApproval(current, project, resource)).toBe(false);
+  }
+});
+
+test("a replacement with the creation time of the file it replaces needs approval again", () => {
+  const target = join(folder, "tunneled.txt");
+  writeFileSync(target, "Original.");
+  const original = lstatSync(target, { bigint: true });
+  const resource: PathAccess = { kind: "path", path: target, scope: "file", access: "write" };
+  const policy = approvedPolicy(project, resource);
+  renameSync(target, join(folder, "tunneled-original.txt"));
   writeFileSync(target, "Replacement.");
+  const replacement = lstatSync(target, { bigint: true });
+  // Windows copies the creation time to a file recreated under the same name within 15 seconds.
+  if (process.platform === "win32") {
+    expect(replacement.birthtimeNs).toBe(original.birthtimeNs);
+  }
+  expect(JSON.parse(permissionResourceIdentity(resource))).toMatchObject({
+    file: fileIdentity(replacement),
+  });
   expect(hasSavedPermissionApproval(policy, project, resource)).toBe(false);
+});
+
+test("path approvals saved with rounded identities no longer match, while network approvals do", () => {
+  const target = join(folder, "rounded.txt");
+  writeFileSync(target, "Approved before exact identities.");
+  const resource: PathAccess = { kind: "path", path: target, scope: "file", access: "read" };
+  const information = lstatSync(target);
+  // This is the identity that approvals saved before exact identities hold, with rounded numbers.
+  const rounded = JSON.stringify({
+    resource,
+    canonical: target,
+    ancestor: target,
+    device: information.dev,
+    inode: information.ino,
+    created: information.birthtimeMs,
+  });
+  expect(
+    hasSavedPermissionApproval(approvedPolicy(project, resource, rounded), project, resource),
+  ).toBe(false);
+  expect(hasSavedPermissionApproval(approvedPolicy(project, resource), project, resource)).toBe(
+    true,
+  );
+  const network = { kind: "network" } as const;
+  expect(hasSavedPermissionApproval(approvedPolicy(project, network), project, network)).toBe(true);
 });
 
 test("a file allow rule never authorizes a tree grant at the same path", () => {

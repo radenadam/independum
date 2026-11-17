@@ -11,6 +11,7 @@ import {
   probe,
   spawn,
 } from "@microsoft/mxc-sdk/v1";
+import { fileIdentity } from "./file-identity.ts";
 import {
   canonicalPermissionPath,
   containsPermissionPath,
@@ -88,7 +89,7 @@ export function sandboxRuntime(
     process.platform === "win32"
       ? "Every available drive root is readable except denied paths. Programs can open windows. Clipboard access and simulated keyboard and mouse input are blocked. No writable temporary folder outside the project is included."
       : "The system root is readable except denied paths. The sandbox supplies private devices. No writable temporary folder outside the project is included.";
-  const identity = statSync(executable);
+  const information = statSync(executable, { bigint: true });
   const baseline = {
     package: "@microsoft/mxc-sdk@1.0.1/v1",
     backend,
@@ -98,8 +99,9 @@ export function sandboxRuntime(
     environment,
     environmentNames: [...environmentNames].sort(),
     executable: realpathSync.native(executable),
-    executableSize: identity.size,
-    executableModified: identity.mtimeMs,
+    executableIdentity: fileIdentity(information),
+    executableSize: `${information.size}`,
+    executableModified: `${information.mtimeNs}`,
   };
   return {
     ...baseline,
