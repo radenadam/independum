@@ -451,7 +451,7 @@ function requestedResources(
         if (location === target && identity.isDirectory()) {
           throw new Error("The file tools require a file path, not a folder.");
         }
-        if (location === target && (identity.isSymbolicLink() || identity.nlink > 1)) {
+        if (location === target && (identity.isSymbolicLink() || identity.nlink > 1n)) {
           throw new Error("The file identity is linked and cannot be isolated safely.");
         }
         break;

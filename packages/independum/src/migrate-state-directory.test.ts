@@ -1,10 +1,15 @@
 import { existsSync, lstatSync, mkdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { expect, test } from "vitest";
+import { fileIdentity } from "./file-identity.ts";
 import { privateRuntime } from "./private-runtime.ts";
 import { createTestFolder, createTestProject } from "./tools/create-test-folder.ts";
 
 const parent = createTestFolder("state-migration");
+
+function identityOf(path: string): string {
+  return fileIdentity(lstatSync(path, { bigint: true }));
+}
 
 function legacy(): { directory: string; moves: [string, string][] } {
   const { directory: home } = createTestProject(parent);
@@ -37,7 +42,7 @@ function legacy(): { directory: string; moves: [string, string][] } {
 
 test("startup renames legacy state without replacing identities and restart leaves it in place", () => {
   const { directory, moves } = legacy();
-  const identities = moves.map(([source]) => lstatSync(source).ino);
+  const identities = moves.map(([source]) => identityOf(source));
   const retained = [
     join(directory, "sessions"),
     join(directory, "outputs"),
@@ -45,19 +50,19 @@ test("startup renames legacy state without replacing identities and restart leav
     join(directory, "runtime", "phones.json"),
     join(directory, "runtime", "startup.lock"),
   ];
-  const retainedIdentities = retained.map((path) => lstatSync(path).ino);
+  const retainedIdentities = retained.map(identityOf);
   expect(privateRuntime(directory)).toBe(join(directory, "private"));
   for (const [index, [source, destination]] of moves.entries()) {
     expect(existsSync(source)).toBe(false);
-    expect(lstatSync(destination).ino).toBe(identities[index]);
+    expect(identityOf(destination)).toBe(identities[index]);
   }
   for (const [index, path] of retained.entries()) {
     expect(
-      lstatSync(path.replace(`${join(directory, "runtime")}`, join(directory, "private"))).ino,
+      identityOf(path.replace(`${join(directory, "runtime")}`, join(directory, "private"))),
     ).toBe(retainedIdentities[index]);
   }
   privateRuntime(directory);
-  expect(moves.map(([, destination]) => lstatSync(destination).ino)).toEqual(identities);
+  expect(moves.map(([, destination]) => identityOf(destination))).toEqual(identities);
 });
 
 test.each([0, 1, 2, 3, 4])("migration refuses collision %s before moving any source", (index) => {
@@ -70,8 +75,8 @@ test.each([0, 1, 2, 3, 4])("migration refuses collision %s before moving any sou
   } else {
     writeFileSync(destination, "destination fixture");
   }
-  const identities = moves.map(([path]) => lstatSync(path).ino);
-  const destinationIdentity = lstatSync(destination).ino;
+  const identities = moves.map(([path]) => identityOf(path));
+  const destinationIdentity = identityOf(destination);
   // A runtime and private collision precedes its nested file collisions.
   const [firstSource, firstDestination] = [1, 2, 3].includes(index)
     ? (moves[0] as [string, string])
@@ -79,8 +84,8 @@ test.each([0, 1, 2, 3, 4])("migration refuses collision %s before moving any sou
   expect(() => privateRuntime(directory)).toThrow(
     `Cannot migrate state because both "${firstSource}" and "${firstDestination}" exist. Review the files before migration.`,
   );
-  expect(moves.map(([path]) => lstatSync(path).ino)).toEqual(identities);
-  expect(lstatSync(destination).ino).toBe(destinationIdentity);
+  expect(moves.map(([path]) => identityOf(path))).toEqual(identities);
+  expect(identityOf(destination)).toBe(destinationIdentity);
 });
 
 test.each(["auth.json", "models.json", "models-store.json"])(
@@ -104,11 +109,11 @@ test.each(["auth.json", "models.json", "models-store.json"])(
     const source = join(directory, name);
     const destination = join(directory, "private", name);
     writeFileSync(destination, "destination fixture");
-    const before = [source, destination].map((path) => lstatSync(path).ino);
+    const before = [source, destination].map(identityOf);
     expect(() => privateRuntime(directory)).toThrow(
       `Cannot migrate state because both "${source}" and "${destination}" exist. Review the files before migration.`,
     );
-    expect([source, destination].map((path) => lstatSync(path).ino)).toEqual(before);
+    expect([source, destination].map(identityOf)).toEqual(before);
   },
 );
 
@@ -117,9 +122,9 @@ test("custom state paths migrate their sibling uploads and new homes create no s
   const directory = join(home, "custom-state");
   const old = join(home, `${basename(directory)}-attachments`);
   mkdirSync(old);
-  const identity = lstatSync(old).ino;
+  const identity = identityOf(old);
   privateRuntime(directory);
-  expect(lstatSync(join(directory, "attachments")).ino).toBe(identity);
+  expect(identityOf(join(directory, "attachments"))).toBe(identity);
   expect(existsSync(old)).toBe(false);
   const fresh = join(home, "fresh-state");
   privateRuntime(fresh);

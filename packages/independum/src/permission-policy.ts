@@ -1,5 +1,6 @@
-import { lstatSync, realpathSync, type Stats } from "node:fs";
+import { type BigIntStats, lstatSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
+import { fileIdentity } from "./file-identity.ts";
 import { isMissingFile } from "./is-missing-file.ts";
 
 /** Filesystem authority requested by one invocation. */
@@ -160,9 +161,7 @@ export function permissionResourceIdentity(resource: PermissionResource): string
     resource: { kind: "path", path: canonical, scope: resource.scope, access: resource.access },
     canonical,
     ancestor,
-    device: information.dev,
-    inode: information.ino,
-    created: information.birthtimeMs,
+    file: fileIdentity(information),
   });
 }
 
@@ -235,10 +234,10 @@ export function canonicalPermissionPath(path: string, project: string): string {
   }
 }
 
-/** Reads path metadata without reading contents or suppressing identity errors. */
-export function permissionPathIdentity(path: string): Stats | undefined {
+/** Reads exact path metadata without reading contents or suppressing identity errors. */
+export function permissionPathIdentity(path: string): BigIntStats | undefined {
   try {
-    return lstatSync(path);
+    return lstatSync(path, { bigint: true });
   } catch (error) {
     if (!isMissingFile(error)) {
       throw error;
