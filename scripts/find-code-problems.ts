@@ -3,10 +3,22 @@ import {
   type BindingPattern,
   type BindingRestElement,
   type Expression,
+  type ImportSpecifier,
   type ParamPattern,
   parseSync,
   Visitor,
 } from "oxc-parser";
+
+const fileChanges = [
+  "rename",
+  "renameSync",
+  "rm",
+  "rmSync",
+  "rmdir",
+  "rmdirSync",
+  "unlink",
+  "unlinkSync",
+];
 
 /** Returns violations of the code rules that syntax can identify. */
 export function findCodeProblems(file: string, code: string): string[] {
@@ -112,10 +124,7 @@ export function findCodeProblems(file: string, code: string): string[] {
             }
             expectApis.add("expect");
           } else if (specifier.type === "ImportSpecifier") {
-            const name =
-              specifier.imported.type === "Identifier"
-                ? specifier.imported.name
-                : specifier.imported.value;
+            const name = importedName(specifier);
             if (name === "vi" || name === "vitest") {
               waitApis.add(specifier.local.name);
             } else if (name === "expect") {
@@ -139,10 +148,7 @@ export function findCodeProblems(file: string, code: string): string[] {
           if (specifier.type !== "ImportSpecifier") {
             report(node, "Sandbox APIs use named imports so operation options are checked.");
           } else {
-            const name =
-              specifier.imported.type === "Identifier"
-                ? specifier.imported.name
-                : specifier.imported.value;
+            const name = importedName(specifier);
             if (
               [
                 "spawn",
@@ -159,6 +165,21 @@ export function findCodeProblems(file: string, code: string): string[] {
             ) {
               sandboxOperations.add(specifier.local.name);
             }
+          }
+        }
+      }
+      if ((source === "node:fs" || source === "node:fs/promises") && isStateCode(file)) {
+        for (const specifier of node.specifiers) {
+          if (specifier.type !== "ImportSpecifier" || importedName(specifier) === "promises") {
+            report(
+              specifier,
+              "Filesystem modules use named imports so renames and deletes are checked.",
+            );
+          } else if (fileChanges.includes(importedName(specifier))) {
+            report(
+              specifier,
+              "Renames and deletes go through file-changes.ts, which retries Windows sharing errors.",
+            );
           }
         }
       }
@@ -316,6 +337,25 @@ export function findCodeProblems(file: string, code: string): string[] {
     }
   }
   return problems;
+}
+
+// Preview and test homes are temporary rather than user state, and preview cleanup keeps the longer
+// retries of Node.
+function isStateCode(file: string): boolean {
+  const path = file.replaceAll("\\", "/");
+  return (
+    path.startsWith("packages/independum/src/") &&
+    !path.endsWith(".test.ts") &&
+    !path.startsWith("packages/independum/src/qa/") &&
+    path !== "packages/independum/src/tools/create-test-folder.ts" &&
+    path !== "packages/independum/src/file-changes.ts"
+  );
+}
+
+function importedName(specifier: ImportSpecifier): string {
+  return specifier.imported.type === "Identifier"
+    ? specifier.imported.name
+    : specifier.imported.value;
 }
 
 function memberName(expression: Expression): string | undefined {

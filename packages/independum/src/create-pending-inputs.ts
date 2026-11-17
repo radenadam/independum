@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { PendingInput, PendingInputsState } from "./api-types.ts";
+import { removePathSync, replaceFileSync } from "./file-changes.ts";
 import { isMissingFile } from "./is-missing-file.ts";
+import { titleOfPrompt } from "./title-of-prompt.ts";
 
 /** An input mutation that cannot apply to the current durable state. */
 export class InputError extends Error {
@@ -106,12 +108,12 @@ export function createPendingInputs(
     try {
       mkdirSync(directory, { recursive: true });
       writeFileSync(temporary, `${JSON.stringify(next, null, 2)}\n`, { flag: "wx" });
-      renameSync(temporary, path);
+      replaceFileSync(temporary, path);
     } catch {
       saveFailure = "The waiting messages could not be saved.";
       throw new InputError("The waiting messages could not be saved.", "pendingSaveFailed", 500);
     } finally {
-      rmSync(temporary, { force: true });
+      removePathSync(temporary, { force: true });
     }
     file = next;
     saveFailure = null;
@@ -264,7 +266,7 @@ export function createPendingInputs(
     },
     reconcile,
     delete() {
-      rmSync(path, { force: true });
+      removePathSync(path, { force: true });
     },
   };
   reconcile(entries);
@@ -282,7 +284,14 @@ export function createPendingInputs(
 export function listPendingChats(
   directory: string,
   savedIds: Set<string>,
-): { id: string; folder: string; name: string; modified: number; isArchived: boolean }[] {
+): {
+  id: string;
+  folder: string;
+  name: string | null;
+  promptTitle: string;
+  modified: number;
+  isArchived: boolean;
+}[] {
   return pendingNames(directory)
     .filter((name) => !savedIds.has(name.slice(0, -5)))
     .flatMap((name) => {
@@ -311,7 +320,8 @@ export function listPendingChats(
             {
               id: file.chatId,
               folder: file.folder,
-              name: file.name ?? first.text,
+              name: file.name,
+              promptTitle: titleOfPrompt(first.text, first.attachments ?? []),
               modified: first.createdAt,
               isArchived: file.isArchived,
             },

@@ -96,7 +96,12 @@ export function ChatRow({
             setMenuAt({ x: event.clientX, y: event.clientY });
           }}
         >
-          <OneLineTitle text={chat.title} isTyped={isNew} isWaving={isReplying} />
+          <OneLineTitle
+            text={chat.title}
+            tooltip={chat.fullTitle === chat.title ? undefined : chat.fullTitle}
+            isTyped={isNew}
+            isWaving={isReplying}
+          />
         </button>
       </RowWithAction>
       {menuAt === undefined ? null : (

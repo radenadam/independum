@@ -1,6 +1,7 @@
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { removePathSync } from "./file-changes.ts";
 
 /** The last request of each chat, kept in a file of its own beside the chats of Pi. */
 export interface SavedRequests {
@@ -36,7 +37,7 @@ export function createSavedRequests(folder: string): SavedRequests {
         .catch(() => undefined);
     },
     remove(chatId) {
-      rmSync(fileOf(chatId), { force: true });
+      removePathSync(fileOf(chatId), { force: true });
     },
   };
 }

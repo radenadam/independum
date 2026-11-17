@@ -64,7 +64,7 @@ Budgets count whitespace-separated words including tables and code. This table i
 | `docs/icons.md` | UI worker | 1500 | Reconcile | Geometry and motion |
 | `docs/glossary.md` | Coordinator | 800 | Rewrite | Canonical names |
 | `docs/browser-qa.md` | QA owner | 1000 | Reconcile | Browser operation |
-| `docs/roadmap.md` | Coordinator | 700 | Rewrite | Ordered unfinished work |
+| `docs/roadmap.md` | Coordinator | 750 | Rewrite | Ordered unfinished work |
 | `docs/contracts/kernel.md` | Coordinator | 1600 | Reconcile | Kernel evidence contract |
 | `docs/contracts/component-protocol.md` | Coordinator | 1400 | Reconcile | Component communication contract |
 | `docs/contracts/components.md` | Coordinator | 1400 | Reconcile | Installation lifecycle contract |

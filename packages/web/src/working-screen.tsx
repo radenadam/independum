@@ -499,7 +499,12 @@ export function WorkingScreen({
           )}
           <p className={styles.title}>
             {chat === undefined ? null : (
-              <OneLineTitle key={title} text={title} isTyped={isNewlyListed} />
+              <OneLineTitle
+                key={title}
+                text={title}
+                tooltip={saved?.fullTitle === title ? undefined : saved?.fullTitle}
+                isTyped={isNewlyListed}
+              />
             )}
           </p>
           {isPanelOpen ? null : (
