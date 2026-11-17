@@ -1,6 +1,6 @@
 # Checks and gates
 
-`pnpm format` fixes formatting and safe lint issues. `pnpm check` is deterministic and credential-free, calling no model and launching no browser. [Package scripts](../package.json) list commands.
+`pnpm format` fixes formatting and safe lint issues. `pnpm check` is deterministic and credential-free, without models or browsers. [Package scripts](../package.json) list commands.
 
 ## Deterministic coverage
 
@@ -14,7 +14,7 @@
 
 ## Local gates
 
-Prepare an absolute-path manifest with the fields [gate-contract.ts](../scripts/gate-contract.ts) defines. Confined tasks keep evidence in ignored scratch.
+Prepare an absolute-path manifest with the fields [gate-contract.ts](../scripts/gate-contract.ts) defines, naming only worktree files. Confined tasks keep evidence in ignored scratch.
 
 Run:
 
@@ -24,13 +24,13 @@ pnpm qa-review --task /absolute/task.json --output /absolute/evidence --model <m
 pnpm gate --task /absolute/task.json --output /absolute/evidence --model <model-id>
 ```
 
-`gate` runs checks, browser regressions, scenarios, independent AI review, and independent AI browser assessment sequentially. A nonpassing review does not suppress QA. Passing every stage authorizes landing, as [the working agreement](standard.md#authority) states. Role processes inherit no conversation. Receipts retain revision-bound evidence, findings, coverage, verdict, and the pinned concrete `--model` id. The pre-push hook requires both roles to pass, with head and fingerprints matching the worktree and pushed tree, so run on the final outgoing commit. Its base is Git's remote tip, or a new branch's unique merge base with the destination's advertised default branch. Missing target or commit data blocks pushing.
+`gate` sequentially runs checks, browser regressions, scenarios, and independent AI review and browser assessment. A nonpassing review does not suppress QA. Passing every stage authorizes landing, as [the working agreement](standard.md#authority) states. Role processes inherit no conversation. Receipts retain revision-bound evidence, findings, coverage, verdict, and the pinned concrete `--model` id. The pre-push hook requires both roles to pass, with head and fingerprints matching the worktree and pushed tree, so run on the final outgoing commit. Its base is Git's remote tip, or a new branch's unique merge base with the destination's advertised default branch. Missing target or commit data blocks pushing.
 
 Review checks behavior, callers, invariants, false docs, missing surfaces, omitted learning, and unsupported completion. It flags reintroduced personal landing gates and preserves maintainer intent authority. QA checks complete agreed journeys in the actual built UI, diagnostics, both themes, 360-pixel touch, long and repeated cases, recovery, and screenshots. [Browser QA](browser-qa.md) owns operation. Affected development reload also needs evidence. Native enforcement and real phone trust require separate capable hosts.
 
 The coordinator launches the gate outside worker sandboxes. It runs the opt-in browser regressions of `scripts/read-gate-browser-checks.ts`, then builds the UI and executes every manifest scenario. `--browser` selects the installed browser, `msedge` by default, through `INDEPENDUM_QA_BROWSER`. Regression receipts retain commands, logs, named results, and the revision, and missing, skipped, failed, or stale evidence blocks a pass. Roles investigate it read-only, and source changes invalidate evidence.
 
-Before roles start, the runner writes `change.diff` against the base, `changed-files.json` with Git statuses, and copies of untracked unignored files, which prompts name and receipt hashes bind to the revision. An untracked symbolic link is copied as its target path, marked `isSymbolicLink`. Other entry kinds, extra hard links, folder links, swaps before copying, and linked task or scenario files stop the gate.
+Before roles start, the runner writes `change.diff` against the base, `changed-files.json` with Git statuses, and copies of untracked unignored files, which prompts name and receipt hashes bind to the revision. Untracked symbolic links are copied as target paths marked `isSymbolicLink`. Other entry kinds, extra hard links, folder links on changed, task, or scenario output paths, and swaps before copying stop the gate.
 
 `receipt.json` records fail-closed `testAvailability`. Required skips and missing or malformed reports block passing. Only Unix-only or macOS-only tests on Windows may substitute the CI platforms that `scripts/read-test-availability.ts` binds by file and name. Verified browser regressions replace only their own opt-in skips. Native skips and shell failures require capable-host evidence.
 

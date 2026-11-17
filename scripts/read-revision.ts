@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, readlinkSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { gateFileSystem } from "./gate-file-system.ts";
 
 export interface Revision {
   head: string;
@@ -30,8 +31,7 @@ export function readRevision(
     .filter(
       (file) =>
         file !== "" &&
-        (contents === "commit" ||
-          lstatSync(join(folder, file), { throwIfNoEntry: false }) !== undefined),
+        (contents === "commit" || gateFileSystem.inspect(join(folder, file)) !== undefined),
     )
     .toSorted();
   const source = createHash("sha256");
@@ -59,8 +59,8 @@ export function readRevision(
       const path = join(folder, file);
       // Git records a symbolic link as its target path, so the fingerprint never reads through one
       // and agrees with the committed blob.
-      content = lstatSync(path).isSymbolicLink()
-        ? readlinkSync(path, { encoding: "buffer" })
+      content = gateFileSystem.inspect(path)?.isSymbolicLink()
+        ? gateFileSystem.readLink(path)
         : readFileSync(path);
     } else {
       const end = blobs.indexOf(10, offset);

@@ -222,7 +222,7 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     }
   }
   for (const path of [...task.reading, ...task.sharedFiles, ...task.scenarios]) {
-    requireTaskFile(path);
+    requireTaskFile(path, folder);
   }
   for (const path of task.writableFiles) {
     if (
@@ -247,8 +247,8 @@ export function readGateTask(value: unknown, folder: string): GateTask {
     ) {
       throw new Error("Learning needs a date, kind, and provenance.");
     }
-    requireTaskFile(entry.owner);
-    requireTaskFile(entry.protection);
+    requireTaskFile(entry.owner, folder);
+    requireTaskFile(entry.protection, folder);
     if (!task.writableFiles.includes(entry.owner)) {
       throw new Error("The learning owner must be in the change scope.");
     }
@@ -402,11 +402,11 @@ function requirePath(value: string): void {
   }
 }
 
-// Roles read every file that the task names, so each one must be the named file itself and not
-// reach another file through a link.
-function requireTaskFile(value: string): void {
+// Roles read every file that the task names, so each one must be the named file itself in the
+// worktree and reach no other file through a link on any component of its path.
+function requireTaskFile(value: string, folder: string): void {
   requirePath(value);
-  inspectExactFile(value);
+  inspectExactFile(folder, value);
 }
 
 function requireText(value: unknown): asserts value is string {

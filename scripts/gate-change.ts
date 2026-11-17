@@ -1,16 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  type BigIntStats,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { type BigIntStats, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { readExactFile, requireExactFile } from "./read-exact-file.ts";
+import { gateFileSystem } from "./gate-file-system.ts";
+import { inspectLinkFreePath, readExactFile, requireExactFile } from "./read-exact-file.ts";
 import { isCredentialPath, type Revision } from "./read-revision.ts";
 
 /** Written evidence of one revision's exact change, with the SHA-256 of each file by absolute path. */
@@ -95,7 +88,7 @@ export function writeGateChange(folder: string, revision: Revision, directory: s
     mkdirSync(dirname(copy), { recursive: true });
     if (information.isSymbolicLink()) {
       // Git records a symbolic link as its target path, and the target can name any file.
-      writeFileSync(copy, readlinkSync(source, { encoding: "buffer" }));
+      writeFileSync(copy, gateFileSystem.readLink(source));
       return { ...file, isSymbolicLink: true, copy };
     }
     writeFileSync(copy, readExactFile(source, information, file.path));
@@ -146,23 +139,7 @@ function inspectChangedPath(
   path: string,
   folders: Set<string>,
 ): BigIntStats | undefined {
-  let ancestor = "";
-  for (const part of path.split("/").slice(0, -1)) {
-    ancestor = ancestor === "" ? part : `${ancestor}/${part}`;
-    if (!folders.has(ancestor)) {
-      const information = lstatSync(join(folder, ancestor), { throwIfNoEntry: false });
-      if (information?.isSymbolicLink()) {
-        throw new Error(
-          `The gate refuses ${JSON.stringify(path)}, because a folder on its path is a link.`,
-        );
-      }
-      if (!information?.isDirectory()) {
-        return undefined;
-      }
-      folders.add(ancestor);
-    }
-  }
-  const information = lstatSync(join(folder, path), { bigint: true, throwIfNoEntry: false });
+  const information = inspectLinkFreePath(folder, join(folder, path), path, folders);
   if (information !== undefined && !information.isSymbolicLink()) {
     requireExactFile(information, path);
   }

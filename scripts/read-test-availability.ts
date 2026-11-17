@@ -19,11 +19,6 @@ const ciCoveredTests = [
     name: "a command that a signal ends says which signal",
     ciPlatforms: ["linux", "darwin"],
   },
-  {
-    file: "scripts/run-gate.test.ts",
-    name: "an untracked symbolic link to a credential records only its target path",
-    ciPlatforms: ["linux", "darwin"],
-  },
 ];
 
 /** Blocks missing execution except named Windows CI obligations and separately gated browser tests. */

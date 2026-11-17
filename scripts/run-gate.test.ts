@@ -1,4 +1,5 @@
 import { ChildProcess, execFileSync, spawn } from "node:child_process";
+import { type BigIntStats, lstatSync, readlinkSync } from "node:fs";
 import {
   access,
   link,
@@ -16,6 +17,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import type { GateResult, GateTask } from "./gate-contract.ts";
+import { gateFileSystem } from "./gate-file-system.ts";
 import { browserRegressionTests } from "./read-gate-browser-checks.ts";
 import { readRevision } from "./read-revision.ts";
 import type { TestAvailability } from "./read-test-availability.ts";
@@ -52,6 +54,7 @@ vi.mock("node:fs", async (original) => {
 const folder = resolve(import.meta.dirname, "..");
 const directories: string[] = [];
 const secret = "FIXTURE_SECRET=outside-the-repository";
+const engines = ["codex", "claude"];
 
 beforeEach(() => {
   vi.mocked(spawn).mockClear();
@@ -122,26 +125,23 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   }
 });
 
-test.each(["codex", "claude"])(
-  "runner pins %s identity and overrides role guesses",
-  async (engine) => {
-    const fixture = await prepareGate("pass", engine);
-    await runGate(fixture.arguments);
-    const receipt = await fixture.receipt();
-    expect(receipt.verdict).toBe("pass");
-    expect(receipt.roles).toHaveLength(2);
-    for (const role of receipt.roles) {
-      expect(role).toMatchObject({ engine, model: "concrete-model-id" });
-    }
-    const agentCalls = vi.mocked(spawn).mock.calls.filter(([name]) => name === engine);
-    expect(agentCalls).toHaveLength(2);
-    for (const [, parameters] of agentCalls) {
-      expect(parameters).toEqual(expect.arrayContaining(["--model", "concrete-model-id"]));
-      expect(parameters).not.toContain("danger-full-access");
-    }
-    expect(fixture.prompts[1]).toContain("browser-checks.json");
-  },
-);
+test.each(engines)("runner pins %s identity and overrides role guesses", async (engine) => {
+  const fixture = await prepareGate("pass", engine);
+  await runGate(fixture.arguments);
+  const receipt = await fixture.receipt();
+  expect(receipt.verdict).toBe("pass");
+  expect(receipt.roles).toHaveLength(2);
+  for (const role of receipt.roles) {
+    expect(role).toMatchObject({ engine, model: "concrete-model-id" });
+  }
+  const agentCalls = vi.mocked(spawn).mock.calls.filter(([name]) => name === engine);
+  expect(agentCalls).toHaveLength(2);
+  for (const [, parameters] of agentCalls) {
+    expect(parameters).toEqual(expect.arrayContaining(["--model", "concrete-model-id"]));
+    expect(parameters).not.toContain("danger-full-access");
+  }
+  expect(fixture.prompts[1]).toContain("browser-checks.json");
+});
 
 test("failed scenarios preserve evidence run later scenarios and prevent a pass", async () => {
   const fixture = await prepareGate("pass", "codex", { hasScenarioFailure: true });
@@ -245,7 +245,7 @@ test.each(["missing", "skipped", "failed", "stale"])(
   },
 );
 
-test.each(["codex", "claude"])(
+test.each(engines)(
   "%s roles receive the exact diff changed files and untracked copies without a shell",
   async (engine) => {
     const fixture = await prepareGate("pass", engine, { hasChangeFixture: true });
@@ -295,7 +295,7 @@ const changeEdits: [string, string, string][] = [
 ];
 
 test.each(
-  ["codex", "claude"].flatMap((engine) =>
+  engines.flatMap((engine) =>
     changeEdits.map(([edit, file, message]): [string, string, string, string] => [
       edit,
       engine,
@@ -321,12 +321,11 @@ test.each(
   },
 );
 
-test.each(["deleted", "renamed"])(
-  "a %s credential file keeps the change out of gate evidence",
-  async (change) => {
-    const fixture = await prepareGate("pass", "codex", { hasChangeFixture: true });
-    const credential = join(fixture.folder, ".env.fixture");
-    await writeFile(credential, "FIXTURE=1\n");
+test.each(engines.flatMap((engine) => ["deleted", "renamed"].map((change) => [change, engine])))(
+  "a %s credential file keeps the change out of %s gate evidence",
+  async (change, engine) => {
+    const fixture = await prepareGate("pass", engine, { hasChangeFixture: true });
+    await writeFile(join(fixture.folder, ".env.fixture"), "FIXTURE=1\n");
     for (const arguments_ of [
       ["add", ".env.fixture"],
       [
@@ -345,120 +344,163 @@ test.each(["deleted", "renamed"])(
       execFileSync("git", arguments_, { cwd: fixture.folder, stdio: "ignore" });
     }
     await runGate(fixture.arguments, fixture.folder);
-    const directory = await expectRefusal(
+    await expectRefusalBeforeChange(
       fixture,
       "Credential files cannot participate in gate evidence.",
     );
-    await expect(access(join(directory, "change.diff"))).rejects.toThrow();
   },
 );
 
-test.skipIf(process.platform === "win32")(
-  "an untracked symbolic link to a credential records only its target path",
-  {
-    meta: {
-      skipReason: "Creating a file symbolic link needs Developer Mode or administrator rights.",
-      ciPlatforms: ["linux", "darwin"],
-    },
-  },
-  async () => {
+test.each(engines)(
+  "%s gates record an untracked symbolic link as its target path and fingerprint it by that path",
+  async (engine) => {
     const credential = await createOutsideFile(".env.fixture");
-    const fixture = await prepareChangedGate((worktree) =>
-      symlink(credential, join(worktree, "notes.txt")),
-    );
+    // Git lists this regular file, and the gate sees it as a link whose target holds the secret.
+    const fixture = await prepareChangedGate(engine, (worktree) => {
+      simulateLink(join(worktree, "notes.txt"), credential);
+      return writeFile(join(worktree, "notes.txt"), `${secret}\n`);
+    });
+    const notes = join(fixture.folder, "notes.txt");
     await runGate(fixture.arguments, fixture.folder);
     const revision = await expectRecordedLink(fixture, "notes.txt", credential);
-    await writeFile(credential, "FIXTURE_SECRET=changed\n");
+    await writeFile(notes, "FIXTURE_SECRET=changed\n");
     expect(readRevision(fixture.folder, "HEAD")).toEqual(revision);
+    simulateLink(notes, `${credential}.moved`);
+    expect(readRevision(fixture.folder, "HEAD").fingerprint).not.toBe(revision.fingerprint);
   },
 );
 
-test("an untracked folder link never puts the files behind it into gate evidence", async () => {
-  const target = dirname(await createOutsideFile("settings.txt"));
-  // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
-  const fixture = await prepareChangedGate((worktree) =>
-    symlink(target, join(worktree, "linked"), "junction"),
-  );
-  await runGate(fixture.arguments, fixture.folder);
-  if (process.platform === "win32") {
-    // Git for Windows reads a junction as a folder and lists the files behind it.
-    await expectRefusal(fixture, '"linked/settings.txt", because a folder on its path is a link');
-  } else {
-    await expectRecordedLink(fixture, "linked", target);
-  }
-});
+test.each(engines)(
+  "an untracked folder link never puts the files behind it into %s gate evidence",
+  async (engine) => {
+    const target = dirname(await createOutsideFile("settings.txt"));
+    // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
+    const fixture = await prepareChangedGate(engine, (worktree) =>
+      symlink(target, join(worktree, "linked"), "junction"),
+    );
+    await runGate(fixture.arguments, fixture.folder);
+    if (process.platform === "win32") {
+      // Git for Windows reads a junction as a folder and lists the files behind it.
+      await expectRefusal(fixture, '"linked/settings.txt", because a folder on its path is a link');
+    } else {
+      const revision = await expectRecordedLink(fixture, "linked", target);
+      await writeFile(join(target, "settings.txt"), "FIXTURE_SECRET=changed\n");
+      expect(readRevision(fixture.folder, "HEAD")).toEqual(revision);
+    }
+  },
+);
 
-test("an untracked hard link to a credential is refused before any role starts", async () => {
-  const credential = await createOutsideFile(".env.fixture");
-  const fixture = await prepareChangedGate((worktree) =>
-    link(credential, join(worktree, "notes.txt")),
-  );
-  await runGate(fixture.arguments, fixture.folder);
-  const directory = await expectRefusal(
-    fixture,
-    '"notes.txt", because it has other hard links whose names cannot be checked',
-  );
-  await expect(access(join(directory, "change.diff"))).rejects.toThrow();
-});
-
-test("an untracked file replaced between inspection and copying is refused", async () => {
-  const fixture = await prepareChangedGate((worktree) =>
-    writeFile(join(worktree, "notes.txt"), "Harmless notes.\n"),
-  );
-  const notes = join(fixture.folder, "notes.txt");
-  fileSwap.replacement = await createOutsideFile(".env.fixture");
-  fileSwap.path = notes;
-  await runGate(fixture.arguments, fixture.folder);
-  expect(await readFile(notes, "utf8")).toBe(`${secret}\n`);
-  await expectRefusal(fixture, '"notes.txt", because it changes between inspection and reading');
-});
-
-test("a multiply linked scenario file stops the gate before any role starts", async () => {
-  const fixture = await prepareGate("pass", "codex", {
+test.each(engines)("a reading file behind a folder link stops %s gates", async (engine) => {
+  const target = dirname(await createOutsideFile("notes.md"));
+  const fixture = await prepareGate("pass", engine, {
     hasChangeFixture: true,
-    linkedScenarioFile: await createOutsideFile(".env.fixture"),
+    changeWorktree: (worktree) => symlink(target, join(worktree, "src", "linked"), "junction"),
+    reading: join("src", "linked", "notes.md"),
   });
-  await runGate(fixture.arguments, fixture.folder);
-  await expectRefusal(
-    fixture,
-    'values.jsonl", because it has other hard links whose names cannot be checked',
+  await expect(runGate(fixture.arguments, fixture.folder)).rejects.toThrow(
+    `${JSON.stringify(fixture.task.reading[0])}, because a folder on its path is a link`,
   );
-  expect(fixture.scenarios).toHaveLength(1);
+  expect(spawn).not.toHaveBeenCalled();
 });
 
-test("learning owners must be among the changed files including untracked files", async () => {
-  const unchanged = await prepareGate("pass", "codex", {
-    hasChangeFixture: true,
-    learningOwner: ".gitignore",
-  });
-  await expect(runGate(unchanged.arguments, unchanged.folder)).rejects.toThrow(
-    "Each learning entry must update its authoritative owner",
-  );
-  const untracked = await prepareGate("pass", "codex", {
-    hasChangeFixture: true,
-    learningOwner: join("src", "added.ts"),
-  });
-  await runGate(untracked.arguments, untracked.folder);
-  expect((await untracked.receipt()).verdict).toBe("pass");
-});
+test.each(engines)(
+  "an untracked hard link to a credential is refused before any %s role starts",
+  async (engine) => {
+    const credential = await createOutsideFile(".env.fixture");
+    const fixture = await prepareChangedGate(engine, (worktree) =>
+      link(credential, join(worktree, "notes.txt")),
+    );
+    await runGate(fixture.arguments, fixture.folder);
+    await expectRefusalBeforeChange(
+      fixture,
+      '"notes.txt", because it has other hard links whose names cannot be checked',
+    );
+  },
+);
 
-test("change fixtures leave the repository that a hook's git variables name untouched", async () => {
-  const decoy = await mkdtemp(join(tmpdir(), "independum-run-gate-decoy-"));
-  directories.push(decoy);
-  const outside = Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-  );
-  execFileSync("git", ["init", "--quiet"], { cwd: decoy, stdio: "ignore", env: outside });
-  const gitFolder = join(decoy, ".git");
-  const config = await readFile(join(gitFolder, "config"), "utf8");
-  vi.stubEnv("GIT_DIR", gitFolder);
-  vi.stubEnv("GIT_INDEX_FILE", join(gitFolder, "index"));
-  const fixture = await prepareGate("pass", "codex", { hasChangeFixture: true });
-  await runGate(fixture.arguments, fixture.folder);
-  expect((await fixture.receipt()).verdict).toBe("pass");
-  expect(await readFile(join(gitFolder, "config"), "utf8")).toBe(config);
-  await expect(access(join(gitFolder, "index"))).rejects.toThrow();
-});
+test.each(engines)(
+  "an untracked file replaced between inspection and copying is refused by %s gates",
+  async (engine) => {
+    const fixture = await prepareChangedGate(engine, (worktree) =>
+      writeFile(join(worktree, "notes.txt"), "Harmless notes.\n"),
+    );
+    const notes = join(fixture.folder, "notes.txt");
+    fileSwap.replacement = await createOutsideFile(".env.fixture");
+    fileSwap.path = notes;
+    await runGate(fixture.arguments, fixture.folder);
+    expect(await readFile(notes, "utf8")).toBe(`${secret}\n`);
+    await expectRefusal(fixture, '"notes.txt", because it changes between inspection and reading');
+  },
+);
+
+test.each(engines)(
+  "a multiply linked scenario file stops %s gates before any role starts",
+  async (engine) => {
+    const fixture = await prepareGate("pass", engine, {
+      hasChangeFixture: true,
+      linkedScenarioFile: await createOutsideFile(".env.fixture"),
+    });
+    await runGate(fixture.arguments, fixture.folder);
+    await expectRefusal(
+      fixture,
+      'values.jsonl", because it has other hard links whose names cannot be checked',
+    );
+    expect(fixture.scenarios).toHaveLength(1);
+  },
+);
+
+test.each(engines)(
+  "scenario output behind a folder link stops %s gates before any role starts",
+  async (engine) => {
+    const fixture = await prepareGate("pass", engine, {
+      hasChangeFixture: true,
+      hasLinkedScenarioOutput: true,
+    });
+    await runGate(fixture.arguments, fixture.folder);
+    await expectRefusal(fixture, "because a folder on its path is a link");
+    expect(fixture.scenarios).toHaveLength(1);
+  },
+);
+
+test.each(engines)(
+  "learning owners of %s gates must be among the changed files including untracked files",
+  async (engine) => {
+    const unchanged = await prepareGate("pass", engine, {
+      hasChangeFixture: true,
+      learningOwner: ".gitignore",
+    });
+    await expect(runGate(unchanged.arguments, unchanged.folder)).rejects.toThrow(
+      "Each learning entry must update its authoritative owner",
+    );
+    const untracked = await prepareGate("pass", engine, {
+      hasChangeFixture: true,
+      learningOwner: join("src", "added.ts"),
+    });
+    await runGate(untracked.arguments, untracked.folder);
+    expect((await untracked.receipt()).verdict).toBe("pass");
+  },
+);
+
+test.each(engines)(
+  "%s change fixtures leave the repository that a hook's git variables name untouched",
+  async (engine) => {
+    const decoy = await mkdtemp(join(tmpdir(), "independum-run-gate-decoy-"));
+    directories.push(decoy);
+    const outside = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+    );
+    execFileSync("git", ["init", "--quiet"], { cwd: decoy, stdio: "ignore", env: outside });
+    const gitFolder = join(decoy, ".git");
+    const config = await readFile(join(gitFolder, "config"), "utf8");
+    vi.stubEnv("GIT_DIR", gitFolder);
+    vi.stubEnv("GIT_INDEX_FILE", join(gitFolder, "index"));
+    const fixture = await prepareGate("pass", engine, { hasChangeFixture: true });
+    await runGate(fixture.arguments, fixture.folder);
+    expect((await fixture.receipt()).verdict).toBe("pass");
+    expect(await readFile(join(gitFolder, "config"), "utf8")).toBe(config);
+    await expect(access(join(gitFolder, "index"))).rejects.toThrow();
+  },
+);
 
 async function prepareGate(
   verdict: GateResult["verdict"],
@@ -475,6 +517,8 @@ async function prepareGate(
     learningOwner?: string;
     changeWorktree?: (folder: string) => Promise<void>;
     linkedScenarioFile?: string;
+    hasLinkedScenarioOutput?: boolean;
+    reading?: string;
   } = {},
 ): Promise<{
   arguments: string[];
@@ -505,14 +549,14 @@ async function prepareGate(
     acceptance: [{ id: "A1", behavior: "Gate evidence is complete." }],
     preservedBehavior: "Fail closed.",
     exclusions: "Product changes.",
-    reading: [join(folder, "AGENTS.md")],
+    reading: [join(gateFolder, options.reading ?? "AGENTS.md")],
     writableFiles: owner === undefined ? [] : [owner],
     sharedFiles: [],
     capabilities: ["Coordinator browser and agent execution."],
     verificationOwner: "Coordinator",
     questionRound: "No new decision is needed.",
     isVisible: true,
-    scenarios: [join(folder, "qa", "welcome.json"), join(folder, "qa", "settings.json")],
+    scenarios: [join(gateFolder, "qa", "welcome.json"), join(gateFolder, "qa", "settings.json")],
     learning:
       owner === undefined
         ? []
@@ -531,6 +575,10 @@ async function prepareGate(
   };
   const taskPath = join(root, "task.json");
   await writeFile(taskPath, JSON.stringify(task));
+  if (options.hasLinkedScenarioOutput) {
+    await mkdir(join(root, "real"));
+    await symlink(join(root, "real"), join(root, "linked"), "junction");
+  }
   vi.stubEnv("npm_execpath", "fixture-pnpm.exe");
   const scenarios: string[] = [];
   const prompts: string[] = [];
@@ -647,7 +695,9 @@ async function prepareGate(
         const scenario = arguments_.find((argument) => task.scenarios.includes(argument));
         if (scenario !== undefined) {
           scenarios.push(scenario);
-          const output = await mkdtemp(join(root, "browser-"));
+          const output = await mkdtemp(
+            join(root, options.hasLinkedScenarioOutput ? "linked" : "", "browser-"),
+          );
           child.stdout.write(`QA output: ${output}\n`);
           const capture = { ...revision, scenario, driver: "playwright-core" };
           if (options.hasStaleCapture) {
@@ -703,9 +753,26 @@ async function prepareGate(
 
 /** Prepares a passing change fixture with one more worktree change. */
 function prepareChangedGate(
+  engine: string,
   changeWorktree: (folder: string) => Promise<void>,
 ): ReturnType<typeof prepareGate> {
-  return prepareGate("pass", "codex", { hasChangeFixture: true, changeWorktree });
+  return prepareGate("pass", engine, { hasChangeFixture: true, changeWorktree });
+}
+
+/** Makes the gate see one regular file as a symbolic link to a target without a host privilege. */
+function simulateLink(path: string, target: string): void {
+  vi.spyOn(gateFileSystem, "inspect").mockImplementation((candidate) => {
+    const information = lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
+    return candidate === path && information !== undefined
+      ? Object.assign(Object.create(information) as BigIntStats, {
+          isFile: () => false,
+          isSymbolicLink: () => true,
+        })
+      : information;
+  });
+  vi.spyOn(gateFileSystem, "readLink").mockImplementation((candidate) =>
+    candidate === path ? Buffer.from(target) : readlinkSync(candidate, { encoding: "buffer" }),
+  );
 }
 
 /** Requires a passing gate that records an untracked link as its target path and never its content. */
@@ -752,6 +819,15 @@ async function expectRefusal(
   return directory;
 }
 
+/** Requires a refusal that stops the gate before it writes any change evidence. */
+async function expectRefusalBeforeChange(
+  fixture: Awaited<ReturnType<typeof prepareGate>>,
+  message: string,
+): Promise<void> {
+  const directory = await expectRefusal(fixture, message);
+  await expect(access(join(directory, "change.diff"))).rejects.toThrow();
+}
+
 async function readEvidenceText(directory: string): Promise<string> {
   const texts: string[] = [];
   for (const entry of await readdir(directory, { recursive: true, withFileTypes: true })) {
@@ -765,6 +841,7 @@ async function readEvidenceText(directory: string): Promise<string> {
 async function prepareChange(root: string): Promise<string> {
   const worktree = join(root, "worktree");
   await mkdir(join(worktree, "src"), { recursive: true });
+  await mkdir(join(worktree, "qa"));
   // Fixture Git ignores user and system settings, so personal hooks, signing, and diff options
   // cannot change the result.
   vi.stubEnv("GIT_CONFIG_GLOBAL", join(root, "absent-git-config"));
@@ -781,8 +858,16 @@ async function prepareChange(root: string): Promise<string> {
   ]) {
     vi.stubEnv(name, undefined);
   }
-  await writeFile(join(worktree, ".gitignore"), "ignored.log\n");
-  await writeFile(join(worktree, "tracked.ts"), "export const value = 1;\n");
+  // Task context and scenarios lie in the worktree, as the gate requires.
+  for (const [path, text] of Object.entries({
+    ".gitignore": "ignored.log\n",
+    "tracked.ts": "export const value = 1;\n",
+    "AGENTS.md": "# Fixture\n",
+    "qa/welcome.json": "{}\n",
+    "qa/settings.json": "{}\n",
+  })) {
+    await writeFile(join(worktree, path), text);
+  }
   for (const arguments_ of [
     ["init", "--quiet", "--initial-branch=main"],
     ["add", "--all"],

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { linkSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { expect, test } from "vitest";
 import { createTestBrowserReport } from "./create-test-browser-report.ts";
 import {
@@ -56,6 +56,42 @@ test("task files refuse folder links and files with other hard links", async () 
     expect(() => readGateTask({ ...task, reading: [hardLink] }, tmpdir())).toThrow(
       "other hard links",
     );
+  });
+});
+
+test("task files refuse a folder link on their paths and paths outside the worktree", async () => {
+  await withEvidence((path) => {
+    const worktree = join(dirname(path), "worktree");
+    const outside = join(dirname(path), "outside");
+    for (const folder of [join(worktree, "docs"), outside]) {
+      mkdirSync(folder, { recursive: true });
+    }
+    const notes = join(worktree, "docs", "notes.md");
+    for (const file of [notes, join(outside, "notes.md")]) {
+      writeFileSync(file, "Context.\n");
+    }
+    // A junction needs no privilege on Windows, and elsewhere this creates a folder symbolic link.
+    symlinkSync(outside, join(worktree, "docs", "linked"), "junction");
+    const linked = join(worktree, "docs", "linked", "notes.md");
+    const learning = learningFor(notes);
+    const task = { ...taskFor(notes), learning: [learning] };
+    expect(readGateTask(task, worktree)).toEqual(task);
+    for (const named of [
+      { reading: [linked] },
+      { sharedFiles: [linked] },
+      { scenarios: [linked] },
+      { writableFiles: [linked], learning: [{ ...learning, owner: linked }] },
+      { learning: [{ ...learning, protection: linked }] },
+    ]) {
+      expect(() => readGateTask({ ...task, ...named }, worktree)).toThrow(
+        `${JSON.stringify(linked)}, because a folder on its path is a link`,
+      );
+    }
+    for (const misplaced of [path, [worktree, "docs", "..", "docs", "notes.md"].join(sep)]) {
+      expect(() => readGateTask({ ...task, reading: [misplaced] }, worktree)).toThrow(
+        "not a normalized absolute path inside",
+      );
+    }
   });
 });
 
@@ -378,6 +414,19 @@ function taskFor(path: string): GateTask {
     isVisible: false,
     scenarios: [],
     learning: [],
+  };
+}
+
+function learningFor(path: string): GateTask["learning"][number] {
+  return {
+    speaker: "Coordinator",
+    date: "2026-11-18",
+    source: "Gate fixture.",
+    kind: "implementation",
+    provenance: "inferred",
+    concern: "The owner records the change.",
+    owner: path,
+    protection: path,
   };
 }
 
