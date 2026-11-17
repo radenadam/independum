@@ -41,6 +41,39 @@ test("sandbox imports use the stable contract through one production adapter", (
   ).toContainEqual(expect.stringContaining("stable MXC V1"));
 });
 
+test("state code renames and deletes only through the shared file changes", () => {
+  const state = "packages/independum/src/example.ts";
+  for (const code of [
+    'import { renameSync } from "node:fs";',
+    'import { rename as move } from "node:fs/promises";',
+    'import { rmSync, unlinkSync } from "node:fs";',
+    'import { rm, unlink } from "node:fs/promises";',
+  ]) {
+    expect(findCodeProblems(state, code)).toContainEqual(
+      expect.stringContaining("Renames and deletes go through file-changes.ts"),
+    );
+    for (const file of [
+      "packages/independum/src/file-changes.ts",
+      "packages/independum/src/example.test.ts",
+      "packages/independum/src/qa/start-preview.ts",
+      "packages/independum/src/tools/create-test-folder.ts",
+      "scripts/example.ts",
+    ]) {
+      expect(findCodeProblems(file, code)).toEqual([]);
+    }
+  }
+  for (const code of [
+    'import * as fs from "node:fs";',
+    'import fs from "node:fs/promises";',
+    'import { promises } from "node:fs";',
+  ]) {
+    expect(findCodeProblems(state, code)).toContainEqual(
+      expect.stringContaining("Filesystem modules use named imports"),
+    );
+  }
+  expect(findCodeProblems(state, 'import { readFileSync } from "node:fs";')).toEqual([]);
+});
+
 test("sandbox operations require an explicit telemetry refusal even under an import alias", () => {
   const imported = 'import { spawn as launch } from "@microsoft/mxc-sdk/v1"; ';
   expect(findCodeProblems("create-sandbox.ts", `${imported}launch(request);`)).toContainEqual(

@@ -1,10 +1,11 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   type SessionInfo,
   SessionManager,
   withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
+import { movePath, removePath } from "./file-changes.ts";
 
 /** The saved chats of a session folder, with the archived ones apart and the pinned ones marked. */
 export interface SavedChats {
@@ -51,14 +52,14 @@ export async function createSavedChats(
     pin: setPinned,
     async archive(saved) {
       await mkdir(archiveDirectory, { recursive: true });
-      await rename(saved.path, join(archiveDirectory, basename(saved.path)));
+      await movePath(saved.path, join(archiveDirectory, basename(saved.path)));
       await setPinned(saved.id, false);
     },
     async unarchive(saved) {
-      await rename(saved.path, join(sessionDirectory, basename(saved.path)));
+      await movePath(saved.path, join(sessionDirectory, basename(saved.path)));
     },
     async remove(saved) {
-      await rm(saved.path);
+      await removePath(saved.path);
       await setPinned(saved.id, false);
     },
   };
