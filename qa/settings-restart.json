@@ -1,0 +1,91 @@
+{
+  "fixture": "chats",
+  "steps": [
+    {
+      "size": [1440, 1000],
+      "scheme": "light",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "run": "(() => { window.SharedWorker = undefined; const Native = window.WebSocket; window.WebSocket = new Proxy(Native, { construct(target, values) { if (values[1] !== 'vite-ping') return Reflect.construct(target, values); const ping = new EventTarget(); ping.close = () => undefined; setTimeout(() => ping.dispatchEvent(new Event('error')), 0); return ping; } }); window.qaPageKept = true; performance.setResourceTimingBufferSize(100000); window.qaAway = {}; window.qaUntil = async find => { for (let attempt = 0; attempt < 300; attempt += 1) { const found = find(); if (found) return found; await new Promise(resolve => requestAnimationFrame(resolve)); } return undefined; }; window.qaButton = (scope, text) => [...document.querySelectorAll(scope + ' button')].find(button => button.innerText.trim().startsWith(text)); new MutationObserver(() => { const isAway = !!document.querySelector('main')?.innerText.includes('Reconnecting to Independum.'); for (const entry of Object.values(window.qaAway)) { if (isAway && !entry.acted) { entry.acted = true; entry.act().catch(() => undefined); } if (entry.acted && entry.failure !== undefined && document.body.innerText.includes(entry.failure)) entry.failureShown = true; } }).observe(document.body, { childList: true, subtree: true, characterData: true }); const token = localStorage.getItem('independum.accessToken'); window.qaArm = (act, failure) => { window.qaAway = { surface: { act, failure, acted: false, failureShown: failure === undefined } }; window.qaRestartAt = performance.now(); const probe = { started: 0, settled: 0, longestMs: 0, sawFailure: false, isDone: false }; window.qaProbe = probe; const send = () => { if (probe.isDone) return; const startedAt = performance.now(); probe.started += 1; fetch('/api/health', { headers: { authorization: 'Bearer ' + token } }).then(response => { response.body?.cancel(); if (probe.sawFailure) probe.isDone = true; }, () => { probe.sawFailure = true; }).finally(() => { probe.settled += 1; probe.longestMs = Math.max(probe.longestMs, performance.now() - startedAt); }); setTimeout(send, 100); }; send(); }; return { developmentReloadHeld: true, actsWhileServerIsAway: true }; })()"
+    },
+    {
+      "clickOn": "window.qaButton('nav', 'Settings')"
+    },
+    {
+      "waitFor": {
+        "condition": "({ settingsOpens: !!document.querySelector('dialog[aria-label=Settings][open]') })",
+        "message": "The expected checks do not become true: settingsOpens.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaArm(async () => { (await window.qaUntil(() => window.qaButton('dialog[aria-label=Settings] nav', 'Archived chats')))?.click(); }, 'The archived chats could not be loaded.'); return { armedForOutage: true }; })()"
+    },
+    {
+      "restart": true,
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, archivedRecovered: !dialog.includes('could not be loaded') && dialog.includes('Archived chats stay out of the sidebar') }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, archivedRecovered.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "archived-restart-desktop-light",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, archivedRecovered: !dialog.includes('could not be loaded') && dialog.includes('Archived chats stay out of the sidebar') }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, archivedRecovered.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "dark",
+      "shot": "archived-restart-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, archivedRecovered: !dialog.includes('could not be loaded') && dialog.includes('Archived chats stay out of the sidebar') }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, archivedRecovered.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark"
+    },
+    {
+      "run": "(() => { window.qaArm(async () => { (await window.qaUntil(() => window.qaButton('dialog[aria-label=Settings] nav', 'Logins')))?.click(); }, 'The logins could not be loaded.'); return { armedForOutage: true }; })()"
+    },
+    {
+      "restart": true,
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, loginsRecovered: !dialog.includes('could not be loaded') && /Independum reaches models through these logins|Choose the provider you use/.test(dialog), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, loginsRecovered, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "logins-restart-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, loginsRecovered: !dialog.includes('could not be loaded') && /Independum reaches models through these logins|Choose the provider you use/.test(dialog), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, loginsRecovered, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "scheme": "light",
+      "shot": "logins-restart-phone-light",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]')?.innerText ?? ''; const dialog = document.querySelector('dialog[open]')?.innerText ?? ''; return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), actedWhileAway: window.qaAway.surface.acted, failureShownWhileAway: window.qaAway.surface.failureShown, startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, loginsRecovered: !dialog.includes('could not be loaded') && /Independum reaches models through these logins|Choose the provider you use/.test(dialog), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: pageKept, following, actedWhileAway, failureShownWhileAway, startupRequestsSettled, loginsRecovered, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

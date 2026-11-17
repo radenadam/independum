@@ -561,13 +561,15 @@ function Detail({ view, chat, context, models, settings }: DetailProps): ReactEl
       return (
         <>
           <PlaceSection heading="Project settings">
-            {settings.agent?.configuration === undefined ? null : (
-              <Disclosure label="Project settings">
+            <Disclosure label="Project settings">
+              {settings.agent?.configuration === undefined ? (
+                <PlaceNote>Loading project settings.</PlaceNote>
+              ) : (
                 <ProjectProfileSettings
                   projectId={settings.agent.configuration.profile.projectId}
                 />
-              </Disclosure>
-            )}
+              )}
+            </Disclosure>
           </PlaceSection>
           <ChatDetail folder={chat.folder} context={context} />
         </>

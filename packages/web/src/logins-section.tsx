@@ -1,5 +1,5 @@
 import type { ProviderSummary } from "independum/api-types";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { BoxedList } from "./boxed-list.tsx";
 import { fetchProviders, removeLogin } from "./login-api.ts";
 import { LoginFlow } from "./login-flow.tsx";
@@ -8,6 +8,7 @@ import { MenuList } from "./menu-list.tsx";
 import { ProviderLogo } from "./provider-logo.tsx";
 import { TextButton } from "./text-button.tsx";
 import { TextField } from "./text-field.tsx";
+import { useServerData } from "./use-server-data.ts";
 
 /** Properties of the logins section. */
 interface LoginsSectionProps {
@@ -21,23 +22,21 @@ type View = { kind: "logins" } | { kind: "providers" } | { kind: "provider"; pro
  * Draws the saved logins with a way to remove each, and the providers with their sign-in steps.
  */
 export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
-  const [providers, setProviders] = useState<ProviderSummary[] | undefined>();
+  const { data: providers, failure, reload } = useServerData(fetchProviders);
   const [chosenView, setView] = useState<View | undefined>();
   const [query, setQuery] = useState("");
-
-  const load = useCallback((): void => {
-    fetchProviders().then(setProviders, () => setProviders([]));
-  }, []);
-
-  useEffect(load, [load]);
+  const failureNote =
+    failure === undefined ? null : (
+      <p className={`${styles.note} ${styles.failure}`}>The logins could not be loaded.</p>
+    );
 
   function change(): void {
-    load();
+    reload();
     onChanged();
   }
 
   if (providers === undefined) {
-    return <p className={styles.note}>Loading the logins.</p>;
+    return failureNote ?? <p className={styles.note}>Loading the logins.</p>;
   }
   const logins = providers.filter((provider) => provider.login !== null);
   // Without a login there is nothing to list, so the section opens on the providers.
@@ -47,6 +46,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
     const provider = providers.find((candidate) => candidate.id === view.providerId);
     return (
       <div className={styles.section}>
+        {failureNote}
         <TextButton label="Back to providers" onClick={() => setView({ kind: "providers" })} />
         {provider === undefined ? null : (
           <LoginFlow
@@ -65,6 +65,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
     const shown = providers.filter((provider) => provider.name.toLowerCase().includes(search));
     return (
       <div className={styles.section}>
+        {failureNote}
         {logins.length === 0 ? (
           <p className={styles.note}>
             Choose the provider you use. Independum reaches its models through this login.
@@ -105,6 +106,7 @@ export function LoginsSection({ onChanged }: LoginsSectionProps): ReactElement {
 
   return (
     <div className={styles.section}>
+      {failureNote}
       <p className={styles.note}>
         Independum reaches models through these logins. Pi keeps saved logins on this machine, in
         ~/.independum.

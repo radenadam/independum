@@ -40,7 +40,6 @@ Direct maintainer findings of 2026-11-15 remain unverified defects.
 - On desktop, the running hook row spans the whole chat width.
 - File-write approval uses command wording such as "the programs it starts".
 - A text attachment with its path included has an empty Original box.
-- Session retains "Failed to fetch" after server restart without page reload.
 - The health and providers check at page start shows "Not running." and only a reload recovers it.
 - Unconfirmed: renaming the leading chat immediately after archiving the open chat may return 404.
 

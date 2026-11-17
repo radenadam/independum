@@ -6,6 +6,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 import { previewAttachment, uploadAttachment } from "./attachment-api.ts";
 import { readDraftAttachments, saveDraftAttachments } from "./chat-draft.ts";
+import { useReconnections } from "./use-reconnections.ts";
 
 /** A local attachment tile, including upload failures that keep the draft unsent. */
 export interface DraftAttachment {
@@ -61,43 +62,33 @@ export function useAttachmentDraft(
     },
     [editId],
   );
+  const reconnections = useReconnections();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reconnection prepares the previews again.
   useEffect(() => {
     if (chatId === null) {
       return;
     }
+    const openChatId = chatId;
     let isCurrent = true;
-    for (const item of JSON.parse(requests) as { key: string; id: string; isFile: boolean }[]) {
-      update(chatId, (current) =>
-        current.map((entry) =>
-          entry.key === item.key ? { ...entry, preview: undefined, error: undefined } : entry,
-        ),
+    function change(key: string, next: Partial<DraftAttachment>): void {
+      update(openChatId, (current) =>
+        current.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)),
       );
+    }
+    for (const item of JSON.parse(requests) as { key: string; id: string; isFile: boolean }[]) {
+      change(item.key, { preview: undefined, error: undefined });
       previewAttachment(chatId, item.id, item.isFile).then(
         (preview) => {
           if (isCurrent) {
-            update(chatId, (current) =>
-              current.map((entry) =>
-                entry.key === item.key ? { ...entry, preview, preparation } : entry,
-              ),
-            );
+            change(item.key, { preview, preparation, error: undefined });
           }
         },
         (error: unknown) => {
           if (isCurrent) {
-            update(chatId, (current) =>
-              current.map((entry) =>
-                entry.key === item.key
-                  ? {
-                      ...entry,
-                      error:
-                        error instanceof Error
-                          ? error.message
-                          : "The attachment cannot be prepared.",
-                    }
-                  : entry,
-              ),
-            );
+            change(item.key, {
+              error: error instanceof Error ? error.message : "The attachment cannot be prepared.",
+            });
           }
         },
       );
@@ -105,7 +96,7 @@ export function useAttachmentDraft(
     return () => {
       isCurrent = false;
     };
-  }, [chatId, preparation, requests, update]);
+  }, [chatId, preparation, requests, update, reconnections]);
 
   const summaries = items.flatMap((item) => (item.summary === undefined ? [] : [item.summary]));
   const inlineBytes = items.reduce(

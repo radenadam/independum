@@ -44,10 +44,20 @@
       "hoverOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
+      "run": "(() => { window.qaPageKept = true; const token = localStorage.getItem('independum.accessToken'); const probe = { started: 0, settled: 0, longestMs: 0, sawFailure: false, longestPendingMs: 0 }; const pending = new Map(); const save = () => sessionStorage.setItem('qa.restartProbe', JSON.stringify(probe)); addEventListener('pagehide', () => { for (const startedAt of pending.values()) probe.longestPendingMs = Math.max(probe.longestPendingMs, performance.now() - startedAt); save(); }); let isDone = false; const send = () => { if (isDone) return; const startedAt = performance.now(); const id = probe.started; probe.started += 1; pending.set(id, startedAt); fetch('/api/health', { headers: { authorization: 'Bearer ' + token } }).then(response => { response.body?.cancel(); if (probe.sawFailure) isDone = true; }, () => { probe.sawFailure = true; }).finally(() => { pending.delete(id); probe.settled += 1; probe.longestMs = Math.max(probe.longestMs, performance.now() - startedAt); save(); }); setTimeout(send, 100); }; sessionStorage.removeItem('qa.restartProbe'); send(); return { probesThroughRestart: true }; })()"
+    },
+    {
       "restart": true,
       "waitFor": {
         "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.') }; })()",
         "message": "The expected checks do not become true: noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const probe = JSON.parse(sessionStorage.getItem('qa.restartProbe') ?? 'null'); const navigation = performance.getEntriesByType('navigation')[0]; return { developmentClientReloaded: navigation?.type === 'reload' && window.qaPageKept === undefined, startupProbed: !!probe && probe.sawFailure, noStartupRequestWaited: !!probe && probe.longestMs < 5000 && probe.longestPendingMs < 3000 }; })()",
+        "message": "The expected checks do not become true: developmentClientReloaded, startupProbed, noStartupRequestWaited.",
         "timeoutMs": 25000
       }
     },
@@ -110,10 +120,20 @@
       "hoverOn": "document.querySelector('textarea[aria-label=Message]')"
     },
     {
+      "run": "(() => { window.qaPageKept = true; const token = localStorage.getItem('independum.accessToken'); const probe = { started: 0, settled: 0, longestMs: 0, sawFailure: false, longestPendingMs: 0 }; const pending = new Map(); const save = () => sessionStorage.setItem('qa.restartProbe', JSON.stringify(probe)); addEventListener('pagehide', () => { for (const startedAt of pending.values()) probe.longestPendingMs = Math.max(probe.longestPendingMs, performance.now() - startedAt); save(); }); let isDone = false; const send = () => { if (isDone) return; const startedAt = performance.now(); const id = probe.started; probe.started += 1; pending.set(id, startedAt); fetch('/api/health', { headers: { authorization: 'Bearer ' + token } }).then(response => { response.body?.cancel(); if (probe.sawFailure) isDone = true; }, () => { probe.sawFailure = true; }).finally(() => { pending.delete(id); probe.settled += 1; probe.longestMs = Math.max(probe.longestMs, performance.now() - startedAt); save(); }); setTimeout(send, 100); }; sessionStorage.removeItem('qa.restartProbe'); send(); return { probesThroughRestart: true }; })()"
+    },
+    {
       "restart": true,
       "waitFor": {
         "condition": "(() => { const isShown = element => { if (!element) return false; element.scrollIntoView({ block: 'center' }); const box = element.getBoundingClientRect(); const hit = document.elementFromPoint(box.left + box.width / 2, box.top + Math.min(box.height / 2, 12)); return box.width > 0 && box.height > 0 && !!hit && element.contains(hit); }; const main = document.querySelector('main'); const tile = [...main.querySelectorAll('button')].find(button => button.textContent.startsWith('legacy-notes.txt')); return { noSignIn: !document.body.innerText.includes('This link has expired.') && !document.body.innerText.includes('Open the link that Independum printed'), following: !main.innerText.includes('Reconnecting to Independum.'), composerReady: !!document.querySelector('textarea[aria-label=Message]'), doneTyping: !document.querySelector('main span[aria-hidden=true]:empty'), savedMessageShown: main.innerText.includes('Summarize the saved notes.'), attachmentShown: isShown(tile) && tile.textContent.endsWith('File path included'), savedReplyShown: main.innerText.includes('The saved notes list two legacy items.'), drawerClosed: document.querySelector('nav[aria-label=\"Projects and chats\"]')?.inert === true }; })()",
         "message": "The expected checks do not become true: noSignIn, following, composerReady, doneTyping, savedMessageShown, attachmentShown, savedReplyShown, drawerClosed.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "waitFor": {
+        "condition": "(() => { const probe = JSON.parse(sessionStorage.getItem('qa.restartProbe') ?? 'null'); const navigation = performance.getEntriesByType('navigation')[0]; return { developmentClientReloaded: navigation?.type === 'reload' && window.qaPageKept === undefined, startupProbed: !!probe && probe.sawFailure, noStartupRequestWaited: !!probe && probe.longestMs < 5000 && probe.longestPendingMs < 3000 }; })()",
+        "message": "The expected checks do not become true: developmentClientReloaded, startupProbed, noStartupRequestWaited.",
         "timeoutMs": 25000
       }
     },

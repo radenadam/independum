@@ -1,5 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { waitFor } from "../../../scripts/wait-for.ts";
+import { answerWithStreams } from "./answer-with-streams.ts";
 import {
   changeSettings,
   chooseModel,
@@ -9,6 +10,7 @@ import {
   fetchContext,
   followChat,
   followChats,
+  followReconnections,
   moveCommandToBackground,
   removePendingInput,
   resumePendingInputs,
@@ -84,16 +86,7 @@ test("a response from a chat that the tab left cannot change its choice", async 
 });
 
 test("a tab follows its chosen chat and the shared events through separate streams", async () => {
-  const controllers: ReadableStreamDefaultController<Uint8Array>[] = [];
-  vi.mocked(requestApi).mockImplementation(async (_path, options) => {
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controllers.push(controller);
-        options?.signal?.addEventListener("abort", () => controller.close());
-      },
-    });
-    return new Response(body);
-  });
+  const controllers = answerWithStreams();
   const first = vi.fn();
   const second = vi.fn();
   const shared = vi.fn();
@@ -119,6 +112,24 @@ test("a tab follows its chosen chat and the shared events through separate strea
   stopSecond();
   stopShared();
   expect(requestApi).toHaveBeenCalledTimes(3);
+});
+
+test("the shared stream reports its return after a drop but not its first connection", async () => {
+  const controllers = answerWithStreams();
+  const returned = vi.fn();
+  const stopReturns = followReconnections(returned);
+  const connections: string[] = [];
+  const stop = followChats(vi.fn(), (connection) => connections.push(connection));
+  try {
+    await waitFor(() => expect(connections).toEqual(["following"]));
+    expect(returned).not.toHaveBeenCalled();
+    controllers[0]?.close();
+    await waitFor(() => expect(connections).toEqual(["following", "reconnecting", "following"]));
+    expect(returned).toHaveBeenCalledOnce();
+  } finally {
+    stop();
+    stopReturns();
+  }
 });
 
 test.each([
