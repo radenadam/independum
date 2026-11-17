@@ -1,0 +1,133 @@
+{
+  "fixture": "long-history",
+  "steps": [
+    {
+      "size": [1800, 1000],
+      "scheme": "dark",
+      "go": true,
+      "waitFor": {
+        "condition": "() => !!document.querySelector('main') && (!!document.querySelector('textarea[aria-label=Message]') || !!document.querySelector('h1'))",
+        "message": "The app does not show its working screen or welcome screen.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "run": "(() => { window.qaVisible = element => { if (!element || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) || element.closest('[inert]')) return false; const box = element.getBoundingClientRect(); return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight && [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => element.contains(document.elementFromPoint(box.left + box.width*x, box.top + box.height*y))); }; return { visibilityChecksUseHitTests: true }; })()"
+    },
+    {
+      "run": "(() => { window.SharedWorker = undefined; const Native = window.WebSocket; window.WebSocket = new Proxy(Native, { construct(target, values) { if (values[1] !== 'vite-ping') return Reflect.construct(target, values); const ping = new EventTarget(); ping.close = () => undefined; setTimeout(() => ping.dispatchEvent(new Event('error')), 0); return ping; } }); window.qaPageKept = true; performance.setResourceTimingBufferSize(100000); window.qaAway = {}; window.qaUntil = async find => { for (let attempt = 0; attempt < 300; attempt += 1) { const found = find(); if (found) return found; await new Promise(resolve => requestAnimationFrame(resolve)); } return undefined; }; window.qaButton = (scope, text) => [...document.querySelectorAll(scope + ' button')].find(button => button.innerText.trim().startsWith(text)); new MutationObserver(() => { const isAway = !!document.querySelector('main')?.innerText.includes('Reconnecting to Independum.'); for (const entry of Object.values(window.qaAway)) { if (isAway && !entry.acted) { entry.acted = true; entry.act().catch(() => undefined); } if (entry.acted && entry.failure !== undefined && document.body.innerText.includes(entry.failure)) entry.failureShown = true; } }).observe(document.body, { childList: true, subtree: true, characterData: true }); const token = localStorage.getItem('independum.accessToken'); window.qaArm = (act, failure) => { window.qaAway = { surface: { act, failure, acted: false, failureShown: failure === undefined } }; window.qaRestartAt = performance.now(); const probe = { started: 0, settled: 0, longestMs: 0, sawFailure: false, isDone: false }; window.qaProbe = probe; const send = () => { if (probe.isDone) return; const startedAt = performance.now(); probe.started += 1; fetch('/api/health', { headers: { authorization: 'Bearer ' + token } }).then(response => { response.body?.cancel(); if (probe.sawFailure) probe.isDone = true; }, () => { probe.sawFailure = true; }).finally(() => { probe.settled += 1; probe.longestMs = Math.max(probe.longestMs, performance.now() - startedAt); }); setTimeout(send, 100); }; send(); }; return { developmentReloadHeld: true, actsWhileServerIsAway: true }; })()"
+    },
+    {
+      "waitFor": {
+        "condition": "({ longChatOpened: document.querySelector('main header').innerText.includes('History request 1.') })",
+        "message": "The expected checks do not become true: longChatOpened.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "document.querySelector('nav button[aria-label=\"Hide sidebar\"]')"
+    },
+    {
+      "clickOn": "document.querySelector('main button[aria-label=\"Show side panel\"]')"
+    },
+    {
+      "clickOn": "window.qaButton('aside [role=tabpanel]', 'Session')"
+    },
+    {
+      "run": "(() => { const handle = document.querySelector('[role=separator][aria-label=\"Resize the side panel\"]'); handle.focus(); return document.activeElement === handle; })()"
+    },
+    {
+      "key": "End"
+    },
+    {
+      "waitFor": {
+        "condition": "({ panelShowsDetailBeside: Math.abs(document.querySelector('aside[aria-label=\"Side panel\"]').getBoundingClientRect().width - 960) < 1 })",
+        "message": "The expected checks do not become true: panelShowsDetailBeside.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "waitFor": {
+        "condition": "({ requestSelected: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)), historyUnfolded: !document.querySelector('aside[aria-label=\"Side panel\"]').innerText.includes('Show requests 1 to 50') })",
+        "message": "The expected checks do not become true: requestSelected, historyUnfolded.",
+        "timeoutMs": 25000
+      },
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "run": "(() => { const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); window.qaBefore = { oldestTop: oldest?.getBoundingClientRect().top }; return { oldestRequestShown: window.qaVisible(oldest) }; })()"
+    },
+    {
+      "run": "(() => { window.qaArm(async () => undefined, undefined); return { armedForOutage: true }; })()"
+    },
+    {
+      "restart": true,
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]').innerText; const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); const reloaded = path => performance.getEntriesByType('resource').some(entry => entry.name.includes(path) && entry.startTime > window.qaRestartAt && entry.responseEnd > 0); return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, contextReloaded: reloaded('/context'), agentReloaded: reloaded('/agent'), historyStaysUnfolded: !aside.includes('Show requests 1 to 50') && window.qaVisible(oldest), oldestRequestKeepsItsPlace: Math.abs(oldest.getBoundingClientRect().top - window.qaBefore.oldestTop) < 2, longHistoryIntact: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 && [...document.querySelectorAll('aside button')].some(button => button.textContent.trim().startsWith('240You wrote')), noStaleFailure: !/Failed to fetch|could not be loaded|Loading the request\\./.test(aside), requestStaysSelected: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)) }; })()",
+        "message": "The expected checks do not become true: pageKept, following, startupRequestsSettled, contextReloaded, agentReloaded, historyStaysUnfolded, oldestRequestKeepsItsPlace, longHistoryIntact, noStaleFailure, requestStaysSelected.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "long-restart-desktop-dark",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]').innerText; const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); const reloaded = path => performance.getEntriesByType('resource').some(entry => entry.name.includes(path) && entry.startTime > window.qaRestartAt && entry.responseEnd > 0); return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, contextReloaded: reloaded('/context'), agentReloaded: reloaded('/agent'), historyStaysUnfolded: !aside.includes('Show requests 1 to 50') && window.qaVisible(oldest), oldestRequestKeepsItsPlace: Math.abs(oldest.getBoundingClientRect().top - window.qaBefore.oldestTop) < 2, longHistoryIntact: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 && [...document.querySelectorAll('aside button')].some(button => button.textContent.trim().startsWith('240You wrote')), noStaleFailure: !/Failed to fetch|could not be loaded|Loading the request\\./.test(aside), requestStaysSelected: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)) }; })()",
+        "message": "The expected checks do not become true: pageKept, following, startupRequestsSettled, contextReloaded, agentReloaded, historyStaysUnfolded, oldestRequestKeepsItsPlace, longHistoryIntact, noStaleFailure, requestStaysSelected.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "size": [360, 800],
+      "scheme": "dark"
+    },
+    {
+      "waitFor": {
+        "condition": "({ phoneShowsSelectedRequest: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: phoneShowsSelectedRequest, phoneFits.",
+        "timeoutMs": 25000
+      },
+      "clickOn": "document.querySelector('aside nav[aria-label=\"Detail\"] button')"
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.includes('Show requests 1 to 50'))"
+    },
+    {
+      "hoverOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "run": "(() => { const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); window.qaBefore = { oldestTop: oldest?.getBoundingClientRect().top }; return { oldestRequestShown: window.qaVisible(oldest) }; })()"
+    },
+    {
+      "run": "(() => { window.qaArm(async () => undefined, undefined); return { armedForOutage: true }; })()"
+    },
+    {
+      "restart": true,
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]').innerText; const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); const reloaded = path => performance.getEntriesByType('resource').some(entry => entry.name.includes(path) && entry.startTime > window.qaRestartAt && entry.responseEnd > 0); return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, contextReloaded: reloaded('/context'), agentReloaded: reloaded('/agent'), historyStaysUnfolded: !aside.includes('Show requests 1 to 50') && window.qaVisible(oldest), oldestRequestKeepsItsPlace: Math.abs(oldest.getBoundingClientRect().top - window.qaBefore.oldestTop) < 2, longHistoryIntact: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 && [...document.querySelectorAll('aside button')].some(button => button.textContent.trim().startsWith('240You wrote')), noStaleFailure: !/Failed to fetch|could not be loaded|Loading the request\\./.test(aside), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: pageKept, following, startupRequestsSettled, contextReloaded, agentReloaded, historyStaysUnfolded, oldestRequestKeepsItsPlace, longHistoryIntact, noStaleFailure, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "shot": "long-restart-phone-dark",
+      "waitFor": {
+        "condition": "(() => { const aside = document.querySelector('aside[aria-label=\"Side panel\"]').innerText; const oldest = [...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote')); const reloaded = path => performance.getEntriesByType('resource').some(entry => entry.name.includes(path) && entry.startTime > window.qaRestartAt && entry.responseEnd > 0); return { pageKept: window.qaPageKept === true, following: !document.querySelector('main').innerText.includes('Reconnecting to Independum.'), startupRequestsSettled: window.qaProbe.sawFailure && window.qaProbe.isDone && window.qaProbe.settled === window.qaProbe.started && window.qaProbe.longestMs < 5000, contextReloaded: reloaded('/context'), agentReloaded: reloaded('/agent'), historyStaysUnfolded: !aside.includes('Show requests 1 to 50') && window.qaVisible(oldest), oldestRequestKeepsItsPlace: Math.abs(oldest.getBoundingClientRect().top - window.qaBefore.oldestTop) < 2, longHistoryIntact: [...document.querySelectorAll('aside button')].filter(button => button.textContent.trim().startsWith('Pi compacted the chat')).length === 4 && [...document.querySelectorAll('aside button')].some(button => button.textContent.trim().startsWith('240You wrote')), noStaleFailure: !/Failed to fetch|could not be loaded|Loading the request\\./.test(aside), phoneFits: document.documentElement.scrollWidth <= 360 }; })()",
+        "message": "The expected checks do not become true: pageKept, following, startupRequestsSettled, contextReloaded, agentReloaded, historyStaysUnfolded, oldestRequestKeepsItsPlace, longHistoryIntact, noStaleFailure, phoneFits.",
+        "timeoutMs": 25000
+      }
+    },
+    {
+      "clickOn": "[...document.querySelectorAll('aside button')].find(button => button.textContent.trim().startsWith('1You wrote'))"
+    },
+    {
+      "shot": "long-restart-phone-request-dark",
+      "waitFor": {
+        "condition": "({ requestOpensAfterRecovery: [...document.querySelectorAll('aside h3')].some(element => element.textContent === 'Request 1' && window.qaVisible(element)), noStaleFailure: !/Failed to fetch|could not be loaded/.test(document.querySelector('aside[aria-label=\"Side panel\"]').innerText), phoneFits: document.documentElement.scrollWidth <= 360 })",
+        "message": "The expected checks do not become true: requestOpensAfterRecovery, noStaleFailure, phoneFits.",
+        "timeoutMs": 25000
+      }
+    }
+  ]
+}

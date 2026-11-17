@@ -15,7 +15,11 @@ export function ProjectProfileSettings({ projectId }: ProjectProfileSettingsProp
     data: list,
     failure: loadFailure,
     reload,
-  } = useServerData(useCallback(() => fetchProfiles(projectId), [projectId]));
+  } = useServerData(
+    useCallback(() => fetchProfiles(projectId), [projectId]),
+    0,
+    projectId,
+  );
   const [failure, setFailure] = useState<string>();
   const shownFailure = failure ?? loadFailure;
   return (

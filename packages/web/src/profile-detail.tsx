@@ -25,6 +25,7 @@ export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): R
   const loaded = useServerData(
     useCallback(() => fetchProfiles(projectId), [projectId]),
     chat.contextVersion,
+    projectId,
   );
   const profiles = loaded.data?.profiles ?? [];
   const [candidate, setCandidate] = useState<ProfileResource>();
@@ -89,7 +90,13 @@ export function ProfileDetail({ chat, models, settings }: ProfileDetailProps): R
         )}
         <CodeWell code={configuration.choices.path} copyLabel="Copy chat settings path" />
       </PlaceSection>
-      <ProfileEditor profile={profile} chat={chat} models={models} onChanged={loaded.reload} />
+      <ProfileEditor
+        key={`${profile.projectId}:${profile.reference.scope}:${profile.reference.id}`}
+        profile={profile}
+        chat={chat}
+        models={models}
+        onChanged={loaded.reload}
+      />
     </>
   );
 }

@@ -10,6 +10,7 @@ import { useServerData } from "./use-server-data.ts";
 export function useChatData<Data>(
   load: (id: string) => Promise<Data>,
   chat: ChatState | undefined,
+  identity: (string | number | null)[] = [],
 ): { data: Data | undefined; failure: string | undefined } {
   const chatId = chat?.id;
   const loadChat = useCallback(
@@ -26,7 +27,9 @@ export function useChatData<Data>(
       chat?.model?.id,
       chat?.contextVersion,
     ]),
-    chatId,
+    // Data shown during a reload belongs to the same chat and identity, such as a profile and its
+    // revision, so an edit never uses data loaded for another resource.
+    JSON.stringify([chatId ?? null, ...identity]),
   );
   return { data, failure };
 }

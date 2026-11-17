@@ -31,7 +31,21 @@ export function useAgentSettings(chat: ChatState, profile?: ProfileResource): Ag
       profile === undefined ? fetchAgent(id) : fetchProfileAgent(profile),
     [profile],
   );
-  const { data: loaded, failure: loadFailure } = useChatData(load, chat);
+  // The agent of a chat belongs to the profile that the chat uses at its context version, and the
+  // agent of an explicit profile belongs to that profile and its revision.
+  const { data: loaded, failure: loadFailure } = useChatData(
+    load,
+    chat,
+    profile === undefined
+      ? ["chat", chat.contextVersion ?? 0]
+      : [
+          "profile",
+          profile.projectId,
+          profile.reference.scope,
+          profile.reference.id,
+          profile.revision,
+        ],
+  );
   // A change answers with the agent as it now is, which holds until the agent loads again.
   const [changed, setChanged] = useState<{
     chatId: string | null;
