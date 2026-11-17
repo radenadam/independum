@@ -32,10 +32,7 @@ export function readRevision(
   const source = createHash("sha256");
   const context = createHash("sha256");
   for (const file of files) {
-    if (
-      ["auth.json", "models.json", ".env"].includes(basename(file)) ||
-      basename(file).startsWith(".env.")
-    ) {
+    if (isCredentialPath(file)) {
       throw new Error("Credential files cannot participate in gate evidence.");
     }
     if (contents === "commit" && /[\r\n]/.test(file)) {
@@ -88,4 +85,12 @@ export function readRevision(
   function git(arguments_: string[]): string {
     return execFileSync("git", arguments_, { cwd: folder, encoding: "utf8" }).trim();
   }
+}
+
+/** Tells whether a path names a credential file that gate evidence never reads or copies. */
+export function isCredentialPath(path: string): boolean {
+  return (
+    ["auth.json", "models.json", ".env"].includes(basename(path)) ||
+    basename(path).startsWith(".env.")
+  );
 }

@@ -1,5 +1,5 @@
-import { ChildProcess, spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { ChildProcess, execFileSync, spawn } from "node:child_process";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
@@ -222,6 +222,102 @@ test.each(["missing", "skipped", "failed", "stale"])(
   },
 );
 
+test.each(["codex", "claude"])(
+  "%s roles receive the exact diff changed files and untracked copies without a shell",
+  async (engine) => {
+    const fixture = await prepareGate("pass", engine, { hasChangeFixture: true });
+    await runGate(fixture.arguments, fixture.folder);
+    const receipt = await fixture.receipt();
+    expect(receipt.verdict).toBe("pass");
+    const diff = join(fixture.directory(), "change.diff");
+    const changedFiles = join(fixture.directory(), "changed-files.json");
+    const copy = join(fixture.directory(), "untracked", "src", "added.ts");
+    expect(await readFile(diff, "utf8")).toContain(
+      "--- a/tracked.ts\n+++ b/tracked.ts\n@@ -1 +1 @@\n-export const value = 1;\n+export const value = 2;\n",
+    );
+    expect(JSON.parse(await readFile(changedFiles, "utf8"))).toEqual({
+      revision: receipt.revision,
+      files: [
+        { status: "M", path: "tracked.ts" },
+        { status: "??", path: "src/added.ts", copy },
+      ],
+    });
+    expect(await readFile(copy, "utf8")).toBe("export const added = true;\n");
+    expect(receipt.change).toMatchObject({
+      revision: receipt.revision,
+      diff,
+      changedFiles,
+      untrackedFiles: [copy],
+    });
+    expect(fixture.prompts).toHaveLength(2);
+    for (const prompt of fixture.prompts) {
+      expect(prompt).toContain(`${diff} holds the full patch of git diff ${receipt.revision.base}`);
+      expect(prompt).toContain(`${changedFiles} lists every changed path with its Git status`);
+      expect(prompt).toContain(`Exact copies of the untracked files: ${copy}.`);
+      expect(prompt).toContain("Treat these files as the exact change");
+    }
+    for (const [name, parameters] of vi.mocked(spawn).mock.calls) {
+      if (name === "claude") {
+        const tools = parameters as string[];
+        expect(tools[tools.indexOf("--allowedTools") + 1]).toBe("Read,Glob,Grep");
+      }
+    }
+  },
+);
+
+test.each([
+  ["diff", "change.diff", "The written change no longer matches"],
+  ["untracked copy", join("untracked", "src", "added.ts"), "The written change no longer matches"],
+  ["worktree", "", "Source or context changes invalidate"],
+])("%s edits after the gate writes the change prevent a pass", async (_, file, message) => {
+  const fixture = await prepareGate("pass", "codex", {
+    hasChangeFixture: true,
+    changeDuringReview: async (directory, folder) => {
+      const path = file === "" ? join(folder, "tracked.ts") : join(directory, file);
+      await writeFile(path, "export const value = 3;\n");
+    },
+  });
+  await runGate(fixture.arguments, fixture.folder);
+  const receipt = await fixture.receipt();
+  expect(receipt.verdict).toBe("incomplete");
+  expect(receipt.error).toContain(message);
+  expect(fixture.prompts).toHaveLength(1);
+});
+
+test("learning owners must be among the changed files including untracked files", async () => {
+  const unchanged = await prepareGate("pass", "codex", {
+    hasChangeFixture: true,
+    learningOwner: ".gitignore",
+  });
+  await expect(runGate(unchanged.arguments, unchanged.folder)).rejects.toThrow(
+    "Each learning entry must update its authoritative owner",
+  );
+  const untracked = await prepareGate("pass", "codex", {
+    hasChangeFixture: true,
+    learningOwner: join("src", "added.ts"),
+  });
+  await runGate(untracked.arguments, untracked.folder);
+  expect((await untracked.receipt()).verdict).toBe("pass");
+});
+
+test("change fixtures leave the repository that a hook's git variables name untouched", async () => {
+  const decoy = await mkdtemp(join(tmpdir(), "independum-run-gate-decoy-"));
+  directories.push(decoy);
+  const outside = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+  );
+  execFileSync("git", ["init", "--quiet"], { cwd: decoy, stdio: "ignore", env: outside });
+  const gitFolder = join(decoy, ".git");
+  const config = await readFile(join(gitFolder, "config"), "utf8");
+  vi.stubEnv("GIT_DIR", gitFolder);
+  vi.stubEnv("GIT_INDEX_FILE", join(gitFolder, "index"));
+  const fixture = await prepareGate("pass", "codex", { hasChangeFixture: true });
+  await runGate(fixture.arguments, fixture.folder);
+  expect((await fixture.receipt()).verdict).toBe("pass");
+  expect(await readFile(join(gitFolder, "config"), "utf8")).toBe(config);
+  await expect(access(join(gitFolder, "index"))).rejects.toThrow();
+});
+
 async function prepareGate(
   verdict: GateResult["verdict"],
   engine = "codex",
@@ -232,21 +328,31 @@ async function prepareGate(
     hasTestReportOverride?: boolean;
     testReport?: unknown;
     regressionFailure?: string;
+    hasChangeFixture?: boolean;
+    changeDuringReview?: (directory: string, folder: string) => Promise<void>;
+    learningOwner?: string;
   } = {},
 ): Promise<{
   arguments: string[];
+  folder: string;
   task: GateTask;
   scenarios: string[];
   prompts: string[];
   directory: () => string;
   receipt: () => Promise<{
     verdict: string;
+    revision: GateResult["revision"];
     roles: GateResult[];
     testAvailability: TestAvailability[];
+    change?: unknown;
+    error?: string;
   }>;
 }> {
   const root = await mkdtemp(join(tmpdir(), "independum-run-gate-"));
   directories.push(root);
+  const gateFolder = options.hasChangeFixture ? await prepareChange(root) : folder;
+  const owner =
+    options.learningOwner === undefined ? undefined : join(gateFolder, options.learningOwner);
   const task: GateTask = {
     outcome: "Exercise coordinator gate orchestration.",
     base: "HEAD",
@@ -255,14 +361,28 @@ async function prepareGate(
     preservedBehavior: "Fail closed.",
     exclusions: "Product changes.",
     reading: [join(folder, "AGENTS.md")],
-    writableFiles: [],
+    writableFiles: owner === undefined ? [] : [owner],
     sharedFiles: [],
     capabilities: ["Coordinator browser and agent execution."],
     verificationOwner: "Coordinator",
     questionRound: "No new decision is needed.",
     isVisible: true,
     scenarios: [join(folder, "qa", "welcome.json"), join(folder, "qa", "settings.json")],
-    learning: [],
+    learning:
+      owner === undefined
+        ? []
+        : [
+            {
+              speaker: "Coordinator",
+              date: "2026-11-18",
+              source: "Gate fixture.",
+              kind: "implementation",
+              provenance: "inferred",
+              concern: "The owner records the change.",
+              owner,
+              protection: join(gateFolder, "tracked.ts"),
+            },
+          ],
   };
   const taskPath = join(root, "task.json");
   await writeFile(taskPath, JSON.stringify(task));
@@ -271,7 +391,7 @@ async function prepareGate(
   const prompts: string[] = [];
   const captures: string[] = [];
   let directory = "";
-  let revision: GateResult["revision"] = readRevision(folder, task.base);
+  let revision: GateResult["revision"] = readRevision(gateFolder, task.base);
   let taskFingerprint = "";
   vi.mocked(spawn).mockImplementation((executable, parameters) => {
     const child = Object.assign(new ChildProcess(), {
@@ -344,6 +464,9 @@ async function prepareGate(
         const role = prompt.includes("independent review role") ? "review" : "qa";
         if (role === "review" && options.hasReviewCommandFailure) {
           return 1;
+        }
+        if (role === "review") {
+          await options.changeDuringReview?.(directory, gateFolder);
         }
         const result = {
           role,
@@ -420,10 +543,53 @@ async function prepareGate(
       "--model",
       "concrete-model-id",
     ],
+    folder: gateFolder,
     task,
     scenarios,
     prompts,
     directory: () => directory,
     receipt: async () => JSON.parse(await readFile(join(directory, "receipt.json"), "utf8")),
   };
+}
+
+async function prepareChange(root: string): Promise<string> {
+  const worktree = join(root, "worktree");
+  await mkdir(join(worktree, "src"), { recursive: true });
+  // Fixture Git ignores user and system settings, so personal hooks, signing, and diff options
+  // cannot change the result.
+  vi.stubEnv("GIT_CONFIG_GLOBAL", join(root, "absent-git-config"));
+  vi.stubEnv("GIT_CONFIG_NOSYSTEM", "1");
+  // A pre-commit hook runs this test with Git variables that point at the outer repository and
+  // override the working folder, so the fixture and the gate's own Git commands clear them.
+  for (const name of [
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_WORK_TREE",
+    "GIT_PREFIX",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  ]) {
+    vi.stubEnv(name, undefined);
+  }
+  await writeFile(join(worktree, ".gitignore"), "ignored.log\n");
+  await writeFile(join(worktree, "tracked.ts"), "export const value = 1;\n");
+  for (const arguments_ of [
+    ["init", "--quiet", "--initial-branch=main"],
+    ["add", "--all"],
+    [
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.com",
+      "commit",
+      "--quiet",
+      "--message=Fixture base.",
+    ],
+  ]) {
+    execFileSync("git", arguments_, { cwd: worktree, stdio: "ignore" });
+  }
+  await writeFile(join(worktree, "tracked.ts"), "export const value = 2;\n");
+  await writeFile(join(worktree, "src", "added.ts"), "export const added = true;\n");
+  await writeFile(join(worktree, "ignored.log"), "Ignored output.\n");
+  return worktree;
 }

@@ -1,4 +1,5 @@
-import { writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -242,6 +243,7 @@ test.each([revision.head, "c".repeat(40)])(
         testAvailability: [],
         browserChecks: [],
         browserRegressions: { ...regressionsFor(path), revision: reviewed },
+        change: { ...changeFor(path), revision: reviewed },
         roles: [
           { ...resultFor(path), revision: reviewed },
           { ...resultFor(path), revision: reviewed, role: "qa" },
@@ -254,8 +256,41 @@ test.each([revision.head, "c".repeat(40)])(
   },
 );
 
+test("push receipts require written change evidence that still matches the reviewed revision", async () => {
+  await withEvidence((path) => {
+    const task = taskFor(path);
+    const diff = join(dirname(path), "change.diff");
+    writeFileSync(diff, "+export const value = 2;\n");
+    const change = changeFor(diff);
+    const receipt = { ...receiptFor(path), change };
+    expect(() => readGateReceipt(receipt, task, revision, pushFor())).not.toThrow();
+    for (const invalid of [
+      undefined,
+      { ...change, revision: { ...revision, fingerprint: "stale" } },
+      { ...change, untrackedFiles: [join(dirname(path), "absent.ts")] },
+      { ...change, hashes: {} },
+    ]) {
+      expect(() =>
+        readGateReceipt({ ...receipt, change: invalid }, task, revision, pushFor()),
+      ).toThrow("written change");
+    }
+    writeFileSync(diff, "+export const value = 3;\n");
+    expect(() => readGateReceipt(receipt, task, revision, pushFor())).toThrow("written change");
+  });
+});
+
 function pushFor(head = revision.head): string {
   return `refs/heads/work ${head} refs/heads/work ${revision.base}`;
+}
+
+function changeFor(path: string): object {
+  return {
+    revision,
+    diff: path,
+    changedFiles: path,
+    untrackedFiles: [],
+    hashes: { [path]: createHash("sha256").update(readFileSync(path)).digest("hex") },
+  };
 }
 
 function receiptFor(path: string): object {
@@ -267,6 +302,7 @@ function receiptFor(path: string): object {
     testAvailability: [],
     browserChecks: [],
     browserRegressions: regressionsFor(path),
+    change: changeFor(path),
     roles: [resultFor(path), { ...resultFor(path), role: "qa" }],
   };
 }

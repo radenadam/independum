@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { basename, isAbsolute, relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
+import { readGateChange } from "./gate-change.ts";
 import { readGateBrowserChecks, readGateBrowserRegressions } from "./read-gate-browser-checks.ts";
 import { readPushUpdates } from "./read-push-revision.ts";
-import type { Revision } from "./read-revision.ts";
+import { isCredentialPath, type Revision } from "./read-revision.ts";
 import { readTestAvailability, requireGateTestAvailability } from "./read-test-availability.ts";
 
 export interface GateTask {
@@ -367,6 +368,7 @@ export function readGateReceipt(
   }
   readGateBrowserChecks(value.browserChecks, task, revision);
   readGateBrowserRegressions(value.browserRegressions, revision);
+  readGateChange(value.change, revision);
   requireGateTestAvailability(
     readTestAvailability({ completed: true, tests: value.testAvailability }),
     value.platform,
@@ -387,10 +389,7 @@ export function gateTaskFingerprint(task: GateTask): string {
 }
 
 function requirePath(value: string): void {
-  if (
-    ["auth.json", "models.json", ".env"].includes(basename(value)) ||
-    basename(value).startsWith(".env.")
-  ) {
+  if (isCredentialPath(value)) {
     throw new Error(
       `Credential paths cannot be gate context or evidence: ${JSON.stringify(value)}.`,
     );
