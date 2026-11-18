@@ -91,6 +91,14 @@ test("combined gates collect current browser evidence and qa despite incomplete 
   expect(fixture.prompts[0]).toContain("cite the revision.json of every task scenario");
   expect(fixture.prompts[0]).toContain("An empty browser.jsonl means the browser logged no errors");
   expect(fixture.prompts[0]).toContain("must match a direct learning entry of the task");
+  for (const prompt of fixture.prompts) {
+    expect(prompt).toContain(
+      "Any finding prevents a pass, so record passing observations and justifications in coverage",
+    );
+  }
+  expect(fixture.prompts.at(-1)).toContain(
+    "justify the chosen browser scope against acceptance in the coverage observations",
+  );
   expect(fixture.prompts[0]).toContain("browser-regressions.json");
   expect(fixture.prompts[0]).toContain(
     "its Linux and macOS runners execute the native sandbox tests",
